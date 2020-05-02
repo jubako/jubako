@@ -1,4 +1,4 @@
-# kym format
+# Arx format
 
 ## Why a new format ?
 
@@ -10,13 +10,11 @@ the url and the title, and there is no size information in the header.
 So you have to parse a the dirent to know its size. You cannot read directly
 the title because you don't where it is (you have to search for '\\0', to know
 the end of the url)
-
 - Cluster has no size information. You cannot now directly the size of a
 cluster. For an uncompressed cluster you can find the size quite easily has the
 header is not compressed. But for compressed cluster, you have to uncompress the
 data (and you don't know the size of the compressed data, nor the uncompressed
 one) to be able to read the data.
-
 - At creation, the size of the "Header"'s datas is not known before you know all
 the content in the zim file. So you cannot start to write the content directly
 in the zim file. You have to write things in temporary file and keep data
@@ -31,46 +29,39 @@ Only the metadata (M) namespace is really use.
 The (X) namespace for index is only used by only one article (xapian database).
 It could be merge somewhere else, in the M namespace or directly in the header.
 See https://github.com/openzim/libzim/issues/15
-
 - We want content signing. See https://github.com/openzim/libzim/issues/40
-
 - Category handling. See https://github.com/openzim/libzim/issues/75
-
 - We want to be able to split zim files efficiently.
-
 - We want to have zim extensions. Having a small "base" zim file we may want to
 have extension to new content. Image is the base zim file is without image.
 Or new articles if the base zim is a selection of articles.
-
 - We may want to have different kind of extensions. Low and high resolution
 image.
-
 - We want to handle zim update. New version of a zim file could come as an
 update to a previous zim. This way, we avoid to the user to download all the
 content again.
-
 - Zim update should be easily doable. When displaying a wikimedia content, a
 client application may allow the user to change the content of an article
 (as wikipedia does), and store the change as a zim update.
 
-## Why the name "kym" ?
-
-Despite :
-
-- This work is greatly based on the libzim and zim format
-
-- I work for the kiwix fondation who greatly use the zim format
-
-- I somehow the only maintainer of libzim (thanks to kiwix fondation)
+While all this improvement concerns the kiwix usage, I also want to explore new
+use case of an advanced archive format. For exemple:
+- Classical file system archive
+- Backup
+- Software distribution
+- Packaging
+- ...
 
 This work is made independently from kiwix or openzim organization.
 For now this is more an essay than a real project to implement this.
 It may change in the futur but for now there is absolutly no plan nor promise
 that I (or other) will implement this format.
 
-So I wanted to clearly make the distinction between the zim format and this new
-format, so a different name (and not something like "zim2"). As this is publish
-under the organization "kymeria", the name is "kym".
+## Why the name "Arx" ?
+
+Arx means ARchive eXtensible.
+
+It is Archive format extensible to furfill specific need.
 
 ## Main ideas
 
@@ -78,7 +69,7 @@ The idea is to have a different kind of subcontent. Those subcontent could be
 stored as independent files or all in one file (concat). The full content,
 usefull to the user is the combination of different subcontents.
 
-## Structures
+## Base Structures
 
 ### Integer
 
@@ -135,17 +126,17 @@ a Nth element can be acceded at offset :
 `ListOffset + *(ArrayOffset + N * size(element))` 
 
 
-## KymHeader
+## ArxeHeader
 
 This is the main header.
 
 | Field Name    | Type     | Offset | Description                              |                  
 | ------------- | -------- | ------ | ---------------------------------------- |
-| magic         | u32      | 0      | The magic number to detect the type of the file 0x6B796D66 (kymf) |
-| appVendorId   | u32      | 4      | An id to identify the usage of the kym file (its usage) |
-| majorVersion  | u8       | 8      | The major version of the kym file = 1    |
-| minorVersion  | u8       | 9      | The minor version of the kym file = 0    |
-| id            | [u8,16]  | 10     | id of the kym file                       |
+| magic         | u32      | 0      | The magic number to detect the type of the file 0x61727866 (arxf) |
+| appVendorId   | u32      | 4      | An id to identify the usage of the arx file (its usage) |
+| majorVersion  | u8       | 8      | The major version of the arx file = 1    |
+| minorVersion  | u8       | 9      | The minor version of the arx file = 0    |
+| id            | [u8,16]  | 10     | id of the arx file                       |
 | checkInfoPos  | u64      | 34     | `8pointer` to a checkInfo structure      |
 | packCount     | u8       | 42     | Number of packInfo slots. (excluding indexPack) |
 | freeData      | [u8,21]  | 43     | Free data, application specific to extend the header |
@@ -156,12 +147,12 @@ This is the main header.
 
 Full Size : 128 + 128*(packCount+1) bytes
 
-The appVendorId, is a identifier of the vendor (user of kym format).
+The appVendorId, is a identifier of the vendor (user of arx format).
 appVendorId is used to identify the kind of the archive. It could be :
  - Kiwix (html content).
  - A file archive (file/directory with file access right metadata).
  - Embedded resources in a specific executable.
- - A media container (video/sound/subtitle as entry in the kym archive)
+ - A media container (video/sound/subtitle as entry in the arx archive)
  - ...
 
 Major version (M) is updated if there are not compatible changes in the format.
@@ -176,13 +167,13 @@ FreeData is a 64 bytes free space to extend the header with application
 specific information.
 
 The total size of the header is specific to the Major version. It could change
-(and so have less space for freeData) as kym format change.
+(and so have less space for freeData) as arx format change.
 
 ## PackInfo
 
-The KymHeader is directly (a offset 128) followed by an array of packInfo.
+The ArxHeader is directly (a offset 128) followed by an array of packInfo.
 
-It describe the pack part of a kym file and where to find it.
+It describe the pack part of a arx file and where to find it.
 
 | Field Name       | Type      | Offset | Description                                                              |
 | ---------------- | --------- | ------ | ------------------------------------------------------------------------ |
@@ -190,16 +181,16 @@ It describe the pack part of a kym file and where to find it.
 | packId           | u8        | 16     | The id of the pack. 0 for index pack.                                    |
 | freeData         | [u8,111]  | 17     | A 256bytes array free data. Application specific.                        |
 | packSize         | u64       | 128    | The size of the pack (including its own checkInfo structure)             |
-| packOffset       | u64       | 136    | The offset `8pointer` (starting from the beggining of the kym file) where to find the pack.<br />If ==0, the pack has to be searched on the file system |
+| packOffset       | u64       | 136    | The offset `8pointer` (starting from the beggining of the arx file) where to find the pack.<br />If ==0, the pack has to be searched on the file system |
 | packCheckInfoPos | u64       | 144    | The checkInfo of the pack (mandatory)                                    |
 | packPath         | pstring<br/>[u8,104] | 152    | A pString pointing to the path of the pack file. <br /> The array is always 104 length. The max string length : 103. |
 
 
 Full Size : 512 bytes.
 
-An packOffset and an packPath can be set in the same time. In this case the packOffset is predominant. This can be usefull when a kym file and its packs are concatened together, a tool just have to change the offset from 0 to the offset.
+An packOffset and an packPath can be set in the same time. In this case the packOffset is predominant. This can be usefull when a arx file and its packs are concatened together, a tool just have to change the offset from 0 to the offset.
 
-The packPath is always relative to the kym filepath.
+The packPath is always relative to the arx filepath.
 
 This is not an error if an pack cannot be found in the file system. The implementation may warn the user (in case of mistake in the file handling). The implementation MUST correctly handle the pack missing:
 
@@ -249,12 +240,12 @@ Entry indexes are here for that :
 
 ### Index Pack header
 
-This is the header of an pack. An pack can be store of a fs or part of a kym file.
+This is the header of an pack. An pack can be store of a fs or part of a arx file.
 
 | Field Name    | Type     | Offset | Description                                                       |
 | ------------- | -------- | ------ | ----------------------------------------------------------------- |
-| magic         | u32      | 0      | The magic number to detect the type of the file 0x6B796D69 (kymi) |
-| appVendorId   | u32      | 4      | An id to identify the usage of the kym file (its usage)           |
+| magic         | u32      | 0      | The magic number to detect the type of the file 0x61727869 (arxi) |
+| appVendorId   | u32      | 4      | An id to identify the usage of the arx file (its usage)           |
 | majorVersion  | u8       | 8      | The major version of the pack = 1                                 |
 | minorVersion  | u8       | 9      | The minor version of the pack = 0                                 |
 | id            | [u8,16]  | 18     | id of the pack                                                    |
@@ -276,7 +267,7 @@ Each of them share the same first byte :
 
 | Field Name | Type | Offset | Description                                     |
 | ---------- | ---- | ------ | ----------------------------------------------- |
-| indexType  | u8   | 0      | The type of the index.<br/>Highest bit is 0 for kym index, 1 for application specific |
+| indexType  | u8   | 0      | The type of the index.<br/>Highest bit is 0 for arx index, 1 for application specific |
 | headerSize | u16  | 1      | The size of the header                          |
 
 
@@ -285,7 +276,7 @@ Each of them share the same first byte :
 
 #### Header
 
-The first kind of index know by kym implementation is a listing of entry, along with some metadata
+The first kind of index know by arx implementation is a listing of entry, along with some metadata
 
 | Field Name         | Type               | Offset           | Description                                                |
 | ------------------ | ------------------ | ---------------- | ---------------------------------------------------------- |
@@ -372,7 +363,7 @@ It can be used to sort entries in a different order, or merge several indexes or
 
 #### Header
 
-The first kind of index know by kym implementation is a listing of entry, along with some metadata
+The first kind of index know by arx implementation is a listing of entry, along with some metadata
 
 | Field Name         | Type               | Offset           | Description                                                |
 | ------------------ | ------------------ | ---------------- | ---------------------------------------------------------- |
@@ -406,11 +397,11 @@ If indexType is 2 and indexKey != 0, the different base indexes must be coherent
 
 ### Content Pack header
 
-This is the header of an pack. An pack can be store of a fs or part of a kym file.
+This is the header of an pack. An pack can be store of a fs or part of a arx file.
 
 | Field Name    | Type     | Offset | Description                                                       |
 | ------------- | -------- | ------ | ----------------------------------------------------------------- |
-| magic         | u32      | 0      | The magic number to detect the type of the file 0x6B796D63 (kymc) |
+| magic         | u32      | 0      | The magic number to detect the type of the file 0x61727863 (arxc) |
 | majorVersion  | u8       | 4      | The major version of the pack = 1                                 |
 | minorVersion  | u8       | 5      | The minor version of the pack = 0                                 |
 | id            | [u8,16]  | 6      | id of the pack                                                    |
@@ -489,21 +480,21 @@ All checksum/signature is made assuming the fileSize is 0 and excluding the chec
 This allow another signatures to be append to he file without breaking already present signatures.
 
 
-## Kym Patch
+## Arx Patch
 
-A kym patch is a special kind of kym. It looks like a kym file but is not.
+A arx patch is a special kind of arx. It looks like a arx file but is not.
 
-## Kym patch header
+## Arxe patch header
 
 | Field Name     | Type     | Offset | Description                                                                                                            |
 | -------------- | -------- | ------ | ---------------------------------------------------------------------------------------------------------------------- |
-| magic          | u32      | 0      | The magic number to detect the type of the file 0x6B796D70 (kymp)                                                      |
-| majorVersion   | u8       | 4      | The major version of the kym patch = 1                                                                                 |
-| minorVersion   | u8       | 5      | The minor version of the kym patch = 0                                                                                 |
-| uuid           | [u8, 16] | 6      | uuid of the kym patch                                                                                                  |
-| baseUuid       | u8, 16   | 22     | The uuid of the base kym file (the one patched)                                                                        |
+| magic          | u32      | 0      | The magic number to detect the type of the file 0x61727870 (arxp)                                                      |
+| majorVersion   | u8       | 4      | The major version of the arx patch = 1                                                                                 |
+| minorVersion   | u8       | 5      | The minor version of the arx patch = 0                                                                                 |
+| uuid           | [u8, 16] | 6      | uuid of the arx patch                                                                                                  |
+| baseUuid       | u8, 16   | 22     | The uuid of the base arx file (the one patched)                                                                        |
 | extensionCount | u8       | 46     | Number of extensionInfo slots.                                                                                         |
-| entryCount     | u32      |        | Total number of entry in the kym patch. This is the number of entry in the patch, not the entry in the final kym file. |
+| entryCount     | u32      |        | Total number of entry in the arx patch. This is the number of entry in the patch, not the entry in the final arx file. |
 | entryInfoPos   | u64      |        | `8pointer` to the entry information.                                                                                   |
 | mimeListPos    | u64      |        | `8pointer` to a list of mimeList.                                                                                      |
 | PatchInfoPos   | u64      | 55     | `8pointer` to a list of PatchInfo.                                                                                     |
@@ -512,15 +503,15 @@ A kym patch is a special kind of kym. It looks like a kym file but is not.
 
 Full Size : 79 bytes
 
-As for kym file, kym patch header must be directly followed by an array of extensionInfo.
+As for arx file, arx patch header must be directly followed by an array of extensionInfo.
 
-After the patch extensionInfo array, the final kymHeader (and the array of extensionInfo) is directly copied.
+After the patch extensionInfo array, the final arxHeader (and the array of extensionInfo) is directly copied.
 
 ### Extensions
 
-Extension are the same format than for kym file.
+Extension are the same format than for arx file.
 
-However, they have to be combined with the base kym extensions following the instruction of PatchInfoPos
+However, they have to be combined with the base arx extensions following the instruction of PatchInfoPos
 
 ### EntryCount and EntryInfo
 
@@ -530,7 +521,7 @@ The entryInfo of the patch have to be merged with the base entryInfos.
 
 ### MimeList
 
-MimeList pointed by mimeListPos should be copied at the right position in the final kym file (pointer by the final keyHeader).
+MimeList pointed by mimeListPos should be copied at the right position in the final arx file (pointer by the final keyHeader).
 
 Base mimelist is discarded.
 
@@ -538,9 +529,9 @@ The mimeList MUST be "compatible" with the base mimeList (no change in the entry
 
 ### PatchInfo list
 
-The patchInfo list give information about how to combine the base kym and the patch kym.
+The patchInfo list give information about how to combine the base arx and the patch arx.
 
-Each PatchInfo entry specify how to generate new extension of the final kym file.
+Each PatchInfo entry specify how to generate new extension of the final arx file.
 
 | Field Name   | Type             | Offset | Description                                            |
 | ------------ | ---------------- | ------ | ------------------------------------------------------ |
@@ -554,7 +545,7 @@ The entry of the clusterList is a combination of two informations :
 
 * bits 31-32 are not used.
 
-* The 30 bits is 0 if extension number is from base kym or 1 if patch kym.
+* The 30 bits is 0 if extension number is from base arx or 1 if patch arx.
 
 - the 21-29 highest bits is the extension number. 
 
@@ -564,9 +555,9 @@ If clusterCount is 0, it means that the extension has not to be generated but si
 
 If PatchInfoPos is null, there is no patchInfo in the patch file. So the patch file has to be considered has if all the base extensions have to be keep unchanged and extension of the patch file to be added at the end. All extension has to be copied.
 
-A base kym file may not have all extensions available localy. In this case, the corresponding PatchInfo should be skip (we cannot apply a patch to a missing content). The new extension is correctly referenced in the final kym header, so client application will be able to download the correct extension later.
+A base arx file may not have all extensions available localy. In this case, the corresponding PatchInfo should be skip (we cannot apply a patch to a missing content). The new extension is correctly referenced in the final arx header, so client application will be able to download the correct extension later.
 
-If there is more PatchInfo than extension in the base key file, it means that new extension has to be added to the kym file. Extension are simply copied from the kym patch. (clusterCount is 0, uuid and checksum correspond to patch extension)
+If there is more PatchInfo than extension in the base key file, it means that new extension has to be added to the arx file. Extension are simply copied from the arx patch. (clusterCount is 0, uuid and checksum correspond to patch extension)
 
 \[TODO] Add a entryInfo to be able to change the extension entryInfo
 
@@ -578,7 +569,7 @@ The entryIndexPos is the same of zimFile, with the following exception:
 
 The 2th and 3th bit of indexType are used to :
 
-- 00 : The entryIndexArray is the same that the base index, so no entryIndexArray is provided at the end of the header. FullSize is indexArrayOffset. The header has to be copied from the kym patch (to allow metadata update) and the array from the base kym.
+- 00 : The entryIndexArray is the same that the base index, so no entryIndexArray is provided at the end of the header. FullSize is indexArrayOffset. The header has to be copied from the arx patch (to allow metadata update) and the array from the base arx.
 
 - 01 : The entryIndexArray of the patch has to be merged with the base. This is only valid if the index is a sorted index. indexLength is the length of entry in the patch (not the final). Other field of the patch header as to be copied (to allow metadata update)
 
@@ -655,11 +646,11 @@ Extension is the prefered way when possible.
 
 Extensions are created all together in the same creation process and form a coherent content.
 
-When downloading a "no image" kym file, the .ym file can include all entry indexes but missing the "image" extension. The user would simply have to download the image extension (in the image resoltution she want) to add images to her kym file. No kym file reconstruction or other complex manipulation has to be done.
+When downloading a "no image" arx file, the .ym file can include all entry indexes but missing the "image" extension. The user would simply have to download the image extension (in the image resoltution she want) to add images to her arx file. No arx file reconstruction or other complex manipulation has to be done.
 
-Patch should be use for kym update (when the content of the patch is not known at base kym creation time).
+Patch should be use for arx update (when the content of the patch is not known at base arx creation time).
 
-It is less efficiant as the patch contains the patchInfo list and new indexes. It also need a new kym reconstruction. 
+It is less efficiant as the patch contains the patchInfo list and new indexes. It also need a new arx reconstruction. 
 
 
 ## Allowing a user to change a zim content
