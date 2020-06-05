@@ -120,8 +120,8 @@ It comes with several variants :
 - Local size and fast lookup:
                The key is compose of 1B for the size, 1B for the first char and (SIZE-2)B for the offset.
                The offset points directly to the data (not containing the first char). The size of the final string is the size stored in the key + 1.
-               
-               
+
+
 `indexKey` : The index can be sorted to allow binary search. The comparaison function is unspecified and left to the vendor.
 
 ### Key Data
@@ -130,14 +130,14 @@ The key data is composed of a byte (as a header) and the whole data.
 The size in the index's header include this byte.
 
 
-+---+---+....+---+  
-| 0 | plain data |  
-+---+---+....+---+  
+    +---+============+
+    | 0 | plain data |
+    +---+============+
 
 
-+---+---+---+---+---+---+---+---+---+---+....+---+  
-| 1 | Uncompressed size (8bytes)    | plain data |  
-+---+---+---+---+---+---+---+---+---+---+....+---+  
+    +---+---+---+---+---+---+---+---+---+============+
+    | 1 | Uncompressed size (8bytes)    | plain data |
+    +---+---+---+---+---+---+---+---+---+============+
 
 ## Indirect list index
 
@@ -165,9 +165,9 @@ If indexType is 1, the indexArray is a array of u32. Each u32 is the index of th
 
 If indexType is 2, the indexArray is a array of u40. Each u40 is composed of :
 
-+-----------+------+------+------+------+  
-| baseIndex | Entry number in baseIndex |  
-+-----------+------+------+------+------+  
+    +-----------+------+------+------+------+
+    | baseIndex | Entry number in baseIndex |
+    +-----------+------+------+------+------+
 
 If indexType is 2 and indexKey != 0, the different base indexes must be coherent (The indexKey keys of all index must be comparable)
 
