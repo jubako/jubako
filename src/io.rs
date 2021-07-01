@@ -1,254 +1,177 @@
 
-use std::ptr::copy_nonoverlapping;
-use std::convert::TryInto;
-use std::mem::{size_of, size_of_val};
+use std::rc::Rc;
+use crate::primitive::*;
+use crate::bases::*;
 
 #[derive(Debug,PartialEq)]
-pub struct SerialError {}
+pub struct IOError {}
 
-macro_rules! write_num_bytes {
-    ($size:expr, $n:expr, $dst:expr) => ({
-        assert!($size <= $dst.len());
-        unsafe {
-            // N.B. https://github.com/rust-lang/rust/issues/22776
-            let bytes = $n.to_be_bytes();
-            copy_nonoverlapping(
-                (&bytes).as_ptr().offset(size_of_val(&$n) as isize-($size as isize)),
-                $dst.as_mut_ptr(),
-                $size);
-        }
-    });
-}
+pub type Result<T> = std::result::Result<T, IOError>;
 
-macro_rules! read_num_bytes {
-    ($size:expr, $buf:expr, $ty:ty) => ({
-        assert!($size <= $buf.len());
-        let mut data: $ty = 0;
-        unsafe {
-            copy_nonoverlapping(
-                $buf.as_ptr(),
-                (&mut data as *mut $ty as *mut u8).offset(size_of::<$ty>() as isize - ($size as isize)),
-                $size
-            )
-        }
-        <$ty>::from_be(data)
-    })
-}
-
-pub fn write_u8(val: u8, out: &mut[u8;1])
-{
-    out[0] = val;
-}
-
-pub fn write_u16(val: u16, out: &mut[u8;2])
-{
-    write_num_bytes!(2, val, out);
-}
-
-pub fn write_u24(val: u32, out: &mut[u8;3])
-{
-    write_num_bytes!(3, val, out);
-}
-
-pub fn write_u32(val: u32, out: &mut[u8;4])
-{
-    write_num_bytes!(4, val, out);
-}
-
-pub fn write_u40(val: u64, out: &mut[u8;5])
-{
-    write_num_bytes!(5, val, out);
-}
-
-pub fn write_u48(val: u64, out: &mut[u8;6])
-{
-    write_num_bytes!(6, val, out);
-}
-
-pub fn write_u56(val: u64, out: &mut[u8;7])
-{
-    write_num_bytes!(7, val, out);
-}
-
-pub fn write_u64(val: u64, out: &mut[u8;8])
-{
-    write_num_bytes!(8, val, out);
-}
-
-pub fn write_from_u64(val: u64, size:usize, out:&mut[u8])
-{
-    assert!(size <= 8);
-    write_num_bytes!(size, val, out);
-}
-
-pub fn read_u8(buf: &[u8;1]) -> u8
-{
-    return buf[0];
-}
-
-pub fn read_u16(buf: &[u8;2]) -> u16
-{
-    read_num_bytes!(2, buf, u16)
-}
-
-pub fn read_u24(buf: &[u8;3]) -> u32
-{
-    read_num_bytes!(3, buf, u32)
-}
-
-pub fn read_u32(buf: &[u8;4]) -> u32
-{
-    read_num_bytes!(4, buf, u32)
-}
-
-pub fn read_u40(buf: &[u8;5]) -> u64
-{
-    read_num_bytes!(5, buf, u64)
-}
-
-pub fn read_u48(buf: &[u8;6]) -> u64
-{
-    read_num_bytes!(6, buf, u64)
-}
-
-pub fn read_u56(buf: &[u8;7]) -> u64
-{
-    read_num_bytes!(7, buf, u64)
-}
-
-pub fn read_u64(buf: &[u8;8]) -> u64
-{
-    read_num_bytes!(8, buf, u64)
-}
-
-pub fn read_to_u64(size:usize, buf:&[u8]) -> u64
-{
-    assert!(size <= 8);
-    read_num_bytes!(size, buf, u64)
-}
-
-
-pub trait Serializable {
-    fn serial(&self, out: &mut[u8]) -> Result<usize, SerialError>;
-    fn parse(&mut self, buf: &[u8]) -> Result<usize, SerialError>;
-}
-
+/// A buffer is a container of "raw data".
 pub trait Buffer {
-    fn write<T:Serializable>(&mut self, object: &T) -> Result<usize, SerialError>;
-
-    fn read<T:Serializable>(&self) -> Result<T, SerialError>;
+    fn read_data(&self, offset:u64, end:End<usize>) -> Result<&[u8]>;
+    fn size(&self) -> u64;
 }
 
-impl<const N:usize> Serializable for [u8; N] {
-    fn serial(&self, out: &mut [u8]) -> Result<usize, SerialError> {
-        assert!(N <= out.len());
-        unsafe {
-            copy_nonoverlapping(self.as_ptr(), out.as_mut_ptr(), N);
-        }
-        Ok(N)
-    }
-
-    fn parse(&mut self, buf: &[u8]) -> Result<usize, SerialError> {
-        assert!(N <= buf.len());
-        unsafe {
-            copy_nonoverlapping(buf.as_ptr(), self.as_mut_ptr(), N);
-        }
-        Ok(N)
-    }
-}
-
-impl Serializable for u8 {
-    fn serial(&self, out: &mut [u8]) -> Result<usize, SerialError> {
-        match out.try_into() {
-            Err(_) => Err(SerialError{}),
-            Ok(arr) => {
-                write_u8(*self, arr);
-                Ok(1)
+impl Buffer for Vec<u8> {
+    fn read_data(&self, offset:u64, end:End<usize>) -> Result<&[u8]> {
+        assert!(offset<self.size());
+        let offset = offset as usize;
+        match end {
+            End::None => {
+                Ok(&self[offset..])
+            },
+            End::Size(s) => {
+                assert!(offset+s<self.size() as usize);
+                Ok(&self[offset..offset+s])
+            }
+            End::Offset(o) => {
+                assert!(o<self.size());
+                let o = o as usize;
+                Ok(&self[offset..o])
             }
         }
     }
-
-    fn parse(&mut self, buf: &[u8]) -> Result<usize, SerialError> {
-        match buf.try_into() {
-            Err(_) => Err(SerialError{}),
-            Ok(arr) => {
-                *self = read_u8(arr);
-                Ok(1)
-            }
-        }
+    fn size(&self) -> u64 {
+        self.len() as u64
     }
 }
 
-impl Serializable for u16 {
-    fn serial(&self, out: &mut [u8]) -> Result<usize, SerialError> {
-        match out.try_into() {
-            Err(_) => Err(SerialError{}),
-            Ok(arr) => {
-                write_u16(*self, arr);
-                Ok(2)
-            }
-        }
-    }
+/// A producer is the main trait producing stuff from "raw data".
+/// A producer may have a size, and is positionned.
+/// The cursor can be move.
+/// Producing a value "consumes" the data and the cursor is moved.
+/// It is possible to create subproducer, a producer reading the sub range of tha data.
+/// Each producer are independant.
+/// Data is never modified.
+pub trait Producer {
+    fn read_data(&mut self, size: usize) -> Result<&[u8]>;
+    fn move_cursor(&mut self, delta: u64);
+    fn set_cursor(&mut self, pos: u64);
+    fn teel_cursor(&self) -> u64;
+    fn size(&self) -> u64;
 
-    fn parse(&mut self, buf: &[u8]) -> Result<usize, SerialError> {
-        match buf.try_into() {
-            Err(_) => Err(SerialError{}),
-            Ok(arr) => {
-                *self = read_u16(arr);
-                Ok(2)
-            }
-        }
-    }
-}
+    /// Reset the cursor.
+    /// Reseting the cursor do NOT set the cursor to position 0 (use `set_cursor`) for that.
+    /// Reseting the cursor change the producer has if the origin of the pruducer is on the current
+    /// cursor.
+    fn reset(&mut self);
 
-impl Serializable for u32 {
-    fn serial(&self, out: &mut [u8]) -> Result<usize, SerialError> {
-        match out.try_into() {
-            Err(_) => Err(SerialError{}),
-            Ok(arr) => {
-                write_u32(*self, arr);
-                Ok(4)
-            }
-        }
-    }
+    fn sub_producer_at(&self, offset: u64, end: End<u64>) -> Box<dyn Producer>;
 
-    fn parse(&mut self, buf: &[u8]) -> Result<usize, SerialError> {
-        match buf.try_into() {
-            Err(_) => Err(SerialError{}),
-            Ok(arr) => {
-                *self = read_u32(arr);
-                Ok(4)
-            }
-        }
+    fn read_u8(&mut self) -> Result<u8> {
+        let v = read_u8(self.read_data(1)?);
+        Ok(v)
     }
-}
-
-impl Serializable for u64 {
-    fn serial(&self, out: &mut [u8]) -> Result<usize, SerialError> {
-        match out.try_into() {
-            Err(_) => Err(SerialError{}),
-            Ok(arr) => {
-                write_u64(*self, arr);
-                Ok(8)
-            }
-        }
+    fn read_u16(&mut self) -> Result<u16> {
+        let v = read_u16(self.read_data(2)?);
+        Ok(v)
     }
-
-    fn parse(&mut self, buf: &[u8]) -> Result<usize, SerialError> {
-        match buf.try_into() {
-            Err(_) => Err(SerialError{}),
-            Ok(arr) => {
-                *self = read_u64(arr);
-                Ok(8)
-            }
-        }
+    fn read_u32(&mut self) -> Result<u32> {
+        let v = read_u32(self.read_data(4)?);
+        Ok(v)
+    }
+    fn read_u64(&mut self) -> Result<u64> {
+        let v = read_u64(self.read_data(8)?);
+        Ok(v)
+    }
+    fn read_sized(&mut self, size: usize) -> Result<u64> {
+        let v = read_to_u64(size, self.read_data(size)?);
+        Ok(v)
+    }
+    fn read_data_into<'a, 'b>(&'a mut self, size: usize, buf: &'b mut[u8]) -> Result<&'b [u8]> {
+        buf.copy_from_slice(self.read_data(size)?);
+        Ok(buf)
     }
 }
 
+pub struct BufferReader<T: Buffer> {
+    buffer : Rc<T>,
+    origin: u64,
+    end: u64,
+    offset: u64
+}
+
+impl<T:Buffer> BufferReader<T> {
+    pub fn new(buffer:Rc<T>, origin: u64, end: End<u64>) -> Self {
+        assert!(origin<buffer.size());
+        match end {
+            End::None => {
+                let end = buffer.size();
+                Self {
+                    buffer,
+                    origin,
+                    end,
+                    offset:0
+                }
+            },
+            End::Offset(o) => {
+                assert!(o<buffer.size());
+                Self {
+                    buffer,
+                    origin,
+                    end: o,
+                    offset: 0
+                }
+            },
+            End::Size(s) => {
+                let end = origin+s;
+                assert!(end<buffer.size());
+                Self {
+                    buffer,
+                    origin,
+                    end,
+                    offset:0
+                }
+
+            }
+        }
+    }
+
+    fn current_offset(&self) -> u64 {
+        self.origin + self.offset
+    }
+}
+
+impl<T:Buffer+'static> Producer for BufferReader<T> {
+    fn read_data(&mut self, size: usize) -> Result<&[u8]> {
+        assert!(self.current_offset()+(size as u64)<self.end);
+        let s = &self.buffer.read_data(self.current_offset(), End::Size(size))?;
+        self.offset += size as u64;
+        Ok(s)
+    }
+    fn move_cursor(&mut self, delta: u64) {
+        self.offset += delta;
+    }
+    fn set_cursor(&mut self, offset: u64) {
+        self.offset = offset;
+    }
+    fn teel_cursor(&self) -> u64 {
+        self.offset
+    }
+    fn size(&self) -> u64 {
+        self.end - self.origin
+    }
+    fn reset(&mut self) {
+        self.origin += self.offset;
+        self.offset = 0;
+    }
+
+    fn sub_producer_at(&self, offset: u64, end: End<u64>) -> Box<dyn Producer> {
+        let origin = self.origin + offset;
+        let end = match end {
+            End::Offset(o) => End::Offset(self.origin + o),
+            any => any
+        };
+        Box::new(BufferReader::new(Rc::clone(&self.buffer), origin, end))
+    }
+
+}
 
 #[cfg(test)]
 mod tests {
-    use super::{Serializable, SerialError};
+    use super::{Serializable, Parsable, IOError};
 
     macro_rules! test_serial {
         ($what:expr, $size:expr, $expected:expr) => ({
@@ -277,7 +200,7 @@ mod tests {
         test_serial!(0xFFFF_u16, 2, [0xFF, 0xFF]);
 
         let mut buf: [u8;1] = [0xFF;1];
-        assert_eq!(1_u16.serial(&mut buf[..]), Err(SerialError{}));
+        assert_eq!(1_u16.serial(&mut buf[..]), Err(IOError{}));
      }
 
     #[test]
@@ -294,7 +217,7 @@ mod tests {
         test_serial!(0xFFFFFFFF_u32, 4, [0xFF, 0xFF, 0xFF, 0xFF]);
 
         let mut buf: [u8;2] = [0xFF;2];
-        assert_eq!(1_u32.serial(&mut buf[..]), Err(SerialError{}));
+        assert_eq!(1_u32.serial(&mut buf[..]), Err(IOError{}));
       }
 
     #[test]
@@ -313,7 +236,7 @@ mod tests {
         test_serial!(0xFFFFFFFFFFFFFFFF_u64, 8, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
 
         let mut buf: [u8;2] = [0xFF;2];
-        assert_eq!(1_u64.serial(&mut buf[..]), Err(SerialError{}));
+        assert_eq!(1_u64.serial(&mut buf[..]), Err(IOError{}));
        }
 
     macro_rules! test_parse {
