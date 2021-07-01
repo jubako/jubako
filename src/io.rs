@@ -1,7 +1,7 @@
 
 use std::rc::Rc;
+use crate::bases::types::*;
 use crate::primitive::*;
-use crate::bases::*;
 
 #[derive(Debug,PartialEq)]
 pub struct IOError {}
@@ -10,31 +10,36 @@ pub type Result<T> = std::result::Result<T, IOError>;
 
 /// A buffer is a container of "raw data".
 pub trait Buffer {
-    fn read_data(&self, offset:u64, end:End<usize>) -> Result<&[u8]>;
-    fn size(&self) -> u64;
+    fn read_data(&self, offset:Offset, end:ReadEnd) -> Result<&[u8]>;
+    fn size(&self) -> Size;
 }
 
 impl Buffer for Vec<u8> {
-    fn read_data(&self, offset:u64, end:End<usize>) -> Result<&[u8]> {
-        assert!(offset<self.size());
-        let offset = offset as usize;
+    fn read_data(&self, offset:Offset, end:ReadEnd) -> Result<&[u8]> {
+        assert!(offset.is_valid(self.size()));
+        // We know offset < size < usize::MAX
         match end {
             End::None => {
+                let offset = offset.0 as usize;
                 Ok(&self[offset..])
             },
-            End::Size(s) => {
-                assert!(offset+s<self.size() as usize);
-                Ok(&self[offset..offset+s])
+            End::Size(size) => {
+                let end = offset+size;
+                assert!(end.is_valid(self.size()));
+                let offset = offset.0 as usize;
+                let end = end.0 as usize;
+                Ok(&self[offset..end])
             }
-            End::Offset(o) => {
-                assert!(o<self.size());
-                let o = o as usize;
-                Ok(&self[offset..o])
+            End::Offset(end) => {
+                assert!(end.is_valid(self.size()));
+                let offset = offset.0 as usize;
+                let end = end.0 as usize;
+                Ok(&self[offset..end])
             }
         }
     }
-    fn size(&self) -> u64 {
-        self.len() as u64
+    fn size(&self) -> Size {
+        self.len().into()
     }
 }
 
@@ -47,10 +52,10 @@ impl Buffer for Vec<u8> {
 /// Data is never modified.
 pub trait Producer {
     fn read_data(&mut self, size: usize) -> Result<&[u8]>;
-    fn move_cursor(&mut self, delta: u64);
-    fn set_cursor(&mut self, pos: u64);
-    fn teel_cursor(&self) -> u64;
-    fn size(&self) -> u64;
+    fn move_cursor(&mut self, delta: Offset);
+    fn set_cursor(&mut self, pos: Offset);
+    fn teel_cursor(&self) -> Offset;
+    fn size(&self) -> Size;
 
     /// Reset the cursor.
     /// Reseting the cursor do NOT set the cursor to position 0 (use `set_cursor`) for that.
@@ -58,7 +63,7 @@ pub trait Producer {
     /// cursor.
     fn reset(&mut self);
 
-    fn sub_producer_at(&self, offset: u64, end: End<u64>) -> Box<dyn Producer>;
+    fn sub_producer_at(&self, offset: Offset, end: ArxEnd) -> Box<dyn Producer>;
 
     fn read_u8(&mut self) -> Result<u8> {
         let v = read_u8(self.read_data(1)?);
@@ -88,77 +93,77 @@ pub trait Producer {
 
 pub struct BufferReader<T: Buffer> {
     buffer : Rc<T>,
-    origin: u64,
-    end: u64,
-    offset: u64
+    origin: Offset,
+    end: Offset,
+    offset: Offset
 }
 
 impl<T:Buffer> BufferReader<T> {
-    pub fn new(buffer:Rc<T>, origin: u64, end: End<u64>) -> Self {
-        assert!(origin<buffer.size());
+    pub fn new(buffer:Rc<T>, origin: Offset, end: ArxEnd) -> Self {
+        assert!(origin.is_valid(buffer.size()));
         match end {
             End::None => {
-                let end = buffer.size();
+                let end = buffer.size().into();
                 Self {
                     buffer,
                     origin,
                     end,
-                    offset:0
+                    offset:0.into()
                 }
             },
             End::Offset(o) => {
-                assert!(o<buffer.size());
+                assert!(o.is_valid(buffer.size()));
                 Self {
                     buffer,
                     origin,
                     end: o,
-                    offset: 0
+                    offset: 0.into()
                 }
             },
             End::Size(s) => {
                 let end = origin+s;
-                assert!(end<buffer.size());
+                assert!(end.is_valid(buffer.size()));
                 Self {
                     buffer,
                     origin,
                     end,
-                    offset:0
+                    offset:0.into()
                 }
 
             }
         }
     }
 
-    fn current_offset(&self) -> u64 {
+    fn current_offset(&self) -> Offset {
         self.origin + self.offset
     }
 }
 
 impl<T:Buffer+'static> Producer for BufferReader<T> {
     fn read_data(&mut self, size: usize) -> Result<&[u8]> {
-        assert!(self.current_offset()+(size as u64)<self.end);
+        assert!((self.offset+size).is_valid(self.size()));
         let s = &self.buffer.read_data(self.current_offset(), End::Size(size))?;
-        self.offset += size as u64;
+        self.offset += size;
         Ok(s)
     }
-    fn move_cursor(&mut self, delta: u64) {
+    fn move_cursor(&mut self, delta: Offset) {
         self.offset += delta;
     }
-    fn set_cursor(&mut self, offset: u64) {
+    fn set_cursor(&mut self, offset: Offset) {
         self.offset = offset;
     }
-    fn teel_cursor(&self) -> u64 {
+    fn teel_cursor(&self) -> Offset {
         self.offset
     }
-    fn size(&self) -> u64 {
+    fn size(&self) -> Size {
         self.end - self.origin
     }
     fn reset(&mut self) {
         self.origin += self.offset;
-        self.offset = 0;
+        self.offset = 0.into();
     }
 
-    fn sub_producer_at(&self, offset: u64, end: End<u64>) -> Box<dyn Producer> {
+    fn sub_producer_at(&self, offset: Offset, end: ArxEnd) -> Box<dyn Producer> {
         let origin = self.origin + offset;
         let end = match end {
             End::Offset(o) => End::Offset(self.origin + o),

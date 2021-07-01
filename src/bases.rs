@@ -1,36 +1,48 @@
 
+pub mod types;
+
+use types::*;
 use crate::io::*;
 use std::marker::PhantomData;
 use std::cell::RefCell;
-
-pub enum End<SizeType> {
-    Offset(u64),
-    Size(SizeType),
-    None
-}
-
-/// A count of object.
-/// All count object can be stored in a u32.
-#[derive(PartialEq, PartialOrd)]
-pub struct Count(pub u32);
 
 pub trait Producable {
     fn produce(producer: &mut dyn Producer) -> Result<Self> where Self:Sized;
 }
 
-pub trait Indexable<T> {
-    fn at(&self, idx: u32) -> Result<T>;
+impl Producable for Offset {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+        Ok(producer.read_u64()?.into())
+    }
 }
 
-pub struct ArrayProducer<'a, T> {
+impl Producable for Size {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+        Ok(producer.read_u64()?.into())
+    }
+}
+
+impl Producable for Count<u16> {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+        Ok(producer.read_u16()?.into())
+    }
+}
+
+impl Producable for Count<u32> {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+        Ok(producer.read_u32()?.into())
+    }
+}
+
+pub struct ArrayProducer<'a, T, I> {
     producer: RefCell<Box<dyn Producer + 'a>>,
-    length: Count,
+    length: Count<I>,
     elem_size: usize, // We know that array can contain elem of 256 at maximum.
     produced_type: PhantomData<*const T>
 }
 
-impl<'a, T: Producable> ArrayProducer<'a, T> {
-    pub fn new(producer: Box<dyn Producer + 'a>, length: Count, elem_size: usize) -> Self {
+impl<'a, T: Producable, I> ArrayProducer<'a, T, I> {
+    pub fn new(producer: Box<dyn Producer + 'a>, length: Count<I>, elem_size: usize) -> Self {
         Self {
             producer: RefCell::new(producer),
             length,
@@ -38,28 +50,16 @@ impl<'a, T: Producable> ArrayProducer<'a, T> {
             produced_type: PhantomData
         }
     }
-
-    pub fn at(&self, idx: Count) -> Result<T> {
-        assert!(idx<self.length);
-        let offset = (idx.0 as usize * self.elem_size) as u64;
-        self.producer.borrow_mut().set_cursor(offset);
-        T::produce(self.producer.borrow_mut().as_mut())
-    }
 }
 
-impl<'a> ArrayProducer<'a, u64> {
-    pub fn new(producer: Box<dyn Producer + 'a>, length: Count) -> Self {
-        Self {
-            producer: RefCell::new(producer),
-            length,
-            elem_size:8,
-            produced_type: PhantomData
-        }
-    }
-
-    pub fn at(&self, idx: Count) -> Result<u64> {
-        let offset = (idx.0 as usize * self.elem_size) as u64;
-        self.producer.borrow_mut().set_cursor(offset);
-        self.producer.borrow_mut().read_u64()
+impl<T:Producable, I> Index<Idx<I>> for ArrayProducer<'_, T, I>
+where u64: std::convert::From<I>,
+      I: std::cmp::PartialOrd + Copy {
+    type OutputType = T;
+    fn index(&self, idx: Idx<I>) -> T {
+        assert!(idx.is_valid(self.length));
+        let offset = u64::from(idx.0) * self.elem_size as u64;
+        self.producer.borrow_mut().set_cursor(offset.into());
+        T::produce(self.producer.borrow_mut().as_mut()).unwrap()
     }
 }

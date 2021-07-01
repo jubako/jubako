@@ -2,6 +2,7 @@ use crate::io::*;
 use std::vec::Vec;
 use std::rc::Rc;
 use std::cell::RefCell;
+use crate::bases::types::*;
 use crate::bases::*;
 
 #[repr(u8)]
@@ -13,8 +14,8 @@ pub enum CompressionType {
     ZSTD = 3
 }
 
-impl CompressionType {
-    pub fn produce(producer: &mut dyn Producer) -> Result<Self> {
+impl Producable for CompressionType {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
         match producer.read_u8()? {
             0 => Ok(CompressionType::NONE),
             1 => Ok(CompressionType::LZ4),
@@ -28,16 +29,16 @@ impl CompressionType {
 struct ClusterHeader {
     compression: CompressionType,
     offset_size: u8,
-    blob_count: u16,
-    cluster_size: u64
+    blob_count: Count<u16>,
+    cluster_size: Size
 }
 
-impl ClusterHeader {
-    pub fn produce(producer: &mut dyn Producer) -> Result<Self> {
+impl Producable for ClusterHeader {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
         let compression = CompressionType::produce(producer)?;
         let offset_size = producer.read_u8()?;
-        let blob_count = producer.read_u16()?;
-        let cluster_size = producer.read_u64()?;
+        let blob_count = Count::produce(producer)?;
+        let cluster_size = Size::produce(producer)?;
         Ok(ClusterHeader {
             compression,
             offset_size,
@@ -48,34 +49,34 @@ impl ClusterHeader {
 }
 
 struct Cluster {
-    blob_offsets : Vec<u64>,
+    blob_offsets : Vec<Offset>,
     producer: Box<dyn Producer>
 }
 
 impl Cluster {
     pub fn produce(producer: &mut dyn Producer) -> Result<Self> {
         let header = ClusterHeader::produce(producer)?;
-        let data_size = producer.read_sized(header.offset_size.into())?;
-        let mut blob_offsets = Vec::with_capacity(header.blob_count.into());
-        unsafe { blob_offsets.set_len((header.blob_count-1).into()) }
+        let data_size: Size = producer.read_sized(header.offset_size.into())?.into();
+        let mut blob_offsets : Vec<Offset> = Vec::with_capacity(header.blob_count.0 as usize);
+        unsafe { blob_offsets.set_len((header.blob_count.0-1).into()) }
         let mut first = true;
         for elem in blob_offsets.iter_mut() {
             if first {
-                *elem = 0;
+                *elem = 0.into();
                 first = false;
             } else {
-                *elem = producer.read_sized(header.offset_size.into())?;
+                *elem = producer.read_sized(header.offset_size.into())?.into();
             }
-            assert!(*elem <= data_size);
+            assert!(elem.is_valid(data_size));
         }
-        blob_offsets.push(data_size);
+        blob_offsets.push(data_size.into());
         let producer = match header.compression {
             CompressionType::NONE => {
-                assert_eq!(producer.teel_cursor()+data_size, header.cluster_size);
+                assert_eq!((producer.teel_cursor()+data_size).0, header.cluster_size.0);
                 producer.sub_producer_at(producer.teel_cursor(), End::None)
             },
             _ => { //[TODO] decompression from buf[read..header.cluster_size] to self.data
-                Box::new(BufferReader::new(Rc::new(Vec::<u8>::with_capacity(data_size as usize)), 0, End::Size(0)))
+                Box::new(BufferReader::new(Rc::new(Vec::<u8>::with_capacity(data_size.0 as usize)), 0.into(), End::Size(0_u64.into())))
             }
         };
         Ok(Cluster {
@@ -84,7 +85,7 @@ impl Cluster {
         })
     }
 
-    fn get_producer(&self, index: Count) -> Result<Box<dyn Producer>> {
+    fn get_producer(&self, index: Idx<u16>) -> Result<Box<dyn Producer>> {
         let offset = self.blob_offsets[index.0 as usize];
         let end_offset = self.blob_offsets[(index.0+1) as usize];
         Ok(self.producer.sub_producer_at(offset, End::Offset(end_offset)))
@@ -97,8 +98,8 @@ struct PackHeader {
     major_version:u8,
     minor_version:u8,
     uuid:[u8;16],
-    _file_size:u64,
-    _check_info_pos:u64
+    _file_size:Size,
+    _check_info_pos:Offset
 }
 
 impl PackHeader {
@@ -112,9 +113,9 @@ impl PackHeader {
         let minor_version = producer.read_u8()?;
         let mut uuid:[u8;16] = [0_u8;16];
         producer.read_data_into(16, &mut uuid)?;
-        producer.move_cursor(6);
-        let _file_size = producer.read_u64()?;
-        let _check_info_pos = producer.read_u64()?;
+        producer.move_cursor(6.into());
+        let _file_size = Size::produce(producer)?;
+        let _check_info_pos = Offset::produce(producer)?;
         Ok(PackHeader {
             _magic: magic,
             app_vendor_id,
@@ -129,20 +130,20 @@ impl PackHeader {
 
 struct ContentPackHeader {
     pack_header:PackHeader,
-    entry_ptr_pos:u64,
-    cluster_ptr_pos:u64,
-    entry_count:u32,
-    cluster_count:u32,
+    entry_ptr_pos:Offset,
+    cluster_ptr_pos:Offset,
+    entry_count:Count<u32>,
+    cluster_count:Count<u32>,
     free_data:[u8;56]
 }
 
 impl ContentPackHeader {
     pub fn produce(producer: &mut dyn Producer) -> Result<Self> {
         let pack_header = PackHeader::produce(producer)?;
-        let entry_ptr_pos = producer.read_u64()?;
-        let cluster_ptr_pos = producer.read_u64()?;
-        let entry_count = producer.read_u32()?;
-        let cluster_count = producer.read_u32()?;
+        let entry_ptr_pos = Offset::produce(producer)?;
+        let cluster_ptr_pos = Offset::produce(producer)?;
+        let entry_count = Count::produce(producer)?;
+        let cluster_count = Count::produce(producer)?;
         let mut free_data:[u8;56] = [0; 56];
         producer.read_data_into(56, &mut free_data)?;
         Ok(ContentPackHeader {
@@ -157,8 +158,8 @@ impl ContentPackHeader {
 }
 
 pub struct EntryInfo {
-    cluster_index: u32,
-    blob_index: u16
+    cluster_index: Idx<u32>,
+    blob_index: Idx<u16>
 }
 
 impl Producable for EntryInfo {
@@ -167,16 +168,16 @@ impl Producable for EntryInfo {
         let blob_index = (v & 0xFFF) as u16;
         let cluster_index = v >> 12;
         Ok(EntryInfo{
-            cluster_index,
-            blob_index
+            cluster_index: cluster_index.into(),
+            blob_index: blob_index.into()
         })
     }
 }
 
 pub struct ContentPack<'a> {
     header: ContentPackHeader,
-    entry_infos: ArrayProducer<'a, EntryInfo>,
-    cluster_ptrs: ArrayProducer<'a, u64>,
+    entry_infos: ArrayProducer<'a, EntryInfo, u32>,
+    cluster_ptrs: ArrayProducer<'a, Offset, u32>,
     producer: RefCell<Box<dyn Producer + 'a>>
 }
 
@@ -184,14 +185,15 @@ pub struct ContentPack<'a> {
 impl<'a> ContentPack<'a> {
     pub fn new(mut producer: Box<dyn Producer>) -> Result<Self> {
         let header = ContentPackHeader::produce(producer.as_mut())?;
-        let entry_infos = ArrayProducer::<EntryInfo>::new(
-            producer.sub_producer_at(header.entry_ptr_pos, End::Size(header.entry_count as u64 *4)),
-            Count(header.entry_count),
+        let entry_infos = ArrayProducer::<EntryInfo, u32>::new(
+            producer.sub_producer_at(header.entry_ptr_pos, End::Size(Size(header.entry_count.0 as u64 * 4))),
+            header.entry_count,
             4
         );
-        let cluster_ptrs = ArrayProducer::<u64>::new(
-            producer.sub_producer_at(header.cluster_ptr_pos, End::Size(header.cluster_count as u64 *8)),
-            Count(header.cluster_count)
+        let cluster_ptrs = ArrayProducer::<Offset, u32>::new(
+            producer.sub_producer_at(header.cluster_ptr_pos, End::Size(Size(header.cluster_count.0 as u64 * 8))),
+            header.cluster_count,
+            8
         );
         Ok(ContentPack {
             header,
@@ -201,16 +203,24 @@ impl<'a> ContentPack<'a> {
         })
     }
 
-    pub fn get_entry_count(&self) -> u32 {
+    pub fn get_entry_count(&self) -> Count<u32> {
         self.header.entry_count
     }
 
-    pub fn get_content(&self, index: Count) -> Result<Box<dyn Producer + 'a>> {
-        let entry_info = self.entry_infos.at(index)?;
-        let cluster_ptr = self.cluster_ptrs.at(Count(entry_info.cluster_index))?;
+    pub fn get_content(&self, index: Idx<u32>) -> Result<Box<dyn Producer + 'a>> {
+        if !index.is_valid(self.header.entry_count) {
+            //[TODO] Return arg error
+            return Err(IOError{});
+        }
+        let entry_info = self.entry_infos.index(index);
+        if !entry_info.cluster_index.is_valid(self.header.cluster_count) {
+            //[TODO] Return format error
+            return Err(IOError{});
+        }
+        let cluster_ptr = self.cluster_ptrs.index(entry_info.cluster_index);
         self.producer.borrow_mut().set_cursor(cluster_ptr);
         let cluster = Cluster::produce(self.producer.borrow_mut().as_mut())?;
-        cluster.get_producer(Count(entry_info.blob_index.into()))
+        cluster.get_producer(entry_info.blob_index)
     }
 
     pub fn get_app_vendor_id(&self) -> u32 {
