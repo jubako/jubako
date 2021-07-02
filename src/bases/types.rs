@@ -1,4 +1,3 @@
-
 use std::ops::{Add, AddAssign, Sub};
 
 /// A offset used in xar.
@@ -8,19 +7,19 @@ use std::ops::{Add, AddAssign, Sub};
 pub struct Offset(pub u64);
 
 impl Offset {
-    pub fn is_valid(&self, s:Size) -> bool {
+    pub fn is_valid(&self, s: Size) -> bool {
         self.0 <= s.0
     }
 }
 
 impl From<Size> for Offset {
-    fn from(v:Size) -> Offset {
+    fn from(v: Size) -> Offset {
         v.0.into()
     }
 }
 
 impl From<u64> for Offset {
-    fn from(v:u64) -> Offset {
+    fn from(v: u64) -> Offset {
         Offset(v)
     }
 }
@@ -73,13 +72,13 @@ impl Sub for Offset {
 pub struct Size(pub u64);
 
 impl From<u64> for Size {
-    fn from(v:u64) -> Size {
+    fn from(v: u64) -> Size {
         Size(v)
     }
 }
 
 impl From<usize> for Size {
-    fn from(v:usize) -> Size {
+    fn from(v: usize) -> Size {
         // We are compiling on 32 or 64 bits.
         Size(v as u64)
     }
@@ -89,7 +88,7 @@ impl From<usize> for Size {
 pub enum End<SizeType> {
     Offset(Offset),
     Size(SizeType),
-    None
+    None,
 }
 
 /// A end use for reading content.
@@ -106,11 +105,10 @@ pub type ArxEnd = End<Size>;
 pub struct Count<T>(pub T);
 
 impl<T> From<T> for Count<T> {
-    fn from(v:T) -> Count<T> {
+    fn from(v: T) -> Count<T> {
         Count(v)
     }
 }
-
 
 /// A index of a object.
 /// All count object can be stored in a u32.
@@ -118,19 +116,19 @@ impl<T> From<T> for Count<T> {
 pub struct Idx<T>(pub T);
 
 impl<T> Idx<T>
-where T: std::cmp::PartialOrd {
-    pub fn is_valid(&self, s:Count<T>) -> bool {
+where
+    T: std::cmp::PartialOrd,
+{
+    pub fn is_valid(&self, s: Count<T>) -> bool {
         self.0 < s.0
     }
 }
 
 impl<T> From<T> for Idx<T> {
-    fn from(v:T) -> Idx<T> {
+    fn from(v: T) -> Idx<T> {
         Idx(v)
     }
 }
-
-
 
 /// This is somehow the same as std::ops::Index
 /// but with a output by value and not by ref.

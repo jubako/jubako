@@ -1,13 +1,14 @@
-
 pub mod types;
 
-use types::*;
 use crate::io::*;
-use std::marker::PhantomData;
 use std::cell::RefCell;
+use std::marker::PhantomData;
+use types::*;
 
 pub trait Producable {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> where Self:Sized;
+    fn produce(producer: &mut dyn Producer) -> Result<Self>
+    where
+        Self: Sized;
 }
 
 impl Producable for Offset {
@@ -38,7 +39,7 @@ pub struct ArrayProducer<'a, T, I> {
     producer: RefCell<Box<dyn Producer + 'a>>,
     length: Count<I>,
     elem_size: usize, // We know that array can contain elem of 256 at maximum.
-    produced_type: PhantomData<*const T>
+    produced_type: PhantomData<*const T>,
 }
 
 impl<'a, T: Producable, I> ArrayProducer<'a, T, I> {
@@ -47,14 +48,16 @@ impl<'a, T: Producable, I> ArrayProducer<'a, T, I> {
             producer: RefCell::new(producer),
             length,
             elem_size,
-            produced_type: PhantomData
+            produced_type: PhantomData,
         }
     }
 }
 
-impl<T:Producable, I> Index<Idx<I>> for ArrayProducer<'_, T, I>
-where u64: std::convert::From<I>,
-      I: std::cmp::PartialOrd + Copy {
+impl<T: Producable, I> Index<Idx<I>> for ArrayProducer<'_, T, I>
+where
+    u64: std::convert::From<I>,
+    I: std::cmp::PartialOrd + Copy,
+{
     type OutputType = T;
     fn index(&self, idx: Idx<I>) -> T {
         assert!(idx.is_valid(self.length));

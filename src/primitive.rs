@@ -1,6 +1,5 @@
-
-use std::ptr::copy_nonoverlapping;
 use std::mem::size_of;
+use std::ptr::copy_nonoverlapping;
 //use std::mem::{size_of, size_of_val};
 
 /*
@@ -19,18 +18,19 @@ macro_rules! write_num_bytes {
 }*/
 
 macro_rules! read_num_bytes {
-    ($size:expr, $buf:expr, $ty:ty) => ({
+    ($size:expr, $buf:expr, $ty:ty) => {{
         assert!($size <= $buf.len());
         let mut data: $ty = 0;
         unsafe {
             copy_nonoverlapping(
                 $buf.as_ptr(),
-                (&mut data as *mut $ty as *mut u8).offset(size_of::<$ty>() as isize - ($size as isize)),
-                $size
+                (&mut data as *mut $ty as *mut u8)
+                    .offset(size_of::<$ty>() as isize - ($size as isize)),
+                $size,
             )
         }
         <$ty>::from_be(data)
-    })
+    }};
 }
 
 /*
@@ -80,14 +80,12 @@ pub fn write_from_u64(val: u64, size:usize, out:&mut[u8])
     write_num_bytes!(size, val, out);
 }*/
 
-pub fn read_u8(buf: &[u8]) -> u8
-{
+pub fn read_u8(buf: &[u8]) -> u8 {
     assert!(1 <= buf.len());
     return buf[0];
 }
 
-pub fn read_u16(buf: &[u8]) -> u16
-{
+pub fn read_u16(buf: &[u8]) -> u16 {
     read_num_bytes!(2, buf, u16)
 }
 
@@ -98,8 +96,7 @@ pub fn read_u24(buf: &[u8]) -> u32
 }
 */
 
-pub fn read_u32(buf: &[u8]) -> u32
-{
+pub fn read_u32(buf: &[u8]) -> u32 {
     read_num_bytes!(4, buf, u32)
 }
 
@@ -119,13 +116,11 @@ pub fn read_u56(buf: &[u8]) -> u64
     read_num_bytes!(7, buf, u64)
 }
 */
-pub fn read_u64(buf: &[u8]) -> u64
-{
+pub fn read_u64(buf: &[u8]) -> u64 {
     read_num_bytes!(8, buf, u64)
 }
 
-pub fn read_to_u64(size:usize, buf:&[u8]) -> u64
-{
+pub fn read_to_u64(size: usize, buf: &[u8]) -> u64 {
     assert!(size <= 8);
     read_num_bytes!(size, buf, u64)
 }

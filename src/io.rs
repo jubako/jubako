@@ -1,30 +1,29 @@
-
-use std::rc::Rc;
 use crate::bases::types::*;
 use crate::primitive::*;
+use std::rc::Rc;
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct IOError {}
 
 pub type Result<T> = std::result::Result<T, IOError>;
 
 /// A buffer is a container of "raw data".
 pub trait Buffer {
-    fn read_data(&self, offset:Offset, end:ReadEnd) -> Result<&[u8]>;
+    fn read_data(&self, offset: Offset, end: ReadEnd) -> Result<&[u8]>;
     fn size(&self) -> Size;
 }
 
 impl Buffer for Vec<u8> {
-    fn read_data(&self, offset:Offset, end:ReadEnd) -> Result<&[u8]> {
+    fn read_data(&self, offset: Offset, end: ReadEnd) -> Result<&[u8]> {
         assert!(offset.is_valid(self.size()));
         // We know offset < size < usize::MAX
         match end {
             End::None => {
                 let offset = offset.0 as usize;
                 Ok(&self[offset..])
-            },
+            }
             End::Size(size) => {
-                let end = offset+size;
+                let end = offset + size;
                 assert!(end.is_valid(self.size()));
                 let offset = offset.0 as usize;
                 let end = end.0 as usize;
@@ -85,21 +84,21 @@ pub trait Producer {
         let v = read_to_u64(size, self.read_data(size)?);
         Ok(v)
     }
-    fn read_data_into<'a, 'b>(&'a mut self, size: usize, buf: &'b mut[u8]) -> Result<&'b [u8]> {
+    fn read_data_into<'a, 'b>(&'a mut self, size: usize, buf: &'b mut [u8]) -> Result<&'b [u8]> {
         buf.copy_from_slice(self.read_data(size)?);
         Ok(buf)
     }
 }
 
 pub struct BufferReader<T: Buffer> {
-    buffer : Rc<T>,
+    buffer: Rc<T>,
     origin: Offset,
     end: Offset,
-    offset: Offset
+    offset: Offset,
 }
 
-impl<T:Buffer> BufferReader<T> {
-    pub fn new(buffer:Rc<T>, origin: Offset, end: ArxEnd) -> Self {
+impl<T: Buffer> BufferReader<T> {
+    pub fn new(buffer: Rc<T>, origin: Offset, end: ArxEnd) -> Self {
         assert!(origin.is_valid(buffer.size()));
         match end {
             End::None => {
@@ -108,28 +107,27 @@ impl<T:Buffer> BufferReader<T> {
                     buffer,
                     origin,
                     end,
-                    offset:0.into()
+                    offset: 0.into(),
                 }
-            },
+            }
             End::Offset(o) => {
                 assert!(o.is_valid(buffer.size()));
                 Self {
                     buffer,
                     origin,
                     end: o,
-                    offset: 0.into()
+                    offset: 0.into(),
                 }
-            },
+            }
             End::Size(s) => {
-                let end = origin+s;
+                let end = origin + s;
                 assert!(end.is_valid(buffer.size()));
                 Self {
                     buffer,
                     origin,
                     end,
-                    offset:0.into()
+                    offset: 0.into(),
                 }
-
             }
         }
     }
@@ -139,10 +137,12 @@ impl<T:Buffer> BufferReader<T> {
     }
 }
 
-impl<T:Buffer+'static> Producer for BufferReader<T> {
+impl<T: Buffer + 'static> Producer for BufferReader<T> {
     fn read_data(&mut self, size: usize) -> Result<&[u8]> {
-        assert!((self.offset+size).is_valid(self.size()));
-        let s = &self.buffer.read_data(self.current_offset(), End::Size(size))?;
+        assert!((self.offset + size).is_valid(self.size()));
+        let s = &self
+            .buffer
+            .read_data(self.current_offset(), End::Size(size))?;
         self.offset += size;
         Ok(s)
     }
@@ -167,23 +167,22 @@ impl<T:Buffer+'static> Producer for BufferReader<T> {
         let origin = self.origin + offset;
         let end = match end {
             End::Offset(o) => End::Offset(self.origin + o),
-            any => any
+            any => any,
         };
         Box::new(BufferReader::new(Rc::clone(&self.buffer), origin, end))
     }
-
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Serializable, Parsable, IOError};
+    use super::{IOError, Parsable, Serializable};
 
     macro_rules! test_serial {
-        ($what:expr, $size:expr, $expected:expr) => ({
-            let mut buf: [u8;$size] = [0xFF; $size];
+        ($what:expr, $size:expr, $expected:expr) => {{
+            let mut buf: [u8; $size] = [0xFF; $size];
             assert_eq!($what.serial(&mut buf[..]), Ok($size));
             assert_eq!(buf, $expected);
-        });
+        }};
     }
 
     #[test]
@@ -204,9 +203,9 @@ mod tests {
         test_serial!(0xFF00_u16, 2, [0xFF, 0x00]);
         test_serial!(0xFFFF_u16, 2, [0xFF, 0xFF]);
 
-        let mut buf: [u8;1] = [0xFF;1];
-        assert_eq!(1_u16.serial(&mut buf[..]), Err(IOError{}));
-     }
+        let mut buf: [u8; 1] = [0xFF; 1];
+        assert_eq!(1_u16.serial(&mut buf[..]), Err(IOError {}));
+    }
 
     #[test]
     fn serial_u32() {
@@ -221,35 +220,75 @@ mod tests {
         test_serial!(0xFF0000_u32, 4, [0x00, 0xFF, 0x00, 0x00]);
         test_serial!(0xFFFFFFFF_u32, 4, [0xFF, 0xFF, 0xFF, 0xFF]);
 
-        let mut buf: [u8;2] = [0xFF;2];
-        assert_eq!(1_u32.serial(&mut buf[..]), Err(IOError{}));
-      }
+        let mut buf: [u8; 2] = [0xFF; 2];
+        assert_eq!(1_u32.serial(&mut buf[..]), Err(IOError {}));
+    }
 
     #[test]
     fn serial_u64() {
         test_serial!(0_u64, 8, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
         test_serial!(1_u64, 8, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]);
-        test_serial!(0xFF_u64, 8, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF]);
-        test_serial!(0xFF00_u64, 8, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00]);
-        test_serial!(0xFF0000_u64, 8, [0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00]);
-        test_serial!(0xFF000000_u64, 8, [0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00]);
-        test_serial!(0xFF00000000_u64, 8, [0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-        test_serial!(0xFF0000000000_u64, 8, [0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        test_serial!(0xFF000000000000_u64, 8, [0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        test_serial!(0xFF00000000000000_u64, 8, [0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        test_serial!(0xFF00000000008000_u64, 8, [0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00]);
-        test_serial!(0xFFFFFFFFFFFFFFFF_u64, 8, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
+        test_serial!(
+            0xFF_u64,
+            8,
+            [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF]
+        );
+        test_serial!(
+            0xFF00_u64,
+            8,
+            [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00]
+        );
+        test_serial!(
+            0xFF0000_u64,
+            8,
+            [0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00]
+        );
+        test_serial!(
+            0xFF000000_u64,
+            8,
+            [0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00]
+        );
+        test_serial!(
+            0xFF00000000_u64,
+            8,
+            [0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00]
+        );
+        test_serial!(
+            0xFF0000000000_u64,
+            8,
+            [0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00]
+        );
+        test_serial!(
+            0xFF000000000000_u64,
+            8,
+            [0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        );
+        test_serial!(
+            0xFF00000000000000_u64,
+            8,
+            [0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        );
+        test_serial!(
+            0xFF00000000008000_u64,
+            8,
+            [0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00]
+        );
+        test_serial!(
+            0xFFFFFFFFFFFFFFFF_u64,
+            8,
+            [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
+        );
 
-        let mut buf: [u8;2] = [0xFF;2];
-        assert_eq!(1_u64.serial(&mut buf[..]), Err(IOError{}));
-       }
+        let mut buf: [u8; 2] = [0xFF; 2];
+        assert_eq!(1_u64.serial(&mut buf[..]), Err(IOError {}));
+    }
 
     macro_rules! test_parse {
-        ($ty:ty, $buf:expr, $size:expr, $expected:expr) => ({
+        ($ty:ty, $buf:expr, $size:expr, $expected:expr) => {{
             let mut data: $ty = 0x88;
             assert_eq!(data.parse(&$buf), Ok($size));
             assert_eq!(data, $expected);
-        });
+        }};
     }
 
     #[test]
@@ -269,7 +308,7 @@ mod tests {
         test_parse!(u16, [0x80, 0x00], 2, 0x8000);
         test_parse!(u16, [0xFF, 0x00], 2, 0xFF00);
         test_parse!(u16, [0xFF, 0xFF], 2, 0xFFFF);
-     }
+    }
 
     #[test]
     fn parse_u32() {
@@ -283,22 +322,72 @@ mod tests {
         test_parse!(u32, [0xFF, 0x00, 0x00, 0x00], 4, 0xFF000000);
         test_parse!(u32, [0x00, 0xFF, 0x00, 0x00], 4, 0xFF0000);
         test_parse!(u32, [0xFF, 0xFF, 0xFF, 0xFF], 4, 0xFFFFFFFF);
-     }
+    }
 
     #[test]
     fn parse_u64() {
         test_parse!(u64, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], 8, 0);
         test_parse!(u64, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01], 8, 1);
-        test_parse!(u64, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF], 8, 0xFF);
-        test_parse!(u64, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00], 8, 0xFF00);
-        test_parse!(u64, [0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00], 8, 0xFF0000);
-        test_parse!(u64, [0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00], 8, 0xFF000000);
-        test_parse!(u64, [0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00], 8, 0xFF00000000);
-        test_parse!(u64, [0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00], 8, 0xFF0000000000);
-        test_parse!(u64, [0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], 8, 0xFF000000000000);
-        test_parse!(u64, [0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], 8, 0xFF00000000000000);
-        test_parse!(u64, [0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00], 8, 0xFF00000000008000);
-        test_parse!(u64, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], 8, 0xFFFFFFFFFFFFFFFF);
-      }
+        test_parse!(
+            u64,
+            [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF],
+            8,
+            0xFF
+        );
+        test_parse!(
+            u64,
+            [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00],
+            8,
+            0xFF00
+        );
+        test_parse!(
+            u64,
+            [0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00],
+            8,
+            0xFF0000
+        );
+        test_parse!(
+            u64,
+            [0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00],
+            8,
+            0xFF000000
+        );
+        test_parse!(
+            u64,
+            [0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00],
+            8,
+            0xFF00000000
+        );
+        test_parse!(
+            u64,
+            [0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00],
+            8,
+            0xFF0000000000
+        );
+        test_parse!(
+            u64,
+            [0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+            8,
+            0xFF000000000000
+        );
+        test_parse!(
+            u64,
+            [0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+            8,
+            0xFF00000000000000
+        );
+        test_parse!(
+            u64,
+            [0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00],
+            8,
+            0xFF00000000008000
+        );
+        test_parse!(
+            u64,
+            [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
+            8,
+            0xFFFFFFFFFFFFFFFF
+        );
+    }
 
 }
