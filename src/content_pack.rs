@@ -82,10 +82,9 @@ impl Cluster {
             }
             _ => {
                 //[TODO] decompression from buf[read..header.cluster_size] to self.data
-                Box::new(BufferReader::new(
-                    Rc::new(Vec::<u8>::with_capacity(data_size.0 as usize)),
-                    0.into(),
-                    End::Size(0_u64.into()),
+                Box::new(ProducerWrapper::<Vec<u8>>::new(
+                    Vec::<u8>::with_capacity(data_size.0 as usize),
+                    End::None,
                 ))
             }
         };

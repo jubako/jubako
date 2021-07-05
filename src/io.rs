@@ -2,92 +2,50 @@ use crate::bases::types::*;
 use crate::bases::producing::*;
 use std::rc::Rc;
 use std::io::{Read, Seek, SeekFrom, ErrorKind};
-use std::cmp::min;
 
-impl Buffer for Vec<u8> {
-    fn read_data(&self, offset: Offset, end: ReadEnd) -> Result<&[u8]> {
-        assert!(offset.is_valid(self.size()));
-        // We know offset < size < usize::MAX
-        match end {
-            End::None => {
-                let offset = offset.0 as usize;
-                Ok(&self[offset..])
-            }
-            End::Size(size) => {
-                let end = offset + size;
-                assert!(end.is_valid(self.size()));
-                let offset = offset.0 as usize;
-                let end = end.0 as usize;
-                Ok(&self[offset..end])
-            }
-            End::Offset(end) => {
-                assert!(end.is_valid(self.size()));
-                let offset = offset.0 as usize;
-                let end = end.0 as usize;
-                Ok(&self[offset..end])
-            }
-        }
-    }
-    fn size(&self) -> Size {
-        self.len().into()
-    }
-}
-
-pub struct BufferReader<T: Buffer> {
-    buffer: Rc<T>,
+pub struct ProducerWrapper<T> {
+    source: Rc<T>,
     origin: Offset,
     end: Offset,
     offset: Offset,
 }
 
-impl<T: Buffer> BufferReader<T> {
-    pub fn new(buffer: Rc<T>, origin: Offset, end: ArxEnd) -> Self {
-        assert!(origin.is_valid(buffer.size()));
-        match end {
-            End::None => {
-                let end = buffer.size().into();
-                Self {
-                    buffer,
-                    origin,
-                    end,
-                    offset: origin,
-                }
-            }
-            End::Offset(o) => {
-                assert!(o.is_valid(buffer.size()));
-                Self {
-                    buffer,
-                    origin,
-                    end: o,
-                    offset: origin,
-                }
-            }
-            End::Size(s) => {
-                let end = origin + s;
-                assert!(end.is_valid(buffer.size()));
-                Self {
-                    buffer,
-                    origin,
-                    end,
-                    offset: origin
-                }
-            }
+impl ProducerWrapper<Vec<u8>> {
+    pub fn new(source: Vec<u8>, end: ArxEnd) -> Self {
+        let source = Rc::new(source);
+        let end = match end {
+            End::None => Offset(source.len() as u64),
+            End::Offset(o) => o,
+            End::Size(s) => s.into(),
+        };
+        assert!(end.is_valid(source.len().into()));
+        Self {
+            source,
+            end,
+            origin: Offset(0),
+            offset: Offset(0),
         }
+    }
+    fn slice(&self) -> &[u8] {
+        let origin = self.origin.0 as usize;
+        let end = self.end.0 as usize;
+        &self.source[origin..end]
     }
 }
 
-impl<T: Buffer> Seek for BufferReader<T> {
+impl<T> Seek for ProducerWrapper<T> {
     fn seek(&mut self, pos: SeekFrom) -> std::result::Result<u64, std::io::Error> {
-        let new : Offset = match pos {
-            SeekFrom::Start(pos) => {
-                self.origin + Offset::from(pos)
-            },
+        let new: Offset = match pos {
+            SeekFrom::Start(pos) => self.origin + Offset::from(pos),
             SeekFrom::End(delta) => {
                 if delta.is_positive() {
-                    return Err(std::io::Error::new(ErrorKind::InvalidInput, "It is not possible to seek after the end."))
+                    return Err(std::io::Error::new(
+                        ErrorKind::InvalidInput,
+                        "It is not possible to seek after the end.",
+                    ));
                 }
                 Offset::from(self.end.0 - delta.abs() as u64)
-            },
+            }
             SeekFrom::Current(delta) => {
                 if delta.is_positive() {
                     self.offset + Offset::from(delta as u64)
@@ -97,33 +55,34 @@ impl<T: Buffer> Seek for BufferReader<T> {
             }
         };
         if new < self.origin || new > self.end {
-            return Err(std::io::Error::new(ErrorKind::Other, "Final position is not valid"))
+            return Err(std::io::Error::new(
+                ErrorKind::Other,
+                "Final position is not valid",
+            ));
         }
         self.offset = new;
-        Ok((self.offset-self.origin).0)
-    }
-/*
-    fn stream_len(&mut self) -> Result<u64> {
-        Ok(self.end - self.origin)
-    }
-
-    fn stream_position(&mut self) -> Result<u64> {
-        Ok(self.offset - self.origin)
-    }
-*/
-}
-
-impl<T: Buffer> Read for BufferReader<T> {
-    fn read(&mut self, buf: &mut[u8]) -> std::result::Result<usize, std::io::Error> {
-        let to_read = min(buf.len() as u64, self.end.0-self.offset.0) as usize;
-        let s = &self.buffer.read_data(self.offset, End::Size(to_read)).unwrap();
-        buf.copy_from_slice(&s);
-        self.offset += to_read;
-        Ok(to_read)
+        Ok((self.offset - self.origin).0)
     }
 }
 
-impl<T: Buffer + 'static> Producer for BufferReader<T> {
+impl Read for ProducerWrapper<Vec<u8>> {
+    fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
+        let mut slice = self.slice();
+        match slice.read(buf) {
+            Ok(s) => {
+                self.offset += s;
+                Ok(s)
+            }
+            err => err,
+        }
+    }
+}
+
+
+impl<T: 'static> Producer for ProducerWrapper<T>
+where
+    ProducerWrapper<T>: std::io::Read,
+{
     fn teel_cursor(&self) -> Offset {
         (self.offset - self.origin).into()
     }
@@ -133,11 +92,19 @@ impl<T: Buffer + 'static> Producer for BufferReader<T> {
 
     fn sub_producer_at(&self, offset: Offset, end: ArxEnd) -> Box<dyn Producer> {
         let origin = self.origin + offset;
+        assert!(origin <= self.end);
         let end = match end {
-            End::Offset(o) => End::Offset(self.origin + o),
-            any => any,
+            End::None => self.end,
+            End::Offset(o) => self.origin + o,
+            End::Size(s) => origin + s,
         };
-        Box::new(BufferReader::new(Rc::clone(&self.buffer), origin, end))
+        assert!(end <= self.end);
+        Box::new(ProducerWrapper::<T> {
+            source: Rc::clone(&self.source),
+            origin,
+            end,
+            offset: origin,
+        })
     }
 }
 

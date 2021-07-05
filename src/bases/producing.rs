@@ -5,13 +5,6 @@ use crate::bases::types::*;
 use crate::primitive::*;
 use std::io::{Seek, Read};
 
-
-/// A buffer is a container of "raw data".
-pub trait Buffer {
-    fn read_data(&self, offset: Offset, end: ReadEnd) -> Result<&[u8]>;
-    fn size(&self) -> Size;
-}
-
 /// A producer is the main trait producing stuff from "raw data".
 /// A producer may have a size, and is positionned.
 /// The cursor can be move.
