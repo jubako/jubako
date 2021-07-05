@@ -5,7 +5,9 @@ use crate::bases::types::*;
 use crate::bases::*;
 pub use cluster::Cluster;
 use std::cell::RefCell;
+use std::fmt::{Debug, Formatter};
 use std::io::SeekFrom;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, PartialEq)]
 struct PackHeader {
@@ -44,13 +46,44 @@ impl PackHeader {
     }
 }
 
+struct FreeData56([u8; 56]);
+
+impl PartialEq for FreeData56 {
+    fn eq(&self, other: &Self) -> bool {
+        &self.0[..] == &other.0[..]
+    }
+}
+impl Debug for FreeData56 {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        Ok(())
+    }
+}
+impl Deref for FreeData56 {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
+        &self.0
+    }
+}
+impl DerefMut for FreeData56 {
+    fn deref_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
+impl FreeData56 {
+    pub fn new() -> Self {
+        Self([0; 56])
+    }
+}
+
+#[derive(Debug, PartialEq)]
 struct ContentPackHeader {
     pack_header: PackHeader,
     entry_ptr_pos: Offset,
     cluster_ptr_pos: Offset,
     entry_count: Count<u32>,
     cluster_count: Count<u32>,
-    free_data: [u8; 56],
+    free_data: FreeData56,
 }
 
 impl ContentPackHeader {
@@ -60,7 +93,7 @@ impl ContentPackHeader {
         let cluster_ptr_pos = Offset::produce(producer)?;
         let entry_count = Count::produce(producer)?;
         let cluster_count = Count::produce(producer)?;
-        let mut free_data: [u8; 56] = [0; 56];
+        let mut free_data = FreeData56::new();
         producer.read_exact(&mut free_data)?;
         Ok(ContentPackHeader {
             pack_header,
@@ -73,6 +106,7 @@ impl ContentPackHeader {
     }
 }
 
+#[derive(Debug)]
 pub struct EntryInfo {
     cluster_index: Idx<u32>,
     blob_index: Idx<u16>,
@@ -137,10 +171,11 @@ impl<'a> ContentPack<'a> {
             return Err(Error::FormatError);
         }
         let cluster_ptr = self.cluster_ptrs.index(entry_info.cluster_index);
-        self.producer
-            .borrow_mut()
-            .seek(SeekFrom::Start(cluster_ptr.0))?;
-        let cluster = Cluster::produce(self.producer.borrow_mut().as_mut())?;
+        let mut cluster_producer = self
+            .producer
+            .borrow()
+            .sub_producer_at(cluster_ptr, End::None);
+        let cluster = Cluster::produce(cluster_producer.as_mut())?;
         cluster.get_producer(entry_info.blob_index)
     }
 
@@ -157,112 +192,130 @@ impl<'a> ContentPack<'a> {
         self.header.pack_header.uuid
     }
     pub fn get_free_data(&self) -> [u8; 56] {
-        self.header.free_data
+        self.header.free_data.0
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Seek;
+    use crate::io::*;
 
     #[test]
-    fn test_compressiontype() {
-        let mut producer =
-            ProducerWrapper::<Vec<u8>>::new(vec![0x00, 0x01, 0x02, 0x03, 0x4, 0xFF], End::None);
+    fn test_contentpackheader() {
+        let mut content = vec![
+            0x61, 0x72, 0x78, 0x63, // magic
+            0x01, 0x00, 0x00, 0x00, // app_vendor_id
+            0x01, // major_version
+            0x02, // minor_version
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+            0x0e, 0x0f, // uui
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, // file_size
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xee, // check_info_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xee, 0x00, // entry_ptr_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xee, 0xdd, // cluster_ptr_pos
+            0x00, 0x00, 0x00, 0x50, // entry ccount
+            0x00, 0x00, 0x00, 0x60, // cluster ccount
+        ];
+        content.extend_from_slice(&[0xff; 56]);
+        let mut producer = ProducerWrapper::<Vec<u8>>::new(content, End::None);
         assert_eq!(
-            CompressionType::produce(&mut producer).unwrap(),
-            CompressionType::NONE
-        );
-        assert_eq!(
-            CompressionType::produce(&mut producer).unwrap(),
-            CompressionType::LZ4
-        );
-        assert_eq!(
-            CompressionType::produce(&mut producer).unwrap(),
-            CompressionType::LZMA
-        );
-        assert_eq!(
-            CompressionType::produce(&mut producer).unwrap(),
-            CompressionType::ZSTD
-        );
-        assert_eq!(producer.tell_cursor(), Offset::from(4));
-        assert!(CompressionType::produce(&mut producer).is_err());
-        assert_eq!(producer.tell_cursor(), Offset::from(4));
-        assert!(CompressionType::produce(&mut producer).is_err());
-    }
-
-    #[test]
-    fn test_clusterheader() {
-        let mut producer = ProducerWrapper::<Vec<u8>>::new(
-            vec![
-                0x00, // compression
-                0x01, // offset_size
-                0x00, 0x02, // blob_count
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // cluster_size
-            ],
-            End::None,
-        );
-        assert_eq!(
-            ClusterHeader::produce(&mut producer).unwrap(),
-            ClusterHeader {
-                compression: CompressionType::NONE,
-                offset_size: 1,
-                blob_count: Count(2),
-                cluster_size: Size(3)
+            ContentPackHeader::produce(&mut producer).unwrap(),
+            ContentPackHeader {
+                pack_header: PackHeader {
+                    _magic: 0x61727863_u32,
+                    app_vendor_id: 0x01000000_u32,
+                    major_version: 0x01_u8,
+                    minor_version: 0x02_u8,
+                    uuid: [
+                        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+                        0x0c, 0x0d, 0x0e, 0x0f
+                    ],
+                    _file_size: Size::from(0xffff_u64),
+                    _check_info_pos: Offset::from(0xffee_u64),
+                },
+                entry_ptr_pos: Offset::from(0xee00_u64),
+                cluster_ptr_pos: Offset::from(0xeedd_u64),
+                entry_count: Count::from(0x50_u32),
+                cluster_count: Count::from(0x60_u32),
+                free_data: FreeData56([0xff; 56]),
             }
         );
     }
 
     #[test]
-    fn test_cluster() {
-        let mut producer = ProducerWrapper::<Vec<u8>>::new(
-            vec![
-                0x00, // compression
-                0x01, // offset_size
-                0x00, 0x03, // blob_count
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, // cluster_size
-                0x0f, // Data size
-                0x05, // Offset of blob 1
-                0x08, // Offset of blob 2
-                0x11, 0x12, 0x13, 0x14, 0x15, // Data of blob 0
-                0x21, 0x22, 0x23, // Data of blob 1
-                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of blob 2
-            ],
-            End::None,
-        );
+    fn test_contentpack() {
+        let mut content = vec![
+            0x61, 0x72, 0x78, 0x63, // magic off:0
+            0x01, 0x00, 0x00, 0x00, // app_vendor_id off:4
+            0x01, // major_version off:8
+            0x02, // minor_version off:9
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+            0x0e, 0x0f, // uuid off:10
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding off:26
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB2, // file_size off:32
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB2, // check_info_pos off:40
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, // entry_ptr_pos off:48
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x8C, // cluster_ptr_pos off:56
+            0x00, 0x00, 0x00, 0x03, // entry count off:64
+            0x00, 0x00, 0x00, 0x01, // cluster count off:68
+        ];
+        content.extend_from_slice(&[0xff; 56]); // free_data off:72
+        content.extend_from_slice(&[
+            0x00, 0x00, 0x00, 0x00, // first entry info off:128
+            0x00, 0x00, 0x00, 0x01, // second entry info off: 132
+            0x00, 0x00, 0x00, 0x02, // third entry info off: 136
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x94, // first (and only) ptr pos. off:140
+            // Cluster off:148
+            0x00, // compression
+            0x01, // offset_size
+            0x00, 0x03, // blob_count
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, // cluster_size
+            0x0f, // Data size
+            0x05, // Offset of blob 1
+            0x08, // Offset of blob 2
+            0x11, 0x12, 0x13, 0x14, 0x15, // Data of blob 0
+            0x21, 0x22, 0x23, // Data of blob 1
+            0x31, 0x32, 0x33, 0x34, 0x35, 0x36,
+            0x37, // Data of blob 2
+                  // end 148+30 = 178
+        ]);
+        let producer = Box::new(ProducerWrapper::<Vec<u8>>::new(content, End::None));
+        let content_pack = ContentPack::new(producer).unwrap();
+        assert_eq!(content_pack.get_entry_count(), Count(3));
+        assert_eq!(content_pack.get_app_vendor_id(), 0x01000000_u32);
+        assert_eq!(content_pack.get_major_version(), 1);
+        assert_eq!(content_pack.get_minor_version(), 2);
         assert_eq!(
-            ClusterHeader::produce(&mut producer).unwrap(),
-            ClusterHeader {
-                compression: CompressionType::NONE,
-                offset_size: 1,
-                blob_count: Count(3),
-                cluster_size: Size(30)
-            }
+            content_pack.get_uuid(),
+            [
+                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+                0x0e, 0x0f
+            ]
         );
-        producer.seek(SeekFrom::Start(0));
-        let cluster = Cluster::produce(&mut producer).unwrap();
-        assert_eq!(cluster.blob_count(), Count(3_u16));
+        assert_eq!(&content_pack.get_free_data()[..], &[0xff; 56][..]);
 
         {
-            let mut sub_producer = cluster.get_producer(Idx(0_u16)).unwrap();
+            let mut sub_producer = content_pack.get_content(Idx(0_u32)).unwrap();
             assert_eq!(sub_producer.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v);
+            sub_producer.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
         {
-            let mut sub_producer = cluster.get_producer(Idx(1_u16)).unwrap();
+            let mut sub_producer = content_pack.get_content(Idx(1_u32)).unwrap();
             assert_eq!(sub_producer.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v);
+            sub_producer.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
         {
-            let mut sub_producer = cluster.get_producer(Idx(2_u16)).unwrap();
+            let mut sub_producer = content_pack.get_content(Idx(2_u32)).unwrap();
             assert_eq!(sub_producer.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v);
+            sub_producer.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }
     }

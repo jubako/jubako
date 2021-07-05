@@ -138,7 +138,7 @@ impl<T> From<T> for Count<T> {
 
 /// A index of a object.
 /// All count object can be stored in a u32.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
 pub struct Idx<T>(pub T);
 
 impl<T> Idx<T>
