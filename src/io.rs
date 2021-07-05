@@ -1,9 +1,9 @@
-use crate::bases::types::*;
 use crate::bases::producing::*;
+use crate::bases::types::*;
 use std::cell::RefCell;
 use std::fs::File;
+use std::io::{ErrorKind, Read, Seek, SeekFrom};
 use std::rc::Rc;
-use std::io::{Read, Seek, SeekFrom, ErrorKind};
 
 pub struct ProducerWrapper<T> {
     source: Rc<T>,

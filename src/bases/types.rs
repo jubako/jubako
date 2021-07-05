@@ -1,5 +1,5 @@
-use std::ops::{Add, AddAssign, Sub};
 use std::fmt;
+use std::ops::{Add, AddAssign, Sub};
 
 #[derive(Debug)]
 pub enum Error {
@@ -17,15 +17,9 @@ impl From<std::io::Error> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::IOError(e) => {
-                write!(f, "IO Error {}", e)
-            },
-            Error::FormatError => {
-                write!(f, "Arx format error")
-            },
-            Error::ArgError => {
-                write!(f, "Invalid argument")
-            }
+            Error::IOError(e) => write!(f, "IO Error {}", e),
+            Error::FormatError => write!(f, "Arx format error"),
+            Error::ArgError => write!(f, "Invalid argument"),
         }
     }
 }

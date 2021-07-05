@@ -1,11 +1,10 @@
-use crate::bases::types::*;
 use crate::bases::producing::*;
+use crate::bases::types::*;
 use crate::bases::*;
 use crate::io::*;
 use std::cell::RefCell;
-use std::rc::Rc;
-use std::vec::Vec;
 use std::io::SeekFrom;
+use std::vec::Vec;
 
 #[repr(u8)]
 #[derive(Clone, Copy)]
@@ -232,7 +231,9 @@ impl<'a> ContentPack<'a> {
             return Err(Error::FormatError);
         }
         let cluster_ptr = self.cluster_ptrs.index(entry_info.cluster_index);
-        self.producer.borrow_mut().seek(SeekFrom::Start(cluster_ptr.0))?;
+        self.producer
+            .borrow_mut()
+            .seek(SeekFrom::Start(cluster_ptr.0))?;
         let cluster = Cluster::produce(self.producer.borrow_mut().as_mut())?;
         cluster.get_producer(entry_info.blob_index)
     }
