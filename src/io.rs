@@ -1,5 +1,7 @@
 use crate::bases::types::*;
 use crate::bases::producing::*;
+use std::cell::RefCell;
+use std::fs::File;
 use std::rc::Rc;
 use std::io::{Read, Seek, SeekFrom, ErrorKind};
 
@@ -30,6 +32,25 @@ impl ProducerWrapper<Vec<u8>> {
         let origin = self.origin.0 as usize;
         let end = self.end.0 as usize;
         &self.source[origin..end]
+    }
+}
+
+impl ProducerWrapper<RefCell<File>> {
+    pub fn new(mut source: File, end: ArxEnd) -> Self {
+        let len = source.seek(SeekFrom::End(0)).unwrap();
+        let source = Rc::new(RefCell::new(source));
+        let end = match end {
+            End::None => Offset(len as u64),
+            End::Offset(o) => o,
+            End::Size(s) => s.into(),
+        };
+        assert!(end.is_valid(len.into()));
+        Self {
+            source,
+            end,
+            origin: Offset(0),
+            offset: Offset(0),
+        }
     }
 }
 
@@ -78,6 +99,19 @@ impl Read for ProducerWrapper<Vec<u8>> {
     }
 }
 
+impl Read for ProducerWrapper<RefCell<File>> {
+    fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
+        let mut file = self.source.as_ref().borrow_mut();
+        file.seek(SeekFrom::Start(self.offset.0))?;
+        match file.read(buf) {
+            Ok(s) => {
+                self.offset += s;
+                Ok(s)
+            }
+            err => err,
+        }
+    }
+}
 
 impl<T: 'static> Producer for ProducerWrapper<T>
 where
