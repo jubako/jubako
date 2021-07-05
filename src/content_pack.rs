@@ -1,9 +1,11 @@
 use crate::bases::types::*;
+use crate::bases::producing::*;
 use crate::bases::*;
 use crate::io::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::vec::Vec;
+use std::io::SeekFrom;
 
 #[repr(u8)]
 #[derive(Clone, Copy)]
@@ -21,7 +23,7 @@ impl Producable for CompressionType {
             1 => Ok(CompressionType::LZ4),
             2 => Ok(CompressionType::LZMA),
             3 => Ok(CompressionType::ZSTD),
-            _ => Err(IOError {}),
+            _ => Err(Error::FormatError),
         }
     }
 }
@@ -116,14 +118,14 @@ impl PackHeader {
     pub fn produce(producer: &mut dyn Producer) -> Result<Self> {
         let magic = producer.read_u32()?;
         if magic != 0x61727863_u32 {
-            return Err(IOError {});
+            return Err(Error::FormatError);
         }
         let app_vendor_id = producer.read_u32()?;
         let major_version = producer.read_u8()?;
         let minor_version = producer.read_u8()?;
         let mut uuid: [u8; 16] = [0_u8; 16];
-        producer.read_data_into(16, &mut uuid)?;
-        producer.move_cursor(6.into());
+        producer.read_exact(&mut uuid)?;
+        producer.seek(SeekFrom::Current(6))?;
         let _file_size = Size::produce(producer)?;
         let _check_info_pos = Offset::produce(producer)?;
         Ok(PackHeader {
@@ -155,7 +157,7 @@ impl ContentPackHeader {
         let entry_count = Count::produce(producer)?;
         let cluster_count = Count::produce(producer)?;
         let mut free_data: [u8; 56] = [0; 56];
-        producer.read_data_into(56, &mut free_data)?;
+        producer.read_exact(&mut free_data)?;
         Ok(ContentPackHeader {
             pack_header,
             entry_ptr_pos,
@@ -224,16 +226,14 @@ impl<'a> ContentPack<'a> {
 
     pub fn get_content(&self, index: Idx<u32>) -> Result<Box<dyn Producer + 'a>> {
         if !index.is_valid(self.header.entry_count) {
-            //[TODO] Return arg error
-            return Err(IOError {});
+            return Err(Error::ArgError);
         }
         let entry_info = self.entry_infos.index(index);
         if !entry_info.cluster_index.is_valid(self.header.cluster_count) {
-            //[TODO] Return format error
-            return Err(IOError {});
+            return Err(Error::FormatError);
         }
         let cluster_ptr = self.cluster_ptrs.index(entry_info.cluster_index);
-        self.producer.borrow_mut().set_cursor(cluster_ptr);
+        self.producer.borrow_mut().seek(SeekFrom::Start(cluster_ptr.0))?;
         let cluster = Cluster::produce(self.producer.borrow_mut().as_mut())?;
         cluster.get_producer(entry_info.blob_index)
     }

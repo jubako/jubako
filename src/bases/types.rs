@@ -1,4 +1,38 @@
 use std::ops::{Add, AddAssign, Sub};
+use std::fmt;
+
+#[derive(Debug)]
+pub enum Error {
+    IOError(std::io::Error),
+    FormatError,
+    ArgError,
+}
+
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Error {
+        Error::IOError(e)
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::IOError(e) => {
+                write!(f, "IO Error {}", e)
+            },
+            Error::FormatError => {
+                write!(f, "Arx format error")
+            },
+            Error::ArgError => {
+                write!(f, "Invalid argument")
+            }
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// A offset used in xar.
 /// We handling content in 64 bits space.
@@ -70,6 +104,12 @@ impl Sub for Offset {
 /// Let's define our own type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
 pub struct Size(pub u64);
+
+impl From<Offset> for Size {
+    fn from(v: Offset) -> Size {
+        v.0.into()
+    }
+}
 
 impl From<u64> for Size {
     fn from(v: u64) -> Size {

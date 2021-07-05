@@ -1,17 +1,8 @@
 use crate::bases::types::*;
-use crate::primitive::*;
+use crate::bases::producing::*;
 use std::rc::Rc;
-
-#[derive(Debug, PartialEq)]
-pub struct IOError {}
-
-pub type Result<T> = std::result::Result<T, IOError>;
-
-/// A buffer is a container of "raw data".
-pub trait Buffer {
-    fn read_data(&self, offset: Offset, end: ReadEnd) -> Result<&[u8]>;
-    fn size(&self) -> Size;
-}
+use std::io::{Read, Seek, SeekFrom, ErrorKind};
+use std::cmp::min;
 
 impl Buffer for Vec<u8> {
     fn read_data(&self, offset: Offset, end: ReadEnd) -> Result<&[u8]> {
@@ -42,54 +33,6 @@ impl Buffer for Vec<u8> {
     }
 }
 
-/// A producer is the main trait producing stuff from "raw data".
-/// A producer may have a size, and is positionned.
-/// The cursor can be move.
-/// Producing a value "consumes" the data and the cursor is moved.
-/// It is possible to create subproducer, a producer reading the sub range of tha data.
-/// Each producer are independant.
-/// Data is never modified.
-pub trait Producer {
-    fn read_data(&mut self, size: usize) -> Result<&[u8]>;
-    fn move_cursor(&mut self, delta: Offset);
-    fn set_cursor(&mut self, pos: Offset);
-    fn teel_cursor(&self) -> Offset;
-    fn size(&self) -> Size;
-
-    /// Reset the cursor.
-    /// Reseting the cursor do NOT set the cursor to position 0 (use `set_cursor`) for that.
-    /// Reseting the cursor change the producer has if the origin of the pruducer is on the current
-    /// cursor.
-    fn reset(&mut self);
-
-    fn sub_producer_at(&self, offset: Offset, end: ArxEnd) -> Box<dyn Producer>;
-
-    fn read_u8(&mut self) -> Result<u8> {
-        let v = read_u8(self.read_data(1)?);
-        Ok(v)
-    }
-    fn read_u16(&mut self) -> Result<u16> {
-        let v = read_u16(self.read_data(2)?);
-        Ok(v)
-    }
-    fn read_u32(&mut self) -> Result<u32> {
-        let v = read_u32(self.read_data(4)?);
-        Ok(v)
-    }
-    fn read_u64(&mut self) -> Result<u64> {
-        let v = read_u64(self.read_data(8)?);
-        Ok(v)
-    }
-    fn read_sized(&mut self, size: usize) -> Result<u64> {
-        let v = read_to_u64(size, self.read_data(size)?);
-        Ok(v)
-    }
-    fn read_data_into<'a, 'b>(&'a mut self, size: usize, buf: &'b mut [u8]) -> Result<&'b [u8]> {
-        buf.copy_from_slice(self.read_data(size)?);
-        Ok(buf)
-    }
-}
-
 pub struct BufferReader<T: Buffer> {
     buffer: Rc<T>,
     origin: Offset,
@@ -107,7 +50,7 @@ impl<T: Buffer> BufferReader<T> {
                     buffer,
                     origin,
                     end,
-                    offset: 0.into(),
+                    offset: origin,
                 }
             }
             End::Offset(o) => {
@@ -116,7 +59,7 @@ impl<T: Buffer> BufferReader<T> {
                     buffer,
                     origin,
                     end: o,
-                    offset: 0.into(),
+                    offset: origin,
                 }
             }
             End::Size(s) => {
@@ -126,41 +69,66 @@ impl<T: Buffer> BufferReader<T> {
                     buffer,
                     origin,
                     end,
-                    offset: 0.into(),
+                    offset: origin
                 }
             }
         }
     }
+}
 
-    fn current_offset(&self) -> Offset {
-        self.origin + self.offset
+impl<T: Buffer> Seek for BufferReader<T> {
+    fn seek(&mut self, pos: SeekFrom) -> std::result::Result<u64, std::io::Error> {
+        let new : Offset = match pos {
+            SeekFrom::Start(pos) => {
+                self.origin + Offset::from(pos)
+            },
+            SeekFrom::End(delta) => {
+                if delta.is_positive() {
+                    return Err(std::io::Error::new(ErrorKind::InvalidInput, "It is not possible to seek after the end."))
+                }
+                Offset::from(self.end.0 - delta.abs() as u64)
+            },
+            SeekFrom::Current(delta) => {
+                if delta.is_positive() {
+                    self.offset + Offset::from(delta as u64)
+                } else {
+                    (self.offset - Offset::from(delta.abs() as u64)).into()
+                }
+            }
+        };
+        if new < self.origin || new > self.end {
+            return Err(std::io::Error::new(ErrorKind::Other, "Final position is not valid"))
+        }
+        self.offset = new;
+        Ok((self.offset-self.origin).0)
+    }
+/*
+    fn stream_len(&mut self) -> Result<u64> {
+        Ok(self.end - self.origin)
+    }
+
+    fn stream_position(&mut self) -> Result<u64> {
+        Ok(self.offset - self.origin)
+    }
+*/
+}
+
+impl<T: Buffer> Read for BufferReader<T> {
+    fn read(&mut self, buf: &mut[u8]) -> std::result::Result<usize, std::io::Error> {
+        let to_read = min(buf.len() as u64, self.end.0-self.offset.0) as usize;
+        let s = &self.buffer.read_data(self.offset, End::Size(to_read)).unwrap();
+        buf.copy_from_slice(&s);
+        self.offset += to_read;
+        Ok(to_read)
     }
 }
 
 impl<T: Buffer + 'static> Producer for BufferReader<T> {
-    fn read_data(&mut self, size: usize) -> Result<&[u8]> {
-        assert!((self.offset + size).is_valid(self.size()));
-        let s = &self
-            .buffer
-            .read_data(self.current_offset(), End::Size(size))?;
-        self.offset += size;
-        Ok(s)
-    }
-    fn move_cursor(&mut self, delta: Offset) {
-        self.offset += delta;
-    }
-    fn set_cursor(&mut self, offset: Offset) {
-        self.offset = offset;
-    }
     fn teel_cursor(&self) -> Offset {
-        self.offset
+        (self.offset - self.origin).into()
     }
     fn size(&self) -> Size {
         self.end - self.origin
-    }
-    fn reset(&mut self) {
-        self.origin += self.offset;
-        self.offset = 0.into();
     }
 
     fn sub_producer_at(&self, offset: Offset, end: ArxEnd) -> Box<dyn Producer> {

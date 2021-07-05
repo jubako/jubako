@@ -1,15 +1,11 @@
 pub mod types;
+pub mod producing;
 
-use crate::io::*;
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use types::*;
-
-pub trait Producable {
-    fn produce(producer: &mut dyn Producer) -> Result<Self>
-    where
-        Self: Sized;
-}
+use producing::*;
+use std::io::SeekFrom;
 
 impl Producable for Offset {
     fn produce(producer: &mut dyn Producer) -> Result<Self> {
@@ -62,7 +58,7 @@ where
     fn index(&self, idx: Idx<I>) -> T {
         assert!(idx.is_valid(self.length));
         let offset = u64::from(idx.0) * self.elem_size as u64;
-        self.producer.borrow_mut().set_cursor(offset.into());
+        self.producer.borrow_mut().seek(SeekFrom::Start(offset)).unwrap();
         T::produce(self.producer.borrow_mut().as_mut()).unwrap()
     }
 }

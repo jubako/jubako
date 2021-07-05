@@ -5,4 +5,4 @@ mod primitive;
 
 pub use crate::bases::types::Count;
 pub use crate::content_pack::{CompressionType, ContentPack};
-pub use crate::io::Producer;
+pub use crate::bases::producing::Producer;
