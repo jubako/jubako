@@ -19,32 +19,27 @@ pub trait Producer: Read + Seek {
     fn read_u8(&mut self) -> Result<u8> {
         let mut d = [0_u8; 1];
         self.read_exact(&mut d)?;
-        let v = read_u8(&d);
-        Ok(v)
+        Ok(read_u8(&d))
     }
     fn read_u16(&mut self) -> Result<u16> {
         let mut d = [0_u8; 2];
         self.read_exact(&mut d)?;
-        let v = read_u16(&d);
-        Ok(v)
+        Ok(read_u16(&d))
     }
     fn read_u32(&mut self) -> Result<u32> {
         let mut d = [0_u8; 4];
         self.read_exact(&mut d)?;
-        let v = read_u32(&d);
-        Ok(v)
+        Ok(read_u32(&d))
     }
     fn read_u64(&mut self) -> Result<u64> {
         let mut d = [0_u8; 8];
         self.read_exact(&mut d)?;
-        let v = read_u64(&d);
-        Ok(v)
+        Ok(read_u64(&d))
     }
     fn read_sized(&mut self, size: usize) -> Result<u64> {
         let mut d = [0_u8; 8];
         self.read_exact(&mut d[0..size])?;
-        let v = read_to_u64(size, &d);
-        Ok(v)
+        Ok(read_to_u64(size, &d))
     }
 }
 

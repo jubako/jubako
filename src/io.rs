@@ -29,9 +29,9 @@ impl ProducerWrapper<Vec<u8>> {
         }
     }
     fn slice(&self) -> &[u8] {
-        let origin = self.origin.0 as usize;
+        let offset = self.offset.0 as usize;
         let end = self.end.0 as usize;
-        &self.source[origin..end]
+        &self.source[offset..end]
     }
 }
 
@@ -144,219 +144,101 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{IOError, Parsable, Serializable};
+    use super::*;
+    use std::io::Write;
+    use tempfile::tempfile;
 
-    macro_rules! test_serial {
-        ($what:expr, $size:expr, $expected:expr) => {{
-            let mut buf: [u8; $size] = [0xFF; $size];
-            assert_eq!($what.serial(&mut buf[..]), Ok($size));
-            assert_eq!(buf, $expected);
-        }};
+    #[test]
+    fn test_vec_producer() {
+        let mut producer = ProducerWrapper::<Vec<u8>>::new(
+            vec![0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08],
+            End::None,
+        );
+        assert_eq!(producer.read_u8().unwrap(), 0x00_u8);
+        assert_eq!(producer.tell_cursor(), Offset::from(1));
+        assert_eq!(producer.read_u8().unwrap(), 0x01_u8);
+        assert_eq!(producer.tell_cursor(), Offset::from(2));
+        assert_eq!(producer.read_u16().unwrap(), 0x0203_u16);
+        assert_eq!(producer.tell_cursor(), Offset::from(4));
+        producer.seek(SeekFrom::Start(0)).unwrap();
+        assert_eq!(producer.read_u32().unwrap(), 0x00010203_u32);
+        assert_eq!(producer.read_u32().unwrap(), 0x04050607_u32);
+        assert_eq!(producer.tell_cursor(), Offset::from(8));
+        assert!(producer.read_u64().is_err());
+        producer.seek(SeekFrom::Start(0)).unwrap();
+        assert_eq!(producer.read_u64().unwrap(), 0x0001020304050607_u64);
+        assert_eq!(producer.tell_cursor(), Offset::from(8));
+
+        let mut sub_producer = producer.sub_producer_at(1.into(), End::None);
+        assert_eq!(sub_producer.tell_cursor(), Offset::from(0));
+        assert_eq!(sub_producer.read_u8().unwrap(), 0x01_u8);
+        assert_eq!(sub_producer.tell_cursor(), Offset::from(1));
+        assert_eq!(sub_producer.read_u16().unwrap(), 0x0203_u16);
+        assert_eq!(sub_producer.tell_cursor(), Offset::from(3));
+        assert_eq!(sub_producer.read_u32().unwrap(), 0x04050607_u32);
+        assert_eq!(sub_producer.tell_cursor(), Offset::from(7));
+        assert!(sub_producer.read_u64().is_err());
+        sub_producer.seek(SeekFrom::Start(0)).unwrap();
+        assert_eq!(sub_producer.read_u64().unwrap(), 0x0102030405060708_u64);
+        assert_eq!(sub_producer.tell_cursor(), Offset::from(8));
+
+        producer.seek(SeekFrom::Start(1)).unwrap();
+        sub_producer.seek(SeekFrom::Start(0)).unwrap();
+        assert_eq!(producer.read_u8().unwrap(), sub_producer.read_u8().unwrap());
+        assert_eq!(
+            producer.read_u16().unwrap(),
+            sub_producer.read_u16().unwrap()
+        );
+        assert_eq!(
+            producer.read_u32().unwrap(),
+            sub_producer.read_u32().unwrap()
+        );
     }
 
     #[test]
-    fn serial_u8() {
-        test_serial!(0_u8, 1, [0x00]);
-        test_serial!(1_u8, 1, [0x01]);
-        test_serial!(255_u8, 1, [0xff]);
-        test_serial!(128_u8, 1, [0x80]);
-    }
+    fn test_file_producer() {
+        let mut file = tempfile().unwrap();
+        file.write_all(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08])
+            .unwrap();
+        let mut producer = ProducerWrapper::<RefCell<File>>::new(file, End::None);
+        assert_eq!(producer.read_u8().unwrap(), 0x00_u8);
+        assert_eq!(producer.tell_cursor(), Offset::from(1));
+        assert_eq!(producer.read_u8().unwrap(), 0x01_u8);
+        assert_eq!(producer.tell_cursor(), Offset::from(2));
+        assert_eq!(producer.read_u16().unwrap(), 0x0203_u16);
+        assert_eq!(producer.tell_cursor(), Offset::from(4));
+        producer.seek(SeekFrom::Start(0)).unwrap();
+        assert_eq!(producer.read_u32().unwrap(), 0x00010203_u32);
+        assert_eq!(producer.read_u32().unwrap(), 0x04050607_u32);
+        assert_eq!(producer.tell_cursor(), Offset::from(8));
+        assert!(producer.read_u64().is_err());
+        producer.seek(SeekFrom::Start(0)).unwrap();
+        assert_eq!(producer.read_u64().unwrap(), 0x0001020304050607_u64);
+        assert_eq!(producer.tell_cursor(), Offset::from(8));
 
-    #[test]
-    fn serial_u16() {
-        test_serial!(0_u16, 2, [0x00, 0x00]);
-        test_serial!(1_u16, 2, [0x00, 0x01]);
-        test_serial!(255_u16, 2, [0x00, 0xff]);
-        test_serial!(128_u16, 2, [0x00, 0x80]);
-        test_serial!(0x8000_u16, 2, [0x80, 0x00]);
-        test_serial!(0xFF00_u16, 2, [0xFF, 0x00]);
-        test_serial!(0xFFFF_u16, 2, [0xFF, 0xFF]);
+        let mut sub_producer = producer.sub_producer_at(1.into(), End::None);
+        assert_eq!(sub_producer.tell_cursor(), Offset::from(0));
+        assert_eq!(sub_producer.read_u8().unwrap(), 0x01_u8);
+        assert_eq!(sub_producer.tell_cursor(), Offset::from(1));
+        assert_eq!(sub_producer.read_u16().unwrap(), 0x0203_u16);
+        assert_eq!(sub_producer.tell_cursor(), Offset::from(3));
+        assert_eq!(sub_producer.read_u32().unwrap(), 0x04050607_u32);
+        assert_eq!(sub_producer.tell_cursor(), Offset::from(7));
+        assert!(sub_producer.read_u64().is_err());
+        sub_producer.seek(SeekFrom::Start(0)).unwrap();
+        assert_eq!(sub_producer.read_u64().unwrap(), 0x0102030405060708_u64);
+        assert_eq!(sub_producer.tell_cursor(), Offset::from(8));
 
-        let mut buf: [u8; 1] = [0xFF; 1];
-        assert_eq!(1_u16.serial(&mut buf[..]), Err(IOError {}));
-    }
-
-    #[test]
-    fn serial_u32() {
-        test_serial!(0_u32, 4, [0x00, 0x00, 0x00, 0x00]);
-        test_serial!(1_u32, 4, [0x00, 0x00, 0x00, 0x01]);
-        test_serial!(255_u32, 4, [0x00, 0x00, 0x00, 0xff]);
-        test_serial!(128_u32, 4, [0x00, 0x00, 0x00, 0x80]);
-        test_serial!(0x8000_u32, 4, [0x00, 0x00, 0x80, 0x00]);
-        test_serial!(0xFF00_u32, 4, [0x00, 0x00, 0xFF, 0x00]);
-        test_serial!(0xFFFF_u32, 4, [0x00, 0x00, 0xFF, 0xFF]);
-        test_serial!(0xFF000000_u32, 4, [0xFF, 0x00, 0x00, 0x00]);
-        test_serial!(0xFF0000_u32, 4, [0x00, 0xFF, 0x00, 0x00]);
-        test_serial!(0xFFFFFFFF_u32, 4, [0xFF, 0xFF, 0xFF, 0xFF]);
-
-        let mut buf: [u8; 2] = [0xFF; 2];
-        assert_eq!(1_u32.serial(&mut buf[..]), Err(IOError {}));
-    }
-
-    #[test]
-    fn serial_u64() {
-        test_serial!(0_u64, 8, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        test_serial!(1_u64, 8, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]);
-        test_serial!(
-            0xFF_u64,
-            8,
-            [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF]
+        producer.seek(SeekFrom::Start(1)).unwrap();
+        sub_producer.seek(SeekFrom::Start(0)).unwrap();
+        assert_eq!(producer.read_u8().unwrap(), sub_producer.read_u8().unwrap());
+        assert_eq!(
+            producer.read_u16().unwrap(),
+            sub_producer.read_u16().unwrap()
         );
-        test_serial!(
-            0xFF00_u64,
-            8,
-            [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00]
-        );
-        test_serial!(
-            0xFF0000_u64,
-            8,
-            [0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00]
-        );
-        test_serial!(
-            0xFF000000_u64,
-            8,
-            [0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00]
-        );
-        test_serial!(
-            0xFF00000000_u64,
-            8,
-            [0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00]
-        );
-        test_serial!(
-            0xFF0000000000_u64,
-            8,
-            [0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00]
-        );
-        test_serial!(
-            0xFF000000000000_u64,
-            8,
-            [0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-        );
-        test_serial!(
-            0xFF00000000000000_u64,
-            8,
-            [0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-        );
-        test_serial!(
-            0xFF00000000008000_u64,
-            8,
-            [0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00]
-        );
-        test_serial!(
-            0xFFFFFFFFFFFFFFFF_u64,
-            8,
-            [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
-        );
-
-        let mut buf: [u8; 2] = [0xFF; 2];
-        assert_eq!(1_u64.serial(&mut buf[..]), Err(IOError {}));
-    }
-
-    macro_rules! test_parse {
-        ($ty:ty, $buf:expr, $size:expr, $expected:expr) => {{
-            let mut data: $ty = 0x88;
-            assert_eq!(data.parse(&$buf), Ok($size));
-            assert_eq!(data, $expected);
-        }};
-    }
-
-    #[test]
-    fn parse_u8() {
-        test_parse!(u8, [0x00], 1, 0);
-        test_parse!(u8, [0x01], 1, 1);
-        test_parse!(u8, [0xff], 1, 255);
-        test_parse!(u8, [0x80], 1, 128);
-    }
-
-    #[test]
-    fn parse_u16() {
-        test_parse!(u16, [0x00, 0x00], 2, 0);
-        test_parse!(u16, [0x00, 0x01], 2, 1);
-        test_parse!(u16, [0x00, 0xff], 2, 255);
-        test_parse!(u16, [0x00, 0x80], 2, 128);
-        test_parse!(u16, [0x80, 0x00], 2, 0x8000);
-        test_parse!(u16, [0xFF, 0x00], 2, 0xFF00);
-        test_parse!(u16, [0xFF, 0xFF], 2, 0xFFFF);
-    }
-
-    #[test]
-    fn parse_u32() {
-        test_parse!(u32, [0x00, 0x00, 0x00, 0x00], 4, 0);
-        test_parse!(u32, [0x00, 0x00, 0x00, 0x01], 4, 1);
-        test_parse!(u32, [0x00, 0x00, 0x00, 0xff], 4, 255);
-        test_parse!(u32, [0x00, 0x00, 0x00, 0x80], 4, 128);
-        test_parse!(u32, [0x00, 0x00, 0x80, 0x00], 4, 0x8000);
-        test_parse!(u32, [0x00, 0x00, 0xFF, 0x00], 4, 0xFF00);
-        test_parse!(u32, [0x00, 0x00, 0xFF, 0xFF], 4, 0xFFFF);
-        test_parse!(u32, [0xFF, 0x00, 0x00, 0x00], 4, 0xFF000000);
-        test_parse!(u32, [0x00, 0xFF, 0x00, 0x00], 4, 0xFF0000);
-        test_parse!(u32, [0xFF, 0xFF, 0xFF, 0xFF], 4, 0xFFFFFFFF);
-    }
-
-    #[test]
-    fn parse_u64() {
-        test_parse!(u64, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], 8, 0);
-        test_parse!(u64, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01], 8, 1);
-        test_parse!(
-            u64,
-            [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF],
-            8,
-            0xFF
-        );
-        test_parse!(
-            u64,
-            [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00],
-            8,
-            0xFF00
-        );
-        test_parse!(
-            u64,
-            [0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00],
-            8,
-            0xFF0000
-        );
-        test_parse!(
-            u64,
-            [0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00],
-            8,
-            0xFF000000
-        );
-        test_parse!(
-            u64,
-            [0x00, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00],
-            8,
-            0xFF00000000
-        );
-        test_parse!(
-            u64,
-            [0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00],
-            8,
-            0xFF0000000000
-        );
-        test_parse!(
-            u64,
-            [0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-            8,
-            0xFF000000000000
-        );
-        test_parse!(
-            u64,
-            [0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-            8,
-            0xFF00000000000000
-        );
-        test_parse!(
-            u64,
-            [0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00],
-            8,
-            0xFF00000000008000
-        );
-        test_parse!(
-            u64,
-            [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
-            8,
-            0xFFFFFFFFFFFFFFFF
+        assert_eq!(
+            producer.read_u32().unwrap(),
+            sub_producer.read_u32().unwrap()
         );
     }
-
 }

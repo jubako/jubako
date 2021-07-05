@@ -31,7 +31,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// A offset used in xar.
 /// We handling content in 64 bits space.
 /// We cannot use a usize as it is arch dependent.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
 pub struct Offset(pub u64);
 
 impl Offset {
@@ -96,7 +96,7 @@ impl Sub for Offset {
 /// We handling content in 64 bits space.
 /// We cannot use a usize as it is arch dependent.
 /// Let's define our own type.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
 pub struct Size(pub u64);
 
 impl From<Offset> for Size {
@@ -127,7 +127,7 @@ pub enum End {
 
 /// A count of object.
 /// All count object can be stored in a u32.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
 pub struct Count<T>(pub T);
 
 impl<T> From<T> for Count<T> {
@@ -161,4 +161,32 @@ impl<T> From<T> for Idx<T> {
 pub trait Index<Idx> {
     type OutputType;
     fn index(&self, idx: Idx) -> Self::OutputType;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_case::test_case;
+
+    #[test_case(0, 0 => true)]
+    #[test_case(0, 1 => true)]
+    #[test_case(1, 1 => true)]
+    #[test_case(1, 0 => false)]
+    #[test_case(254, 255 => true)]
+    #[test_case(255, 255 => true)]
+    #[test_case(256, 255 => false)]
+    fn test_offset_is_valid(o: u64, s: u64) -> bool {
+        Offset(o).is_valid(s.into())
+    }
+
+    #[test_case(0, 0 => false)]
+    #[test_case(0, 1 => true)]
+    #[test_case(1, 1 => false)]
+    #[test_case(1, 0 => false)]
+    #[test_case(254, 255 => true)]
+    #[test_case(255, 255 => false)]
+    #[test_case(256, 255 => false)]
+    fn test_index_is_valid(o: u64, s: u64) -> bool {
+        Idx(o).is_valid(s.into())
+    }
 }
