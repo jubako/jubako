@@ -117,7 +117,7 @@ impl<T: 'static> Producer for ProducerWrapper<T>
 where
     ProducerWrapper<T>: std::io::Read,
 {
-    fn teel_cursor(&self) -> Offset {
+    fn tell_cursor(&self) -> Offset {
         (self.offset - self.origin).into()
     }
     fn size(&self) -> Size {

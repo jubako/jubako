@@ -11,7 +11,7 @@ use std::io::{Read, Seek};
 /// Each producer are independant.
 /// Data is never modified.
 pub trait Producer: Read + Seek {
-    fn teel_cursor(&self) -> Offset;
+    fn tell_cursor(&self) -> Offset;
     fn size(&self) -> Size;
 
     fn sub_producer_at(&self, offset: Offset, end: End) -> Box<dyn Producer>;

@@ -74,10 +74,10 @@ impl Cluster {
         let producer = match header.compression {
             CompressionType::NONE => {
                 assert_eq!(
-                    (producer.teel_cursor() + data_size).0,
+                    (producer.tell_cursor() + data_size).0,
                     header.cluster_size.0
                 );
-                producer.sub_producer_at(producer.teel_cursor(), End::None)
+                producer.sub_producer_at(producer.tell_cursor(), End::None)
             }
             _ => {
                 //[TODO] decompression from buf[read..header.cluster_size] to self.data
