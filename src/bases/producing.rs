@@ -53,3 +53,27 @@ pub trait Producable {
     where
         Self: Sized;
 }
+
+impl Producable for Offset {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+        Ok(producer.read_u64()?.into())
+    }
+}
+
+impl Producable for Size {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+        Ok(producer.read_u64()?.into())
+    }
+}
+
+impl Producable for Count<u16> {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+        Ok(producer.read_u16()?.into())
+    }
+}
+
+impl Producable for Count<u32> {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+        Ok(producer.read_u32()?.into())
+    }
+}

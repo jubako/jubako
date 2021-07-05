@@ -7,30 +7,6 @@ use std::io::SeekFrom;
 use std::marker::PhantomData;
 use types::*;
 
-impl Producable for Offset {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        Ok(producer.read_u64()?.into())
-    }
-}
-
-impl Producable for Size {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        Ok(producer.read_u64()?.into())
-    }
-}
-
-impl Producable for Count<u16> {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        Ok(producer.read_u16()?.into())
-    }
-}
-
-impl Producable for Count<u32> {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        Ok(producer.read_u32()?.into())
-    }
-}
-
 pub struct ArrayProducer<'a, T, I> {
     producer: RefCell<Box<dyn Producer + 'a>>,
     length: Count<I>,
