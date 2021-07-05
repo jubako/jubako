@@ -1,115 +1,13 @@
+mod cluster;
+
 use crate::bases::producing::*;
 use crate::bases::types::*;
 use crate::bases::*;
-use crate::io::*;
+pub use cluster::Cluster;
 use std::cell::RefCell;
 use std::io::SeekFrom;
-use std::vec::Vec;
-
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum CompressionType {
-    NONE = 0,
-    LZ4 = 1,
-    LZMA = 2,
-    ZSTD = 3,
-}
-
-impl Producable for CompressionType {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        match producer.read_u8()? {
-            0 => Ok(CompressionType::NONE),
-            1 => Ok(CompressionType::LZ4),
-            2 => Ok(CompressionType::LZMA),
-            3 => Ok(CompressionType::ZSTD),
-            _ => {
-                producer.seek(SeekFrom::Current(-1)).unwrap();
-                Err(Error::FormatError)
-            }
-        }
-    }
-}
 
 #[derive(Debug, PartialEq)]
-struct ClusterHeader {
-    compression: CompressionType,
-    offset_size: u8,
-    blob_count: Count<u16>,
-    cluster_size: Size,
-}
-
-impl Producable for ClusterHeader {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        let compression = CompressionType::produce(producer)?;
-        let offset_size = producer.read_u8()?;
-        let blob_count = Count::produce(producer)?;
-        let cluster_size = Size::produce(producer)?;
-        Ok(ClusterHeader {
-            compression,
-            offset_size,
-            blob_count,
-            cluster_size,
-        })
-    }
-}
-
-struct Cluster {
-    blob_offsets: Vec<Offset>,
-    producer: Box<dyn Producer>,
-}
-
-impl Cluster {
-    pub fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        let header = ClusterHeader::produce(producer)?;
-        let data_size: Size = producer.read_sized(header.offset_size.into())?.into();
-        let mut blob_offsets: Vec<Offset> = Vec::with_capacity((header.blob_count.0 + 1) as usize);
-        unsafe { blob_offsets.set_len((header.blob_count.0).into()) }
-        let mut first = true;
-        for elem in blob_offsets.iter_mut() {
-            if first {
-                *elem = 0.into();
-                first = false;
-            } else {
-                *elem = producer.read_sized(header.offset_size.into())?.into();
-            }
-            assert!(elem.is_valid(data_size));
-        }
-        blob_offsets.push(data_size.into());
-        let producer = match header.compression {
-            CompressionType::NONE => {
-                assert_eq!(
-                    (producer.tell_cursor() + data_size).0,
-                    header.cluster_size.0
-                );
-                producer.sub_producer_at(producer.tell_cursor(), End::None)
-            }
-            _ => {
-                //[TODO] decompression from buf[read..header.cluster_size] to self.data
-                Box::new(ProducerWrapper::<Vec<u8>>::new(
-                    Vec::<u8>::with_capacity(data_size.0 as usize),
-                    End::None,
-                ))
-            }
-        };
-        Ok(Cluster {
-            blob_offsets,
-            producer,
-        })
-    }
-
-    pub fn blob_count(&self) -> Count<u16> {
-        Count::from((self.blob_offsets.len() - 1) as u16)
-    }
-
-    pub fn get_producer(&self, index: Idx<u16>) -> Result<Box<dyn Producer>> {
-        let offset = self.blob_offsets[index.0 as usize];
-        let end_offset = self.blob_offsets[(index.0 + 1) as usize];
-        Ok(self
-            .producer
-            .sub_producer_at(offset, End::Offset(end_offset)))
-    }
-}
-
 struct PackHeader {
     _magic: u32,
     app_vendor_id: u32,
