@@ -119,19 +119,11 @@ impl From<usize> for Size {
 }
 
 /// The end of a buffer.
-pub enum End<SizeType> {
+pub enum End {
     Offset(Offset),
-    Size(SizeType),
+    Size(Size),
     None,
 }
-
-/// A end use for reading content.
-/// We must use a usize as we are arch depend.
-pub type ReadEnd = End<usize>;
-
-/// A end for reference content.
-/// We must use a Size are we are arch independent.
-pub type ArxEnd = End<Size>;
 
 /// A count of object.
 /// All count object can be stored in a u32.

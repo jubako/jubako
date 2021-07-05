@@ -13,7 +13,7 @@ pub struct ProducerWrapper<T> {
 }
 
 impl ProducerWrapper<Vec<u8>> {
-    pub fn new(source: Vec<u8>, end: ArxEnd) -> Self {
+    pub fn new(source: Vec<u8>, end: End) -> Self {
         let source = Rc::new(source);
         let end = match end {
             End::None => Offset(source.len() as u64),
@@ -36,7 +36,7 @@ impl ProducerWrapper<Vec<u8>> {
 }
 
 impl ProducerWrapper<RefCell<File>> {
-    pub fn new(mut source: File, end: ArxEnd) -> Self {
+    pub fn new(mut source: File, end: End) -> Self {
         let len = source.seek(SeekFrom::End(0)).unwrap();
         let source = Rc::new(RefCell::new(source));
         let end = match end {
@@ -124,7 +124,7 @@ where
         self.end - self.origin
     }
 
-    fn sub_producer_at(&self, offset: Offset, end: ArxEnd) -> Box<dyn Producer> {
+    fn sub_producer_at(&self, offset: Offset, end: End) -> Box<dyn Producer> {
         let origin = self.origin + offset;
         assert!(origin <= self.end);
         let end = match end {

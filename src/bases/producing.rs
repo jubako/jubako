@@ -14,7 +14,7 @@ pub trait Producer: Read + Seek {
     fn teel_cursor(&self) -> Offset;
     fn size(&self) -> Size;
 
-    fn sub_producer_at(&self, offset: Offset, end: ArxEnd) -> Box<dyn Producer>;
+    fn sub_producer_at(&self, offset: Offset, end: End) -> Box<dyn Producer>;
 
     fn read_u8(&mut self) -> Result<u8> {
         let mut d = [0_u8; 1];
