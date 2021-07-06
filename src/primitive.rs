@@ -81,8 +81,8 @@ pub fn write_from_u64(val: u64, size:usize, out:&mut[u8])
 }*/
 
 pub fn read_u8(buf: &[u8]) -> u8 {
-    assert!(1 <= buf.len());
-    return buf[0];
+    assert!(!buf.is_empty());
+    buf[0]
 }
 
 pub fn read_u16(buf: &[u8]) -> u16 {

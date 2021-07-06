@@ -35,7 +35,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub struct Offset(pub u64);
 
 impl Offset {
-    pub fn is_valid(&self, s: Size) -> bool {
+    pub fn is_valid(self, s: Size) -> bool {
         self.0 <= s.0
     }
 }

@@ -50,7 +50,7 @@ struct FreeData56([u8; 56]);
 
 impl PartialEq for FreeData56 {
     fn eq(&self, other: &Self) -> bool {
-        &self.0[..] == &other.0[..]
+        self.0[..] == other.0[..]
     }
 }
 impl Debug for FreeData56 {
@@ -137,7 +137,7 @@ impl<'a> ContentPack<'a> {
         let entry_infos = ArrayProducer::<EntryInfo, u32>::new(
             producer.sub_producer_at(
                 header.entry_ptr_pos,
-                End::Size(Size(header.entry_count.0 as u64 * 4)),
+                End::Size(Size(u64::from(header.entry_count.0) * 4)),
             ),
             header.entry_count,
             4,
@@ -145,7 +145,7 @@ impl<'a> ContentPack<'a> {
         let cluster_ptrs = ArrayProducer::<Offset, u32>::new(
             producer.sub_producer_at(
                 header.cluster_ptr_pos,
-                End::Size(Size(header.cluster_count.0 as u64 * 8)),
+                End::Size(Size(u64::from(header.cluster_count.0) * 8)),
             ),
             header.cluster_count,
             8,
