@@ -3,48 +3,11 @@ mod cluster;
 use crate::bases::producing::*;
 use crate::bases::types::*;
 use crate::bases::*;
+use crate::pack::*;
 pub use cluster::Cluster;
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
-use std::io::SeekFrom;
 use std::ops::{Deref, DerefMut};
-
-#[derive(Debug, PartialEq)]
-struct PackHeader {
-    _magic: u32,
-    app_vendor_id: u32,
-    major_version: u8,
-    minor_version: u8,
-    uuid: [u8; 16],
-    _file_size: Size,
-    _check_info_pos: Offset,
-}
-
-impl PackHeader {
-    pub fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        let magic = producer.read_u32()?;
-        if magic != 0x61727863_u32 {
-            return Err(Error::FormatError);
-        }
-        let app_vendor_id = producer.read_u32()?;
-        let major_version = producer.read_u8()?;
-        let minor_version = producer.read_u8()?;
-        let mut uuid: [u8; 16] = [0_u8; 16];
-        producer.read_exact(&mut uuid)?;
-        producer.seek(SeekFrom::Current(6))?;
-        let _file_size = Size::produce(producer)?;
-        let _check_info_pos = Offset::produce(producer)?;
-        Ok(PackHeader {
-            _magic: magic,
-            app_vendor_id,
-            major_version,
-            minor_version,
-            uuid,
-            _file_size,
-            _check_info_pos,
-        })
-    }
-}
 
 struct FreeData56([u8; 56]);
 
@@ -179,20 +142,32 @@ impl<'a> ContentPack<'a> {
         cluster.get_producer(entry_info.blob_index)
     }
 
-    pub fn get_app_vendor_id(&self) -> u32 {
-        self.header.pack_header.app_vendor_id
-    }
-    pub fn get_major_version(&self) -> u8 {
-        self.header.pack_header.major_version
-    }
-    pub fn get_minor_version(&self) -> u8 {
-        self.header.pack_header.minor_version
-    }
-    pub fn get_uuid(&self) -> [u8; 16] {
-        self.header.pack_header.uuid
-    }
     pub fn get_free_data(&self) -> [u8; 56] {
         self.header.free_data.0
+    }
+}
+
+impl Pack for ContentPack<'_> {
+    fn kind(&self) -> PackKind {
+        self.header.pack_header.magic
+    }
+    fn app_vendor_id(&self) -> u32 {
+        self.header.pack_header.app_vendor_id
+    }
+    fn version(&self) -> (u8, u8) {
+        (
+            self.header.pack_header.major_version,
+            self.header.pack_header.minor_version,
+        )
+    }
+    fn uuid(&self) -> Uuid {
+        self.header.pack_header.uuid
+    }
+    fn size(&self) -> Size {
+        self.header.pack_header.file_size
+    }
+    fn check(&self) -> Result<bool> {
+        Ok(true)
     }
 }
 
@@ -224,15 +199,15 @@ mod tests {
             ContentPackHeader::produce(&mut producer).unwrap(),
             ContentPackHeader {
                 pack_header: PackHeader {
-                    _magic: 0x61727863_u32,
+                    magic: PackKind::CONTENT,
                     app_vendor_id: 0x01000000_u32,
                     major_version: 0x01_u8,
                     minor_version: 0x02_u8,
-                    uuid: [
+                    uuid: Uuid([
                         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
                         0x0c, 0x0d, 0x0e, 0x0f
-                    ],
-                    _file_size: Size::from(0xffff_u64),
+                    ]),
+                    file_size: Size::from(0xffff_u64),
                     _check_info_pos: Offset::from(0xffee_u64),
                 },
                 entry_ptr_pos: Offset::from(0xee00_u64),
@@ -285,15 +260,14 @@ mod tests {
         let producer = Box::new(ProducerWrapper::<Vec<u8>>::new(content, End::None));
         let content_pack = ContentPack::new(producer).unwrap();
         assert_eq!(content_pack.get_entry_count(), Count(3));
-        assert_eq!(content_pack.get_app_vendor_id(), 0x01000000_u32);
-        assert_eq!(content_pack.get_major_version(), 1);
-        assert_eq!(content_pack.get_minor_version(), 2);
+        assert_eq!(content_pack.app_vendor_id(), 0x01000000_u32);
+        assert_eq!(content_pack.version(), (1, 2));
         assert_eq!(
-            content_pack.get_uuid(),
-            [
+            content_pack.uuid(),
+            Uuid([
                 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
                 0x0e, 0x0f
-            ]
+            ])
         );
         assert_eq!(&content_pack.get_free_data()[..], &[0xff; 56][..]);
 
