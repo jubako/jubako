@@ -169,5 +169,4 @@ mod tests {
     fn read_u64_test(input: &[u8]) -> u64 {
         read_u64(input)
     }
-
 }

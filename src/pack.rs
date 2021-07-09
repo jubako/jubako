@@ -1,7 +1,7 @@
 use crate::bases::producing::*;
 use crate::bases::types::*;
 use std::fmt::{Debug, Display, Formatter};
-use std::io::SeekFrom;
+use std::io::{self, Read, SeekFrom};
 use std::ops::Deref;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -60,6 +60,62 @@ impl Producable for Uuid {
     }
 }
 
+#[derive(Clone, Copy)]
+enum CheckKind {
+    NONE,
+    BLAKE3,
+}
+
+impl Producable for CheckKind {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+        match producer.read_u8()? {
+            0_u8 => Ok(CheckKind::NONE),
+            1_u8 => Ok(CheckKind::BLAKE3),
+            _ => {
+                producer.seek(SeekFrom::Current(-1)).unwrap();
+                Err(Error::FormatError)
+            }
+        }
+    }
+}
+
+impl Producable for blake3::Hash {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+        let mut v = [0_u8; blake3::OUT_LEN];
+        producer.read_exact(&mut v)?;
+        Ok(v.into())
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct CheckInfo {
+    b3hash: Option<blake3::Hash>,
+}
+
+impl Producable for CheckInfo {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+        let kind = CheckKind::produce(producer)?;
+        let b3hash = match kind {
+            CheckKind::BLAKE3 => Some(blake3::Hash::produce(producer)?),
+            _ => None,
+        };
+        Ok(Self { b3hash })
+    }
+}
+
+impl CheckInfo {
+    pub fn check(&self, source: &mut dyn Read) -> Result<bool> {
+        if let Some(b3hash) = self.b3hash {
+            let mut hasher = blake3::Hasher::new();
+            io::copy(source, &mut hasher)?;
+            let hash = hasher.finalize();
+            Ok(hash == b3hash)
+        } else {
+            Ok(true)
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct PackHeader {
     pub magic: PackKind,
@@ -68,11 +124,11 @@ pub struct PackHeader {
     pub minor_version: u8,
     pub uuid: Uuid,
     pub file_size: Size,
-    pub _check_info_pos: Offset,
+    pub check_info_pos: Offset,
 }
 
-impl PackHeader {
-    pub fn produce(producer: &mut dyn Producer) -> Result<Self> {
+impl Producable for PackHeader {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
         let magic = PackKind::produce(producer)?;
         let app_vendor_id = producer.read_u32()?;
         let major_version = producer.read_u8()?;
@@ -80,7 +136,7 @@ impl PackHeader {
         let uuid = Uuid::produce(producer)?;
         producer.seek(SeekFrom::Current(6))?;
         let file_size = Size::produce(producer)?;
-        let _check_info_pos = Offset::produce(producer)?;
+        let check_info_pos = Offset::produce(producer)?;
         Ok(PackHeader {
             magic,
             app_vendor_id,
@@ -88,7 +144,7 @@ impl PackHeader {
             minor_version,
             uuid,
             file_size,
-            _check_info_pos,
+            check_info_pos,
         })
     }
 }
@@ -111,7 +167,7 @@ mod tests {
     use crate::io::*;
 
     #[test]
-    fn test_contentpackheader() {
+    fn test_packheader() {
         let mut content = vec![
             0x61, 0x72, 0x78, 0x63, // magic
             0x01, 0x00, 0x00, 0x00, // app_vendor_id
@@ -122,6 +178,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, // file_size
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xee, // check_info_pos
+            0x00, // No check
         ];
         content.extend_from_slice(&[0xff; 56]);
         let mut producer = ProducerWrapper::<Vec<u8>>::new(content, End::None);
@@ -137,7 +194,7 @@ mod tests {
                     0x0d, 0x0e, 0x0f
                 ]),
                 file_size: Size::from(0xffff_u64),
-                _check_info_pos: Offset::from(0xffee_u64),
+                check_info_pos: Offset::from(0xffee_u64),
             }
         );
     }

@@ -5,8 +5,9 @@ use crate::bases::types::*;
 use crate::bases::*;
 use crate::pack::*;
 pub use cluster::Cluster;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};
+use std::io::Read;
 use std::ops::{Deref, DerefMut};
 
 struct FreeData56([u8; 56]);
@@ -92,6 +93,7 @@ pub struct ContentPack<'a> {
     entry_infos: ArrayProducer<'a, EntryInfo, u32>,
     cluster_ptrs: ArrayProducer<'a, Offset, u32>,
     producer: RefCell<Box<dyn Producer + 'a>>,
+    check_info: Cell<Option<CheckInfo>>,
 }
 
 impl<'a> ContentPack<'a> {
@@ -118,6 +120,7 @@ impl<'a> ContentPack<'a> {
             entry_infos,
             cluster_ptrs,
             producer: RefCell::new(producer),
+            check_info: Cell::new(None),
         })
     }
 
@@ -167,7 +170,22 @@ impl Pack for ContentPack<'_> {
         self.header.pack_header.file_size
     }
     fn check(&self) -> Result<bool> {
-        Ok(true)
+        if self.check_info.get().is_none() {
+            let mut checkinfo_producer = self
+                .producer
+                .borrow()
+                .sub_producer_at(self.header.pack_header.check_info_pos, End::None);
+            let check_info = CheckInfo::produce(checkinfo_producer.as_mut())?;
+            self.check_info.set(Some(check_info));
+        }
+        let mut check_reader = self.producer.borrow().sub_producer_at(
+            Offset::from(0),
+            End::Offset(self.header.pack_header.check_info_pos),
+        );
+        self.check_info
+            .get()
+            .unwrap()
+            .check(&mut check_reader.as_mut() as &mut dyn Read)
     }
 }
 
@@ -208,7 +226,7 @@ mod tests {
                         0x0c, 0x0d, 0x0e, 0x0f
                     ]),
                     file_size: Size::from(0xffff_u64),
-                    _check_info_pos: Offset::from(0xffee_u64),
+                    check_info_pos: Offset::from(0xffee_u64),
                 },
                 entry_ptr_pos: Offset::from(0xee00_u64),
                 cluster_ptr_pos: Offset::from(0xeedd_u64),
@@ -229,7 +247,7 @@ mod tests {
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
             0x0e, 0x0f, // uuid off:10
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding off:26
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB2, // file_size off:32
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xD3, // file_size off:32
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB2, // check_info_pos off:40
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, // entry_ptr_pos off:48
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x8C, // cluster_ptr_pos off:56
@@ -253,10 +271,11 @@ mod tests {
             0x08, // Offset of blob 2
             0x11, 0x12, 0x13, 0x14, 0x15, // Data of blob 0
             0x21, 0x22, 0x23, // Data of blob 1
-            0x31, 0x32, 0x33, 0x34, 0x35, 0x36,
-            0x37, // Data of blob 2
-                  // end 148+30 = 178
-        ]);
+            0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of blob 2
+        ]); // end 148+30 = 178
+        let hash = blake3::hash(&content);
+        content.push(0x01); // check info off: 179
+        content.extend(hash.as_bytes()); // end : 179+32 = 211
         let producer = Box::new(ProducerWrapper::<Vec<u8>>::new(content, End::None));
         let content_pack = ContentPack::new(producer).unwrap();
         assert_eq!(content_pack.get_entry_count(), Count(3));
@@ -270,6 +289,7 @@ mod tests {
             ])
         );
         assert_eq!(&content_pack.get_free_data()[..], &[0xff; 56][..]);
+        assert!(&content_pack.check().unwrap());
 
         {
             let mut sub_producer = content_pack.get_content(Idx(0_u32)).unwrap();
@@ -293,5 +313,4 @@ mod tests {
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }
     }
-
 }
