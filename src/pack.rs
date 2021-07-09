@@ -1,8 +1,8 @@
 use crate::bases::producing::*;
 use crate::bases::types::*;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Debug;
 use std::io::{self, Read, SeekFrom};
-use std::ops::Deref;
+use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PackKind {
@@ -25,38 +25,11 @@ impl Producable for PackKind {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct Uuid(pub [u8; 16]);
-
-impl PartialEq for Uuid {
-    fn eq(&self, other: &Self) -> bool {
-        self.0[..] == other.0[..]
-    }
-}
-impl Debug for Uuid {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        writeln!(f, "UUID({:#?})", self.0)
-    }
-}
-impl Display for Uuid {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        for v in self.0.iter() {
-            write!(f, "UUID({:X})", v)?
-        }
-        Ok(())
-    }
-}
-impl Deref for Uuid {
-    type Target = [u8];
-    fn deref(&self) -> &[u8] {
-        &self.0
-    }
-}
 impl Producable for Uuid {
     fn produce(producer: &mut dyn Producer) -> Result<Self> {
         let mut v = [0_u8; 16];
         producer.read_exact(&mut v)?;
-        Ok(Self(v))
+        Ok(Uuid::from_bytes(v))
     }
 }
 
@@ -189,7 +162,7 @@ mod tests {
                 app_vendor_id: 0x01000000_u32,
                 major_version: 0x01_u8,
                 minor_version: 0x02_u8,
-                uuid: Uuid([
+                uuid: Uuid::from_bytes([
                     0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c,
                     0x0d, 0x0e, 0x0f
                 ]),
