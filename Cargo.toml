@@ -10,6 +10,8 @@ edition = "2018"
 uuid = "0.8.2"
 blake3 = "0.3.8"
 lz4 = "1.23.2"
+zstd = "0.9"
+rust-lzma = "0.5"
 
 [dev-dependencies]
 test-case = "1.2.0"

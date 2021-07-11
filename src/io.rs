@@ -216,6 +216,8 @@ impl<T: Read> Read for ProducerWrapper<SeakableDecoder<T>> {
 }
 
 pub type Lz4Wrapper<T> = ProducerWrapper<SeakableDecoder<lz4::Decoder<T>>>;
+pub type LzmaWrapper<T> = ProducerWrapper<SeakableDecoder<lzma::LzmaReader<T>>>;
+pub type ZstdWrapper<'a, T> = ProducerWrapper<SeakableDecoder<zstd::Decoder<'a, T>>>;
 
 #[cfg(test)]
 mod tests {

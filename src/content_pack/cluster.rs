@@ -72,34 +72,32 @@ impl Cluster {
             assert!(elem.is_valid(data_size));
         }
         blob_offsets.push(data_size.into());
+        let raw_producer = producer.sub_producer_at(
+            producer.tell_cursor(),
+            End::Offset(header.cluster_size.into()),
+        );
         let producer = match header.compression {
             CompressionType::NONE => {
                 assert_eq!(
                     (producer.tell_cursor() + data_size).0,
                     header.cluster_size.0
                 );
-                producer.sub_producer_at(
-                    producer.tell_cursor(),
-                    End::Offset(header.cluster_size.into()),
-                )
+                raw_producer
             }
             CompressionType::LZ4 => {
-                let raw_producer = producer.sub_producer_at(
-                    producer.tell_cursor(),
-                    End::Offset(header.cluster_size.into()),
-                );
-                Box::new(Lz4Wrapper::new(
-                    lz4::Decoder::new(raw_producer).unwrap(),
+                Box::new(Lz4Wrapper::new(lz4::Decoder::new(raw_producer)?, data_size))
+            }
+            CompressionType::LZMA => {
+                Box::new(LzmaWrapper::new(
+                    // [TODO] Handle error conversion instead of unwrap()
+                    lzma::LzmaReader::new_decompressor(raw_producer).unwrap(),
                     data_size,
                 ))
             }
-            _ => {
-                //[TODO] decompression from buf[read..header.cluster_size] to self.data
-                Box::new(ProducerWrapper::<Vec<u8>>::new(
-                    Vec::<u8>::with_capacity(data_size.0 as usize),
-                    End::None,
-                ))
-            }
+            CompressionType::ZSTD => Box::new(ZstdWrapper::new(
+                zstd::Decoder::new(raw_producer)?,
+                data_size,
+            )),
         };
         Ok(Cluster {
             blob_offsets,
@@ -262,6 +260,130 @@ mod tests {
                 offset_size: 1,
                 blob_count: Count(3),
                 cluster_size: Size(49)
+            }
+        );
+        producer.seek(SeekFrom::Start(0)).unwrap();
+        let cluster = Cluster::produce(&mut producer).unwrap();
+        assert_eq!(cluster.blob_count(), Count(3_u16));
+
+        {
+            let mut sub_producer = cluster.get_producer(Idx(0_u16)).unwrap();
+            assert_eq!(sub_producer.size(), Size::from(5_u64));
+            let mut v = Vec::<u8>::new();
+            sub_producer.read_to_end(&mut v).unwrap();
+            assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
+        }
+        {
+            let mut sub_producer = cluster.get_producer(Idx(1_u16)).unwrap();
+            assert_eq!(sub_producer.size(), Size::from(3_u64));
+            let mut v = Vec::<u8>::new();
+            sub_producer.read_to_end(&mut v).unwrap();
+            assert_eq!(v, [0x21, 0x22, 0x23]);
+        }
+        {
+            let mut sub_producer = cluster.get_producer(Idx(2_u16)).unwrap();
+            assert_eq!(sub_producer.size(), Size::from(7_u64));
+            let mut v = Vec::<u8>::new();
+            sub_producer.read_to_end(&mut v).unwrap();
+            assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
+        }
+    }
+
+    #[test]
+    fn test_cluster_lzma() {
+        let mut content = vec![
+            0x02, // lzma compression
+            0x01, // offset_size
+            0x00, 0x03, // blob_count
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x57, // cluster_size
+            0x0f, // Data size
+            0x05, // Offset of blob 1
+            0x08, // Offset of blob 2
+        ];
+        {
+            let pos = content.len();
+            let mut content_cursor = Cursor::new(&mut content);
+            content_cursor.set_position(pos as u64);
+            let mut encoder = lzma::LzmaWriter::new_compressor(content_cursor, 9).unwrap();
+            let mut blob_content = Cursor::new(vec![
+                0x11, 0x12, 0x13, 0x14, 0x15, // Data of blob 0
+                0x21, 0x22, 0x23, // Data of blob 1
+                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of blob 2
+            ]);
+            std::io::copy(&mut blob_content, &mut encoder).unwrap();
+            encoder.finish().unwrap();
+        }
+        println!("content_len : {}\n", content.len());
+        let mut producer = ProducerWrapper::<Vec<u8>>::new(content, End::None);
+        assert_eq!(
+            ClusterHeader::produce(&mut producer).unwrap(),
+            ClusterHeader {
+                compression: CompressionType::LZMA,
+                offset_size: 1,
+                blob_count: Count(3),
+                cluster_size: Size(87)
+            }
+        );
+        producer.seek(SeekFrom::Start(0)).unwrap();
+        let cluster = Cluster::produce(&mut producer).unwrap();
+        assert_eq!(cluster.blob_count(), Count(3_u16));
+
+        {
+            let mut sub_producer = cluster.get_producer(Idx(0_u16)).unwrap();
+            assert_eq!(sub_producer.size(), Size::from(5_u64));
+            let mut v = Vec::<u8>::new();
+            sub_producer.read_to_end(&mut v).unwrap();
+            assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
+        }
+        {
+            let mut sub_producer = cluster.get_producer(Idx(1_u16)).unwrap();
+            assert_eq!(sub_producer.size(), Size::from(3_u64));
+            let mut v = Vec::<u8>::new();
+            sub_producer.read_to_end(&mut v).unwrap();
+            assert_eq!(v, [0x21, 0x22, 0x23]);
+        }
+        {
+            let mut sub_producer = cluster.get_producer(Idx(2_u16)).unwrap();
+            assert_eq!(sub_producer.size(), Size::from(7_u64));
+            let mut v = Vec::<u8>::new();
+            sub_producer.read_to_end(&mut v).unwrap();
+            assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
+        }
+    }
+
+    #[test]
+    fn test_cluster_zstd() {
+        let mut content = vec![
+            0x03, // zstd compression
+            0x01, // offset_size
+            0x00, 0x03, // blob_count
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x27, // cluster_size
+            0x0f, // Data size
+            0x05, // Offset of blob 1
+            0x08, // Offset of blob 2
+        ];
+        {
+            let pos = content.len();
+            let mut content_cursor = Cursor::new(&mut content);
+            content_cursor.set_position(pos as u64);
+            let mut encoder = zstd::Encoder::new(content_cursor, 0).unwrap();
+            let mut blob_content = Cursor::new(vec![
+                0x11, 0x12, 0x13, 0x14, 0x15, // Data of blob 0
+                0x21, 0x22, 0x23, // Data of blob 1
+                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of blob 2
+            ]);
+            std::io::copy(&mut blob_content, &mut encoder).unwrap();
+            encoder.finish().unwrap();
+        }
+        println!("content_len : {}\n", content.len());
+        let mut producer = ProducerWrapper::<Vec<u8>>::new(content, End::None);
+        assert_eq!(
+            ClusterHeader::produce(&mut producer).unwrap(),
+            ClusterHeader {
+                compression: CompressionType::ZSTD,
+                offset_size: 1,
+                blob_count: Count(3),
+                cluster_size: Size(39)
             }
         );
         producer.seek(SeekFrom::Start(0)).unwrap();
