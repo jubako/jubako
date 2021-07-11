@@ -78,7 +78,20 @@ impl Cluster {
                     (producer.tell_cursor() + data_size).0,
                     header.cluster_size.0
                 );
-                producer.sub_producer_at(producer.tell_cursor(), End::None)
+                producer.sub_producer_at(
+                    producer.tell_cursor(),
+                    End::Offset(header.cluster_size.into()),
+                )
+            }
+            CompressionType::LZ4 => {
+                let raw_producer = producer.sub_producer_at(
+                    producer.tell_cursor(),
+                    End::Offset(header.cluster_size.into()),
+                );
+                Box::new(Lz4Wrapper::new(
+                    lz4::Decoder::new(raw_producer).unwrap(),
+                    data_size,
+                ))
             }
             _ => {
                 //[TODO] decompression from buf[read..header.cluster_size] to self.data
@@ -110,7 +123,7 @@ impl Cluster {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Seek;
+    use std::io::{Cursor, Seek};
 
     #[test]
     fn test_compressiontype() {
@@ -161,7 +174,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cluster() {
+    fn test_cluster_raw() {
         let mut producer = ProducerWrapper::<Vec<u8>>::new(
             vec![
                 0x00, // compression
@@ -184,6 +197,71 @@ mod tests {
                 offset_size: 1,
                 blob_count: Count(3),
                 cluster_size: Size(30)
+            }
+        );
+        producer.seek(SeekFrom::Start(0)).unwrap();
+        let cluster = Cluster::produce(&mut producer).unwrap();
+        assert_eq!(cluster.blob_count(), Count(3_u16));
+
+        {
+            let mut sub_producer = cluster.get_producer(Idx(0_u16)).unwrap();
+            assert_eq!(sub_producer.size(), Size::from(5_u64));
+            let mut v = Vec::<u8>::new();
+            sub_producer.read_to_end(&mut v).unwrap();
+            assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
+        }
+        {
+            let mut sub_producer = cluster.get_producer(Idx(1_u16)).unwrap();
+            assert_eq!(sub_producer.size(), Size::from(3_u64));
+            let mut v = Vec::<u8>::new();
+            sub_producer.read_to_end(&mut v).unwrap();
+            assert_eq!(v, [0x21, 0x22, 0x23]);
+        }
+        {
+            let mut sub_producer = cluster.get_producer(Idx(2_u16)).unwrap();
+            assert_eq!(sub_producer.size(), Size::from(7_u64));
+            let mut v = Vec::<u8>::new();
+            sub_producer.read_to_end(&mut v).unwrap();
+            assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
+        }
+    }
+
+    #[test]
+    fn test_cluster_lz4() {
+        let mut content = vec![
+            0x01, // lz4 compression
+            0x01, // offset_size
+            0x00, 0x03, // blob_count
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x31, // cluster_size
+            0x0f, // Data size
+            0x05, // Offset of blob 1
+            0x08, // Offset of blob 2
+        ];
+        {
+            let pos = content.len();
+            let mut content_cursor = Cursor::new(&mut content);
+            content_cursor.set_position(pos as u64);
+            let mut encoder = lz4::EncoderBuilder::new()
+                .level(16)
+                .build(content_cursor)
+                .unwrap();
+            let mut blob_content = Cursor::new(vec![
+                0x11, 0x12, 0x13, 0x14, 0x15, // Data of blob 0
+                0x21, 0x22, 0x23, // Data of blob 1
+                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of blob 2
+            ]);
+            std::io::copy(&mut blob_content, &mut encoder).unwrap();
+            encoder.finish().1.unwrap();
+        }
+        println!("content_len : {}\n", content.len());
+        let mut producer = ProducerWrapper::<Vec<u8>>::new(content, End::None);
+        assert_eq!(
+            ClusterHeader::produce(&mut producer).unwrap(),
+            ClusterHeader {
+                compression: CompressionType::LZ4,
+                offset_size: 1,
+                blob_count: Count(3),
+                cluster_size: Size(49)
             }
         );
         producer.seek(SeekFrom::Start(0)).unwrap();

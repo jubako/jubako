@@ -1,6 +1,6 @@
 use crate::bases::producing::*;
 use crate::bases::types::*;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::fs::File;
 use std::io::{ErrorKind, Read, Seek, SeekFrom};
 use std::rc::Rc;
@@ -141,6 +141,81 @@ where
         })
     }
 }
+
+pub struct SeakableDecoder<T> {
+    decoder: RefCell<T>,
+    buffer: RefCell<Box<[u8]>>,
+    decoded: Cell<Offset>,
+}
+
+impl<T: Read> SeakableDecoder<T> {
+    pub fn new(decoder: T, size: Size) -> Self {
+        let mut buffer = Vec::with_capacity(size.0 as usize);
+        unsafe {
+            buffer.set_len(size.0 as usize);
+        }
+        Self {
+            decoder: RefCell::new(decoder),
+            buffer: RefCell::new(buffer.into()),
+            decoded: Cell::new(Offset(0)),
+        }
+    }
+
+    fn decode_to(&self, end: Offset) -> std::result::Result<(), std::io::Error> {
+        if end >= self.decoded.get() {
+            let o = self.decoded.get().0 as usize;
+            let e = std::cmp::min(end.0 as usize, self.buffer.borrow().len());
+            self.decoder
+                .borrow_mut()
+                .read_exact(&mut self.buffer.borrow_mut()[o..e])?;
+            self.decoded.set(Offset::from(e as u64));
+        }
+        Ok(())
+    }
+
+    fn decoded_slice(&self) -> &[u8] {
+        let size = self.decoded.get().0 as usize;
+        assert!(size <= self.buffer.borrow().len());
+        let ptr = self.buffer.borrow().as_ptr();
+        unsafe { std::slice::from_raw_parts(ptr, size) }
+    }
+}
+
+impl<T: Read> ProducerWrapper<SeakableDecoder<T>> {
+    pub fn new(decoder: T, outsize: Size) -> Self {
+        let source = Rc::new(SeakableDecoder::new(decoder, outsize));
+        let end = outsize.into();
+        Self {
+            source,
+            end,
+            origin: Offset(0),
+            offset: Offset(0),
+        }
+    }
+
+    fn slice(&self) -> &[u8] {
+        let o = self.offset.0 as usize;
+        let e = self.end.0 as usize;
+        &self.source.decoded_slice()[o..e]
+    }
+}
+
+impl<T: Read> Read for ProducerWrapper<SeakableDecoder<T>> {
+    fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
+        let end = self.offset + buf.len();
+        self.source.decode_to(end)?;
+        let mut slice = self.slice();
+        match slice.read(buf) {
+            Ok(s) => {
+                self.offset += s;
+                Ok(s)
+            }
+            err => err,
+        }
+    }
+}
+
+pub type Lz4Wrapper<T> = ProducerWrapper<SeakableDecoder<lz4::Decoder<T>>>;
 
 #[cfg(test)]
 mod tests {
