@@ -1,3 +1,4 @@
+use lzma::LzmaError;
 use std::fmt;
 use std::ops::{Add, AddAssign, Sub};
 
@@ -11,6 +12,15 @@ pub enum Error {
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Error {
         Error::IOError(e)
+    }
+}
+
+impl From<lzma::LzmaError> for Error {
+    fn from(e: LzmaError) -> Error {
+        match e {
+            LzmaError::Io(e) => Error::IOError(e),
+            _ => Error::FormatError,
+        }
     }
 }
 

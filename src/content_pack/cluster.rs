@@ -87,13 +87,10 @@ impl Cluster {
             CompressionType::LZ4 => {
                 Box::new(Lz4Wrapper::new(lz4::Decoder::new(raw_producer)?, data_size))
             }
-            CompressionType::LZMA => {
-                Box::new(LzmaWrapper::new(
-                    // [TODO] Handle error conversion instead of unwrap()
-                    lzma::LzmaReader::new_decompressor(raw_producer).unwrap(),
-                    data_size,
-                ))
-            }
+            CompressionType::LZMA => Box::new(LzmaWrapper::new(
+                lzma::LzmaReader::new_decompressor(raw_producer)?,
+                data_size,
+            )),
             CompressionType::ZSTD => Box::new(ZstdWrapper::new(
                 zstd::Decoder::new(raw_producer)?,
                 data_size,
