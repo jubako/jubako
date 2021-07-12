@@ -25,6 +25,21 @@ impl<'a, T: Producable, I> ArrayProducer<'a, T, I> {
     }
 }
 
+#[macro_export]
+macro_rules! produceArray(
+    ($OUT:ty, $IDX:ty, $baseproducer:ident, $offset:expr, $len:expr, $elem_size:expr) => {
+        {
+        let sub_producer = $baseproducer.sub_producer_at(
+            $offset,
+            End::Size(Size::from(u64::from($len.0) * $elem_size))
+        );
+        ArrayProducer::<$OUT, $IDX>::new(
+            sub_producer,
+            $len,
+            $elem_size)
+    }}
+);
+
 impl<T: Producable, I> Index<Idx<I>> for ArrayProducer<'_, T, I>
 where
     u64: std::convert::From<I>,

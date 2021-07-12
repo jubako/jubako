@@ -4,6 +4,7 @@ use crate::bases::producing::*;
 use crate::bases::types::*;
 use crate::bases::*;
 use crate::pack::*;
+use crate::produceArray;
 pub use cluster::Cluster;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};
@@ -100,21 +101,21 @@ pub struct ContentPack<'a> {
 impl<'a> ContentPack<'a> {
     pub fn new(mut producer: Box<dyn Producer>) -> Result<Self> {
         let header = ContentPackHeader::produce(producer.as_mut())?;
-        let entry_infos = ArrayProducer::<EntryInfo, u32>::new(
-            producer.sub_producer_at(
-                header.entry_ptr_pos,
-                End::Size(Size(u64::from(header.entry_count.0) * 4)),
-            ),
+        let entry_infos = produceArray!(
+            EntryInfo,
+            u32,
+            producer,
+            header.entry_ptr_pos,
             header.entry_count,
-            4,
+            4
         );
-        let cluster_ptrs = ArrayProducer::<Offset, u32>::new(
-            producer.sub_producer_at(
-                header.cluster_ptr_pos,
-                End::Size(Size(u64::from(header.cluster_count.0) * 8)),
-            ),
+        let cluster_ptrs = produceArray!(
+            Offset,
+            u32,
+            producer,
+            header.cluster_ptr_pos,
             header.cluster_count,
-            8,
+            8
         );
         Ok(ContentPack {
             header,
