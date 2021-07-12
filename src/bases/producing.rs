@@ -78,3 +78,9 @@ impl Producable for Count<u32> {
         Ok(producer.read_u32()?.into())
     }
 }
+
+impl Producable for Count<u64> {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+        Ok(producer.read_u64()?.into())
+    }
+}
