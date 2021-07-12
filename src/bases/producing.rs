@@ -61,6 +61,12 @@ impl Producable for Size {
     }
 }
 
+impl Producable for Count<u8> {
+    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+        Ok(producer.read_u8()?.into())
+    }
+}
+
 impl Producable for Count<u16> {
     fn produce(producer: &mut dyn Producer) -> Result<Self> {
         Ok(producer.read_u16()?.into())
