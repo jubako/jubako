@@ -1,7 +1,6 @@
 mod key_store;
 //mod index;
 
-use crate::bases::producing::*;
 use crate::bases::types::*;
 use crate::bases::*;
 use crate::pack::*;
@@ -54,17 +53,17 @@ struct DirectoryPackHeader {
     free_data: FreeData47,
 }
 
-impl DirectoryPackHeader {
-    pub fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        let pack_header = PackHeader::produce(producer)?;
-        let index_ptr_pos = Offset::produce(producer)?;
-        let entry_store_ptr_pos = Offset::produce(producer)?;
-        let key_store_ptr_pos = Offset::produce(producer)?;
-        let index_count = Count::produce(producer)?;
-        let entry_store_count = Count::produce(producer)?;
-        let key_store_count = Count::produce(producer)?;
+impl Producable for DirectoryPackHeader {
+    pub fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        let pack_header = PackHeader::produce(stream)?;
+        let index_ptr_pos = Offset::produce(stream)?;
+        let entry_store_ptr_pos = Offset::produce(stream)?;
+        let key_store_ptr_pos = Offset::produce(stream)?;
+        let index_count = Count::produce(stream)?;
+        let entry_store_count = Count::produce(stream)?;
+        let key_store_count = Count::produce(stream)?;
         let mut free_data = FreeData47::new();
-        producer.read_exact(&mut free_data)?;
+        stream.read_exact(&mut free_data)?;
         Ok(DirectoryPackHeader {
             pack_header,
             entry_store_ptr_pos,
@@ -85,9 +84,9 @@ pub struct ContentAddress {
 }
 
 impl Producable for ContentAddress {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        let pack_id = producer.read_u8()?;
-        let content_id = producer.read_sized(3)? as u32;
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        let pack_id = stream.read_u8()?;
+        let content_id = stream.read_sized(3)? as u32;
         Ok(ContentAddress {
             pack_id: pack_id.into(),
             content_id: content_id.into(),
@@ -100,17 +99,18 @@ pub struct DirectoryPack<'a> {
     key_stores_ptrs: ArrayProducer<'a, Offset, u8>,
     entry_stores_ptrs: ArrayProducer<'a, Offset, u32>,
     index_ptrs: ArrayProducer<'a, Offset, u32>,
-    producer: RefCell<Box<dyn Producer + 'a>>,
+    reader: Box<dyn Reader + 'a>,
     check_info: Cell<Option<CheckInfo>>,
 }
 
 impl<'a> DirectoryPack<'a> {
-    pub fn new(mut producer: Box<dyn Producer>) -> Result<Self> {
-        let header = DirectoryPackHeader::produce(producer.as_mut())?;
+    pub fn new(mut reader: Box<dyn Reader>) -> Result<Self> {
+        let mut stream = reader.create_stream(Offset(0), Size::End);
+        let header = DirectoryPackHeader::produce(stream.as_mut())?;
         let key_stores_ptrs = produceArray!(
             Offset,
             u8,
-            producer,
+            stream,
             header.key_store_ptr_pos,
             header.key_store_count,
             8
@@ -118,7 +118,7 @@ impl<'a> DirectoryPack<'a> {
         let entry_stores_ptrs = produceArray!(
             Offset,
             u32,
-            producer,
+            stream,
             header.entry_store_ptr_pos,
             header.entry_store_count,
             8
@@ -126,7 +126,7 @@ impl<'a> DirectoryPack<'a> {
         let index_ptrs = produceArray!(
             Offset,
             u32,
-            producer,
+            stream,
             header.index_ptr_pos,
             header.index_count,
             8
@@ -136,7 +136,7 @@ impl<'a> DirectoryPack<'a> {
             key_stores_ptrs,
             entry_stores_ptrs,
             index_ptrs,
-            producer: RefCell::new(producer),
+            reader,
             check_info: Cell::new(None),
         })
     }
@@ -166,21 +166,18 @@ impl Pack for DirectoryPack<'_> {
     }
     fn check(&self) -> Result<bool> {
         if self.check_info.get().is_none() {
-            let mut checkinfo_producer = self
-                .producer
-                .borrow()
-                .sub_producer_at(self.header.pack_header.check_info_pos, End::None);
-            let check_info = CheckInfo::produce(checkinfo_producer.as_mut())?;
+            let mut checkinfo_stream = self.reader.create_stream(self.header.pack_header.check_info_pos, End::None);
+            let check_info = CheckInfo::produce(checkinfo_stream.as_mut())?;
             self.check_info.set(Some(check_info));
         }
-        let mut check_reader = self.producer.borrow().sub_producer_at(
+        let mut check_stream = self.stream.create_stream(
             Offset::from(0),
             End::Offset(self.header.pack_header.check_info_pos),
         );
         self.check_info
             .get()
             .unwrap()
-            .check(&mut check_reader.as_mut() as &mut dyn Read)
+            .check(&mut check_stream.as_mut() as &mut dyn Read)
     }
 }
 
@@ -210,9 +207,9 @@ mod tests {
         ];
         content.extend_from_slice(&[0xff; 47]);
         let reader = BufReader::new(content, End::None);
-        let mut producer = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            DirectoryPackHeader::produce(&mut producer).unwrap(),
+            DirectoryPackHeader::produce(&mut stream).unwrap(),
             DirectoryPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::CONTENT,

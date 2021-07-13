@@ -1,18 +1,18 @@
-use crate::bases::producing::*;
+use crate::bases::stream::*;
 use crate::bases::types::*;
 use std::cell::{Cell, RefCell};
 use std::fs::File;
 use std::io::{ErrorKind, Read, Seek, SeekFrom};
 use std::rc::Rc;
 
-pub struct ProducerWrapper<T> {
+pub struct StreamWrapper<T> {
     source: Rc<T>,
     origin: Offset,
     end: Offset,
     offset: Offset,
 }
 
-impl<T> ProducerWrapper<T> {
+impl<T> StreamWrapper<T> {
     pub fn new_from_parts(source: Rc<T>, origin: Offset, end: Offset, offset: Offset) -> Self {
         Self {
             source,
@@ -23,7 +23,7 @@ impl<T> ProducerWrapper<T> {
     }
 }
 
-impl ProducerWrapper<Vec<u8>> {
+impl StreamWrapper<Vec<u8>> {
     fn slice(&self) -> &[u8] {
         let offset = self.offset.0 as usize;
         let end = self.end.0 as usize;
@@ -31,7 +31,7 @@ impl ProducerWrapper<Vec<u8>> {
     }
 }
 
-impl<T> Seek for ProducerWrapper<T> {
+impl<T> Seek for StreamWrapper<T> {
     fn seek(&mut self, pos: SeekFrom) -> std::result::Result<u64, std::io::Error> {
         let new: Offset = match pos {
             SeekFrom::Start(pos) => self.origin + Offset::from(pos),
@@ -63,7 +63,7 @@ impl<T> Seek for ProducerWrapper<T> {
     }
 }
 
-impl Read for ProducerWrapper<Vec<u8>> {
+impl Read for StreamWrapper<Vec<u8>> {
     fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
         let mut slice = self.slice();
         match slice.read(buf) {
@@ -76,7 +76,7 @@ impl Read for ProducerWrapper<Vec<u8>> {
     }
 }
 
-impl Read for ProducerWrapper<RefCell<File>> {
+impl Read for StreamWrapper<RefCell<File>> {
     fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
         let mut file = self.source.as_ref().borrow_mut();
         file.seek(SeekFrom::Start(self.offset.0))?;
@@ -90,11 +90,11 @@ impl Read for ProducerWrapper<RefCell<File>> {
     }
 }
 
-impl<T: 'static> Producer for ProducerWrapper<T>
+impl<T: 'static> Stream for StreamWrapper<T>
 where
-    ProducerWrapper<T>: std::io::Read,
+    StreamWrapper<T>: std::io::Read,
 {
-    fn tell_cursor(&self) -> Offset {
+    fn tell(&self) -> Offset {
         (self.offset - self.origin).into()
     }
     fn size(&self) -> Size {
@@ -108,23 +108,6 @@ where
         } else {
             Err(Error::FormatError)
         }
-    }
-
-    fn sub_producer_at(&self, offset: Offset, end: End) -> Box<dyn Producer> {
-        let origin = self.origin + offset;
-        assert!(origin <= self.end);
-        let end = match end {
-            End::None => self.end,
-            End::Offset(o) => self.origin + o,
-            End::Size(s) => origin + s,
-        };
-        assert!(end <= self.end);
-        Box::new(ProducerWrapper::<T> {
-            source: Rc::clone(&self.source),
-            origin,
-            end,
-            offset: origin,
-        })
     }
 }
 
@@ -167,7 +150,7 @@ impl<T: Read> SeekableDecoder<T> {
     }
 }
 
-impl<T: Read> ProducerWrapper<SeekableDecoder<T>> {
+impl<T: Read> StreamWrapper<SeekableDecoder<T>> {
     fn slice(&self) -> &[u8] {
         let o = self.offset.0 as usize;
         let e = self.end.0 as usize;
@@ -175,7 +158,7 @@ impl<T: Read> ProducerWrapper<SeekableDecoder<T>> {
     }
 }
 
-impl<T: Read> Read for ProducerWrapper<SeekableDecoder<T>> {
+impl<T: Read> Read for StreamWrapper<SeekableDecoder<T>> {
     fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
         let end = self.offset + buf.len();
         self.source.decode_to(end)?;
@@ -198,100 +181,88 @@ mod tests {
     use tempfile::tempfile;
 
     #[test]
-    fn test_vec_producer() {
+    fn test_vec_stream() {
         let reader = BufReader::new(
             vec![0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08],
             End::None,
         );
-        let mut producer = reader.create_stream(Offset(0), End::None);
-        assert_eq!(producer.read_u8().unwrap(), 0x00_u8);
-        assert_eq!(producer.tell_cursor(), Offset::from(1));
-        assert_eq!(producer.read_u8().unwrap(), 0x01_u8);
-        assert_eq!(producer.tell_cursor(), Offset::from(2));
-        assert_eq!(producer.read_u16().unwrap(), 0x0203_u16);
-        assert_eq!(producer.tell_cursor(), Offset::from(4));
-        producer = reader.create_stream(Offset(0), End::None);
-        assert_eq!(producer.read_u32().unwrap(), 0x00010203_u32);
-        assert_eq!(producer.read_u32().unwrap(), 0x04050607_u32);
-        assert_eq!(producer.tell_cursor(), Offset::from(8));
-        assert!(producer.read_u64().is_err());
-        producer = reader.create_stream(Offset(0), End::None);
-        assert_eq!(producer.read_u64().unwrap(), 0x0001020304050607_u64);
-        assert_eq!(producer.tell_cursor(), Offset::from(8));
+        let mut stream = reader.create_stream(Offset(0), End::None);
+        assert_eq!(stream.read_u8().unwrap(), 0x00_u8);
+        assert_eq!(stream.tell(), Offset::from(1));
+        assert_eq!(stream.read_u8().unwrap(), 0x01_u8);
+        assert_eq!(stream.tell(), Offset::from(2));
+        assert_eq!(stream.read_u16().unwrap(), 0x0203_u16);
+        assert_eq!(stream.tell(), Offset::from(4));
+        stream = reader.create_stream(Offset(0), End::None);
+        assert_eq!(stream.read_u32().unwrap(), 0x00010203_u32);
+        assert_eq!(stream.read_u32().unwrap(), 0x04050607_u32);
+        assert_eq!(stream.tell(), Offset::from(8));
+        assert!(stream.read_u64().is_err());
+        stream = reader.create_stream(Offset(0), End::None);
+        assert_eq!(stream.read_u64().unwrap(), 0x0001020304050607_u64);
+        assert_eq!(stream.tell(), Offset::from(8));
 
-        let mut sub_producer = reader.create_stream(1.into(), End::None);
-        assert_eq!(sub_producer.tell_cursor(), Offset::from(0));
-        assert_eq!(sub_producer.read_u8().unwrap(), 0x01_u8);
-        assert_eq!(sub_producer.tell_cursor(), Offset::from(1));
-        assert_eq!(sub_producer.read_u16().unwrap(), 0x0203_u16);
-        assert_eq!(sub_producer.tell_cursor(), Offset::from(3));
-        assert_eq!(sub_producer.read_u32().unwrap(), 0x04050607_u32);
-        assert_eq!(sub_producer.tell_cursor(), Offset::from(7));
-        assert!(sub_producer.read_u64().is_err());
-        sub_producer = reader.create_stream(1.into(), End::None);
-        assert_eq!(sub_producer.read_u64().unwrap(), 0x0102030405060708_u64);
-        assert_eq!(sub_producer.tell_cursor(), Offset::from(8));
+        let mut stream1 = reader.create_stream(1.into(), End::None);
+        assert_eq!(stream1.tell(), Offset::from(0));
+        assert_eq!(stream1.read_u8().unwrap(), 0x01_u8);
+        assert_eq!(stream1.tell(), Offset::from(1));
+        assert_eq!(stream1.read_u16().unwrap(), 0x0203_u16);
+        assert_eq!(stream1.tell(), Offset::from(3));
+        assert_eq!(stream1.read_u32().unwrap(), 0x04050607_u32);
+        assert_eq!(stream1.tell(), Offset::from(7));
+        assert!(stream1.read_u64().is_err());
+        stream1 = reader.create_stream(1.into(), End::None);
+        assert_eq!(stream1.read_u64().unwrap(), 0x0102030405060708_u64);
+        assert_eq!(stream1.tell(), Offset::from(8));
 
-        producer = reader.create_stream(Offset(0), End::None);
-        sub_producer = reader.create_stream(1.into(), End::None);
-        producer.skip(Size(1)).unwrap();
-        assert_eq!(producer.read_u8().unwrap(), sub_producer.read_u8().unwrap());
-        assert_eq!(
-            producer.read_u16().unwrap(),
-            sub_producer.read_u16().unwrap()
-        );
-        assert_eq!(
-            producer.read_u32().unwrap(),
-            sub_producer.read_u32().unwrap()
-        );
+        stream = reader.create_stream(Offset(0), End::None);
+        stream1 = reader.create_stream(1.into(), End::None);
+        stream.skip(Size(1)).unwrap();
+        assert_eq!(stream.read_u8().unwrap(), stream1.read_u8().unwrap());
+        assert_eq!(stream.read_u16().unwrap(), stream1.read_u16().unwrap());
+        assert_eq!(stream.read_u32().unwrap(), stream1.read_u32().unwrap());
     }
 
     #[test]
-    fn test_file_producer() {
+    fn test_file_stream() {
         let mut file = tempfile().unwrap();
         file.write_all(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08])
             .unwrap();
         let reader = FileReader::new(file, End::None);
-        let mut producer = reader.create_stream(Offset(0), End::None);
-        assert_eq!(producer.read_u8().unwrap(), 0x00_u8);
-        assert_eq!(producer.tell_cursor(), Offset::from(1));
-        assert_eq!(producer.read_u8().unwrap(), 0x01_u8);
-        assert_eq!(producer.tell_cursor(), Offset::from(2));
-        assert_eq!(producer.read_u16().unwrap(), 0x0203_u16);
-        assert_eq!(producer.tell_cursor(), Offset::from(4));
-        producer = reader.create_stream(Offset(0), End::None);
-        assert_eq!(producer.read_u32().unwrap(), 0x00010203_u32);
-        assert_eq!(producer.read_u32().unwrap(), 0x04050607_u32);
-        assert_eq!(producer.tell_cursor(), Offset::from(8));
-        assert!(producer.read_u64().is_err());
-        producer = reader.create_stream(Offset(0), End::None);
-        assert_eq!(producer.read_u64().unwrap(), 0x0001020304050607_u64);
-        assert_eq!(producer.tell_cursor(), Offset::from(8));
+        let mut stream = reader.create_stream(Offset(0), End::None);
+        assert_eq!(stream.read_u8().unwrap(), 0x00_u8);
+        assert_eq!(stream.tell(), Offset::from(1));
+        assert_eq!(stream.read_u8().unwrap(), 0x01_u8);
+        assert_eq!(stream.tell(), Offset::from(2));
+        assert_eq!(stream.read_u16().unwrap(), 0x0203_u16);
+        assert_eq!(stream.tell(), Offset::from(4));
+        stream = reader.create_stream(Offset(0), End::None);
+        assert_eq!(stream.read_u32().unwrap(), 0x00010203_u32);
+        assert_eq!(stream.read_u32().unwrap(), 0x04050607_u32);
+        assert_eq!(stream.tell(), Offset::from(8));
+        assert!(stream.read_u64().is_err());
+        stream = reader.create_stream(Offset(0), End::None);
+        assert_eq!(stream.read_u64().unwrap(), 0x0001020304050607_u64);
+        assert_eq!(stream.tell(), Offset::from(8));
 
-        let mut sub_producer = reader.create_stream(Offset(1), End::None);
-        assert_eq!(sub_producer.tell_cursor(), Offset::from(0));
-        assert_eq!(sub_producer.read_u8().unwrap(), 0x01_u8);
-        assert_eq!(sub_producer.tell_cursor(), Offset::from(1));
-        assert_eq!(sub_producer.read_u16().unwrap(), 0x0203_u16);
-        assert_eq!(sub_producer.tell_cursor(), Offset::from(3));
-        assert_eq!(sub_producer.read_u32().unwrap(), 0x04050607_u32);
-        assert_eq!(sub_producer.tell_cursor(), Offset::from(7));
-        assert!(sub_producer.read_u64().is_err());
-        sub_producer = reader.create_stream(Offset(1), End::None);
-        assert_eq!(sub_producer.read_u64().unwrap(), 0x0102030405060708_u64);
-        assert_eq!(sub_producer.tell_cursor(), Offset::from(8));
+        let mut stream1 = reader.create_stream(Offset(1), End::None);
+        assert_eq!(stream1.tell(), Offset::from(0));
+        assert_eq!(stream1.read_u8().unwrap(), 0x01_u8);
+        assert_eq!(stream1.tell(), Offset::from(1));
+        assert_eq!(stream1.read_u16().unwrap(), 0x0203_u16);
+        assert_eq!(stream1.tell(), Offset::from(3));
+        assert_eq!(stream1.read_u32().unwrap(), 0x04050607_u32);
+        assert_eq!(stream1.tell(), Offset::from(7));
+        assert!(stream1.read_u64().is_err());
+        stream1 = reader.create_stream(Offset(1), End::None);
+        assert_eq!(stream1.read_u64().unwrap(), 0x0102030405060708_u64);
+        assert_eq!(stream1.tell(), Offset::from(8));
 
-        producer = reader.create_stream(Offset(0), End::None);
-        sub_producer = reader.create_stream(Offset(1), End::None);
-        producer.skip(Size(1)).unwrap();
-        assert_eq!(producer.read_u8().unwrap(), sub_producer.read_u8().unwrap());
-        assert_eq!(
-            producer.read_u16().unwrap(),
-            sub_producer.read_u16().unwrap()
-        );
-        assert_eq!(
-            producer.read_u32().unwrap(),
-            sub_producer.read_u32().unwrap()
-        );
+        stream = reader.create_stream(Offset(0), End::None);
+        stream1 = reader.create_stream(Offset(1), End::None);
+        stream.skip(Size(1)).unwrap();
+        assert_eq!(stream.read_u8().unwrap(), stream1.read_u8().unwrap());
+        assert_eq!(stream.read_u16().unwrap(), stream1.read_u16().unwrap());
+        assert_eq!(stream.read_u32().unwrap(), stream1.read_u32().unwrap());
     }
 }

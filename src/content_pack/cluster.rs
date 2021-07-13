@@ -1,5 +1,5 @@
-use crate::bases::producing::*;
 use crate::bases::reader::*;
+use crate::bases::stream::*;
 use crate::bases::types::*;
 
 #[repr(u8)]
@@ -12,8 +12,8 @@ pub enum CompressionType {
 }
 
 impl Producable for CompressionType {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        match producer.read_u8()? {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        match stream.read_u8()? {
             0 => Ok(CompressionType::NONE),
             1 => Ok(CompressionType::LZ4),
             2 => Ok(CompressionType::LZMA),
@@ -32,11 +32,11 @@ struct ClusterHeader {
 }
 
 impl Producable for ClusterHeader {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        let compression = CompressionType::produce(producer)?;
-        let offset_size = producer.read_u8()?;
-        let blob_count = Count::produce(producer)?;
-        let cluster_size = Size::produce(producer)?;
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        let compression = CompressionType::produce(stream)?;
+        let offset_size = stream.read_u8()?;
+        let blob_count = Count::produce(stream)?;
+        let cluster_size = Size::produce(stream)?;
         Ok(ClusterHeader {
             compression,
             offset_size,
@@ -53,9 +53,9 @@ pub struct Cluster {
 
 impl Cluster {
     pub fn new(reader: &dyn Reader) -> Result<Self> {
-        let mut producer = reader.create_stream(Offset::from(0), End::None);
-        let header = ClusterHeader::produce(producer.as_mut())?;
-        let data_size: Size = producer.read_sized(header.offset_size.into())?.into();
+        let mut stream = reader.create_stream(Offset::from(0), End::None);
+        let header = ClusterHeader::produce(stream.as_mut())?;
+        let data_size: Size = stream.read_sized(header.offset_size.into())?.into();
         let mut blob_offsets: Vec<Offset> = Vec::with_capacity((header.blob_count.0 + 1) as usize);
         unsafe { blob_offsets.set_len((header.blob_count.0).into()) }
         let mut first = true;
@@ -64,37 +64,32 @@ impl Cluster {
                 *elem = 0.into();
                 first = false;
             } else {
-                *elem = producer.read_sized(header.offset_size.into())?.into();
+                *elem = stream.read_sized(header.offset_size.into())?.into();
             }
             assert!(elem.is_valid(data_size));
         }
         blob_offsets.push(data_size.into());
-        let raw_reader = reader.create_sub_reader(
-            producer.tell_cursor(),
-            End::Offset(header.cluster_size.into()),
-        );
+        let raw_reader =
+            reader.create_sub_reader(stream.tell(), End::Offset(header.cluster_size.into()));
         let reader = match header.compression {
             CompressionType::NONE => {
-                assert_eq!(
-                    (producer.tell_cursor() + data_size).0,
-                    header.cluster_size.0
-                );
+                assert_eq!((stream.tell() + data_size).0, header.cluster_size.0);
                 raw_reader
             }
             CompressionType::LZ4 => {
-                let producer = raw_reader.create_stream(Offset(0), End::None);
-                Box::new(Lz4Reader::new(lz4::Decoder::new(producer)?, data_size))
+                let stream = raw_reader.create_stream(Offset(0), End::None);
+                Box::new(Lz4Reader::new(lz4::Decoder::new(stream)?, data_size))
             }
             CompressionType::LZMA => {
-                let producer = raw_reader.create_stream(Offset(0), End::None);
+                let stream = raw_reader.create_stream(Offset(0), End::None);
                 Box::new(LzmaReader::new(
-                    lzma::LzmaReader::new_decompressor(producer)?,
+                    lzma::LzmaReader::new_decompressor(stream)?,
                     data_size,
                 ))
             }
             CompressionType::ZSTD => {
-                let producer = raw_reader.create_stream(Offset(0), End::None);
-                Box::new(ZstdReader::new(zstd::Decoder::new(producer)?, data_size))
+                let stream = raw_reader.create_stream(Offset(0), End::None);
+                Box::new(ZstdReader::new(zstd::Decoder::new(stream)?, data_size))
             }
         };
         Ok(Cluster {
@@ -107,10 +102,12 @@ impl Cluster {
         Count::from((self.blob_offsets.len() - 1) as u16)
     }
 
-    pub fn get_producer(&self, index: Idx<u16>) -> Result<Box<dyn Producer>> {
+    pub fn get_reader(&self, index: Idx<u16>) -> Result<Box<dyn Reader>> {
         let offset = self.blob_offsets[index.0 as usize];
         let end_offset = self.blob_offsets[(index.0 + 1) as usize];
-        Ok(self.reader.create_stream(offset, End::Offset(end_offset)))
+        Ok(self
+            .reader
+            .create_sub_reader(offset, End::Offset(end_offset)))
     }
 }
 
@@ -122,25 +119,25 @@ mod tests {
     #[test]
     fn test_compressiontype() {
         let reader = BufReader::new(vec![0x00, 0x01, 0x02, 0x03, 0x4, 0xFF], End::None);
-        let mut producer = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            CompressionType::produce(producer.as_mut()).unwrap(),
+            CompressionType::produce(stream.as_mut()).unwrap(),
             CompressionType::NONE
         );
         assert_eq!(
-            CompressionType::produce(producer.as_mut()).unwrap(),
+            CompressionType::produce(stream.as_mut()).unwrap(),
             CompressionType::LZ4
         );
         assert_eq!(
-            CompressionType::produce(producer.as_mut()).unwrap(),
+            CompressionType::produce(stream.as_mut()).unwrap(),
             CompressionType::LZMA
         );
         assert_eq!(
-            CompressionType::produce(producer.as_mut()).unwrap(),
+            CompressionType::produce(stream.as_mut()).unwrap(),
             CompressionType::ZSTD
         );
-        assert_eq!(producer.tell_cursor(), Offset::from(4));
-        assert!(CompressionType::produce(producer.as_mut()).is_err());
+        assert_eq!(stream.tell(), Offset::from(4));
+        assert!(CompressionType::produce(stream.as_mut()).is_err());
     }
 
     #[test]
@@ -154,9 +151,9 @@ mod tests {
             ],
             End::None,
         );
-        let mut producer = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            ClusterHeader::produce(producer.as_mut()).unwrap(),
+            ClusterHeader::produce(stream.as_mut()).unwrap(),
             ClusterHeader {
                 compression: CompressionType::NONE,
                 offset_size: 1,
@@ -183,9 +180,9 @@ mod tests {
             ],
             End::None,
         );
-        let mut producer = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            ClusterHeader::produce(producer.as_mut()).unwrap(),
+            ClusterHeader::produce(stream.as_mut()).unwrap(),
             ClusterHeader {
                 compression: CompressionType::NONE,
                 offset_size: 1,
@@ -197,24 +194,27 @@ mod tests {
         assert_eq!(cluster.blob_count(), Count(3_u16));
 
         {
-            let mut sub_producer = cluster.get_producer(Idx(0_u16)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(5_u64));
+            let sub_reader = cluster.get_reader(Idx(0_u16)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
         {
-            let mut sub_producer = cluster.get_producer(Idx(1_u16)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(3_u64));
+            let sub_reader = cluster.get_reader(Idx(1_u16)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
         {
-            let mut sub_producer = cluster.get_producer(Idx(2_u16)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(7_u64));
+            let sub_reader = cluster.get_reader(Idx(2_u16)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }
     }
@@ -248,9 +248,9 @@ mod tests {
         }
         println!("content_len : {}\n", content.len());
         let reader = BufReader::new(content, End::None);
-        let mut producer = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            ClusterHeader::produce(producer.as_mut()).unwrap(),
+            ClusterHeader::produce(stream.as_mut()).unwrap(),
             ClusterHeader {
                 compression: CompressionType::LZ4,
                 offset_size: 1,
@@ -262,24 +262,27 @@ mod tests {
         assert_eq!(cluster.blob_count(), Count(3_u16));
 
         {
-            let mut sub_producer = cluster.get_producer(Idx(0_u16)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(5_u64));
+            let sub_reader = cluster.get_reader(Idx(0_u16)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
         {
-            let mut sub_producer = cluster.get_producer(Idx(1_u16)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(3_u64));
+            let sub_reader = cluster.get_reader(Idx(1_u16)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
         {
-            let mut sub_producer = cluster.get_producer(Idx(2_u16)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(7_u64));
+            let sub_reader = cluster.get_reader(Idx(2_u16)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }
     }
@@ -310,9 +313,9 @@ mod tests {
         }
         println!("content_len : {}\n", content.len());
         let reader = BufReader::new(content, End::None);
-        let mut producer = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            ClusterHeader::produce(producer.as_mut()).unwrap(),
+            ClusterHeader::produce(stream.as_mut()).unwrap(),
             ClusterHeader {
                 compression: CompressionType::LZMA,
                 offset_size: 1,
@@ -322,26 +325,28 @@ mod tests {
         );
         let cluster = Cluster::new(&reader).unwrap();
         assert_eq!(cluster.blob_count(), Count(3_u16));
-
         {
-            let mut sub_producer = cluster.get_producer(Idx(0_u16)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(5_u64));
+            let sub_reader = cluster.get_reader(Idx(0_u16)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
         {
-            let mut sub_producer = cluster.get_producer(Idx(1_u16)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(3_u64));
+            let sub_reader = cluster.get_reader(Idx(1_u16)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
         {
-            let mut sub_producer = cluster.get_producer(Idx(2_u16)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(7_u64));
+            let sub_reader = cluster.get_reader(Idx(2_u16)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }
     }
@@ -372,9 +377,9 @@ mod tests {
         }
         println!("content_len : {}\n", content.len());
         let reader = BufReader::new(content, End::None);
-        let mut producer = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            ClusterHeader::produce(producer.as_mut()).unwrap(),
+            ClusterHeader::produce(stream.as_mut()).unwrap(),
             ClusterHeader {
                 compression: CompressionType::ZSTD,
                 offset_size: 1,
@@ -384,26 +389,28 @@ mod tests {
         );
         let cluster = Cluster::new(&reader).unwrap();
         assert_eq!(cluster.blob_count(), Count(3_u16));
-
         {
-            let mut sub_producer = cluster.get_producer(Idx(0_u16)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(5_u64));
+            let sub_reader = cluster.get_reader(Idx(0_u16)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
         {
-            let mut sub_producer = cluster.get_producer(Idx(1_u16)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(3_u64));
+            let sub_reader = cluster.get_reader(Idx(1_u16)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
         {
-            let mut sub_producer = cluster.get_producer(Idx(2_u16)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(7_u64));
+            let sub_reader = cluster.get_reader(Idx(2_u16)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }
     }

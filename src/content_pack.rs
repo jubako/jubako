@@ -1,11 +1,11 @@
 mod cluster;
 
-use crate::bases::producing::*;
+use crate::array_reader;
 use crate::bases::reader::*;
+use crate::bases::stream::*;
 use crate::bases::types::*;
 use crate::bases::*;
 use crate::pack::*;
-use crate::produceArray;
 pub use cluster::Cluster;
 use std::cell::Cell;
 use std::fmt::{Debug, Formatter};
@@ -53,15 +53,15 @@ struct ContentPackHeader {
     free_data: FreeData56,
 }
 
-impl ContentPackHeader {
-    pub fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        let pack_header = PackHeader::produce(producer)?;
-        let entry_ptr_pos = Offset::produce(producer)?;
-        let cluster_ptr_pos = Offset::produce(producer)?;
-        let entry_count = Count::produce(producer)?;
-        let cluster_count = Count::produce(producer)?;
+impl Producable for ContentPackHeader {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        let pack_header = PackHeader::produce(stream)?;
+        let entry_ptr_pos = Offset::produce(stream)?;
+        let cluster_ptr_pos = Offset::produce(stream)?;
+        let entry_count = Count::produce(stream)?;
+        let cluster_count = Count::produce(stream)?;
         let mut free_data = FreeData56::new();
-        producer.read_exact(&mut free_data)?;
+        stream.read_exact(&mut free_data)?;
         Ok(ContentPackHeader {
             pack_header,
             entry_ptr_pos,
@@ -80,8 +80,8 @@ pub struct EntryInfo {
 }
 
 impl Producable for EntryInfo {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        let v = producer.read_u32()?;
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        let v = stream.read_u32()?;
         let blob_index = (v & 0xFFF) as u16;
         let cluster_index = v >> 12;
         Ok(EntryInfo {
@@ -93,8 +93,8 @@ impl Producable for EntryInfo {
 
 pub struct ContentPack<'a> {
     header: ContentPackHeader,
-    entry_infos: ArrayProducer<'a, EntryInfo, u32>,
-    cluster_ptrs: ArrayProducer<'a, Offset, u32>,
+    entry_infos: ArrayReader<'a, EntryInfo, u32>,
+    cluster_ptrs: ArrayReader<'a, Offset, u32>,
     reader: Box<dyn Reader + 'a>,
     check_info: Cell<Option<CheckInfo>>,
 }
@@ -103,10 +103,10 @@ impl<'a> ContentPack<'a> {
     pub fn new(reader: Box<dyn Reader>) -> Result<Self> {
         let header =
             ContentPackHeader::produce(reader.create_stream(Offset::from(0), End::None).as_mut())?;
-        let entry_infos = produceArray!(
+        let entry_infos = array_reader!(
             reader, at:header.entry_ptr_pos, len:header.entry_count, idx:u32 => (EntryInfo, 4)
         );
-        let cluster_ptrs = produceArray!(
+        let cluster_ptrs = array_reader!(
             reader, at:header.cluster_ptr_pos, len:header.cluster_count, idx:u32 => (Offset, 8)
         );
         Ok(ContentPack {
@@ -122,7 +122,7 @@ impl<'a> ContentPack<'a> {
         self.header.entry_count
     }
 
-    pub fn get_content(&self, index: Idx<u32>) -> Result<Box<dyn Producer + 'a>> {
+    pub fn get_content(&self, index: Idx<u32>) -> Result<Box<dyn Reader + 'a>> {
         if !index.is_valid(self.header.entry_count) {
             return Err(Error::ArgError);
         }
@@ -133,7 +133,7 @@ impl<'a> ContentPack<'a> {
         let cluster_ptr = self.cluster_ptrs.index(entry_info.cluster_index);
         let reader = self.reader.create_sub_reader(cluster_ptr, End::None);
         let cluster = Cluster::new(reader.as_ref())?;
-        cluster.get_producer(entry_info.blob_index)
+        cluster.get_reader(entry_info.blob_index)
     }
 
     pub fn get_free_data(&self) -> [u8; 56] {
@@ -162,10 +162,10 @@ impl Pack for ContentPack<'_> {
     }
     fn check(&self) -> Result<bool> {
         if self.check_info.get().is_none() {
-            let mut checkinfo_producer = self
+            let mut checkinfo_stream = self
                 .reader
                 .create_stream(self.header.pack_header.check_info_pos, End::None);
-            let check_info = CheckInfo::produce(checkinfo_producer.as_mut())?;
+            let check_info = CheckInfo::produce(checkinfo_stream.as_mut())?;
             self.check_info.set(Some(check_info));
         }
         let mut check_stream = self.reader.create_stream(
@@ -202,9 +202,9 @@ mod tests {
         ];
         content.extend_from_slice(&[0xff; 56]);
         let reader = BufReader::new(content, End::None);
-        let mut producer = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            ContentPackHeader::produce(producer.as_mut()).unwrap(),
+            ContentPackHeader::produce(stream.as_mut()).unwrap(),
             ContentPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::CONTENT,
@@ -282,24 +282,27 @@ mod tests {
         assert!(&content_pack.check().unwrap());
 
         {
-            let mut sub_producer = content_pack.get_content(Idx(0_u32)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(5_u64));
+            let sub_reader = content_pack.get_content(Idx(0_u32)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
         {
-            let mut sub_producer = content_pack.get_content(Idx(1_u32)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(3_u64));
+            let sub_reader = content_pack.get_content(Idx(1_u32)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
         {
-            let mut sub_producer = content_pack.get_content(Idx(2_u32)).unwrap();
-            assert_eq!(sub_producer.size(), Size::from(7_u64));
+            let sub_reader = content_pack.get_content(Idx(2_u32)).unwrap();
+            assert_eq!(sub_reader.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
-            sub_producer.read_to_end(&mut v).unwrap();
+            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }
     }

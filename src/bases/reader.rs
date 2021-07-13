@@ -1,5 +1,4 @@
-use crate::bases::producing::*;
-///! All base traits use to produce structure from raw data.
+use crate::bases::stream::*;
 use crate::bases::types::*;
 use crate::io::*;
 use crate::primitive::*;
@@ -8,17 +7,15 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::rc::Rc;
 
-/// A producer is the main trait producing stuff from "raw data".
-/// A producer may have a size, and is positionned.
-/// The cursor can be move.
-/// Producing a value "consumes" the data and the cursor is moved.
-/// It is possible to create subproducer, a producer reading the sub range of tha data.
-/// Each producer are independant.
+/// A Reader is the main trait containing stuff from "raw data".
+/// A Reader may have a size.
+/// It is possible to create stream from a reader.
+/// Each reader is independant.
 /// Data is never modified.
 pub trait Reader {
     fn size(&self) -> Size;
 
-    fn create_stream(&self, offset: Offset, end: End) -> Box<dyn Producer>;
+    fn create_stream(&self, offset: Offset, end: End) -> Box<dyn Stream>;
     fn create_sub_reader(&self, offset: Offset, end: End) -> Box<dyn Reader>;
 
     fn read_u8(&self, offset: Offset) -> Result<u8>;
@@ -109,7 +106,7 @@ impl Reader for BufReader {
         self.end - self.origin
     }
 
-    fn create_stream(&self, offset: Offset, end: End) -> Box<dyn Producer> {
+    fn create_stream(&self, offset: Offset, end: End) -> Box<dyn Stream> {
         let source = Rc::clone(&self.source);
         let origin = self.origin + offset;
         let end = match end {
@@ -118,7 +115,7 @@ impl Reader for BufReader {
             End::Size(s) => origin + s,
         };
         assert!(end <= self.end);
-        Box::new(ProducerWrapper::new_from_parts(source, origin, end, origin))
+        Box::new(StreamWrapper::new_from_parts(source, origin, end, origin))
     }
 
     fn create_sub_reader(&self, offset: Offset, end: End) -> Box<dyn Reader> {
@@ -164,7 +161,7 @@ impl Reader for FileReader {
         self.end - self.origin
     }
 
-    fn create_stream(&self, offset: Offset, end: End) -> Box<dyn Producer> {
+    fn create_stream(&self, offset: Offset, end: End) -> Box<dyn Stream> {
         let source = Rc::clone(&self.source);
         let origin = self.origin + offset;
         let end = match end {
@@ -173,7 +170,7 @@ impl Reader for FileReader {
             End::Size(s) => origin + s,
         };
         assert!(end <= self.end);
-        Box::new(ProducerWrapper::new_from_parts(source, origin, end, origin))
+        Box::new(StreamWrapper::new_from_parts(source, origin, end, origin))
     }
 
     fn create_sub_reader(&self, offset: Offset, end: End) -> Box<dyn Reader> {
@@ -224,7 +221,7 @@ impl<T: 'static + Read> Reader for ReaderWrapper<SeekableDecoder<T>> {
         self.end - self.origin
     }
 
-    fn create_stream(&self, offset: Offset, end: End) -> Box<dyn Producer> {
+    fn create_stream(&self, offset: Offset, end: End) -> Box<dyn Stream> {
         let source = Rc::clone(&self.source);
         let origin = self.origin + offset;
         let end = match end {
@@ -233,7 +230,7 @@ impl<T: 'static + Read> Reader for ReaderWrapper<SeekableDecoder<T>> {
             End::Size(s) => origin + s,
         };
         assert!(end <= self.end);
-        Box::new(ProducerWrapper::new_from_parts(source, origin, end, origin))
+        Box::new(StreamWrapper::new_from_parts(source, origin, end, origin))
     }
 
     fn create_sub_reader(&self, offset: Offset, end: End) -> Box<dyn Reader> {

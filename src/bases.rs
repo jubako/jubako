@@ -1,20 +1,20 @@
-pub mod producing;
 pub mod reader;
+pub mod stream;
 pub mod types;
 
-use producing::*;
 use reader::*;
 use std::marker::PhantomData;
+use stream::*;
 use types::*;
 
-pub struct ArrayProducer<'a, T, I> {
+pub struct ArrayReader<'a, T, I> {
     reader: Box<dyn Reader + 'a>,
     length: Count<I>,
     elem_size: usize, // We know that array can contain elem of 256 at maximum.
     produced_type: PhantomData<*const T>,
 }
 
-impl<'a, T: Producable, I> ArrayProducer<'a, T, I> {
+impl<'a, T, I> ArrayReader<'a, T, I> {
     pub fn new(reader: Box<dyn Reader + 'a>, length: Count<I>, elem_size: usize) -> Self {
         Self {
             reader,
@@ -26,21 +26,21 @@ impl<'a, T: Producable, I> ArrayProducer<'a, T, I> {
 }
 
 #[macro_export]
-macro_rules! produceArray(
+macro_rules! array_reader(
     ($reader:ident, at:$offset:expr, len:$len:expr, idx:$IDX:ty => ($OUT:ty, $elem_size:expr)) => {
         {
         let sub_reader = $reader.create_sub_reader(
             $offset,
             End::Size(Size::from(u64::from($len.0) * $elem_size))
         );
-        ArrayProducer::<$OUT, $IDX>::new(
+        ArrayReader::<$OUT, $IDX>::new(
             sub_reader,
             $len,
             $elem_size)
     }}
 );
 
-impl<T: Producable, I> Index<Idx<I>> for ArrayProducer<'_, T, I>
+impl<T: Producable, I> Index<Idx<I>> for ArrayReader<'_, T, I>
 where
     u64: std::convert::From<I>,
     I: std::cmp::PartialOrd + Copy,
@@ -49,9 +49,9 @@ where
     fn index(&self, idx: Idx<I>) -> T {
         assert!(idx.is_valid(self.length));
         let offset = u64::from(idx.0) * self.elem_size as u64;
-        let mut producer = self
+        let mut stream = self
             .reader
             .create_stream(Offset::from(offset), End::Size(Size::from(self.elem_size)));
-        T::produce(producer.as_mut()).unwrap()
+        T::produce(stream.as_mut()).unwrap()
     }
 }

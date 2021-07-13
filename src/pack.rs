@@ -1,4 +1,4 @@
-use crate::bases::producing::*;
+use crate::bases::stream::*;
 use crate::bases::types::*;
 use std::fmt::Debug;
 use std::io::{self, Read};
@@ -12,8 +12,8 @@ pub enum PackKind {
 }
 
 impl Producable for PackKind {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        match producer.read_u32()? {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        match stream.read_u32()? {
             0x61_72_78_66_u32 => Ok(PackKind::ARX),
             0x61_72_78_69_u32 => Ok(PackKind::DIRECTORY),
             0x61_72_78_63_u32 => Ok(PackKind::CONTENT),
@@ -23,9 +23,9 @@ impl Producable for PackKind {
 }
 
 impl Producable for Uuid {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let mut v = [0_u8; 16];
-        producer.read_exact(&mut v)?;
+        stream.read_exact(&mut v)?;
         Ok(Uuid::from_bytes(v))
     }
 }
@@ -37,8 +37,8 @@ enum CheckKind {
 }
 
 impl Producable for CheckKind {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        match producer.read_u8()? {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        match stream.read_u8()? {
             0_u8 => Ok(CheckKind::NONE),
             1_u8 => Ok(CheckKind::BLAKE3),
             _ => Err(Error::FormatError),
@@ -47,9 +47,9 @@ impl Producable for CheckKind {
 }
 
 impl Producable for blake3::Hash {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let mut v = [0_u8; blake3::OUT_LEN];
-        producer.read_exact(&mut v)?;
+        stream.read_exact(&mut v)?;
         Ok(v.into())
     }
 }
@@ -60,10 +60,10 @@ pub struct CheckInfo {
 }
 
 impl Producable for CheckInfo {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        let kind = CheckKind::produce(producer)?;
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        let kind = CheckKind::produce(stream)?;
         let b3hash = match kind {
-            CheckKind::BLAKE3 => Some(blake3::Hash::produce(producer)?),
+            CheckKind::BLAKE3 => Some(blake3::Hash::produce(stream)?),
             _ => None,
         };
         Ok(Self { b3hash })
@@ -95,15 +95,15 @@ pub struct PackHeader {
 }
 
 impl Producable for PackHeader {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        let magic = PackKind::produce(producer)?;
-        let app_vendor_id = producer.read_u32()?;
-        let major_version = producer.read_u8()?;
-        let minor_version = producer.read_u8()?;
-        let uuid = Uuid::produce(producer)?;
-        producer.skip(Size(6))?;
-        let file_size = Size::produce(producer)?;
-        let check_info_pos = Offset::produce(producer)?;
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        let magic = PackKind::produce(stream)?;
+        let app_vendor_id = stream.read_u32()?;
+        let major_version = stream.read_u8()?;
+        let minor_version = stream.read_u8()?;
+        let uuid = Uuid::produce(stream)?;
+        stream.skip(Size(6))?;
+        let file_size = Size::produce(stream)?;
+        let check_info_pos = Offset::produce(stream)?;
         Ok(PackHeader {
             magic,
             app_vendor_id,
@@ -149,9 +149,9 @@ mod tests {
         ];
         content.extend_from_slice(&[0xff; 56]);
         let reader = BufReader::new(content, End::None);
-        let mut producer = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            PackHeader::produce(producer.as_mut()).unwrap(),
+            PackHeader::produce(stream.as_mut()).unwrap(),
             PackHeader {
                 magic: PackKind::CONTENT,
                 app_vendor_id: 0x01000000_u32,

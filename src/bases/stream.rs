@@ -3,20 +3,15 @@ use crate::bases::types::*;
 use crate::primitive::*;
 use std::io::Read;
 
-/// A producer is the main trait producing stuff from "raw data".
-/// A producer may have a size, and is positionned.
-/// The cursor can be move.
-/// Producing a value "consumes" the data and the cursor is moved.
-/// It is possible to create subproducer, a producer reading the sub range of tha data.
-/// Each producer are independant.
-/// Data is never modified.
-pub trait Producer: Read {
-    fn tell_cursor(&self) -> Offset;
+/// A stream is a object streaming a reader and producing data.
+/// A stream may have a size, and is positionned.
+/// A stream can produce raw value, "consuming" the data and the cursor is moved.
+/// Each stream is independant.
+pub trait Stream: Read {
+    fn tell(&self) -> Offset;
     fn size(&self) -> Size;
-
-    fn sub_producer_at(&self, offset: Offset, end: End) -> Box<dyn Producer>;
-
     fn skip(&mut self, size: Size) -> Result<()>;
+
     fn read_u8(&mut self) -> Result<u8> {
         let mut d = [0_u8; 1];
         self.read_exact(&mut d)?;
@@ -44,44 +39,45 @@ pub trait Producer: Read {
     }
 }
 
+/// A Producable is a object that can be produce from a stream.
 pub trait Producable {
-    fn produce(producer: &mut dyn Producer) -> Result<Self>
+    fn produce(stream: &mut dyn Stream) -> Result<Self>
     where
         Self: Sized;
 }
 
 impl Producable for Offset {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        Ok(producer.read_u64()?.into())
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        Ok(stream.read_u64()?.into())
     }
 }
 
 impl Producable for Size {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        Ok(producer.read_u64()?.into())
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        Ok(stream.read_u64()?.into())
     }
 }
 
 impl Producable for Count<u8> {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        Ok(producer.read_u8()?.into())
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        Ok(stream.read_u8()?.into())
     }
 }
 
 impl Producable for Count<u16> {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        Ok(producer.read_u16()?.into())
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        Ok(stream.read_u16()?.into())
     }
 }
 
 impl Producable for Count<u32> {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        Ok(producer.read_u32()?.into())
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        Ok(stream.read_u32()?.into())
     }
 }
 
 impl Producable for Count<u64> {
-    fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        Ok(producer.read_u64()?.into())
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        Ok(stream.read_u64()?.into())
     }
 }
