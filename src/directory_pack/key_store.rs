@@ -86,28 +86,26 @@ impl Producable for IndexedKeyStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::io::ProducerWrapper;
 
     #[test]
     fn test_keystorekind() {
-        let mut producer = ProducerWrapper::<Vec<u8>>::new(vec![0x00, 0x01, 0x02], End::None);
+        let reader = BufReader::new(vec![0x00, 0x01, 0x02], End::None);
+        let mut producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            KeyStoreKind::produce(&mut producer).unwrap(),
+            KeyStoreKind::produce(producer.as_mut()).unwrap(),
             KeyStoreKind::PLAIN
         );
         assert_eq!(
-            KeyStoreKind::produce(&mut producer).unwrap(),
+            KeyStoreKind::produce(producer.as_mut()).unwrap(),
             KeyStoreKind::INDEXED
         );
         assert_eq!(producer.tell_cursor(), Offset::from(2));
-        assert!(KeyStoreKind::produce(&mut producer).is_err());
-        assert_eq!(producer.tell_cursor(), Offset::from(2));
-        assert!(KeyStoreKind::produce(&mut producer).is_err());
+        assert!(KeyStoreKind::produce(producer.as_mut()).is_err());
     }
 
     #[test]
     fn test_plainkeystore() {
-        let mut producer = ProducerWrapper::<Vec<u8>>::new(
+        let reader = BufReader::new(
             vec![
                 0x00, // kind
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, // data_size
@@ -116,7 +114,8 @@ mod tests {
             ],
             End::None,
         );
-        let mut key_store = KeyStore::produce(&mut producer).unwrap();
+        let mut producer = reader.create_stream(Offset(0), Size::None);
+        let mut key_store = KeyStore::produce(producer.as_mut()).unwrap();
         match &mut key_store {
             KeyStore::PLAIN(plainkeystore) => {
                 assert_eq!(plainkeystore.producer.size(), Size::from(0x10_u64));
@@ -135,7 +134,7 @@ mod tests {
 
     #[test]
     fn test_indexedkeystore() {
-        let mut producer = ProducerWrapper::<Vec<u8>>::new(
+        let reader = BufReader::new(
             vec![
                 0x01, // kind
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x24, // store_size
@@ -150,8 +149,9 @@ mod tests {
             ],
             End::None,
         );
+        let mut producer = reader.create_stream(Offset(0), End::None);
         println!("Size is {}", producer.size().0);
-        let mut key_store = KeyStore::produce(&mut producer).unwrap();
+        let mut key_store = KeyStore::produce(producer.as_mut()).unwrap();
         match &mut key_store {
             KeyStore::INDEXED(indexedkeystore) => {
                 assert_eq!(

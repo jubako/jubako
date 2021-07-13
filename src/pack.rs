@@ -1,7 +1,7 @@
 use crate::bases::producing::*;
 use crate::bases::types::*;
 use std::fmt::Debug;
-use std::io::{self, Read, SeekFrom};
+use std::io::{self, Read};
 use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -17,10 +17,7 @@ impl Producable for PackKind {
             0x61_72_78_66_u32 => Ok(PackKind::ARX),
             0x61_72_78_69_u32 => Ok(PackKind::DIRECTORY),
             0x61_72_78_63_u32 => Ok(PackKind::CONTENT),
-            _ => {
-                producer.seek(SeekFrom::Current(-4)).unwrap();
-                Err(Error::FormatError)
-            }
+            _ => Err(Error::FormatError),
         }
     }
 }
@@ -44,10 +41,7 @@ impl Producable for CheckKind {
         match producer.read_u8()? {
             0_u8 => Ok(CheckKind::NONE),
             1_u8 => Ok(CheckKind::BLAKE3),
-            _ => {
-                producer.seek(SeekFrom::Current(-1)).unwrap();
-                Err(Error::FormatError)
-            }
+            _ => Err(Error::FormatError),
         }
     }
 }
@@ -107,7 +101,7 @@ impl Producable for PackHeader {
         let major_version = producer.read_u8()?;
         let minor_version = producer.read_u8()?;
         let uuid = Uuid::produce(producer)?;
-        producer.seek(SeekFrom::Current(6))?;
+        producer.skip(Size(6))?;
         let file_size = Size::produce(producer)?;
         let check_info_pos = Offset::produce(producer)?;
         Ok(PackHeader {
@@ -137,7 +131,7 @@ pub trait Pack {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::io::*;
+    use crate::bases::reader::*;
 
     #[test]
     fn test_packheader() {
@@ -154,9 +148,10 @@ mod tests {
             0x00, // No check
         ];
         content.extend_from_slice(&[0xff; 56]);
-        let mut producer = ProducerWrapper::<Vec<u8>>::new(content, End::None);
+        let reader = BufReader::new(content, End::None);
+        let mut producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            PackHeader::produce(&mut producer).unwrap(),
+            PackHeader::produce(producer.as_mut()).unwrap(),
             PackHeader {
                 magic: PackKind::CONTENT,
                 app_vendor_id: 0x01000000_u32,

@@ -1,7 +1,6 @@
 use crate::bases::producing::*;
+use crate::bases::reader::*;
 use crate::bases::types::*;
-use crate::io::*;
-use std::io::SeekFrom;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -19,10 +18,7 @@ impl Producable for CompressionType {
             1 => Ok(CompressionType::LZ4),
             2 => Ok(CompressionType::LZMA),
             3 => Ok(CompressionType::ZSTD),
-            _ => {
-                producer.seek(SeekFrom::Current(-1)).unwrap();
-                Err(Error::FormatError)
-            }
+            _ => Err(Error::FormatError),
         }
     }
 }
@@ -52,12 +48,13 @@ impl Producable for ClusterHeader {
 
 pub struct Cluster {
     blob_offsets: Vec<Offset>,
-    producer: Box<dyn Producer>,
+    reader: Box<dyn Reader>,
 }
 
 impl Cluster {
-    pub fn produce(producer: &mut dyn Producer) -> Result<Self> {
-        let header = ClusterHeader::produce(producer)?;
+    pub fn new(reader: &dyn Reader) -> Result<Self> {
+        let mut producer = reader.create_stream(Offset::from(0), End::None);
+        let header = ClusterHeader::produce(producer.as_mut())?;
         let data_size: Size = producer.read_sized(header.offset_size.into())?.into();
         let mut blob_offsets: Vec<Offset> = Vec::with_capacity((header.blob_count.0 + 1) as usize);
         unsafe { blob_offsets.set_len((header.blob_count.0).into()) }
@@ -72,33 +69,37 @@ impl Cluster {
             assert!(elem.is_valid(data_size));
         }
         blob_offsets.push(data_size.into());
-        let raw_producer = producer.sub_producer_at(
+        let raw_reader = reader.create_sub_reader(
             producer.tell_cursor(),
             End::Offset(header.cluster_size.into()),
         );
-        let producer = match header.compression {
+        let reader = match header.compression {
             CompressionType::NONE => {
                 assert_eq!(
                     (producer.tell_cursor() + data_size).0,
                     header.cluster_size.0
                 );
-                raw_producer
+                raw_reader
             }
             CompressionType::LZ4 => {
-                Box::new(Lz4Wrapper::new(lz4::Decoder::new(raw_producer)?, data_size))
+                let producer = raw_reader.create_stream(Offset(0), End::None);
+                Box::new(Lz4Reader::new(lz4::Decoder::new(producer)?, data_size))
             }
-            CompressionType::LZMA => Box::new(LzmaWrapper::new(
-                lzma::LzmaReader::new_decompressor(raw_producer)?,
-                data_size,
-            )),
-            CompressionType::ZSTD => Box::new(ZstdWrapper::new(
-                zstd::Decoder::new(raw_producer)?,
-                data_size,
-            )),
+            CompressionType::LZMA => {
+                let producer = raw_reader.create_stream(Offset(0), End::None);
+                Box::new(LzmaReader::new(
+                    lzma::LzmaReader::new_decompressor(producer)?,
+                    data_size,
+                ))
+            }
+            CompressionType::ZSTD => {
+                let producer = raw_reader.create_stream(Offset(0), End::None);
+                Box::new(ZstdReader::new(zstd::Decoder::new(producer)?, data_size))
+            }
         };
         Ok(Cluster {
             blob_offsets,
-            producer,
+            reader,
         })
     }
 
@@ -109,46 +110,42 @@ impl Cluster {
     pub fn get_producer(&self, index: Idx<u16>) -> Result<Box<dyn Producer>> {
         let offset = self.blob_offsets[index.0 as usize];
         let end_offset = self.blob_offsets[(index.0 + 1) as usize];
-        Ok(self
-            .producer
-            .sub_producer_at(offset, End::Offset(end_offset)))
+        Ok(self.reader.create_stream(offset, End::Offset(end_offset)))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{Cursor, Seek};
+    use std::io::Cursor;
 
     #[test]
     fn test_compressiontype() {
-        let mut producer =
-            ProducerWrapper::<Vec<u8>>::new(vec![0x00, 0x01, 0x02, 0x03, 0x4, 0xFF], End::None);
+        let reader = BufReader::new(vec![0x00, 0x01, 0x02, 0x03, 0x4, 0xFF], End::None);
+        let mut producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            CompressionType::produce(&mut producer).unwrap(),
+            CompressionType::produce(producer.as_mut()).unwrap(),
             CompressionType::NONE
         );
         assert_eq!(
-            CompressionType::produce(&mut producer).unwrap(),
+            CompressionType::produce(producer.as_mut()).unwrap(),
             CompressionType::LZ4
         );
         assert_eq!(
-            CompressionType::produce(&mut producer).unwrap(),
+            CompressionType::produce(producer.as_mut()).unwrap(),
             CompressionType::LZMA
         );
         assert_eq!(
-            CompressionType::produce(&mut producer).unwrap(),
+            CompressionType::produce(producer.as_mut()).unwrap(),
             CompressionType::ZSTD
         );
         assert_eq!(producer.tell_cursor(), Offset::from(4));
-        assert!(CompressionType::produce(&mut producer).is_err());
-        assert_eq!(producer.tell_cursor(), Offset::from(4));
-        assert!(CompressionType::produce(&mut producer).is_err());
+        assert!(CompressionType::produce(producer.as_mut()).is_err());
     }
 
     #[test]
     fn test_clusterheader() {
-        let mut producer = ProducerWrapper::<Vec<u8>>::new(
+        let reader = BufReader::new(
             vec![
                 0x00, // compression
                 0x01, // offset_size
@@ -157,8 +154,9 @@ mod tests {
             ],
             End::None,
         );
+        let mut producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            ClusterHeader::produce(&mut producer).unwrap(),
+            ClusterHeader::produce(producer.as_mut()).unwrap(),
             ClusterHeader {
                 compression: CompressionType::NONE,
                 offset_size: 1,
@@ -170,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_cluster_raw() {
-        let mut producer = ProducerWrapper::<Vec<u8>>::new(
+        let reader = BufReader::new(
             vec![
                 0x00, // compression
                 0x01, // offset_size
@@ -185,8 +183,9 @@ mod tests {
             ],
             End::None,
         );
+        let mut producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            ClusterHeader::produce(&mut producer).unwrap(),
+            ClusterHeader::produce(producer.as_mut()).unwrap(),
             ClusterHeader {
                 compression: CompressionType::NONE,
                 offset_size: 1,
@@ -194,8 +193,7 @@ mod tests {
                 cluster_size: Size(30)
             }
         );
-        producer.seek(SeekFrom::Start(0)).unwrap();
-        let cluster = Cluster::produce(&mut producer).unwrap();
+        let cluster = Cluster::new(&reader).unwrap();
         assert_eq!(cluster.blob_count(), Count(3_u16));
 
         {
@@ -249,9 +247,10 @@ mod tests {
             encoder.finish().1.unwrap();
         }
         println!("content_len : {}\n", content.len());
-        let mut producer = ProducerWrapper::<Vec<u8>>::new(content, End::None);
+        let reader = BufReader::new(content, End::None);
+        let mut producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            ClusterHeader::produce(&mut producer).unwrap(),
+            ClusterHeader::produce(producer.as_mut()).unwrap(),
             ClusterHeader {
                 compression: CompressionType::LZ4,
                 offset_size: 1,
@@ -259,8 +258,7 @@ mod tests {
                 cluster_size: Size(49)
             }
         );
-        producer.seek(SeekFrom::Start(0)).unwrap();
-        let cluster = Cluster::produce(&mut producer).unwrap();
+        let cluster = Cluster::new(&reader).unwrap();
         assert_eq!(cluster.blob_count(), Count(3_u16));
 
         {
@@ -311,9 +309,10 @@ mod tests {
             encoder.finish().unwrap();
         }
         println!("content_len : {}\n", content.len());
-        let mut producer = ProducerWrapper::<Vec<u8>>::new(content, End::None);
+        let reader = BufReader::new(content, End::None);
+        let mut producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            ClusterHeader::produce(&mut producer).unwrap(),
+            ClusterHeader::produce(producer.as_mut()).unwrap(),
             ClusterHeader {
                 compression: CompressionType::LZMA,
                 offset_size: 1,
@@ -321,8 +320,7 @@ mod tests {
                 cluster_size: Size(87)
             }
         );
-        producer.seek(SeekFrom::Start(0)).unwrap();
-        let cluster = Cluster::produce(&mut producer).unwrap();
+        let cluster = Cluster::new(&reader).unwrap();
         assert_eq!(cluster.blob_count(), Count(3_u16));
 
         {
@@ -373,9 +371,10 @@ mod tests {
             encoder.finish().unwrap();
         }
         println!("content_len : {}\n", content.len());
-        let mut producer = ProducerWrapper::<Vec<u8>>::new(content, End::None);
+        let reader = BufReader::new(content, End::None);
+        let mut producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            ClusterHeader::produce(&mut producer).unwrap(),
+            ClusterHeader::produce(producer.as_mut()).unwrap(),
             ClusterHeader {
                 compression: CompressionType::ZSTD,
                 offset_size: 1,
@@ -383,8 +382,7 @@ mod tests {
                 cluster_size: Size(39)
             }
         );
-        producer.seek(SeekFrom::Start(0)).unwrap();
-        let cluster = Cluster::produce(&mut producer).unwrap();
+        let cluster = Cluster::new(&reader).unwrap();
         assert_eq!(cluster.blob_count(), Count(3_u16));
 
         {

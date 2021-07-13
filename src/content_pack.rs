@@ -1,12 +1,13 @@
 mod cluster;
 
 use crate::bases::producing::*;
+use crate::bases::reader::*;
 use crate::bases::types::*;
 use crate::bases::*;
 use crate::pack::*;
 use crate::produceArray;
 pub use cluster::Cluster;
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::fmt::{Debug, Formatter};
 use std::io::Read;
 use std::ops::{Deref, DerefMut};
@@ -94,34 +95,25 @@ pub struct ContentPack<'a> {
     header: ContentPackHeader,
     entry_infos: ArrayProducer<'a, EntryInfo, u32>,
     cluster_ptrs: ArrayProducer<'a, Offset, u32>,
-    producer: RefCell<Box<dyn Producer + 'a>>,
+    reader: Box<dyn Reader + 'a>,
     check_info: Cell<Option<CheckInfo>>,
 }
 
 impl<'a> ContentPack<'a> {
-    pub fn new(mut producer: Box<dyn Producer>) -> Result<Self> {
-        let header = ContentPackHeader::produce(producer.as_mut())?;
+    pub fn new(reader: Box<dyn Reader>) -> Result<Self> {
+        let header =
+            ContentPackHeader::produce(reader.create_stream(Offset::from(0), End::None).as_mut())?;
         let entry_infos = produceArray!(
-            EntryInfo,
-            u32,
-            producer,
-            header.entry_ptr_pos,
-            header.entry_count,
-            4
+            reader, at:header.entry_ptr_pos, len:header.entry_count, idx:u32 => (EntryInfo, 4)
         );
         let cluster_ptrs = produceArray!(
-            Offset,
-            u32,
-            producer,
-            header.cluster_ptr_pos,
-            header.cluster_count,
-            8
+            reader, at:header.cluster_ptr_pos, len:header.cluster_count, idx:u32 => (Offset, 8)
         );
         Ok(ContentPack {
             header,
             entry_infos,
             cluster_ptrs,
-            producer: RefCell::new(producer),
+            reader,
             check_info: Cell::new(None),
         })
     }
@@ -139,11 +131,8 @@ impl<'a> ContentPack<'a> {
             return Err(Error::FormatError);
         }
         let cluster_ptr = self.cluster_ptrs.index(entry_info.cluster_index);
-        let mut cluster_producer = self
-            .producer
-            .borrow()
-            .sub_producer_at(cluster_ptr, End::None);
-        let cluster = Cluster::produce(cluster_producer.as_mut())?;
+        let reader = self.reader.create_sub_reader(cluster_ptr, End::None);
+        let cluster = Cluster::new(reader.as_ref())?;
         cluster.get_producer(entry_info.blob_index)
     }
 
@@ -174,27 +163,25 @@ impl Pack for ContentPack<'_> {
     fn check(&self) -> Result<bool> {
         if self.check_info.get().is_none() {
             let mut checkinfo_producer = self
-                .producer
-                .borrow()
-                .sub_producer_at(self.header.pack_header.check_info_pos, End::None);
+                .reader
+                .create_stream(self.header.pack_header.check_info_pos, End::None);
             let check_info = CheckInfo::produce(checkinfo_producer.as_mut())?;
             self.check_info.set(Some(check_info));
         }
-        let mut check_reader = self.producer.borrow().sub_producer_at(
+        let mut check_stream = self.reader.create_stream(
             Offset::from(0),
             End::Offset(self.header.pack_header.check_info_pos),
         );
         self.check_info
             .get()
             .unwrap()
-            .check(&mut check_reader.as_mut() as &mut dyn Read)
+            .check(&mut check_stream.as_mut() as &mut dyn Read)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::io::*;
 
     #[test]
     fn test_contentpackheader() {
@@ -214,9 +201,10 @@ mod tests {
             0x00, 0x00, 0x00, 0x60, // cluster ccount
         ];
         content.extend_from_slice(&[0xff; 56]);
-        let mut producer = ProducerWrapper::<Vec<u8>>::new(content, End::None);
+        let reader = BufReader::new(content, End::None);
+        let mut producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            ContentPackHeader::produce(&mut producer).unwrap(),
+            ContentPackHeader::produce(producer.as_mut()).unwrap(),
             ContentPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::CONTENT,
@@ -278,8 +266,8 @@ mod tests {
         let hash = blake3::hash(&content);
         content.push(0x01); // check info off: 179
         content.extend(hash.as_bytes()); // end : 179+32 = 211
-        let producer = Box::new(ProducerWrapper::<Vec<u8>>::new(content, End::None));
-        let content_pack = ContentPack::new(producer).unwrap();
+        let reader = Box::new(BufReader::new(content, End::None));
+        let content_pack = ContentPack::new(reader).unwrap();
         assert_eq!(content_pack.get_entry_count(), Count(3));
         assert_eq!(content_pack.app_vendor_id(), 0x01000000_u32);
         assert_eq!(content_pack.version(), (1, 2));

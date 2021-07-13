@@ -12,45 +12,22 @@ pub struct ProducerWrapper<T> {
     offset: Offset,
 }
 
-impl ProducerWrapper<Vec<u8>> {
-    pub fn new(source: Vec<u8>, end: End) -> Self {
-        let source = Rc::new(source);
-        let end = match end {
-            End::None => Offset(source.len() as u64),
-            End::Offset(o) => o,
-            End::Size(s) => s.into(),
-        };
-        assert!(end.is_valid(source.len().into()));
+impl<T> ProducerWrapper<T> {
+    pub fn new_from_parts(source: Rc<T>, origin: Offset, end: Offset, offset: Offset) -> Self {
         Self {
             source,
+            origin,
             end,
-            origin: Offset(0),
-            offset: Offset(0),
+            offset,
         }
     }
+}
+
+impl ProducerWrapper<Vec<u8>> {
     fn slice(&self) -> &[u8] {
         let offset = self.offset.0 as usize;
         let end = self.end.0 as usize;
         &self.source[offset..end]
-    }
-}
-
-impl ProducerWrapper<RefCell<File>> {
-    pub fn new(mut source: File, end: End) -> Self {
-        let len = source.seek(SeekFrom::End(0)).unwrap();
-        let source = Rc::new(RefCell::new(source));
-        let end = match end {
-            End::None => Offset(len as u64),
-            End::Offset(o) => o,
-            End::Size(s) => s.into(),
-        };
-        assert!(end.is_valid(len.into()));
-        Self {
-            source,
-            end,
-            origin: Offset(0),
-            offset: Offset(0),
-        }
     }
 }
 
@@ -123,6 +100,15 @@ where
     fn size(&self) -> Size {
         self.end - self.origin
     }
+    fn skip(&mut self, size: Size) -> Result<()> {
+        let new_offset = self.offset + size;
+        if new_offset <= self.end {
+            self.offset = new_offset;
+            Ok(())
+        } else {
+            Err(Error::FormatError)
+        }
+    }
 
     fn sub_producer_at(&self, offset: Offset, end: End) -> Box<dyn Producer> {
         let origin = self.origin + offset;
@@ -142,13 +128,13 @@ where
     }
 }
 
-pub struct SeakableDecoder<T> {
+pub struct SeekableDecoder<T> {
     decoder: RefCell<T>,
     buffer: RefCell<Box<[u8]>>,
     decoded: Cell<Offset>,
 }
 
-impl<T: Read> SeakableDecoder<T> {
+impl<T: Read> SeekableDecoder<T> {
     pub fn new(decoder: T, size: Size) -> Self {
         let mut buffer = Vec::with_capacity(size.0 as usize);
         unsafe {
@@ -161,7 +147,7 @@ impl<T: Read> SeakableDecoder<T> {
         }
     }
 
-    fn decode_to(&self, end: Offset) -> std::result::Result<(), std::io::Error> {
+    pub fn decode_to(&self, end: Offset) -> std::result::Result<(), std::io::Error> {
         if end >= self.decoded.get() {
             let o = self.decoded.get().0 as usize;
             let e = std::cmp::min(end.0 as usize, self.buffer.borrow().len());
@@ -173,7 +159,7 @@ impl<T: Read> SeakableDecoder<T> {
         Ok(())
     }
 
-    fn decoded_slice(&self) -> &[u8] {
+    pub fn decoded_slice(&self) -> &[u8] {
         let size = self.decoded.get().0 as usize;
         assert!(size <= self.buffer.borrow().len());
         let ptr = self.buffer.borrow().as_ptr();
@@ -181,18 +167,7 @@ impl<T: Read> SeakableDecoder<T> {
     }
 }
 
-impl<T: Read> ProducerWrapper<SeakableDecoder<T>> {
-    pub fn new(decoder: T, outsize: Size) -> Self {
-        let source = Rc::new(SeakableDecoder::new(decoder, outsize));
-        let end = outsize.into();
-        Self {
-            source,
-            end,
-            origin: Offset(0),
-            offset: Offset(0),
-        }
-    }
-
+impl<T: Read> ProducerWrapper<SeekableDecoder<T>> {
     fn slice(&self) -> &[u8] {
         let o = self.offset.0 as usize;
         let e = self.end.0 as usize;
@@ -200,7 +175,7 @@ impl<T: Read> ProducerWrapper<SeakableDecoder<T>> {
     }
 }
 
-impl<T: Read> Read for ProducerWrapper<SeakableDecoder<T>> {
+impl<T: Read> Read for ProducerWrapper<SeekableDecoder<T>> {
     fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
         let end = self.offset + buf.len();
         self.source.decode_to(end)?;
@@ -215,38 +190,36 @@ impl<T: Read> Read for ProducerWrapper<SeakableDecoder<T>> {
     }
 }
 
-pub type Lz4Wrapper<T> = ProducerWrapper<SeakableDecoder<lz4::Decoder<T>>>;
-pub type LzmaWrapper<T> = ProducerWrapper<SeakableDecoder<lzma::LzmaReader<T>>>;
-pub type ZstdWrapper<'a, T> = ProducerWrapper<SeakableDecoder<zstd::Decoder<'a, T>>>;
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bases::reader::*;
     use std::io::Write;
     use tempfile::tempfile;
 
     #[test]
     fn test_vec_producer() {
-        let mut producer = ProducerWrapper::<Vec<u8>>::new(
+        let reader = BufReader::new(
             vec![0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08],
             End::None,
         );
+        let mut producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(producer.read_u8().unwrap(), 0x00_u8);
         assert_eq!(producer.tell_cursor(), Offset::from(1));
         assert_eq!(producer.read_u8().unwrap(), 0x01_u8);
         assert_eq!(producer.tell_cursor(), Offset::from(2));
         assert_eq!(producer.read_u16().unwrap(), 0x0203_u16);
         assert_eq!(producer.tell_cursor(), Offset::from(4));
-        producer.seek(SeekFrom::Start(0)).unwrap();
+        producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(producer.read_u32().unwrap(), 0x00010203_u32);
         assert_eq!(producer.read_u32().unwrap(), 0x04050607_u32);
         assert_eq!(producer.tell_cursor(), Offset::from(8));
         assert!(producer.read_u64().is_err());
-        producer.seek(SeekFrom::Start(0)).unwrap();
+        producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(producer.read_u64().unwrap(), 0x0001020304050607_u64);
         assert_eq!(producer.tell_cursor(), Offset::from(8));
 
-        let mut sub_producer = producer.sub_producer_at(1.into(), End::None);
+        let mut sub_producer = reader.create_stream(1.into(), End::None);
         assert_eq!(sub_producer.tell_cursor(), Offset::from(0));
         assert_eq!(sub_producer.read_u8().unwrap(), 0x01_u8);
         assert_eq!(sub_producer.tell_cursor(), Offset::from(1));
@@ -255,12 +228,13 @@ mod tests {
         assert_eq!(sub_producer.read_u32().unwrap(), 0x04050607_u32);
         assert_eq!(sub_producer.tell_cursor(), Offset::from(7));
         assert!(sub_producer.read_u64().is_err());
-        sub_producer.seek(SeekFrom::Start(0)).unwrap();
+        sub_producer = reader.create_stream(1.into(), End::None);
         assert_eq!(sub_producer.read_u64().unwrap(), 0x0102030405060708_u64);
         assert_eq!(sub_producer.tell_cursor(), Offset::from(8));
 
-        producer.seek(SeekFrom::Start(1)).unwrap();
-        sub_producer.seek(SeekFrom::Start(0)).unwrap();
+        producer = reader.create_stream(Offset(0), End::None);
+        sub_producer = reader.create_stream(1.into(), End::None);
+        producer.skip(Size(1)).unwrap();
         assert_eq!(producer.read_u8().unwrap(), sub_producer.read_u8().unwrap());
         assert_eq!(
             producer.read_u16().unwrap(),
@@ -277,23 +251,24 @@ mod tests {
         let mut file = tempfile().unwrap();
         file.write_all(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08])
             .unwrap();
-        let mut producer = ProducerWrapper::<RefCell<File>>::new(file, End::None);
+        let reader = FileReader::new(file, End::None);
+        let mut producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(producer.read_u8().unwrap(), 0x00_u8);
         assert_eq!(producer.tell_cursor(), Offset::from(1));
         assert_eq!(producer.read_u8().unwrap(), 0x01_u8);
         assert_eq!(producer.tell_cursor(), Offset::from(2));
         assert_eq!(producer.read_u16().unwrap(), 0x0203_u16);
         assert_eq!(producer.tell_cursor(), Offset::from(4));
-        producer.seek(SeekFrom::Start(0)).unwrap();
+        producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(producer.read_u32().unwrap(), 0x00010203_u32);
         assert_eq!(producer.read_u32().unwrap(), 0x04050607_u32);
         assert_eq!(producer.tell_cursor(), Offset::from(8));
         assert!(producer.read_u64().is_err());
-        producer.seek(SeekFrom::Start(0)).unwrap();
+        producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(producer.read_u64().unwrap(), 0x0001020304050607_u64);
         assert_eq!(producer.tell_cursor(), Offset::from(8));
 
-        let mut sub_producer = producer.sub_producer_at(1.into(), End::None);
+        let mut sub_producer = reader.create_stream(Offset(1), End::None);
         assert_eq!(sub_producer.tell_cursor(), Offset::from(0));
         assert_eq!(sub_producer.read_u8().unwrap(), 0x01_u8);
         assert_eq!(sub_producer.tell_cursor(), Offset::from(1));
@@ -302,12 +277,13 @@ mod tests {
         assert_eq!(sub_producer.read_u32().unwrap(), 0x04050607_u32);
         assert_eq!(sub_producer.tell_cursor(), Offset::from(7));
         assert!(sub_producer.read_u64().is_err());
-        sub_producer.seek(SeekFrom::Start(0)).unwrap();
+        sub_producer = reader.create_stream(Offset(1), End::None);
         assert_eq!(sub_producer.read_u64().unwrap(), 0x0102030405060708_u64);
         assert_eq!(sub_producer.tell_cursor(), Offset::from(8));
 
-        producer.seek(SeekFrom::Start(1)).unwrap();
-        sub_producer.seek(SeekFrom::Start(0)).unwrap();
+        producer = reader.create_stream(Offset(0), End::None);
+        sub_producer = reader.create_stream(Offset(1), End::None);
+        producer.skip(Size(1)).unwrap();
         assert_eq!(producer.read_u8().unwrap(), sub_producer.read_u8().unwrap());
         assert_eq!(
             producer.read_u16().unwrap(),

@@ -209,7 +209,8 @@ mod tests {
             0x05, //key_store count
         ];
         content.extend_from_slice(&[0xff; 47]);
-        let mut producer = ProducerWrapper::<Vec<u8>>::new(content, End::None);
+        let reader = BufReader::new(content, End::None);
+        let mut producer = reader.create_stream(Offset(0), End::None);
         assert_eq!(
             DirectoryPackHeader::produce(&mut producer).unwrap(),
             DirectoryPackHeader {

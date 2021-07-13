@@ -1,7 +1,7 @@
 ///! All base traits use to produce structure from raw data.
 use crate::bases::types::*;
 use crate::primitive::*;
-use std::io::{Read, Seek};
+use std::io::Read;
 
 /// A producer is the main trait producing stuff from "raw data".
 /// A producer may have a size, and is positionned.
@@ -10,12 +10,13 @@ use std::io::{Read, Seek};
 /// It is possible to create subproducer, a producer reading the sub range of tha data.
 /// Each producer are independant.
 /// Data is never modified.
-pub trait Producer: Read + Seek {
+pub trait Producer: Read {
     fn tell_cursor(&self) -> Offset;
     fn size(&self) -> Size;
 
     fn sub_producer_at(&self, offset: Offset, end: End) -> Box<dyn Producer>;
 
+    fn skip(&mut self, size: Size) -> Result<()>;
     fn read_u8(&mut self) -> Result<u8> {
         let mut d = [0_u8; 1];
         self.read_exact(&mut d)?;
