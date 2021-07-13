@@ -1,6 +1,6 @@
 ///! All base traits use to produce structure from raw data.
-use crate::bases::types::*;
-use crate::primitive::*;
+use crate::bases::*;
+use primitive::*;
 use std::io::Read;
 
 /// A stream is a object streaming a reader and producing data.
@@ -44,40 +44,4 @@ pub trait Producable {
     fn produce(stream: &mut dyn Stream) -> Result<Self>
     where
         Self: Sized;
-}
-
-impl Producable for Offset {
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        Ok(stream.read_u64()?.into())
-    }
-}
-
-impl Producable for Size {
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        Ok(stream.read_u64()?.into())
-    }
-}
-
-impl Producable for Count<u8> {
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        Ok(stream.read_u8()?.into())
-    }
-}
-
-impl Producable for Count<u16> {
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        Ok(stream.read_u16()?.into())
-    }
-}
-
-impl Producable for Count<u32> {
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        Ok(stream.read_u32()?.into())
-    }
-}
-
-impl Producable for Count<u64> {
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        Ok(stream.read_u64()?.into())
-    }
 }

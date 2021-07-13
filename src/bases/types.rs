@@ -1,3 +1,4 @@
+use crate::bases::*;
 use lzma::LzmaError;
 use std::fmt;
 use std::ops::{Add, AddAssign, Sub};
@@ -47,6 +48,12 @@ pub struct Offset(pub u64);
 impl Offset {
     pub fn is_valid(self, s: Size) -> bool {
         self.0 <= s.0
+    }
+}
+
+impl Producable for Offset {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        Ok(stream.read_u64()?.into())
     }
 }
 
@@ -109,6 +116,12 @@ impl Sub for Offset {
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
 pub struct Size(pub u64);
 
+impl Producable for Size {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        Ok(stream.read_u64()?.into())
+    }
+}
+
 impl From<Offset> for Size {
     fn from(v: Offset) -> Size {
         v.0.into()
@@ -143,6 +156,30 @@ pub struct Count<T>(pub T);
 impl<T> From<T> for Count<T> {
     fn from(v: T) -> Count<T> {
         Count(v)
+    }
+}
+
+impl Producable for Count<u8> {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        Ok(stream.read_u8()?.into())
+    }
+}
+
+impl Producable for Count<u16> {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        Ok(stream.read_u16()?.into())
+    }
+}
+
+impl Producable for Count<u32> {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        Ok(stream.read_u32()?.into())
+    }
+}
+
+impl Producable for Count<u64> {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        Ok(stream.read_u64()?.into())
     }
 }
 

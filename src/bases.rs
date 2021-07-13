@@ -1,11 +1,14 @@
-pub mod reader;
-pub mod stream;
-pub mod types;
+mod io;
+pub mod primitive;
+mod reader;
+mod stream;
+mod types;
 
-use reader::*;
+pub use io::*;
+pub use reader::*;
 use std::marker::PhantomData;
-use stream::*;
-use types::*;
+pub use stream::*;
+pub use types::*;
 
 pub struct ArrayReader<'a, T, I> {
     reader: Box<dyn Reader + 'a>,
