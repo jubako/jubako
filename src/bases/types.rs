@@ -8,6 +8,7 @@ pub enum Error {
     IOError(std::io::Error),
     FormatError,
     ArgError,
+    Other(String),
 }
 
 impl From<std::io::Error> for Error {
@@ -31,6 +32,7 @@ impl fmt::Display for Error {
             Error::IOError(e) => write!(f, "IO Error {}", e),
             Error::FormatError => write!(f, "Arx format error"),
             Error::ArgError => write!(f, "Invalid argument"),
+            Error::Other(e) => write!(f, "Unknown error : {}", e),
         }
     }
 }
@@ -205,7 +207,7 @@ impl Producable for Count<u64> {
     }
 }
 
-impl<T:fmt::Display> fmt::Display for Count<T> {
+impl<T: fmt::Display> fmt::Display for Count<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Count({})", self.0)
     }
@@ -231,7 +233,7 @@ impl<T> From<T> for Idx<T> {
     }
 }
 
-impl<T:fmt::Display> fmt::Display for Idx<T> {
+impl<T: fmt::Display> fmt::Display for Idx<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Idx({})", self.0)
     }

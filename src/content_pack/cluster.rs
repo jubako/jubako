@@ -113,6 +113,7 @@ impl Cluster {
 mod tests {
     use super::*;
     use std::io::Cursor;
+    use test_case::test_case;
 
     #[test]
     fn test_compressiontype() {
@@ -161,232 +162,101 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_cluster_raw() {
-        let reader = BufReader::new(
-            vec![
-                0x00, // compression
-                0x01, // offset_size
-                0x00, 0x03, // blob_count
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, // cluster_size
-                0x0f, // Data size
-                0x05, // Offset of blob 1
-                0x08, // Offset of blob 2
-                0x11, 0x12, 0x13, 0x14, 0x15, // Data of blob 0
-                0x21, 0x22, 0x23, // Data of blob 1
-                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of blob 2
-            ],
-            End::None,
-        );
-        let mut stream = reader.create_stream(Offset(0), End::None);
-        assert_eq!(
-            ClusterHeader::produce(stream.as_mut()).unwrap(),
-            ClusterHeader {
-                compression: CompressionType::NONE,
-                offset_size: 1,
-                blob_count: Count(3),
-                cluster_size: Size(30)
-            }
-        );
-        let cluster = Cluster::new(&reader).unwrap();
-        assert_eq!(cluster.blob_count(), Count(3_u16));
-
-        {
-            let sub_reader = cluster.get_reader(Idx(0_u16)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(5_u64));
-            let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
-            stream.read_to_end(&mut v).unwrap();
-            assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
-        }
-        {
-            let sub_reader = cluster.get_reader(Idx(1_u16)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(3_u64));
-            let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
-            stream.read_to_end(&mut v).unwrap();
-            assert_eq!(v, [0x21, 0x22, 0x23]);
-        }
-        {
-            let sub_reader = cluster.get_reader(Idx(2_u16)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(7_u64));
-            let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
-            stream.read_to_end(&mut v).unwrap();
-            assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
-        }
+    fn create_cluster(comp: CompressionType, data: &[u8]) -> Vec<u8> {
+        let cluster_size = (15 + data.len()) as u8; // Assume cluster_size is less than 256.
+        let mut cluster_data = vec![
+            comp as u8, // compression
+            0x01,       // offset_size
+            0x00, 0x03, // blob_count
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, cluster_size, // cluster_size
+            0x0f,         // Data size
+            0x05,         // Offset of blob 1
+            0x08,         // Offset of blob 2
+        ];
+        cluster_data.extend_from_slice(&data);
+        assert_eq!(cluster_size as usize, cluster_data.len());
+        cluster_data
     }
 
-    #[test]
-    fn test_cluster_lz4() {
-        let mut content = vec![
-            0x01, // lz4 compression
-            0x01, // offset_size
-            0x00, 0x03, // blob_count
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x31, // cluster_size
-            0x0f, // Data size
-            0x05, // Offset of blob 1
-            0x08, // Offset of blob 2
+    fn create_raw_cluster() -> Vec<u8> {
+        let raw_data = vec![
+            0x11, 0x12, 0x13, 0x14, 0x15, // Blob 0
+            0x21, 0x22, 0x23, // Blob 1
+            0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Blob 3
         ];
-        {
-            let pos = content.len();
-            let mut content_cursor = Cursor::new(&mut content);
-            content_cursor.set_position(pos as u64);
+        create_cluster(CompressionType::NONE, &raw_data)
+    }
+
+    fn create_lz4_cluster() -> Vec<u8> {
+        let indata = vec![
+            0x11, 0x12, 0x13, 0x14, 0x15, // Blob 0
+            0x21, 0x22, 0x23, // Blob 1
+            0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Blob 3
+        ];
+        let data = {
+            let compressed_content = Vec::new();
             let mut encoder = lz4::EncoderBuilder::new()
                 .level(16)
-                .build(content_cursor)
+                .build(Cursor::new(compressed_content))
                 .unwrap();
-            let mut blob_content = Cursor::new(vec![
-                0x11, 0x12, 0x13, 0x14, 0x15, // Data of blob 0
-                0x21, 0x22, 0x23, // Data of blob 1
-                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of blob 2
-            ]);
-            std::io::copy(&mut blob_content, &mut encoder).unwrap();
-            encoder.finish().1.unwrap();
-        }
-        println!("content_len : {}\n", content.len());
-        let reader = BufReader::new(content, End::None);
-        let mut stream = reader.create_stream(Offset(0), End::None);
-        assert_eq!(
-            ClusterHeader::produce(stream.as_mut()).unwrap(),
-            ClusterHeader {
-                compression: CompressionType::LZ4,
-                offset_size: 1,
-                blob_count: Count(3),
-                cluster_size: Size(49)
-            }
-        );
-        let cluster = Cluster::new(&reader).unwrap();
-        assert_eq!(cluster.blob_count(), Count(3_u16));
-
-        {
-            let sub_reader = cluster.get_reader(Idx(0_u16)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(5_u64));
-            let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
-            stream.read_to_end(&mut v).unwrap();
-            assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
-        }
-        {
-            let sub_reader = cluster.get_reader(Idx(1_u16)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(3_u64));
-            let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
-            stream.read_to_end(&mut v).unwrap();
-            assert_eq!(v, [0x21, 0x22, 0x23]);
-        }
-        {
-            let sub_reader = cluster.get_reader(Idx(2_u16)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(7_u64));
-            let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
-            stream.read_to_end(&mut v).unwrap();
-            assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
-        }
+            let mut incursor = Cursor::new(indata);
+            std::io::copy(&mut incursor, &mut encoder).unwrap();
+            let (compressed_content, err) = encoder.finish();
+            err.unwrap();
+            compressed_content.into_inner()
+        };
+        create_cluster(CompressionType::LZ4, &data)
     }
 
-    #[test]
-    fn test_cluster_lzma() {
-        let mut content = vec![
-            0x02, // lzma compression
-            0x01, // offset_size
-            0x00, 0x03, // blob_count
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x57, // cluster_size
-            0x0f, // Data size
-            0x05, // Offset of blob 1
-            0x08, // Offset of blob 2
+    fn create_lzma_cluster() -> Vec<u8> {
+        let indata = vec![
+            0x11, 0x12, 0x13, 0x14, 0x15, // Blob 0
+            0x21, 0x22, 0x23, // Blob 1
+            0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Blob 3
         ];
-        {
-            let pos = content.len();
-            let mut content_cursor = Cursor::new(&mut content);
-            content_cursor.set_position(pos as u64);
-            let mut encoder = lzma::LzmaWriter::new_compressor(content_cursor, 9).unwrap();
-            let mut blob_content = Cursor::new(vec![
-                0x11, 0x12, 0x13, 0x14, 0x15, // Data of blob 0
-                0x21, 0x22, 0x23, // Data of blob 1
-                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of blob 2
-            ]);
-            std::io::copy(&mut blob_content, &mut encoder).unwrap();
-            encoder.finish().unwrap();
-        }
-        println!("content_len : {}\n", content.len());
-        let reader = BufReader::new(content, End::None);
-        let mut stream = reader.create_stream(Offset(0), End::None);
-        assert_eq!(
-            ClusterHeader::produce(stream.as_mut()).unwrap(),
-            ClusterHeader {
-                compression: CompressionType::LZMA,
-                offset_size: 1,
-                blob_count: Count(3),
-                cluster_size: Size(87)
-            }
-        );
-        let cluster = Cluster::new(&reader).unwrap();
-        assert_eq!(cluster.blob_count(), Count(3_u16));
-        {
-            let sub_reader = cluster.get_reader(Idx(0_u16)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(5_u64));
-            let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
-            stream.read_to_end(&mut v).unwrap();
-            assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
-        }
-        {
-            let sub_reader = cluster.get_reader(Idx(1_u16)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(3_u64));
-            let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
-            stream.read_to_end(&mut v).unwrap();
-            assert_eq!(v, [0x21, 0x22, 0x23]);
-        }
-        {
-            let sub_reader = cluster.get_reader(Idx(2_u16)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(7_u64));
-            let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
-            stream.read_to_end(&mut v).unwrap();
-            assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
-        }
+        let data = {
+            let compressed_content = Vec::new();
+            let mut encoder =
+                lzma::LzmaWriter::new_compressor(Cursor::new(compressed_content), 9).unwrap();
+            let mut incursor = Cursor::new(indata);
+            std::io::copy(&mut incursor, &mut encoder).unwrap();
+            encoder.finish().unwrap().into_inner()
+        };
+        create_cluster(CompressionType::LZMA, &data)
     }
 
-    #[test]
-    fn test_cluster_zstd() {
-        let mut content = vec![
-            0x03, // zstd compression
-            0x01, // offset_size
-            0x00, 0x03, // blob_count
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x27, // cluster_size
-            0x0f, // Data size
-            0x05, // Offset of blob 1
-            0x08, // Offset of blob 2
+    fn create_zstd_cluster() -> Vec<u8> {
+        let indata = vec![
+            0x11, 0x12, 0x13, 0x14, 0x15, // Blob 0
+            0x21, 0x22, 0x23, // Blob 1
+            0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Blob 3
         ];
-        {
-            let pos = content.len();
-            let mut content_cursor = Cursor::new(&mut content);
-            content_cursor.set_position(pos as u64);
-            let mut encoder = zstd::Encoder::new(content_cursor, 0).unwrap();
-            let mut blob_content = Cursor::new(vec![
-                0x11, 0x12, 0x13, 0x14, 0x15, // Data of blob 0
-                0x21, 0x22, 0x23, // Data of blob 1
-                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of blob 2
-            ]);
-            std::io::copy(&mut blob_content, &mut encoder).unwrap();
-            encoder.finish().unwrap();
-        }
-        println!("content_len : {}\n", content.len());
-        let reader = BufReader::new(content, End::None);
+        let data = {
+            let compressed_content = Vec::new();
+            let mut encoder = zstd::Encoder::new(Cursor::new(compressed_content), 0).unwrap();
+            let mut incursor = Cursor::new(indata);
+            std::io::copy(&mut incursor, &mut encoder).unwrap();
+            encoder.finish().unwrap().into_inner()
+        };
+        create_cluster(CompressionType::ZSTD, &data)
+    }
+
+    type ClusterCreator = fn() -> Vec<u8>;
+
+    #[test_case(CompressionType::NONE, create_raw_cluster)]
+    #[test_case(CompressionType::LZ4, create_lz4_cluster)]
+    #[test_case(CompressionType::LZMA, create_lzma_cluster)]
+    #[test_case(CompressionType::ZSTD, create_zstd_cluster)]
+    fn test_cluster(comp: CompressionType, creator: ClusterCreator) {
+        let reader = BufReader::new(creator(), End::None);
         let mut stream = reader.create_stream(Offset(0), End::None);
-        assert_eq!(
-            ClusterHeader::produce(stream.as_mut()).unwrap(),
-            ClusterHeader {
-                compression: CompressionType::ZSTD,
-                offset_size: 1,
-                blob_count: Count(3),
-                cluster_size: Size(39)
-            }
-        );
+        let header = ClusterHeader::produce(stream.as_mut()).unwrap();
+        assert_eq!(header.compression, comp);
+        assert_eq!(header.offset_size, 1);
+        assert_eq!(header.blob_count, Count(3));
         let cluster = Cluster::new(&reader).unwrap();
         assert_eq!(cluster.blob_count(), Count(3_u16));
+
         {
             let sub_reader = cluster.get_reader(Idx(0_u16)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(5_u64));

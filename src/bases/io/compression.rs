@@ -1,5 +1,6 @@
 use crate::bases::*;
 use std::cell::{Cell, RefCell};
+use std::cmp;
 use std::io::Read;
 use std::rc::Rc;
 
@@ -65,6 +66,10 @@ impl<T: Read> ReaderWrapper<SeekableDecoder<T>> {
         let o = o.0 as usize;
         let e = end.0 as usize;
         self.source.decode_to(end)?;
+        let slice = self.source.decoded_slice();
+        if e > slice.len() {
+            return Err(Error::Other(String::from("Out of slice")));
+        }
         buf.copy_from_slice(&self.source.decoded_slice()[o..e]);
         Ok(())
     }
@@ -131,9 +136,10 @@ impl<T: 'static + Read> Reader for ReaderWrapper<SeekableDecoder<T>> {
 }
 
 impl<T: Read> StreamWrapper<SeekableDecoder<T>> {
-    fn slice(&self) -> &[u8] {
+    fn decoded_slice(&self) -> &[u8] {
         let o = self.offset.0 as usize;
-        let e = self.end.0 as usize;
+        let slice = self.source.decoded_slice();
+        let e = cmp::min(self.end.0 as usize, slice.len());
         &self.source.decoded_slice()[o..e]
     }
 }
@@ -142,7 +148,7 @@ impl<T: Read> Read for StreamWrapper<SeekableDecoder<T>> {
     fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
         let end = self.offset + buf.len();
         self.source.decode_to(end)?;
-        let mut slice = self.slice();
+        let mut slice = self.decoded_slice();
         match slice.read(buf) {
             Ok(s) => {
                 self.offset += s;

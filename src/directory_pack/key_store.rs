@@ -43,9 +43,7 @@ impl PlainKeyStore {
     fn new(reader: Box<dyn Reader>) -> Result<Self> {
         let mut stream = reader.create_stream(Offset(1), End::None);
         let data_size = Size::produce(stream.as_mut())?;
-        println!("Teel {}", stream.tell().0);
         let reader = reader.create_sub_reader(stream.tell() + 1, End::Size(data_size));
-        println!("Size {}, data_size {}", reader.size(), data_size);
         Ok(PlainKeyStore { reader })
     }
 }
