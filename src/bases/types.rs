@@ -109,6 +109,12 @@ impl Sub for Offset {
     }
 }
 
+impl fmt::Display for Offset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Offset({})", self.0)
+    }
+}
+
 /// A size used in xar.
 /// We handling content in 64 bits space.
 /// We cannot use a usize as it is arch dependent.
@@ -141,11 +147,27 @@ impl From<usize> for Size {
     }
 }
 
+impl fmt::Display for Size {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Size({})", self.0)
+    }
+}
+
 /// The end of a buffer.
 pub enum End {
     Offset(Offset),
     Size(Size),
     None,
+}
+
+impl fmt::Display for End {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            End::None => write!(f, "End::None"),
+            End::Offset(o) => write!(f, "End::{}", o),
+            End::Size(s) => write!(f, "End::{}", s),
+        }
+    }
 }
 
 /// A count of object.
@@ -183,6 +205,12 @@ impl Producable for Count<u64> {
     }
 }
 
+impl<T:fmt::Display> fmt::Display for Count<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Count({})", self.0)
+    }
+}
+
 /// A index of a object.
 /// All count object can be stored in a u32.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
@@ -200,6 +228,12 @@ where
 impl<T> From<T> for Idx<T> {
     fn from(v: T) -> Idx<T> {
         Idx(v)
+    }
+}
+
+impl<T:fmt::Display> fmt::Display for Idx<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Idx({})", self.0)
     }
 }
 
