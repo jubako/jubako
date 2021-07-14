@@ -98,8 +98,7 @@ pub struct ContentPack<'a> {
 
 impl<'a> ContentPack<'a> {
     pub fn new(reader: Box<dyn Reader>) -> Result<Self> {
-        let header =
-            ContentPackHeader::produce(reader.create_stream(Offset::from(0), End::None).as_mut())?;
+        let header = ContentPackHeader::produce(reader.create_stream_all().as_mut())?;
         let entry_infos = array_reader!(
             reader, at:header.entry_ptr_pos, len:header.entry_count, idx:u32 => (EntryInfo, 4)
         );
@@ -161,14 +160,13 @@ impl Pack for ContentPack<'_> {
         if self.check_info.get().is_none() {
             let mut checkinfo_stream = self
                 .reader
-                .create_stream(self.header.pack_header.check_info_pos, End::None);
+                .create_stream_from(self.header.pack_header.check_info_pos);
             let check_info = CheckInfo::produce(checkinfo_stream.as_mut())?;
             self.check_info.set(Some(check_info));
         }
-        let mut check_stream = self.reader.create_stream(
-            Offset::from(0),
-            End::Offset(self.header.pack_header.check_info_pos),
-        );
+        let mut check_stream = self
+            .reader
+            .create_stream_to(End::Offset(self.header.pack_header.check_info_pos));
         self.check_info
             .get()
             .unwrap()
@@ -199,7 +197,7 @@ mod tests {
         ];
         content.extend_from_slice(&[0xff; 56]);
         let reader = BufReader::new(content, End::None);
-        let mut stream = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream_all();
         assert_eq!(
             ContentPackHeader::produce(stream.as_mut()).unwrap(),
             ContentPackHeader {
@@ -282,7 +280,7 @@ mod tests {
             let sub_reader = content_pack.get_content(Idx(0_u32)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            let mut stream = sub_reader.create_stream_all();
             stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
@@ -290,7 +288,7 @@ mod tests {
             let sub_reader = content_pack.get_content(Idx(1_u32)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            let mut stream = sub_reader.create_stream_all();
             stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
@@ -298,7 +296,7 @@ mod tests {
             let sub_reader = content_pack.get_content(Idx(2_u32)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            let mut stream = sub_reader.create_stream_all();
             stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }

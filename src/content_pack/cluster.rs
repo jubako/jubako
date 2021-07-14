@@ -51,7 +51,7 @@ pub struct Cluster {
 
 impl Cluster {
     pub fn new(reader: &dyn Reader) -> Result<Self> {
-        let mut stream = reader.create_stream(Offset::from(0), End::None);
+        let mut stream = reader.create_stream_all();
         let header = ClusterHeader::produce(stream.as_mut())?;
         let data_size: Size = stream.read_sized(header.offset_size.into())?.into();
         let mut blob_offsets: Vec<Offset> = Vec::with_capacity((header.blob_count.0 + 1) as usize);
@@ -75,18 +75,18 @@ impl Cluster {
                 raw_reader
             }
             CompressionType::LZ4 => {
-                let stream = raw_reader.create_stream(Offset(0), End::None);
+                let stream = raw_reader.create_stream_all();
                 Box::new(Lz4Reader::new(lz4::Decoder::new(stream)?, data_size))
             }
             CompressionType::LZMA => {
-                let stream = raw_reader.create_stream(Offset(0), End::None);
+                let stream = raw_reader.create_stream_all();
                 Box::new(LzmaReader::new(
                     lzma::LzmaReader::new_decompressor(stream)?,
                     data_size,
                 ))
             }
             CompressionType::ZSTD => {
-                let stream = raw_reader.create_stream(Offset(0), End::None);
+                let stream = raw_reader.create_stream_all();
                 Box::new(ZstdReader::new(zstd::Decoder::new(stream)?, data_size))
             }
         };
@@ -118,7 +118,7 @@ mod tests {
     #[test]
     fn test_compressiontype() {
         let reader = BufReader::new(vec![0x00, 0x01, 0x02, 0x03, 0x4, 0xFF], End::None);
-        let mut stream = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream_all();
         assert_eq!(
             CompressionType::produce(stream.as_mut()).unwrap(),
             CompressionType::NONE
@@ -150,7 +150,7 @@ mod tests {
             ],
             End::None,
         );
-        let mut stream = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream_all();
         assert_eq!(
             ClusterHeader::produce(stream.as_mut()).unwrap(),
             ClusterHeader {
@@ -249,7 +249,7 @@ mod tests {
     #[test_case(CompressionType::ZSTD, create_zstd_cluster)]
     fn test_cluster(comp: CompressionType, creator: ClusterCreator) {
         let reader = BufReader::new(creator(), End::None);
-        let mut stream = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream_all();
         let header = ClusterHeader::produce(stream.as_mut()).unwrap();
         assert_eq!(header.compression, comp);
         assert_eq!(header.offset_size, 1);
@@ -261,7 +261,7 @@ mod tests {
             let sub_reader = cluster.get_reader(Idx(0_u16)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            let mut stream = sub_reader.create_stream_all();
             stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
@@ -269,7 +269,7 @@ mod tests {
             let sub_reader = cluster.get_reader(Idx(1_u16)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            let mut stream = sub_reader.create_stream_all();
             stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
@@ -277,7 +277,7 @@ mod tests {
             let sub_reader = cluster.get_reader(Idx(2_u16)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream(Offset(0), End::None);
+            let mut stream = sub_reader.create_stream_all();
             stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }

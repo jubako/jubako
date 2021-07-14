@@ -189,23 +189,23 @@ mod tests {
     #[test_case(create_zstd_reader)]
     fn test_stream(creator: ReaderCreator) {
         let reader = creator(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
-        let mut stream = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream_all();
         assert_eq!(stream.read_u8().unwrap(), 0x00_u8);
         assert_eq!(stream.tell(), Offset::from(1));
         assert_eq!(stream.read_u8().unwrap(), 0x01_u8);
         assert_eq!(stream.tell(), Offset::from(2));
         assert_eq!(stream.read_u16().unwrap(), 0x0203_u16);
         assert_eq!(stream.tell(), Offset::from(4));
-        stream = reader.create_stream(Offset(0), End::None);
+        stream = reader.create_stream_all();
         assert_eq!(stream.read_u32().unwrap(), 0x00010203_u32);
         assert_eq!(stream.read_u32().unwrap(), 0x04050607_u32);
         assert_eq!(stream.tell(), Offset::from(8));
         assert!(stream.read_u64().is_err());
-        stream = reader.create_stream(Offset(0), End::None);
+        stream = reader.create_stream_all();
         assert_eq!(stream.read_u64().unwrap(), 0x0001020304050607_u64);
         assert_eq!(stream.tell(), Offset::from(8));
 
-        let mut stream1 = reader.create_stream(Offset(1), End::None);
+        let mut stream1 = reader.create_stream_from(Offset(1));
         assert_eq!(stream1.tell(), Offset::from(0));
         assert_eq!(stream1.read_u8().unwrap(), 0x01_u8);
         assert_eq!(stream1.tell(), Offset::from(1));
@@ -214,12 +214,12 @@ mod tests {
         assert_eq!(stream1.read_u32().unwrap(), 0x04050607_u32);
         assert_eq!(stream1.tell(), Offset::from(7));
         assert!(stream1.read_u64().is_err());
-        stream1 = reader.create_stream(Offset(1), End::None);
+        stream1 = reader.create_stream_from(Offset(1));
         assert_eq!(stream1.read_u64().unwrap(), 0x0102030405060708_u64);
         assert_eq!(stream1.tell(), Offset::from(8));
 
-        stream = reader.create_stream(Offset(0), End::None);
-        stream1 = reader.create_stream(Offset(1), End::None);
+        stream = reader.create_stream_from(Offset(0));
+        stream1 = reader.create_stream_from(Offset(1));
         stream.skip(Size(1)).unwrap();
         assert_eq!(stream.read_u8().unwrap(), stream1.read_u8().unwrap());
         assert_eq!(stream.read_u16().unwrap(), stream1.read_u16().unwrap());

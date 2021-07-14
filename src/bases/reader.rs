@@ -10,6 +10,15 @@ pub trait Reader {
     fn size(&self) -> Size;
 
     fn create_stream(&self, offset: Offset, end: End) -> Box<dyn Stream>;
+    fn create_stream_from(&self, offset: Offset) -> Box<dyn Stream> {
+        self.create_stream(offset, End::None)
+    }
+    fn create_stream_to(&self, end: End) -> Box<dyn Stream> {
+        self.create_stream(Offset(0), end)
+    }
+    fn create_stream_all(&self) -> Box<dyn Stream> {
+        self.create_stream(Offset(0), End::None)
+    }
     fn create_sub_reader(&self, offset: Offset, end: End) -> Box<dyn Reader>;
 
     fn read_u8(&self, offset: Offset) -> Result<u8>;

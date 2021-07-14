@@ -147,7 +147,7 @@ mod tests {
         ];
         content.extend_from_slice(&[0xff; 56]);
         let reader = BufReader::new(content, End::None);
-        let mut stream = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream_all();
         assert_eq!(
             PackHeader::produce(stream.as_mut()).unwrap(),
             PackHeader {

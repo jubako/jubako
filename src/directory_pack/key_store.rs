@@ -25,9 +25,7 @@ pub enum KeyStore {
 impl KeyStore {
     fn new(reader: Box<dyn Reader>) -> Result<Self> {
         Ok(
-            match KeyStoreKind::produce(
-                reader.create_stream(Offset(0), End::Size(Size(1))).as_mut(),
-            )? {
+            match KeyStoreKind::produce(reader.create_stream_to(End::Size(Size(1))).as_mut())? {
                 KeyStoreKind::PLAIN => KeyStore::PLAIN(PlainKeyStore::new(reader)?),
                 KeyStoreKind::INDEXED => KeyStore::INDEXED(IndexedKeyStore::new(reader)?),
             },
@@ -41,7 +39,7 @@ pub struct PlainKeyStore {
 
 impl PlainKeyStore {
     fn new(reader: Box<dyn Reader>) -> Result<Self> {
-        let mut stream = reader.create_stream(Offset(1), End::None);
+        let mut stream = reader.create_stream_from(Offset(1));
         let data_size = Size::produce(stream.as_mut())?;
         let reader = reader.create_sub_reader(stream.tell() + 1, End::Size(data_size));
         Ok(PlainKeyStore { reader })
@@ -55,7 +53,7 @@ pub struct IndexedKeyStore {
 
 impl IndexedKeyStore {
     fn new(reader: Box<dyn Reader>) -> Result<Self> {
-        let mut stream = reader.create_stream(Offset(1), End::None);
+        let mut stream = reader.create_stream_from(Offset(1));
         let store_size = stream.read_u64()?;
         let entry_count: Count<u64> = Count::produce(stream.as_mut())?;
         let offset_size = stream.read_u8()?;
@@ -90,7 +88,7 @@ mod tests {
     #[test]
     fn test_keystorekind() {
         let reader = BufReader::new(vec![0x00, 0x01, 0x02], End::None);
-        let mut stream = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream_all();
         assert_eq!(
             KeyStoreKind::produce(stream.as_mut()).unwrap(),
             KeyStoreKind::PLAIN

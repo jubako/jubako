@@ -104,7 +104,7 @@ pub struct DirectoryPack<'a> {
 
 impl<'a> DirectoryPack<'a> {
     pub fn new(reader: Box<dyn Reader>) -> Result<Self> {
-        let mut stream = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream_all();
         let header = DirectoryPackHeader::produce(stream.as_mut())?;
         let key_stores_ptrs = array_reader!(
             reader, at:header.key_store_ptr_pos, len:header.key_store_count, idx:u8 => (Offset, 8)
@@ -152,14 +152,13 @@ impl Pack for DirectoryPack<'_> {
         if self.check_info.get().is_none() {
             let mut checkinfo_stream = self
                 .reader
-                .create_stream(self.header.pack_header.check_info_pos, End::None);
+                .create_stream_from(self.header.pack_header.check_info_pos);
             let check_info = CheckInfo::produce(checkinfo_stream.as_mut())?;
             self.check_info.set(Some(check_info));
         }
-        let mut check_stream = self.reader.create_stream(
-            Offset::from(0),
-            End::Offset(self.header.pack_header.check_info_pos),
-        );
+        let mut check_stream = self
+            .reader
+            .create_stream_to(End::Offset(self.header.pack_header.check_info_pos));
         self.check_info
             .get()
             .unwrap()
@@ -192,7 +191,7 @@ mod tests {
         ];
         content.extend_from_slice(&[0xff; 47]);
         let reader = BufReader::new(content, End::None);
-        let mut stream = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream_all();
         assert_eq!(
             DirectoryPackHeader::produce(stream.as_mut()).unwrap(),
             DirectoryPackHeader {
