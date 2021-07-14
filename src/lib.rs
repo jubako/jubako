@@ -1,6 +1,6 @@
 mod bases;
 mod content_pack;
-//mod directory_pack;
+mod directory_pack;
 mod pack;
 
 pub use crate::bases::Count;

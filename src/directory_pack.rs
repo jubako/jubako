@@ -1,11 +1,10 @@
 mod key_store;
 //mod index;
 
-use crate::bases::types::*;
+use crate::array_reader;
 use crate::bases::*;
 use crate::pack::*;
-use crate::produceArray;
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::fmt::{Debug, Formatter};
 use std::io::Read;
 use std::ops::{Deref, DerefMut};
@@ -54,7 +53,7 @@ struct DirectoryPackHeader {
 }
 
 impl Producable for DirectoryPackHeader {
-    pub fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let pack_header = PackHeader::produce(stream)?;
         let index_ptr_pos = Offset::produce(stream)?;
         let entry_store_ptr_pos = Offset::produce(stream)?;
@@ -96,40 +95,25 @@ impl Producable for ContentAddress {
 
 pub struct DirectoryPack<'a> {
     header: DirectoryPackHeader,
-    key_stores_ptrs: ArrayProducer<'a, Offset, u8>,
-    entry_stores_ptrs: ArrayProducer<'a, Offset, u32>,
-    index_ptrs: ArrayProducer<'a, Offset, u32>,
+    key_stores_ptrs: ArrayReader<'a, Offset, u8>,
+    entry_stores_ptrs: ArrayReader<'a, Offset, u32>,
+    index_ptrs: ArrayReader<'a, Offset, u32>,
     reader: Box<dyn Reader + 'a>,
     check_info: Cell<Option<CheckInfo>>,
 }
 
 impl<'a> DirectoryPack<'a> {
-    pub fn new(mut reader: Box<dyn Reader>) -> Result<Self> {
-        let mut stream = reader.create_stream(Offset(0), Size::End);
+    pub fn new(reader: Box<dyn Reader>) -> Result<Self> {
+        let mut stream = reader.create_stream(Offset(0), End::None);
         let header = DirectoryPackHeader::produce(stream.as_mut())?;
-        let key_stores_ptrs = produceArray!(
-            Offset,
-            u8,
-            stream,
-            header.key_store_ptr_pos,
-            header.key_store_count,
-            8
+        let key_stores_ptrs = array_reader!(
+            reader, at:header.key_store_ptr_pos, len:header.key_store_count, idx:u8 => (Offset, 8)
         );
-        let entry_stores_ptrs = produceArray!(
-            Offset,
-            u32,
-            stream,
-            header.entry_store_ptr_pos,
-            header.entry_store_count,
-            8
+        let entry_stores_ptrs = array_reader!(
+            reader, at:header.entry_store_ptr_pos, len:header.entry_store_count, idx:u32 => (Offset, 8)
         );
-        let index_ptrs = produceArray!(
-            Offset,
-            u32,
-            stream,
-            header.index_ptr_pos,
-            header.index_count,
-            8
+        let index_ptrs = array_reader!(
+            reader, at:header.index_ptr_pos, len:header.index_count, idx:u32 => (Offset, 8)
         );
         Ok(DirectoryPack {
             header,
@@ -166,11 +150,13 @@ impl Pack for DirectoryPack<'_> {
     }
     fn check(&self) -> Result<bool> {
         if self.check_info.get().is_none() {
-            let mut checkinfo_stream = self.reader.create_stream(self.header.pack_header.check_info_pos, End::None);
+            let mut checkinfo_stream = self
+                .reader
+                .create_stream(self.header.pack_header.check_info_pos, End::None);
             let check_info = CheckInfo::produce(checkinfo_stream.as_mut())?;
             self.check_info.set(Some(check_info));
         }
-        let mut check_stream = self.stream.create_stream(
+        let mut check_stream = self.reader.create_stream(
             Offset::from(0),
             End::Offset(self.header.pack_header.check_info_pos),
         );
@@ -184,7 +170,6 @@ impl Pack for DirectoryPack<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::io::*;
 
     #[test]
     fn test_directorypackheader() {
@@ -209,7 +194,7 @@ mod tests {
         let reader = BufReader::new(content, End::None);
         let mut stream = reader.create_stream(Offset(0), End::None);
         assert_eq!(
-            DirectoryPackHeader::produce(&mut stream).unwrap(),
+            DirectoryPackHeader::produce(stream.as_mut()).unwrap(),
             DirectoryPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::CONTENT,

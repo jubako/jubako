@@ -1,5 +1,4 @@
 use crate::bases::*;
-use std::io::SeekFrom;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -9,7 +8,7 @@ pub enum KeyStoreKind {
 }
 
 impl Producable for KeyStoreKind {
-    fn produce(stream: &mut dyn stream) -> Result<Self> {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
         match stream.read_u8()? {
             0 => Ok(KeyStoreKind::PLAIN),
             1 => Ok(KeyStoreKind::INDEXED),
@@ -23,12 +22,16 @@ pub enum KeyStore {
     INDEXED(IndexedKeyStore),
 }
 
-impl Producable for KeyStore {
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        Ok(match KeyStoreKind::produce(stream)? {
-            KeyStoreKind::PLAIN => KeyStore::PLAIN(PlainKeyStore::produce(stream)?),
-            KeyStoreKind::INDEXED => KeyStore::INDEXED(IndexedKeyStore::produce(stream)?),
-        })
+impl KeyStore {
+    fn new(reader: Box<dyn Reader>) -> Result<Self> {
+        Ok(
+            match KeyStoreKind::produce(
+                reader.create_stream(Offset(0), End::Size(Size(1))).as_mut(),
+            )? {
+                KeyStoreKind::PLAIN => KeyStore::PLAIN(PlainKeyStore::new(reader)?),
+                KeyStoreKind::INDEXED => KeyStore::INDEXED(IndexedKeyStore::new(reader)?),
+            },
+        )
     }
 }
 
@@ -37,10 +40,12 @@ pub struct PlainKeyStore {
 }
 
 impl PlainKeyStore {
-    fn new(reader: Boy<dyn Reader>) -> Result<Self> {
-        let mut stream = reader.create_stream(Offset(0), End::None);
+    fn new(reader: Box<dyn Reader>) -> Result<Self> {
+        let mut stream = reader.create_stream(Offset(1), End::None);
         let data_size = Size::produce(stream.as_mut())?;
-        let reader = reader.create_sub_reader(stream.tell(), End::Size(data_size));
+        println!("Teel {}", stream.tell().0);
+        let reader = reader.create_sub_reader(stream.tell() + 1, End::Size(data_size));
+        println!("Size {}, data_size {}", reader.size(), data_size);
         Ok(PlainKeyStore { reader })
     }
 }
@@ -52,9 +57,9 @@ pub struct IndexedKeyStore {
 
 impl IndexedKeyStore {
     fn new(reader: Box<dyn Reader>) -> Result<Self> {
-        let mut stream = reader.create_stream(Offset(0), End::None);
+        let mut stream = reader.create_stream(Offset(1), End::None);
         let store_size = stream.read_u64()?;
-        let entry_count: Count<u64> = Count::produce(stream)?;
+        let entry_count: Count<u64> = Count::produce(stream.as_mut())?;
         let offset_size = stream.read_u8()?;
         let data_size: Size = stream.read_sized(offset_size.into())?.into();
         let mut entry_offsets: Vec<Offset> = Vec::with_capacity((entry_count.0 + 1) as usize);
@@ -71,8 +76,8 @@ impl IndexedKeyStore {
             assert!(elem.is_valid(data_size));
         }
         entry_offsets.push(data_size.into());
-        assert_eq!((stream.tell() + data_size).0, store_size);
-        let reader = reader.create_sub_reader(stream.tell(), End::Offset(store_size.into()));
+        assert_eq!((stream.tell() + 1 + data_size).0, store_size);
+        let reader = reader.create_sub_reader(stream.tell() + 1, End::Offset(store_size.into()));
         Ok(IndexedKeyStore {
             entry_offsets,
             reader,
@@ -102,7 +107,7 @@ mod tests {
 
     #[test]
     fn test_plainkeystore() {
-        let reader = BufReader::new(
+        let reader = Box::new(BufReader::new(
             vec![
                 0x00, // kind
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, // data_size
@@ -110,17 +115,17 @@ mod tests {
                 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
             ],
             End::None,
-        );
+        ));
         let key_store = KeyStore::new(reader).unwrap();
         match &key_store {
             KeyStore::PLAIN(plainkeystore) => {
                 assert_eq!(plainkeystore.reader.size(), Size::from(0x10_u64));
                 assert_eq!(
-                    plainkeystore.read.read_u64(Offset(0)).unwrap(),
+                    plainkeystore.reader.read_u64(Offset(0)).unwrap(),
                     0x1011121314151617_u64
                 );
                 assert_eq!(
-                    plainkeystore.read.read_u64(Offset(8)).unwrap(),
+                    plainkeystore.reader.read_u64(Offset(8)).unwrap(),
                     0x18191a1b1c1d1e1f_u64
                 );
             }
@@ -130,7 +135,7 @@ mod tests {
 
     #[test]
     fn test_indexedkeystore() {
-        let reader = BufReader::new(
+        let reader = Box::new(BufReader::new(
             vec![
                 0x01, // kind
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x24, // store_size
@@ -144,7 +149,7 @@ mod tests {
                 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of entry 2
             ],
             End::None,
-        );
+        ));
         let key_store = KeyStore::new(reader).unwrap();
         match &key_store {
             KeyStore::INDEXED(indexedkeystore) => {
@@ -158,7 +163,7 @@ mod tests {
                     0x1112131415212223_u64
                 );
                 assert_eq!(
-                    indexedkeystore.reader.read_sized(Offset(0), 7).unwrap(),
+                    indexedkeystore.reader.read_sized(Offset(8), 7).unwrap(),
                     0x31323334353637_u64
                 );
             }
