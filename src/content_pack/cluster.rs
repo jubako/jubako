@@ -163,18 +163,18 @@ mod tests {
     }
 
     fn create_cluster(comp: CompressionType, data: &[u8]) -> Vec<u8> {
-        let cluster_size = (15 + data.len()) as u8; // Assume cluster_size is less than 256.
         let mut cluster_data = vec![
             comp as u8, // compression
             0x01,       // offset_size
             0x00, 0x03, // blob_count
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, cluster_size, // cluster_size
-            0x0f,         // Data size
-            0x05,         // Offset of blob 1
-            0x08,         // Offset of blob 2
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // cluster size (set later)
+            0x0f, // Data size
+            0x05, // Offset of blob 1
+            0x08, // Offset of blob 2
         ];
         cluster_data.extend_from_slice(&data);
-        assert_eq!(cluster_size as usize, cluster_data.len());
+        let cluster_size = cluster_data.len() as u64;
+        cluster_data[4..12].copy_from_slice(&cluster_size.to_be_bytes());
         cluster_data
     }
 
