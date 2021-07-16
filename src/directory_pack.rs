@@ -1,5 +1,5 @@
+mod index_store;
 mod key_store;
-//mod index;
 
 use crate::array_reader;
 use crate::bases::*;
