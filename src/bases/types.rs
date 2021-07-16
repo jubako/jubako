@@ -155,6 +155,21 @@ impl fmt::Display for Size {
     }
 }
 
+#[derive(Debug)]
+pub struct SizedOffset {
+    pub size: Size,
+    pub offset: Offset,
+}
+
+impl Producable for SizedOffset {
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        let data = stream.read_u64()?;
+        let offset = Offset(data & 0xFF_FF_FF_FF_FF_u64);
+        let size = Size(data >> 40);
+        Ok(Self { size, offset })
+    }
+}
+
 /// The end of a buffer.
 pub enum End {
     Offset(Offset),

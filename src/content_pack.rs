@@ -91,7 +91,7 @@ impl Producable for EntryInfo {
 pub struct ContentPack<'a> {
     header: ContentPackHeader,
     entry_infos: ArrayReader<'a, EntryInfo, u32>,
-    cluster_ptrs: ArrayReader<'a, Offset, u32>,
+    cluster_ptrs: ArrayReader<'a, SizedOffset, u32>,
     reader: Box<dyn Reader + 'a>,
     check_info: Cell<Option<CheckInfo>>,
 }
@@ -103,7 +103,7 @@ impl<'a> ContentPack<'a> {
             reader, at:header.entry_ptr_pos, len:header.entry_count, idx:u32 => (EntryInfo, 4)
         );
         let cluster_ptrs = array_reader!(
-            reader, at:header.cluster_ptr_pos, len:header.cluster_count, idx:u32 => (Offset, 8)
+            reader, at:header.cluster_ptr_pos, len:header.cluster_count, idx:u32 => (SizedOffset, 8)
         );
         Ok(ContentPack {
             header,
@@ -126,9 +126,8 @@ impl<'a> ContentPack<'a> {
         if !entry_info.cluster_index.is_valid(self.header.cluster_count) {
             return Err(Error::FormatError);
         }
-        let cluster_ptr = self.cluster_ptrs.index(entry_info.cluster_index);
-        let reader = self.reader.create_sub_reader(cluster_ptr, End::None);
-        let cluster = Cluster::new(reader.as_ref())?;
+        let cluster_info = self.cluster_ptrs.index(entry_info.cluster_index);
+        let cluster = Cluster::new(self.reader.as_ref(), cluster_info)?;
         cluster.get_reader(entry_info.blob_index)
     }
 
@@ -233,7 +232,7 @@ mod tests {
             0x0e, 0x0f, // uuid off:10
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding off:26
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xD3, // file_size off:32
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB2, // check_info_pos off:40
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xAB, // check_info_pos off:40
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, // entry_ptr_pos off:48
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x8C, // cluster_ptr_pos off:56
             0x00, 0x00, 0x00, 0x03, // entry count off:64
@@ -244,23 +243,23 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, // first entry info off:128
             0x00, 0x00, 0x00, 0x01, // second entry info off: 132
             0x00, 0x00, 0x00, 0x02, // third entry info off: 136
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x94, // first (and only) ptr pos. off:140
+            0x00, 0x00, 0x08, // first (and only) cluster size off:140
+            0x00, 0x00, 0x00, 0x00, 0xA3, // first (and only) ptr pos. off:143
             // Cluster off:148
-            0x00, // compression
-            0x01, // offset_size
-            0x00, 0x03, // blob_count
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, // cluster_size
-            0x0f, // Data size
-            0x05, // Offset of blob 1
-            0x08, // Offset of blob 2
             0x11, 0x12, 0x13, 0x14, 0x15, // Data of blob 0
             0x21, 0x22, 0x23, // Data of blob 1
             0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of blob 2
-        ]); // end 148+30 = 178
+            0x00, // compression off: 148+15 = 163
+            0x01, // offset_size
+            0x00, 0x03, // blob_count
+            0x0f, // raw data size
+            0x0f, // Data size
+            0x05, // Offset of blob 1
+            0x08, // Offset of blob 2
+        ]); // end 163+8 = 171
         let hash = blake3::hash(&content);
-        content.push(0x01); // check info off: 179
-        content.extend(hash.as_bytes()); // end : 179+32 = 211
+        content.push(0x01); // check info off: 171
+        content.extend(hash.as_bytes()); // end : 171+32 = 203
         let reader = Box::new(BufReader::new(content, End::None));
         let content_pack = ContentPack::new(reader).unwrap();
         assert_eq!(content_pack.get_entry_count(), Count(3));

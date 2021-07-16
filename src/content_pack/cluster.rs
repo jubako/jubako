@@ -11,7 +11,8 @@ pub enum CompressionType {
 
 impl Producable for CompressionType {
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        match stream.read_u8()? {
+        let v = stream.read_u8()?;
+        match v {
             0 => Ok(CompressionType::NONE),
             1 => Ok(CompressionType::LZ4),
             2 => Ok(CompressionType::LZMA),
@@ -26,7 +27,6 @@ struct ClusterHeader {
     compression: CompressionType,
     offset_size: u8,
     blob_count: Count<u16>,
-    cluster_size: Size,
 }
 
 impl Producable for ClusterHeader {
@@ -34,12 +34,10 @@ impl Producable for ClusterHeader {
         let compression = CompressionType::produce(stream)?;
         let offset_size = stream.read_u8()?;
         let blob_count = Count::produce(stream)?;
-        let cluster_size = Size::produce(stream)?;
         Ok(ClusterHeader {
             compression,
             offset_size,
             blob_count,
-            cluster_size,
         })
     }
 }
@@ -50,9 +48,12 @@ pub struct Cluster {
 }
 
 impl Cluster {
-    pub fn new(reader: &dyn Reader) -> Result<Self> {
-        let mut stream = reader.create_stream_all();
+    pub fn new(reader: &dyn Reader, cluster_info: SizedOffset) -> Result<Self> {
+        let header_reader =
+            reader.create_sub_reader(cluster_info.offset, End::Size(cluster_info.size));
+        let mut stream = header_reader.create_stream_all();
         let header = ClusterHeader::produce(stream.as_mut())?;
+        let raw_data_size: Size = stream.read_sized(header.offset_size.into())?.into();
         let data_size: Size = stream.read_sized(header.offset_size.into())?.into();
         let mut blob_offsets: Vec<Offset> = Vec::with_capacity((header.blob_count.0 + 1) as usize);
         unsafe { blob_offsets.set_len((header.blob_count.0).into()) }
@@ -67,11 +68,15 @@ impl Cluster {
             assert!(elem.is_valid(data_size));
         }
         blob_offsets.push(data_size.into());
-        let raw_reader =
-            reader.create_sub_reader(stream.tell(), End::Offset(header.cluster_size.into()));
+        let raw_reader = reader.create_sub_reader(
+            Offset(cluster_info.offset.0 - raw_data_size.0),
+            End::Size(raw_data_size),
+        );
         let reader = match header.compression {
             CompressionType::NONE => {
-                assert_eq!((stream.tell() + data_size).0, header.cluster_size.0);
+                if raw_data_size != data_size {
+                    return Err(Error::FormatError);
+                }
                 raw_reader
             }
             CompressionType::LZ4 => {
@@ -146,7 +151,6 @@ mod tests {
                 0x00, // compression
                 0x01, // offset_size
                 0x00, 0x02, // blob_count
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // cluster_size
             ],
             End::None,
         );
@@ -157,28 +161,32 @@ mod tests {
                 compression: CompressionType::NONE,
                 offset_size: 1,
                 blob_count: Count(2),
-                cluster_size: Size(3)
             }
         );
     }
 
-    fn create_cluster(comp: CompressionType, data: &[u8]) -> Vec<u8> {
-        let mut cluster_data = vec![
-            comp as u8, // compression
-            0x01,       // offset_size
-            0x00, 0x03, // blob_count
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // cluster size (set later)
-            0x0f, // Data size
-            0x05, // Offset of blob 1
-            0x08, // Offset of blob 2
-        ];
+    fn create_cluster(comp: CompressionType, data: &[u8]) -> (SizedOffset, Vec<u8>) {
+        let mut cluster_data = Vec::new();
         cluster_data.extend_from_slice(&data);
-        let cluster_size = cluster_data.len() as u64;
-        cluster_data[4..12].copy_from_slice(&cluster_size.to_be_bytes());
-        cluster_data
+        cluster_data.extend_from_slice(&[
+            comp as u8,       // compression
+            0x01,             // offset_size
+            0x00, 0x03,       // blob_count
+            data.len() as u8, // raw data size
+            0x0f,             // Data size
+            0x05,             // Offset of blob 1
+            0x08,             // Offset of blob 2
+        ]);
+        (
+            SizedOffset {
+                offset: Offset(data.len() as u64),
+                size: Size::from(cluster_data.len() - data.len()),
+            },
+            cluster_data,
+        )
     }
 
-    fn create_raw_cluster() -> Vec<u8> {
+    fn create_raw_cluster() -> (SizedOffset, Vec<u8>) {
         let raw_data = vec![
             0x11, 0x12, 0x13, 0x14, 0x15, // Blob 0
             0x21, 0x22, 0x23, // Blob 1
@@ -187,7 +195,7 @@ mod tests {
         create_cluster(CompressionType::NONE, &raw_data)
     }
 
-    fn create_lz4_cluster() -> Vec<u8> {
+    fn create_lz4_cluster() -> (SizedOffset, Vec<u8>) {
         let indata = vec![
             0x11, 0x12, 0x13, 0x14, 0x15, // Blob 0
             0x21, 0x22, 0x23, // Blob 1
@@ -208,7 +216,7 @@ mod tests {
         create_cluster(CompressionType::LZ4, &data)
     }
 
-    fn create_lzma_cluster() -> Vec<u8> {
+    fn create_lzma_cluster() -> (SizedOffset, Vec<u8>) {
         let indata = vec![
             0x11, 0x12, 0x13, 0x14, 0x15, // Blob 0
             0x21, 0x22, 0x23, // Blob 1
@@ -225,7 +233,7 @@ mod tests {
         create_cluster(CompressionType::LZMA, &data)
     }
 
-    fn create_zstd_cluster() -> Vec<u8> {
+    fn create_zstd_cluster() -> (SizedOffset, Vec<u8>) {
         let indata = vec![
             0x11, 0x12, 0x13, 0x14, 0x15, // Blob 0
             0x21, 0x22, 0x23, // Blob 1
@@ -241,20 +249,21 @@ mod tests {
         create_cluster(CompressionType::ZSTD, &data)
     }
 
-    type ClusterCreator = fn() -> Vec<u8>;
+    type ClusterCreator = fn() -> (SizedOffset, Vec<u8>);
 
     #[test_case(CompressionType::NONE, create_raw_cluster)]
     #[test_case(CompressionType::LZ4, create_lz4_cluster)]
     #[test_case(CompressionType::LZMA, create_lzma_cluster)]
     #[test_case(CompressionType::ZSTD, create_zstd_cluster)]
     fn test_cluster(comp: CompressionType, creator: ClusterCreator) {
-        let reader = BufReader::new(creator(), End::None);
-        let mut stream = reader.create_stream_all();
+        let (ptr_info, data) = creator();
+        let reader = BufReader::new(data, End::None);
+        let mut stream = reader.create_stream_from(ptr_info.offset);
         let header = ClusterHeader::produce(stream.as_mut()).unwrap();
         assert_eq!(header.compression, comp);
         assert_eq!(header.offset_size, 1);
         assert_eq!(header.blob_count, Count(3));
-        let cluster = Cluster::new(&reader).unwrap();
+        let cluster = Cluster::new(&reader, ptr_info).unwrap();
         assert_eq!(cluster.blob_count(), Count(3_u16));
 
         {
