@@ -95,9 +95,9 @@ impl Producable for ContentAddress {
 
 pub struct DirectoryPack<'a> {
     header: DirectoryPackHeader,
-    key_stores_ptrs: ArrayReader<'a, Offset, u8>,
-    entry_stores_ptrs: ArrayReader<'a, Offset, u32>,
-    index_ptrs: ArrayReader<'a, Offset, u32>,
+    key_stores_ptrs: ArrayReader<'a, SizedOffset, u8>,
+    entry_stores_ptrs: ArrayReader<'a, SizedOffset, u32>,
+    index_ptrs: ArrayReader<'a, SizedOffset, u32>,
     reader: Box<dyn Reader + 'a>,
     check_info: Cell<Option<CheckInfo>>,
 }
@@ -107,13 +107,13 @@ impl<'a> DirectoryPack<'a> {
         let mut stream = reader.create_stream_all();
         let header = DirectoryPackHeader::produce(stream.as_mut())?;
         let key_stores_ptrs = array_reader!(
-            reader, at:header.key_store_ptr_pos, len:header.key_store_count, idx:u8 => (Offset, 8)
+            reader, at:header.key_store_ptr_pos, len:header.key_store_count, idx:u8 => (SizedOffset, 8)
         );
         let entry_stores_ptrs = array_reader!(
-            reader, at:header.entry_store_ptr_pos, len:header.entry_store_count, idx:u32 => (Offset, 8)
+            reader, at:header.entry_store_ptr_pos, len:header.entry_store_count, idx:u32 => (SizedOffset, 8)
         );
         let index_ptrs = array_reader!(
-            reader, at:header.index_ptr_pos, len:header.index_count, idx:u32 => (Offset, 8)
+            reader, at:header.index_ptr_pos, len:header.index_count, idx:u32 => (SizedOffset, 8)
         );
         Ok(DirectoryPack {
             header,
