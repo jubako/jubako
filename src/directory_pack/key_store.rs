@@ -26,12 +26,18 @@ pub enum KeyStore {
 impl KeyStore {
     fn new(reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
         let mut header_stream = reader.create_stream(pos_info.offset, End::Size(pos_info.size));
-        Ok(
-            match KeyStoreKind::produce(header_stream.as_mut())? {
-                KeyStoreKind::PLAIN => KeyStore::PLAIN(PlainKeyStore::new(header_stream.as_mut(), reader, pos_info)?),
-                KeyStoreKind::INDEXED => KeyStore::INDEXED(IndexedKeyStore::new(header_stream.as_mut(), reader, pos_info)?),
-            },
-        )
+        Ok(match KeyStoreKind::produce(header_stream.as_mut())? {
+            KeyStoreKind::PLAIN => KeyStore::PLAIN(PlainKeyStore::new(
+                header_stream.as_mut(),
+                reader,
+                pos_info,
+            )?),
+            KeyStoreKind::INDEXED => KeyStore::INDEXED(IndexedKeyStore::new(
+                header_stream.as_mut(),
+                reader,
+                pos_info,
+            )?),
+        })
     }
 }
 
@@ -44,7 +50,7 @@ impl PlainKeyStore {
         let data_size = Size::produce(stream)?;
         let reader = reader.create_sub_reader(
             Offset(pos_info.offset.0 - data_size.0),
-            End::Size(data_size)
+            End::Size(data_size),
         );
         Ok(PlainKeyStore { reader })
     }
@@ -77,7 +83,7 @@ impl IndexedKeyStore {
         assert_eq!(stream.tell().0, pos_info.size.0);
         let reader = reader.create_sub_reader(
             Offset(pos_info.offset.0 - data_size.0),
-            End::Size(data_size)
+            End::Size(data_size),
         );
         Ok(IndexedKeyStore {
             entry_offsets,
@@ -117,7 +123,14 @@ mod tests {
             ],
             End::None,
         );
-        let key_store = KeyStore::new(&reader, SizedOffset{size:Size(9), offset:Offset(16)}).unwrap();
+        let key_store = KeyStore::new(
+            &reader,
+            SizedOffset {
+                size: Size(9),
+                offset: Offset(16),
+            },
+        )
+        .unwrap();
         match &key_store {
             KeyStore::PLAIN(plainkeystore) => {
                 assert_eq!(plainkeystore.reader.size(), Size::from(0x10_u64));
@@ -150,7 +163,14 @@ mod tests {
             ],
             End::None,
         );
-        let key_store = KeyStore::new(&reader, SizedOffset{size:Size(13), offset:Offset(15)}).unwrap();
+        let key_store = KeyStore::new(
+            &reader,
+            SizedOffset {
+                size: Size(13),
+                offset: Offset(15),
+            },
+        )
+        .unwrap();
         match &key_store {
             KeyStore::INDEXED(indexedkeystore) => {
                 assert_eq!(

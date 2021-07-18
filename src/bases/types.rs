@@ -80,21 +80,21 @@ impl From<u64> for Offset {
 }
 
 impl Add<usize> for Offset {
-    type Output = Offset;
+    type Output = Self;
     fn add(self, other: usize) -> Offset {
         Offset(self.0.checked_add(other as u64).unwrap())
     }
 }
 
 impl Add<Size> for Offset {
-    type Output = Offset;
+    type Output = Self;
     fn add(self, other: Size) -> Offset {
         Offset(self.0.checked_add(other.0).unwrap())
     }
 }
 
 impl Add for Offset {
-    type Output = Offset;
+    type Output = Self;
     fn add(self, other: Offset) -> Offset {
         Offset(self.0.checked_add(other.0).unwrap())
     }
