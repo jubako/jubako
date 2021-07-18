@@ -10,6 +10,7 @@ pub enum CompressionType {
 }
 
 impl Producable for CompressionType {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let v = stream.read_u8()?;
         match v {
@@ -30,10 +31,11 @@ struct ClusterHeader {
 }
 
 impl Producable for ClusterHeader {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let compression = CompressionType::produce(stream)?;
         let offset_size = stream.read_u8()?;
-        let blob_count = Count::produce(stream)?;
+        let blob_count = Count::<u16>::produce(stream)?;
         Ok(ClusterHeader {
             compression,
             offset_size,

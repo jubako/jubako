@@ -54,6 +54,7 @@ impl Offset {
 }
 
 impl Producable for Offset {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         Ok(stream.read_u64()?.into())
     }
@@ -125,6 +126,7 @@ impl fmt::Display for Offset {
 pub struct Size(pub u64);
 
 impl Producable for Size {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         Ok(stream.read_u64()?.into())
     }
@@ -162,6 +164,7 @@ pub struct SizedOffset {
 }
 
 impl Producable for SizedOffset {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let data = stream.read_u64()?;
         let offset = Offset(data & 0xFF_FF_FF_FF_FF_u64);
@@ -199,24 +202,28 @@ impl<T> From<T> for Count<T> {
 }
 
 impl Producable for Count<u8> {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         Ok(stream.read_u8()?.into())
     }
 }
 
 impl Producable for Count<u16> {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         Ok(stream.read_u16()?.into())
     }
 }
 
 impl Producable for Count<u32> {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         Ok(stream.read_u32()?.into())
     }
 }
 
 impl Producable for Count<u64> {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         Ok(stream.read_u64()?.into())
     }

@@ -51,12 +51,13 @@ struct ContentPackHeader {
 }
 
 impl Producable for ContentPackHeader {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let pack_header = PackHeader::produce(stream)?;
         let entry_ptr_pos = Offset::produce(stream)?;
         let cluster_ptr_pos = Offset::produce(stream)?;
-        let entry_count = Count::produce(stream)?;
-        let cluster_count = Count::produce(stream)?;
+        let entry_count = Count::<u32>::produce(stream)?;
+        let cluster_count = Count::<u32>::produce(stream)?;
         let mut free_data = FreeData56::new();
         stream.read_exact(&mut free_data)?;
         Ok(ContentPackHeader {
@@ -77,6 +78,7 @@ pub struct EntryInfo {
 }
 
 impl Producable for EntryInfo {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let v = stream.read_u32()?;
         let blob_index = (v & 0xFFF) as u16;

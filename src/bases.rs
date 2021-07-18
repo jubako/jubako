@@ -48,8 +48,8 @@ where
     u64: std::convert::From<I>,
     I: std::cmp::PartialOrd + Copy,
 {
-    type OutputType = T;
-    fn index(&self, idx: Idx<I>) -> T {
+    type OutputType = T::Output;
+    fn index(&self, idx: Idx<I>) -> T::Output {
         assert!(idx.is_valid(self.length));
         let offset = u64::from(idx.0) * self.elem_size as u64;
         let mut stream = self

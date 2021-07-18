@@ -41,7 +41,8 @@ pub trait Stream: Read {
 
 /// A Producable is a object that can be produce from a stream.
 pub trait Producable {
-    fn produce(stream: &mut dyn Stream) -> Result<Self>
+    type Output;
+    fn produce(stream: &mut dyn Stream) -> Result<Self::Output>
     where
-        Self: Sized;
+        Self::Output: Sized;
 }

@@ -11,6 +11,7 @@ pub enum PackKind {
 }
 
 impl Producable for PackKind {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         match stream.read_u32()? {
             0x61_72_78_66_u32 => Ok(PackKind::ARX),
@@ -22,6 +23,7 @@ impl Producable for PackKind {
 }
 
 impl Producable for Uuid {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let mut v = [0_u8; 16];
         stream.read_exact(&mut v)?;
@@ -36,6 +38,7 @@ enum CheckKind {
 }
 
 impl Producable for CheckKind {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         match stream.read_u8()? {
             0_u8 => Ok(CheckKind::NONE),
@@ -46,6 +49,7 @@ impl Producable for CheckKind {
 }
 
 impl Producable for blake3::Hash {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let mut v = [0_u8; blake3::OUT_LEN];
         stream.read_exact(&mut v)?;
@@ -59,6 +63,7 @@ pub struct CheckInfo {
 }
 
 impl Producable for CheckInfo {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let kind = CheckKind::produce(stream)?;
         let b3hash = match kind {
@@ -94,6 +99,7 @@ pub struct PackHeader {
 }
 
 impl Producable for PackHeader {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let magic = PackKind::produce(stream)?;
         let app_vendor_id = stream.read_u32()?;

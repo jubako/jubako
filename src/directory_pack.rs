@@ -53,14 +53,15 @@ struct DirectoryPackHeader {
 }
 
 impl Producable for DirectoryPackHeader {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let pack_header = PackHeader::produce(stream)?;
         let index_ptr_pos = Offset::produce(stream)?;
         let entry_store_ptr_pos = Offset::produce(stream)?;
         let key_store_ptr_pos = Offset::produce(stream)?;
-        let index_count = Count::produce(stream)?;
-        let entry_store_count = Count::produce(stream)?;
-        let key_store_count = Count::produce(stream)?;
+        let index_count = Count::<u32>::produce(stream)?;
+        let entry_store_count = Count::<u32>::produce(stream)?;
+        let key_store_count = Count::<u8>::produce(stream)?;
         let mut free_data = FreeData47::new();
         stream.read_exact(&mut free_data)?;
         Ok(DirectoryPackHeader {
@@ -83,6 +84,7 @@ pub struct ContentAddress {
 }
 
 impl Producable for ContentAddress {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let pack_id = stream.read_u8()?;
         let content_id = stream.read_sized(3)? as u32;

@@ -8,6 +8,7 @@ pub enum KeyStoreKind {
 }
 
 impl Producable for KeyStoreKind {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         match stream.read_u8()? {
             0 => Ok(KeyStoreKind::PLAIN),
@@ -56,7 +57,7 @@ pub struct IndexedKeyStore {
 
 impl IndexedKeyStore {
     fn new(stream: &mut dyn Stream, reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
-        let entry_count: Count<u64> = Count::produce(stream)?;
+        let entry_count = Count::<u64>::produce(stream)?;
         let offset_size = stream.read_u8()?;
         let data_size: Size = stream.read_sized(offset_size.into())?.into();
         let mut entry_offsets: Vec<Offset> = Vec::with_capacity((entry_count.0 + 1) as usize);

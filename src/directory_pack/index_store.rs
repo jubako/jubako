@@ -9,6 +9,7 @@ pub enum StoreKind {
 }
 
 impl Producable for StoreKind {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         match stream.read_u8()? {
             0 => Ok(StoreKind::Plain),
@@ -37,6 +38,7 @@ pub struct KeyDef {
 }
 
 impl Producable for KeyDef {
+    type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let keyinfo = stream.read_u8()?;
         let keytype = keyinfo >> 4;
