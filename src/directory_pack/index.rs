@@ -1,0 +1,66 @@
+use super::ContentAddress;
+use crate::bases::*;
+
+#[derive(Debug, PartialEq)]
+pub struct IndexHeader {
+    pub store_id: Idx<u32>,
+    pub entry_count: Count<u32>,
+    pub entry_offset: Idx<u32>,
+    pub index_key: u8,
+    pub extra_data: ContentAddress,
+    pub name: String,
+}
+
+impl Producable for IndexHeader {
+    type Output = Self;
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        let store_id = Idx::<u32>::produce(stream)?;
+        let entry_count = Count::<u32>::produce(stream)?;
+        let entry_offset = Idx::<u32>::produce(stream)?;
+        let extra_data = ContentAddress::produce(stream)?;
+        let index_key = stream.read_u8()?;
+        let name = PString::produce(stream)?;
+        Ok(Self {
+            store_id,
+            entry_count,
+            entry_offset,
+            extra_data,
+            index_key,
+            name,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_index() {
+        let content = vec![
+            0x00, 0x00, 0x00, 0x01, // store_id
+            0x00, 0x00, 0xff, 0x00, // entry_count
+            0x00, 0x00, 0x00, 0x02, // entry_offset
+            0x05, 0x00, 0x00, 0x01, // extra_data
+            0x01, // index_key
+            0x05, 0x48, 0x65, 0x6C, 0x6C, 0x6F, // PString Hello
+        ];
+        let reader = Box::new(BufReader::new(content, End::None));
+        let mut stream = reader.create_stream_all();
+        let header = IndexHeader::produce(stream.as_mut()).unwrap();
+        assert_eq!(
+            header,
+            IndexHeader {
+                store_id: Idx(1),
+                entry_count: Count(0xff00),
+                entry_offset: Idx(2),
+                extra_data: ContentAddress {
+                    pack_id: Idx(5),
+                    content_id: Idx(1)
+                },
+                index_key: 1,
+                name: String::from("Hello")
+            }
+        );
+    }
+}

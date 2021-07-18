@@ -1,3 +1,4 @@
+mod index;
 mod index_store;
 mod key_store;
 
@@ -77,7 +78,7 @@ impl Producable for DirectoryPackHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ContentAddress {
     pack_id: Idx<u8>,
     content_id: Idx<u32>,

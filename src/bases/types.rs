@@ -247,6 +247,13 @@ impl<T: fmt::Display> fmt::Display for Count<T> {
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
 pub struct Idx<T>(pub T);
 
+impl Producable for Idx<u32> {
+    type Output = Self;
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        Ok(stream.read_u32()?.into())
+    }
+}
+
 impl<T> Idx<T>
 where
     T: std::cmp::PartialOrd,
