@@ -2,6 +2,7 @@ use crate::bases::*;
 use lzma::LzmaError;
 use std::fmt;
 use std::ops::{Add, AddAssign, Sub};
+use std::string::FromUtf8Error;
 
 #[derive(Debug)]
 pub enum Error {
@@ -14,6 +15,12 @@ pub enum Error {
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Error {
         Error::IOError(e)
+    }
+}
+
+impl From<FromUtf8Error> for Error {
+    fn from(e: FromUtf8Error) -> Error {
+        Error::FormatError
     }
 }
 
@@ -268,6 +275,21 @@ pub trait Index<Idx> {
     fn index(&self, idx: Idx) -> Self::OutputType;
 }
 
+pub struct PString {}
+
+impl Producable for PString {
+    type Output = String;
+    fn produce(stream: &mut dyn Stream) -> Result<String> {
+        let size = stream.read_u8()?;
+        let mut v = Vec::with_capacity(size as usize);
+        unsafe {
+            v.set_len(size as usize);
+        }
+        stream.read_exact(v.as_mut_slice())?;
+        Ok(String::from_utf8(v)?)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -293,5 +315,17 @@ mod tests {
     #[test_case(256, 255 => false)]
     fn test_index_is_valid(o: u64, s: u64) -> bool {
         Idx(o).is_valid(s.into())
+    }
+
+    #[test_case(&[0x00] => "")]
+    #[test_case(&[0x01, 72] => "H")]
+    #[test_case(&[0x02, 72, 101] => "He")]
+    #[test_case(&[0x03, 72, 0xC3, 0xA9] => "Hé")]
+    fn test_pstring(source: &[u8]) -> String {
+        let mut content = Vec::new();
+        content.extend_from_slice(source);
+        let reader = BufReader::new(content, End::None);
+        let mut stream = reader.create_stream_all();
+        PString::produce(stream.as_mut()).unwrap()
     }
 }
