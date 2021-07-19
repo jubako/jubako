@@ -12,6 +12,7 @@ blake3 = "0.3.8"
 lz4 = "1.23.2"
 zstd = "0.9"
 rust-lzma = "0.5"
+generic-array = "0.14.4"
 
 [dev-dependencies]
 test-case = "1.2.0"

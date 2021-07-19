@@ -5,41 +5,11 @@ mod key_store;
 use crate::array_reader;
 use crate::bases::*;
 use crate::pack::*;
+use generic_array::typenum;
 use std::cell::Cell;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::io::Read;
-use std::ops::{Deref, DerefMut};
 use uuid::Uuid;
-
-struct FreeData47([u8; 47]);
-
-impl PartialEq for FreeData47 {
-    fn eq(&self, other: &Self) -> bool {
-        self.0[..] == other.0[..]
-    }
-}
-impl Debug for FreeData47 {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        Ok(())
-    }
-}
-impl Deref for FreeData47 {
-    type Target = [u8];
-    fn deref(&self) -> &[u8] {
-        &self.0
-    }
-}
-impl DerefMut for FreeData47 {
-    fn deref_mut(&mut self) -> &mut [u8] {
-        &mut self.0
-    }
-}
-
-impl FreeData47 {
-    pub fn new() -> Self {
-        Self([0; 47])
-    }
-}
 
 #[derive(Debug, PartialEq)]
 struct DirectoryPackHeader {
@@ -50,7 +20,7 @@ struct DirectoryPackHeader {
     entry_store_count: Count<u32>,
     index_count: Count<u32>,
     key_store_count: Count<u8>,
-    free_data: FreeData47,
+    free_data: FreeData<typenum::U47>,
 }
 
 impl Producable for DirectoryPackHeader {
@@ -63,8 +33,7 @@ impl Producable for DirectoryPackHeader {
         let index_count = Count::<u32>::produce(stream)?;
         let entry_store_count = Count::<u32>::produce(stream)?;
         let key_store_count = Count::<u8>::produce(stream)?;
-        let mut free_data = FreeData47::new();
-        stream.read_exact(&mut free_data)?;
+        let free_data = FreeData::produce(stream)?;
         Ok(DirectoryPackHeader {
             pack_header,
             entry_store_ptr_pos,
@@ -127,8 +96,8 @@ impl<'a> DirectoryPack<'a> {
             check_info: Cell::new(None),
         })
     }
-    pub fn get_free_data(&self) -> [u8; 47] {
-        self.header.free_data.0
+    pub fn get_free_data(&self) -> &[u8] {
+        self.header.free_data.as_ref()
     }
 }
 
@@ -216,7 +185,7 @@ mod tests {
                 index_count: Count::from(0x50_u32),
                 entry_store_count: Count::from(0x60_u32),
                 key_store_count: Count::from(0x05_u8),
-                free_data: FreeData47([0xff; 47]),
+                free_data: FreeData::clone_from_slice(&[0xff; 47]),
             }
         );
     }

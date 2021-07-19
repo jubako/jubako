@@ -3,42 +3,12 @@ mod cluster;
 use crate::array_reader;
 use crate::bases::*;
 use crate::pack::*;
-pub use cluster::Cluster;
+use cluster::Cluster;
+use generic_array::typenum;
 use std::cell::Cell;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::io::Read;
-use std::ops::{Deref, DerefMut};
 use uuid::Uuid;
-
-struct FreeData56([u8; 56]);
-
-impl PartialEq for FreeData56 {
-    fn eq(&self, other: &Self) -> bool {
-        self.0[..] == other.0[..]
-    }
-}
-impl Debug for FreeData56 {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        Ok(())
-    }
-}
-impl Deref for FreeData56 {
-    type Target = [u8];
-    fn deref(&self) -> &[u8] {
-        &self.0
-    }
-}
-impl DerefMut for FreeData56 {
-    fn deref_mut(&mut self) -> &mut [u8] {
-        &mut self.0
-    }
-}
-
-impl FreeData56 {
-    pub fn new() -> Self {
-        Self([0; 56])
-    }
-}
 
 #[derive(Debug, PartialEq)]
 struct ContentPackHeader {
@@ -47,7 +17,7 @@ struct ContentPackHeader {
     cluster_ptr_pos: Offset,
     entry_count: Count<u32>,
     cluster_count: Count<u32>,
-    free_data: FreeData56,
+    free_data: FreeData<typenum::U56>,
 }
 
 impl Producable for ContentPackHeader {
@@ -58,8 +28,7 @@ impl Producable for ContentPackHeader {
         let cluster_ptr_pos = Offset::produce(stream)?;
         let entry_count = Count::<u32>::produce(stream)?;
         let cluster_count = Count::<u32>::produce(stream)?;
-        let mut free_data = FreeData56::new();
-        stream.read_exact(&mut free_data)?;
+        let free_data = FreeData::produce(stream)?;
         Ok(ContentPackHeader {
             pack_header,
             entry_ptr_pos,
@@ -133,8 +102,8 @@ impl<'a> ContentPack<'a> {
         cluster.get_reader(entry_info.blob_index)
     }
 
-    pub fn get_free_data(&self) -> [u8; 56] {
-        self.header.free_data.0
+    pub fn get_free_data(&self) -> &[u8] {
+        self.header.free_data.as_ref()
     }
 }
 
@@ -218,7 +187,7 @@ mod tests {
                 cluster_ptr_pos: Offset::from(0xeedd_u64),
                 entry_count: Count::from(0x50_u32),
                 cluster_count: Count::from(0x60_u32),
-                free_data: FreeData56([0xff; 56]),
+                free_data: FreeData::clone_from_slice(&[0xff; 56]),
             }
         );
     }

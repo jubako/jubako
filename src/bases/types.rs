@@ -1,4 +1,5 @@
 use crate::bases::*;
+use generic_array::{ArrayLength, GenericArray};
 use lzma::LzmaError;
 use std::fmt;
 use std::ops::{Add, AddAssign, Sub};
@@ -280,6 +281,17 @@ impl<T: fmt::Display> fmt::Display for Idx<T> {
 pub trait Index<Idx> {
     type OutputType;
     fn index(&self, idx: Idx) -> Self::OutputType;
+}
+
+pub type FreeData<N> = GenericArray<u8, N>;
+
+impl<N: ArrayLength<u8>> Producable for FreeData<N> {
+    type Output = Self;
+    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+        let mut s = GenericArray::default();
+        stream.read_exact(s.as_mut_slice())?;
+        Ok(s)
+    }
 }
 
 pub struct PString {}
