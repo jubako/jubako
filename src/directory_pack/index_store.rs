@@ -118,24 +118,48 @@ impl Producable for KeyDef {
     }
 }
 
+pub enum IndexStore {
+    PLAIN(PlainStore),
+}
+
+impl IndexStore {
+    pub fn new(reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
+        let mut header_stream = reader.create_stream_for(pos_info);
+        Ok(match StoreKind::produce(header_stream.as_mut())? {
+            StoreKind::Plain => {
+                IndexStore::PLAIN(PlainStore::new(header_stream.as_mut(), reader, pos_info)?)
+            }
+            _ => todo!(),
+        })
+    }
+
+    pub fn get_entry(&self, idx: Idx<u32>) -> Result<Entry> {
+        match self {
+            IndexStore::PLAIN(store) => store.get_entry(idx),
+            /*            _ => todo!()*/
+        }
+    }
+}
+
 pub struct PlainStore {
     pub variants: Vec<Vec<KeyDef>>,
     pub entry_reader: Box<dyn Reader>,
 }
 
 impl PlainStore {
-    fn new(reader: Box<dyn Reader>) -> Result<Self> {
-        let mut stream = reader.create_stream_all();
-        let _kind = StoreKind::produce(stream.as_mut())?;
-        let _header_size = Size(stream.read_u16()? as u64);
+    pub fn new(
+        stream: &mut dyn Stream,
+        reader: &dyn Reader,
+        pos_info: SizedOffset,
+    ) -> Result<Self> {
         let entry_size = stream.read_u16()?;
-        let variant_count = Count::<u8>::produce(stream.as_mut())?;
-        let key_count = Count::<u8>::produce(stream.as_mut())?;
+        let variant_count = Count::<u8>::produce(stream)?;
+        let key_count = Count::<u8>::produce(stream)?;
         let mut variants = Vec::new();
         let mut entry_def = Vec::new();
         let mut current_size = 0;
         for _ in 0..key_count.0 {
-            let key = KeyDef::produce(stream.as_mut())?;
+            let key = KeyDef::produce(stream)?;
             current_size += key.size;
             entry_def.push(key);
             if current_size > entry_size {
@@ -152,9 +176,12 @@ impl PlainStore {
         if variants.len() != variant_count.0 as usize {
             return Err(Error::FormatError);
         }
-        let data_size = Size::produce(stream.as_mut())?;
+        let data_size = Size::produce(stream)?;
         // [TODO] use a array_reader here
-        let entry_reader = reader.create_sub_reader(stream.tell(), End::Size(data_size));
+        let entry_reader = reader.create_sub_reader(
+            Offset(pos_info.offset.0 - data_size.0),
+            End::Size(data_size),
+        );
         Ok(Self {
             variants,
             entry_reader,
@@ -168,12 +195,10 @@ mod tests {
 
     #[test]
     fn test_1variant_allkeys() {
+        #[rustfmt::skip]
         let content = vec![
             0x00, // kind
-            0x00,
-            0x00, //header size
-            0x05,
-            0x67,        //entry_size (1383)
+            0x05, 0x67,        //entry_size (1383)
             0x01,        // variant count
             0x15,        // key count
             0b1000_0000, // Variant id
@@ -190,31 +215,28 @@ mod tests {
             0b0010_1111, // s64
             0b0100_0000, // char[1]
             0b0100_0111, // char[8]
-            0b0100_1000,
-            0x00, // char[9]
-            0b0100_1000,
-            0xFF, // char[264] (255+9)
-            0b0100_1011,
-            0xFF, // char[1032] (1023+9)
-            0b0110_0000,
-            0x0F, // Pstring(1), idx 0x0F
-            0b0110_0111,
-            0x0F, // Pstring(8), idx 0x0F
-            0b0111_0000,
-            0x0F, // PstringLookup(2), idx 0x0F
-            0b0111_0111,
-            0x0F, // PstringLookup(9), idx 0x0F
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00, //data size
+            0b0100_1000, 0x00, // char[9]
+            0b0100_1000, 0xFF, // char[264] (255+9)
+            0b0100_1011, 0xFF, // char[1032] (1023+9)
+            0b0110_0000, 0x0F, // Pstring(1), idx 0x0F
+            0b0110_0111, 0x0F, // Pstring(8), idx 0x0F
+            0b0111_0000, 0x0F, // PstringLookup(2), idx 0x0F
+            0b0111_0111, 0x0F, // PstringLookup(9), idx 0x0F
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
+        let size = Size(content.len() as u64);
         let reader = Box::new(BufReader::new(content, End::None));
-        let store = PlainStore::new(reader).unwrap();
+        let store = IndexStore::new(
+            reader.as_ref(),
+            SizedOffset {
+                offset: Offset(0),
+                size,
+            },
+        )
+        .unwrap();
+        let store = match store {
+            IndexStore::PLAIN(s) => s,
+        };
         assert_eq!(store.variants.len(), 1);
         let variant = &store.variants[0];
         let expected = vec![
@@ -332,41 +354,39 @@ mod tests {
 
     #[test]
     fn test_2variants() {
+        #[rustfmt::skip]
         let content = vec![
             0x00, // kind
-            0x00,
-            0x00, //header size
-            0x00,
-            0x1A,        //entry_size (26)
+            0x00, 0x1A,        //entry_size (26)
             0x02,        // variant count
             0x0C,        // key count (12)
             0b1000_0000, // Variant id
-            0b0111_0011,
-            0x0F, // PstringLookup(5), idx 0x0F
-            0b0100_1000,
-            0x00,        // char[9]
+            0b0111_0011, 0x0F, // PstringLookup(5), idx 0x0F
+            0b0100_1000, 0x00,        // char[9]
             0b0000_0011, // padding key(4)
             0b0001_0000, // classic content address
             0b0010_0010, // u24
             0b1000_0000, // Variant id
-            0b0111_0011,
-            0x0F, // PstringLookup(5), idx 0x0F
-            0b0100_1000,
-            0x00,        // char[9]
+            0b0111_0011, 0x0F, // PstringLookup(5), idx 0x0F
+            0b0100_1000, 0x00,        // char[9]
             0b0001_0010, // hidden content address
             0b0001_0001, // patch content address
             0b0010_0010, // u24
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00, //data size
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
+        let size = Size(content.len() as u64);
         let reader = Box::new(BufReader::new(content, End::None));
-        let store = PlainStore::new(reader).unwrap();
+        let store = IndexStore::new(
+            reader.as_ref(),
+            SizedOffset {
+                offset: Offset(0),
+                size,
+            },
+        )
+        .unwrap();
+        let store = match store {
+            IndexStore::PLAIN(s) => s,
+        };
         assert_eq!(store.variants.len(), 2);
         let variant = &store.variants[0];
         let expected = vec![
