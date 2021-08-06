@@ -1,6 +1,5 @@
 mod cluster;
 
-use crate::array_reader;
 use crate::bases::*;
 use crate::pack::*;
 use cluster::Cluster;
@@ -59,6 +58,10 @@ impl Producable for EntryInfo {
     }
 }
 
+impl SizedProducable for EntryInfo {
+    type Size = typenum::U4;
+}
+
 pub struct ContentPack<'a> {
     header: ContentPackHeader,
     entry_infos: ArrayReader<'a, EntryInfo, u32>,
@@ -70,11 +73,12 @@ pub struct ContentPack<'a> {
 impl<'a> ContentPack<'a> {
     pub fn new(reader: Box<dyn Reader>) -> Result<Self> {
         let header = ContentPackHeader::produce(reader.create_stream_all().as_mut())?;
-        let entry_infos = array_reader!(
-            reader, at:header.entry_ptr_pos, len:header.entry_count, idx:u32 => (EntryInfo, 4)
-        );
-        let cluster_ptrs = array_reader!(
-            reader, at:header.cluster_ptr_pos, len:header.cluster_count, idx:u32 => (SizedOffset, 8)
+        let entry_infos =
+            ArrayReader::new_from_reader(reader.as_ref(), header.entry_ptr_pos, header.entry_count);
+        let cluster_ptrs = ArrayReader::new_from_reader(
+            reader.as_ref(),
+            header.cluster_ptr_pos,
+            header.cluster_count,
         );
         Ok(ContentPack {
             header,

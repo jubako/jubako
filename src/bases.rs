@@ -8,53 +8,63 @@ pub use io::*;
 pub use reader::*;
 use std::marker::PhantomData;
 pub use stream::*;
+use typenum::Unsigned;
 pub use types::*;
 
-pub struct ArrayReader<'a, T, I> {
-    reader: Box<dyn Reader + 'a>,
-    length: Count<I>,
-    elem_size: usize, // We know that array can contain elem of 256 at maximum.
-    produced_type: PhantomData<*const T>,
+pub trait SizedProducable: Producable {
+    type Size;
 }
 
-impl<'a, T, I> ArrayReader<'a, T, I> {
-    pub fn new(reader: Box<dyn Reader + 'a>, length: Count<I>, elem_size: usize) -> Self {
+/// ArrayReader is a wrapper a reader to access element stored as a array.
+/// (Consecutif block of data of the same size).
+pub struct ArrayReader<'a, OutType, IdxType> {
+    reader: Box<dyn Reader + 'a>,
+    length: Count<IdxType>,
+    elem_size: usize,
+    produced_type: PhantomData<*const OutType>,
+}
+
+impl<'a, OutType, IdxType> ArrayReader<'a, OutType, IdxType>
+where
+    OutType: SizedProducable,
+    OutType::Size: typenum::Unsigned,
+    u64: std::convert::From<IdxType>,
+    IdxType: Copy,
+{
+    pub fn new(reader: Box<dyn Reader + 'a>, length: Count<IdxType>) -> Self {
         Self {
             reader,
             length,
-            elem_size,
+            elem_size: OutType::Size::to_usize(),
+            produced_type: PhantomData,
+        }
+    }
+
+    pub fn new_from_reader(reader: &dyn Reader, at: Offset, length: Count<IdxType>) -> Self {
+        let elem_size = OutType::Size::to_u64();
+        let sub_reader =
+            reader.create_sub_reader(at, End::Size(Size(elem_size * u64::from(length.0))));
+        Self {
+            reader: sub_reader,
+            length,
+            elem_size: elem_size as usize,
             produced_type: PhantomData,
         }
     }
 }
 
-#[macro_export]
-macro_rules! array_reader(
-    ($reader:ident, at:$offset:expr, len:$len:expr, idx:$IDX:ty => ($OUT:ty, $elem_size:expr)) => {
-        {
-        let sub_reader = $reader.create_sub_reader(
-            $offset,
-            End::Size(Size::from(u64::from($len.0) * $elem_size))
-        );
-        ArrayReader::<$OUT, $IDX>::new(
-            sub_reader,
-            $len,
-            $elem_size)
-    }}
-);
-
-impl<T: Producable, I> Index<Idx<I>> for ArrayReader<'_, T, I>
+impl<OutType: Producable, IdxType> IndexTrait<Idx<IdxType>> for ArrayReader<'_, OutType, IdxType>
 where
-    u64: std::convert::From<I>,
-    I: std::cmp::PartialOrd + Copy,
+    u64: std::convert::From<IdxType>,
+    IdxType: std::cmp::PartialOrd + Copy,
 {
-    type OutputType = T::Output;
-    fn index(&self, idx: Idx<I>) -> T::Output {
+    type OutputType = OutType::Output;
+    fn index(&self, idx: Idx<IdxType>) -> OutType::Output {
         assert!(idx.is_valid(self.length));
         let offset = u64::from(idx.0) * self.elem_size as u64;
         let mut stream = self
             .reader
             .create_stream(Offset::from(offset), End::Size(Size::from(self.elem_size)));
-        T::produce(stream.as_mut()).unwrap()
+        OutType::produce(stream.as_mut()).unwrap()
     }
 }

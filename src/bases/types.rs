@@ -67,6 +67,9 @@ impl Producable for Offset {
         Ok(stream.read_u64()?.into())
     }
 }
+impl SizedProducable for Offset {
+    type Size = typenum::U8;
+}
 
 impl From<Size> for Offset {
     fn from(v: Size) -> Offset {
@@ -139,6 +142,9 @@ impl Producable for Size {
         Ok(stream.read_u64()?.into())
     }
 }
+impl SizedProducable for Size {
+    type Size = typenum::U8;
+}
 
 impl From<Offset> for Size {
     fn from(v: Offset) -> Size {
@@ -165,10 +171,13 @@ impl fmt::Display for Size {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct SizedOffset {
     pub size: Size,
     pub offset: Offset,
+}
+impl SizedProducable for SizedOffset {
+    type Size = typenum::U8;
 }
 
 impl Producable for SizedOffset {
@@ -215,12 +224,18 @@ impl Producable for Count<u8> {
         Ok(stream.read_u8()?.into())
     }
 }
+impl SizedProducable for Count<u8> {
+    type Size = typenum::U1;
+}
 
 impl Producable for Count<u16> {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         Ok(stream.read_u16()?.into())
     }
+}
+impl SizedProducable for Count<u16> {
+    type Size = typenum::U2;
 }
 
 impl Producable for Count<u32> {
@@ -229,12 +244,18 @@ impl Producable for Count<u32> {
         Ok(stream.read_u32()?.into())
     }
 }
+impl SizedProducable for Count<u32> {
+    type Size = typenum::U4;
+}
 
 impl Producable for Count<u64> {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         Ok(stream.read_u64()?.into())
     }
+}
+impl SizedProducable for Count<u64> {
+    type Size = typenum::U8;
 }
 
 impl<T: fmt::Display> fmt::Display for Count<T> {
@@ -253,6 +274,9 @@ impl Producable for Idx<u32> {
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         Ok(stream.read_u32()?.into())
     }
+}
+impl SizedProducable for Idx<u32> {
+    type Size = typenum::U4;
 }
 
 impl<T> Idx<T>
@@ -278,7 +302,7 @@ impl<T: fmt::Display> fmt::Display for Idx<T> {
 
 /// This is somehow the same as std::ops::Index
 /// but with a output by value and not by ref.
-pub trait Index<Idx> {
+pub trait IndexTrait<Idx> {
     type OutputType;
     fn index(&self, idx: Idx) -> Self::OutputType;
 }
@@ -292,6 +316,9 @@ impl<N: ArrayLength<u8>> Producable for FreeData<N> {
         stream.read_exact(s.as_mut_slice())?;
         Ok(s)
     }
+}
+impl<N: ArrayLength<u8>> SizedProducable for FreeData<N> {
+    type Size = N;
 }
 
 pub struct PString {}

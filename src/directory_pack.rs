@@ -2,7 +2,6 @@ mod index;
 mod index_store;
 mod key_store;
 
-use crate::array_reader;
 use crate::bases::*;
 use crate::pack::*;
 use generic_array::typenum;
@@ -78,15 +77,18 @@ impl<'a> DirectoryPack<'a> {
     pub fn new(reader: Box<dyn Reader>) -> Result<Self> {
         let mut stream = reader.create_stream_all();
         let header = DirectoryPackHeader::produce(stream.as_mut())?;
-        let key_stores_ptrs = array_reader!(
-            reader, at:header.key_store_ptr_pos, len:header.key_store_count, idx:u8 => (SizedOffset, 8)
+        let key_stores_ptrs = ArrayReader::new_from_reader(
+            reader.as_ref(),
+            header.key_store_ptr_pos,
+            header.key_store_count,
         );
-        let entry_stores_ptrs = array_reader!(
-            reader, at:header.entry_store_ptr_pos, len:header.entry_store_count, idx:u32 => (SizedOffset, 8)
+        let entry_stores_ptrs = ArrayReader::new_from_reader(
+            reader.as_ref(),
+            header.entry_store_ptr_pos,
+            header.entry_store_count,
         );
-        let index_ptrs = array_reader!(
-            reader, at:header.index_ptr_pos, len:header.index_count, idx:u32 => (SizedOffset, 8)
-        );
+        let index_ptrs =
+            ArrayReader::new_from_reader(reader.as_ref(), header.index_ptr_pos, header.index_count);
         Ok(DirectoryPack {
             header,
             key_stores_ptrs,
