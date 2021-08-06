@@ -24,8 +24,8 @@ pub enum KeyStore {
 }
 
 impl KeyStore {
-    fn new(reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
-        let mut header_stream = reader.create_stream(pos_info.offset, End::Size(pos_info.size));
+    pub fn new(reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
+        let mut header_stream = reader.create_stream_for(pos_info);
         Ok(match KeyStoreKind::produce(header_stream.as_mut())? {
             KeyStoreKind::PLAIN => KeyStore::PLAIN(PlainKeyStore::new(
                 header_stream.as_mut(),

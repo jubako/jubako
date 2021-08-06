@@ -10,6 +10,9 @@ pub trait Reader {
     fn size(&self) -> Size;
 
     fn create_stream(&self, offset: Offset, end: End) -> Box<dyn Stream>;
+    fn create_stream_for(&self, size_offset: SizedOffset) -> Box<dyn Stream> {
+        self.create_stream(size_offset.offset, End::Size(size_offset.size))
+    }
     fn create_stream_from(&self, offset: Offset) -> Box<dyn Stream> {
         self.create_stream(offset, End::None)
     }
