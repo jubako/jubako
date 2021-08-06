@@ -1,3 +1,4 @@
+use super::entry::Entry;
 use crate::bases::*;
 
 #[repr(u8)]
@@ -186,6 +187,10 @@ impl PlainStore {
             variants,
             entry_reader,
         })
+    }
+
+    pub fn get_entry(&self, id: Idx<u32>) -> Result<Entry> {
+        todo!()
     }
 }
 

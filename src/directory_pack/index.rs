@@ -1,3 +1,5 @@
+use super::entry::Entry;
+use super::index_store::IndexStore;
 use super::ContentAddress;
 use crate::bases::*;
 
@@ -28,6 +30,24 @@ impl Producable for IndexHeader {
             index_key,
             name,
         })
+    }
+}
+
+pub struct Index {
+    header: IndexHeader,
+    store: Box<IndexStore>,
+}
+
+impl Index {
+    pub fn new(header: IndexHeader, store: Box<IndexStore>) -> Self {
+        Self { header, store }
+    }
+    pub fn entry_count(&self) -> Count<u32> {
+        self.header.entry_count
+    }
+
+    pub fn get_entry(&self, id: Idx<u32>) -> Result<Entry> {
+        self.store.get_entry(id)
     }
 }
 

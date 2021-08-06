@@ -1,7 +1,11 @@
+mod entry;
 mod index;
 mod index_store;
 mod key_store;
 
+use self::index::{Index, IndexHeader};
+use self::index_store::IndexStore;
+use self::key_store::KeyStore;
 use crate::bases::*;
 use crate::pack::*;
 use generic_array::typenum;
@@ -100,6 +104,25 @@ impl<'a> DirectoryPack<'a> {
     }
     pub fn get_free_data(&self) -> &[u8] {
         self.header.free_data.as_ref()
+    }
+
+    pub fn get_index(&self, index_id: Idx<u32>) -> Result<Index> {
+        let sized_offset: SizedOffset = self.index_ptrs.index(index_id);
+        let mut index_stream = self.reader.create_stream_for(sized_offset);
+        let index_header = IndexHeader::produce(index_stream.as_mut())?;
+        let store = self.get_store(index_header.store_id)?;
+        let index = Index::new(index_header, Box::new(store));
+        Ok(index)
+    }
+
+    fn get_store(&self, store_id: Idx<u32>) -> Result<IndexStore> {
+        let sized_offset = self.entry_stores_ptrs.index(store_id);
+        IndexStore::new(self.reader.as_ref(), sized_offset)
+    }
+
+    pub fn get_key_store(&self, store_id: Idx<u8>) -> Result<KeyStore> {
+        let sized_offset = self.key_stores_ptrs.index(store_id);
+        KeyStore::new(self.reader.as_ref(), sized_offset)
     }
 }
 

@@ -5,4 +5,4 @@ mod pack;
 
 pub use crate::bases::Count;
 pub use crate::content_pack::ContentPack;
-//pub use crate::directory_pack::DirectoryPack;
+pub use crate::directory_pack::DirectoryPack;
