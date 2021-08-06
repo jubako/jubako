@@ -20,7 +20,7 @@ impl From<std::io::Error> for Error {
 }
 
 impl From<FromUtf8Error> for Error {
-    fn from(e: FromUtf8Error) -> Error {
+    fn from(_e: FromUtf8Error) -> Error {
         Error::FormatError
     }
 }
