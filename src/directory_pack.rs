@@ -1,6 +1,9 @@
 mod entry;
+mod entry_def;
 mod index;
 mod index_store;
+mod key;
+mod key_def;
 mod key_store;
 
 use self::index::{Index, IndexHeader};
