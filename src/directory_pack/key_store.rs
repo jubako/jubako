@@ -184,7 +184,7 @@ mod tests {
                     0x1112131415212223_u64
                 );
                 assert_eq!(
-                    indexedkeystore.reader.read_sized(Offset(8), 7).unwrap(),
+                    indexedkeystore.reader.read_usized(Offset(8), 7).unwrap(),
                     0x31323334353637_u64
                 );
             }

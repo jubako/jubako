@@ -93,13 +93,54 @@ impl Reader for BufReader {
         }
         Ok(read_u64(&slice[o..]))
     }
-    fn read_sized(&self, offset: Offset, size: usize) -> Result<u64> {
+    fn read_usized(&self, offset: Offset, size: usize) -> Result<u64> {
         let o = offset.0 as usize;
         let slice = self.slice();
         if o + size > slice.len() {
             return Err(Error::Other(String::from("Out of slice")));
         }
         Ok(read_to_u64(size, &slice[o..]))
+    }
+
+    fn read_i8(&self, offset: Offset) -> Result<i8> {
+        let o = offset.0 as usize;
+        let slice = self.slice();
+        if o + 1 > slice.len() {
+            return Err(Error::Other(String::from("Out of slice")));
+        }
+        Ok(read_i8(&slice[o..]))
+    }
+    fn read_i16(&self, offset: Offset) -> Result<i16> {
+        let o = offset.0 as usize;
+        let slice = self.slice();
+        if o + 2 > slice.len() {
+            return Err(Error::Other(String::from("Out of slice")));
+        }
+        Ok(read_i16(&slice[o..]))
+    }
+    fn read_i32(&self, offset: Offset) -> Result<i32> {
+        let o = offset.0 as usize;
+        let slice = self.slice();
+        if o + 4 > slice.len() {
+            return Err(Error::Other(String::from("Out of slice")));
+        }
+        Ok(read_i32(&slice[o..]))
+    }
+    fn read_i64(&self, offset: Offset) -> Result<i64> {
+        let o = offset.0 as usize;
+        let slice = self.slice();
+        if o + 8 > slice.len() {
+            return Err(Error::Other(String::from("Out of slice")));
+        }
+        Ok(read_i64(&slice[o..]))
+    }
+    fn read_isized(&self, offset: Offset, size: usize) -> Result<i64> {
+        let o = offset.0 as usize;
+        let slice = self.slice();
+        if o + size > slice.len() {
+            return Err(Error::Other(String::from("Out of slice")));
+        }
+        Ok(read_to_i64(size, &slice[o..]))
     }
 }
 

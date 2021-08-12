@@ -28,5 +28,11 @@ pub trait Reader {
     fn read_u16(&self, offset: Offset) -> Result<u16>;
     fn read_u32(&self, offset: Offset) -> Result<u32>;
     fn read_u64(&self, offset: Offset) -> Result<u64>;
-    fn read_sized(&self, offset: Offset, size: usize) -> Result<u64>;
+    fn read_usized(&self, offset: Offset, size: usize) -> Result<u64>;
+
+    fn read_i8(&self, offset: Offset) -> Result<i8>;
+    fn read_i16(&self, offset: Offset) -> Result<i16>;
+    fn read_i32(&self, offset: Offset) -> Result<i32>;
+    fn read_i64(&self, offset: Offset) -> Result<i64>;
+    fn read_isized(&self, offset: Offset, size: usize) -> Result<i64>;
 }

@@ -87,10 +87,36 @@ impl Reader for FileReader {
         self.read_exact(offset, &mut d)?;
         Ok(u64::from_be_bytes(d))
     }
-    fn read_sized(&self, offset: Offset, size: usize) -> Result<u64> {
+    fn read_usized(&self, offset: Offset, size: usize) -> Result<u64> {
         let mut d = [0_u8; 8];
         self.read_exact(offset, &mut d[8 - size..])?;
         Ok(u64::from_be_bytes(d))
+    }
+
+    fn read_i8(&self, offset: Offset) -> Result<i8> {
+        let mut d = [0_u8; 1];
+        self.read_exact(offset, &mut d)?;
+        Ok(i8::from_be_bytes(d))
+    }
+    fn read_i16(&self, offset: Offset) -> Result<i16> {
+        let mut d = [0_u8; 2];
+        self.read_exact(offset, &mut d)?;
+        Ok(i16::from_be_bytes(d))
+    }
+    fn read_i32(&self, offset: Offset) -> Result<i32> {
+        let mut d = [0_u8; 4];
+        self.read_exact(offset, &mut d)?;
+        Ok(i32::from_be_bytes(d))
+    }
+    fn read_i64(&self, offset: Offset) -> Result<i64> {
+        let mut d = [0_u8; 8];
+        self.read_exact(offset, &mut d)?;
+        Ok(i64::from_be_bytes(d))
+    }
+    fn read_isized(&self, offset: Offset, size: usize) -> Result<i64> {
+        let mut d = [0_u8; 8];
+        self.read_exact(offset, &mut d[8 - size..])?;
+        Ok(i64::from_be_bytes(d))
     }
 }
 
