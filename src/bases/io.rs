@@ -7,7 +7,6 @@ use crate::bases::types::*;
 pub use buffer::*;
 pub use compression::*;
 pub use file::*;
-use std::io::{ErrorKind, Seek, SeekFrom};
 use std::rc::Rc;
 
 // A wrapper arount someting to implement Reader trait
@@ -33,38 +32,6 @@ impl<T> StreamWrapper<T> {
             end,
             offset,
         }
-    }
-}
-
-impl<T> Seek for StreamWrapper<T> {
-    fn seek(&mut self, pos: SeekFrom) -> std::result::Result<u64, std::io::Error> {
-        let new: Offset = match pos {
-            SeekFrom::Start(pos) => self.origin + Offset::from(pos),
-            SeekFrom::End(delta) => {
-                if delta.is_positive() {
-                    return Err(std::io::Error::new(
-                        ErrorKind::InvalidInput,
-                        "It is not possible to seek after the end.",
-                    ));
-                }
-                Offset::from(self.end.0 - delta.abs() as u64)
-            }
-            SeekFrom::Current(delta) => {
-                if delta.is_positive() {
-                    self.offset + Offset::from(delta as u64)
-                } else {
-                    (self.offset - Offset::from(delta.abs() as u64)).into()
-                }
-            }
-        };
-        if new < self.origin || new > self.end {
-            return Err(std::io::Error::new(
-                ErrorKind::Other,
-                "Final position is not valid",
-            ));
-        }
-        self.offset = new;
-        Ok((self.offset - self.origin).0)
     }
 }
 
