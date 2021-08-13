@@ -143,6 +143,7 @@ pub fn read_i64(buf: &[u8]) -> i64 {
 }
 
 pub fn read_to_i64(size: usize, buf: &[u8]) -> i64 {
+    assert!(size > 0);
     assert!(size <= 8);
     assert!(size <= buf.len());
     let mut data = if buf[0].leading_zeros() == 0 {

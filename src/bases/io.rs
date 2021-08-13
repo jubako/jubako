@@ -132,6 +132,13 @@ mod tests {
         assert_eq!(reader.read_u32(Offset(4)).unwrap(), 0x04050607_u32);
         assert_eq!(reader.read_u64(Offset(0)).unwrap(), 0x0001020304050607_u64);
 
+        assert_eq!(reader.read_i8(Offset(0)).unwrap(), 0x00_i8);
+        assert_eq!(reader.read_i8(Offset(1)).unwrap(), 0x01_i8);
+        assert_eq!(reader.read_i16(Offset(2)).unwrap(), 0x0203_i16);
+        assert_eq!(reader.read_i32(Offset(0)).unwrap(), 0x00010203_i32);
+        assert_eq!(reader.read_i32(Offset(4)).unwrap(), 0x04050607_i32);
+        assert_eq!(reader.read_i64(Offset(0)).unwrap(), 0x0001020304050607_i64);
+
         assert_eq!(reader.read_u8(Offset(8)).unwrap(), 0x08_u8);
         assert!(reader.read_u8(Offset(9)).is_err());
         assert_eq!(reader.read_u16(Offset(7)).unwrap(), 0x0708_u16);
@@ -147,6 +154,53 @@ mod tests {
         assert_eq!(reader1.read_u32(Offset(3)).unwrap(), 0x04050607_u32);
         assert_eq!(reader1.read_u64(Offset(0)).unwrap(), 0x0102030405060708_u64);
         assert!(reader1.read_u64(Offset(1)).is_err());
+    }
+
+    #[test_case(create_buf_reader)]
+    #[test_case(create_file_reader)]
+    #[test_case(create_lz4_reader)]
+    #[test_case(create_lzma_reader)]
+    #[test_case(create_zstd_reader)]
+    fn test_reader2(creator: ReaderCreator) {
+        let reader = creator(&[0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xFF]);
+        assert_eq!(reader.read_u8(Offset(0)).unwrap(), 0xFE_u8);
+        assert_eq!(reader.read_i8(Offset(0)).unwrap(), -0x02_i8);
+        assert_eq!(reader.read_u8(Offset(1)).unwrap(), 0xDC_u8);
+        assert_eq!(reader.read_i8(Offset(1)).unwrap(), -0x24_i8);
+        assert_eq!(reader.read_u16(Offset(0)).unwrap(), 0xFEDC_u16);
+        assert_eq!(reader.read_i16(Offset(0)).unwrap(), -0x0124_i16);
+        assert_eq!(reader.read_u16(Offset(2)).unwrap(), 0xBA98_u16);
+        assert_eq!(reader.read_i16(Offset(2)).unwrap(), -0x4568_i16);
+        assert_eq!(reader.read_u32(Offset(0)).unwrap(), 0xFEDCBA98_u32);
+        assert_eq!(reader.read_i32(Offset(0)).unwrap(), -0x01234568_i32);
+        assert_eq!(reader.read_u32(Offset(3)).unwrap(), 0x98765432_u32);
+        assert_eq!(reader.read_i32(Offset(3)).unwrap(), -0x6789ABCE_i32);
+        assert_eq!(reader.read_u32(Offset(4)).unwrap(), 0x76543210_u32);
+        assert_eq!(reader.read_i32(Offset(4)).unwrap(), 0x76543210_i32);
+        assert_eq!(reader.read_u64(Offset(0)).unwrap(), 0xFEDCBA9876543210_u64);
+        assert_eq!(reader.read_i64(Offset(0)).unwrap(), -0x0123456789ABCDF0_i64);
+        assert_eq!(reader.read_u64(Offset(1)).unwrap(), 0xDCBA9876543210FF_u64);
+        assert_eq!(reader.read_i64(Offset(1)).unwrap(), -0x23456789ABCDEF01_i64);
+
+        assert_eq!(reader.read_usized(Offset(0), 1).unwrap(), 0xFE_u64);
+        assert_eq!(reader.read_isized(Offset(0), 1).unwrap(), -0x02_i64);
+        assert_eq!(reader.read_usized(Offset(1), 1).unwrap(), 0xDC_u64);
+        assert_eq!(reader.read_isized(Offset(1), 1).unwrap(), -0x24_i64);
+        assert_eq!(reader.read_usized(Offset(0), 2).unwrap(), 0xFEDC_u64);
+        assert_eq!(reader.read_isized(Offset(0), 2).unwrap(), -0x0124_i64);
+        assert_eq!(reader.read_usized(Offset(0), 3).unwrap(), 0xFEDCBA_u64);
+        assert_eq!(reader.read_isized(Offset(0), 3).unwrap(), -0x012346_i64);
+        assert_eq!(reader.read_isized(Offset(1), 3).unwrap(), -0x234568_i64);
+        assert_eq!(reader.read_usized(Offset(0), 4).unwrap(), 0xFEDCBA98_u64);
+        assert_eq!(reader.read_isized(Offset(0), 4).unwrap(), -0x01234568_i64);
+        assert_eq!(reader.read_usized(Offset(0), 5).unwrap(), 0xFEDCBA9876_u64);
+        assert_eq!(reader.read_isized(Offset(0), 5).unwrap(), -0x012345678A_i64);
+        assert_eq!(reader.read_usized(Offset(0), 6).unwrap(), 0xFEDCBA987654_u64);
+        assert_eq!(reader.read_isized(Offset(0), 6).unwrap(), -0x0123456789AC_i64);
+        assert_eq!(reader.read_usized(Offset(0), 7).unwrap(), 0xFEDCBA98765432_u64);
+        assert_eq!(reader.read_isized(Offset(0), 7).unwrap(), -0x0123456789ABCE_i64);
+        assert_eq!(reader.read_usized(Offset(0), 8).unwrap(), 0xFEDCBA9876543210_u64);
+        assert_eq!(reader.read_isized(Offset(0), 8).unwrap(), -0x0123456789ABCDF0_i64);
     }
 
     #[test_case(create_buf_reader)]
@@ -191,5 +245,81 @@ mod tests {
         assert_eq!(stream.read_u8().unwrap(), stream1.read_u8().unwrap());
         assert_eq!(stream.read_u16().unwrap(), stream1.read_u16().unwrap());
         assert_eq!(stream.read_u32().unwrap(), stream1.read_u32().unwrap());
+    }
+
+    #[test_case(create_buf_reader)]
+    #[test_case(create_file_reader)]
+    #[test_case(create_lz4_reader)]
+    #[test_case(create_lzma_reader)]
+    #[test_case(create_zstd_reader)]
+    fn test_create_sub_reader(creator: ReaderCreator) {
+        let reader = creator(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
+        assert_eq!(reader.size().0, 9);
+        let sub_reader = reader.create_sub_reader(Offset(0), End::None);
+        assert_eq!(sub_reader.size().0, 9);
+        let sub_reader = reader.create_sub_reader(Offset(2), End::None);
+        assert_eq!(sub_reader.size().0, 7);
+        let sub_reader = reader.create_sub_reader(Offset(0), End::Size(Size(6)));
+        assert_eq!(sub_reader.size().0, 6);
+        let sub_reader = reader.create_sub_reader(Offset(2), End::Size(Size(6)));
+        assert_eq!(sub_reader.size().0, 6);
+        let sub_reader = reader.create_sub_reader(Offset(0), End::Offset(Offset(6)));
+        assert_eq!(sub_reader.size().0, 6);
+        let sub_reader = reader.create_sub_reader(Offset(2), End::Offset(Offset(6)));
+        assert_eq!(sub_reader.size().0, 4);
+
+        let reader = reader.create_sub_reader(Offset(1), End::None);
+        assert_eq!(reader.size().0, 8);
+        let sub_reader = reader.create_sub_reader(Offset(0), End::None);
+        assert_eq!(sub_reader.size().0, 8);
+        let sub_reader = reader.create_sub_reader(Offset(2), End::None);
+        assert_eq!(sub_reader.size().0, 6);
+        let sub_reader = reader.create_sub_reader(Offset(0), End::Size(Size(6)));
+        assert_eq!(sub_reader.size().0, 6);
+        let sub_reader = reader.create_sub_reader(Offset(2), End::Size(Size(6)));
+        assert_eq!(sub_reader.size().0, 6);
+        let sub_reader = reader.create_sub_reader(Offset(0), End::Offset(Offset(6)));
+        assert_eq!(sub_reader.size().0, 6);
+        let sub_reader = reader.create_sub_reader(Offset(2), End::Offset(Offset(6)));
+        assert_eq!(sub_reader.size().0, 4);
+
+    }
+
+    #[test_case(create_buf_reader)]
+    #[test_case(create_file_reader)]
+    #[test_case(create_lz4_reader)]
+    #[test_case(create_lzma_reader)]
+    #[test_case(create_zstd_reader)]
+    fn test_create_sub_stream(creator: ReaderCreator) {
+        let reader = creator(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
+        assert_eq!(reader.size().0, 9);
+        let sub_reader = reader.create_stream(Offset(0), End::None);
+        assert_eq!(sub_reader.size().0, 9);
+        let sub_reader = reader.create_stream(Offset(2), End::None);
+        assert_eq!(sub_reader.size().0, 7);
+        let sub_reader = reader.create_stream(Offset(0), End::Size(Size(6)));
+        assert_eq!(sub_reader.size().0, 6);
+        let sub_reader = reader.create_stream(Offset(2), End::Size(Size(6)));
+        assert_eq!(sub_reader.size().0, 6);
+        let sub_reader = reader.create_stream(Offset(0), End::Offset(Offset(6)));
+        assert_eq!(sub_reader.size().0, 6);
+        let sub_reader = reader.create_stream(Offset(2), End::Offset(Offset(6)));
+        assert_eq!(sub_reader.size().0, 4);
+
+        let reader = reader.create_sub_reader(Offset(1), End::None);
+        assert_eq!(reader.size().0, 8);
+        let sub_reader = reader.create_stream(Offset(0), End::None);
+        assert_eq!(sub_reader.size().0, 8);
+        let sub_reader = reader.create_stream(Offset(2), End::None);
+        assert_eq!(sub_reader.size().0, 6);
+        let sub_reader = reader.create_stream(Offset(0), End::Size(Size(6)));
+        assert_eq!(sub_reader.size().0, 6);
+        let sub_reader = reader.create_stream(Offset(2), End::Size(Size(6)));
+        assert_eq!(sub_reader.size().0, 6);
+        let sub_reader = reader.create_stream(Offset(0), End::Offset(Offset(6)));
+        assert_eq!(sub_reader.size().0, 6);
+        let sub_reader = reader.create_stream(Offset(2), End::Offset(Offset(6)));
+        assert_eq!(sub_reader.size().0, 4);
+
     }
 }

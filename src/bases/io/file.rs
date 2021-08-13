@@ -1,3 +1,4 @@
+use crate::bases::primitive::*;
 use crate::bases::*;
 use std::cell::RefCell;
 use std::fs::File;
@@ -115,8 +116,8 @@ impl Reader for FileReader {
     }
     fn read_isized(&self, offset: Offset, size: usize) -> Result<i64> {
         let mut d = [0_u8; 8];
-        self.read_exact(offset, &mut d[8 - size..])?;
-        Ok(i64::from_be_bytes(d))
+        self.read_exact(offset, &mut d[..size])?;
+        Ok(read_to_i64(size, &d))
     }
 }
 
