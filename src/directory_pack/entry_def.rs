@@ -41,27 +41,11 @@ impl VariantDef {
                 current_idx + 1,
                 offset + keydef.size,
             )),
-            KeyDefKind::ContentAddress(patch) => {
-                let (basekey, new_idx, new_offset) = if patch {
-                    let subkey = Self::build_key(current_idx + 1, offset + 4, keydefs)?;
-                    if let KeyKind::ContentAddress(_) = subkey.0.kind {
-                        //ok
-                    } else {
-                        return Err(Error::FormatError);
-                    }
-                    (Some(subkey.0), subkey.1, subkey.2)
-                } else {
-                    (None, current_idx + 1, offset + 4)
-                };
-                Ok((
-                    Key::new(
-                        offset,
-                        KeyKind::ContentAddress(basekey.map(|k| Box::new(k))),
-                    ),
-                    new_idx,
-                    new_offset,
-                ))
-            }
+            KeyDefKind::ContentAddress(nb_base) => Ok((
+                Key::new(offset, KeyKind::ContentAddress(nb_base)),
+                current_idx + 1,
+                offset + (nb_base as usize + 1) * 4,
+            )),
             KeyDefKind::UnsignedInt => Ok((
                 Key::new(offset, KeyKind::UnsignedInt(keydef.size)),
                 current_idx + 1,

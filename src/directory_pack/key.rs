@@ -3,7 +3,7 @@ use crate::bases::*;
 // The kind of the key. This will be the descriminant to how parse the value.
 #[derive(Debug, PartialEq)]
 pub enum KeyKind {
-    ContentAddress(Option<Box<Key>>),
+    ContentAddress(u8),
     UnsignedInt(usize),
     SignedInt(usize),
     CharArray(usize),

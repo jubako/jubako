@@ -90,12 +90,11 @@ mod tests {
             0x00, // kind
             0x05, 0x67,        //entry_size (1383)
             0x01,        // variant count
-            0x16,        // key count (22)
+            0x15,        // key count (21)
             0b1000_0000, // Variant id
             0b0000_0111, // padding key(8)
             0b0001_0000, // classic content address
             0b0001_0001, // patch content address
-            0b0001_0000, // base content content address for patch (hidden)
             0b0010_0000, // u8
             0b0010_0010, // u24
             0b0010_0111, // u64
@@ -131,14 +130,8 @@ mod tests {
         assert_eq!(store.entry_def.variants.len(), 1);
         let variant = &store.entry_def.variants[0];
         let expected = vec![
-            Key::new(9, KeyKind::ContentAddress(None)),
-            Key::new(
-                13,
-                KeyKind::ContentAddress(Some(Box::new(Key::new(
-                    17,
-                    KeyKind::ContentAddress(None),
-                )))),
-            ),
+            Key::new(9, KeyKind::ContentAddress(0)),
+            Key::new(13, KeyKind::ContentAddress(1)),
             Key::new(21, KeyKind::UnsignedInt(1)),
             Key::new(22, KeyKind::UnsignedInt(3)),
             Key::new(25, KeyKind::UnsignedInt(8)),
@@ -179,7 +172,7 @@ mod tests {
             0x00, // kind
             0x00, 0x12,        //entry_size (18)
             0x02,        // variant count
-            0x0B,        // key count (11)
+            0x0A,        // key count (10)
             0b1000_0000, // Variant id
             0b0111_0100, 0x0F, // PstringLookup(5), idx 0x0F
             0b0100_0000,       // base char[1]
@@ -189,7 +182,6 @@ mod tests {
             0b1000_0000, // Variant id
             0b0100_0101, // char[6]
             0b0001_0001, // patch content address
-            0b0001_0000, // base content address
             0b0010_0010, // u24
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
@@ -217,20 +209,14 @@ mod tests {
                     Some(Box::new(Key::new(6, KeyKind::CharArray(1)))),
                 ),
             ),
-            Key::new(11, KeyKind::ContentAddress(None)),
+            Key::new(11, KeyKind::ContentAddress(0)),
             Key::new(15, KeyKind::UnsignedInt(3)),
         ];
         assert_eq!(&variant.keys, &expected);
         let variant = &store.entry_def.variants[1];
         let expected = vec![
             Key::new(1, KeyKind::CharArray(6)),
-            Key::new(
-                7,
-                KeyKind::ContentAddress(Some(Box::new(Key::new(
-                    11,
-                    KeyKind::ContentAddress(None),
-                )))),
-            ),
+            Key::new(7, KeyKind::ContentAddress(1)),
             Key::new(15, KeyKind::UnsignedInt(3)),
         ];
         assert_eq!(&variant.keys, &expected);

@@ -4,7 +4,7 @@ use crate::bases::*;
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum KeyDefKind {
     Padding,
-    ContentAddress(bool),
+    ContentAddress(u8),
     UnsignedInt,
     SignedInt,
     CharArray,
@@ -30,11 +30,10 @@ impl Producable for KeyDef {
         let keydata = keyinfo & 0x0F;
         let (keysize, kind) = match keytype {
             0b0000 => (keydata as u16 + 1, KeyDefKind::Padding),
-            0b0001 => match keydata {
-                0b0000 => (4, KeyDefKind::ContentAddress(false)),
-                0b0001 => (4, KeyDefKind::ContentAddress(true)),
-                _ => return Err(Error::FormatError),
-            },
+            0b0001 => (
+                (keydata as u16 + 1) * 4,
+                KeyDefKind::ContentAddress(keydata),
+            ),
             0b0010 => (
                 (keydata & 0x07) as u16 + 1,
                 if (keydata & 0x08) != 0 {
@@ -79,8 +78,9 @@ mod tests {
     #[test_case(&[0b1000_0000] => KeyDef{size:1, kind:KeyDefKind::VariantId })]
     #[test_case(&[0b0000_0000] => KeyDef{size:1, kind:KeyDefKind::Padding })]
     #[test_case(&[0b0000_0111] => KeyDef{size:8, kind:KeyDefKind::Padding })]
-    #[test_case(&[0b0001_0000] => KeyDef{size:4, kind:KeyDefKind::ContentAddress(false) })]
-    #[test_case(&[0b0001_0001] => KeyDef{size:4, kind:KeyDefKind::ContentAddress(true) })]
+    #[test_case(&[0b0001_0000] => KeyDef{size:4, kind:KeyDefKind::ContentAddress(0) })]
+    #[test_case(&[0b0001_0001] => KeyDef{size:8, kind:KeyDefKind::ContentAddress(1) })]
+    #[test_case(&[0b0001_0011] => KeyDef{size:16, kind:KeyDefKind::ContentAddress(3) })]
     #[test_case(&[0b0010_0000] => KeyDef{size:1, kind:KeyDefKind::UnsignedInt })]
     #[test_case(&[0b0010_0010] => KeyDef{size:3, kind:KeyDefKind::UnsignedInt })]
     #[test_case(&[0b0010_0111] => KeyDef{size:8, kind:KeyDefKind::UnsignedInt })]
