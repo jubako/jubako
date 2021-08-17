@@ -31,15 +31,6 @@ where
     u64: std::convert::From<IdxType>,
     IdxType: Copy,
 {
-    pub fn new(reader: Box<dyn Reader + 'a>, length: Count<IdxType>) -> Self {
-        Self {
-            reader,
-            length,
-            elem_size: OutType::Size::to_usize(),
-            produced_type: PhantomData,
-        }
-    }
-
     pub fn new_from_reader(reader: &dyn Reader, at: Offset, length: Count<IdxType>) -> Self {
         let elem_size = OutType::Size::to_u64();
         let sub_reader =
