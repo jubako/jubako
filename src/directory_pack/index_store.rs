@@ -145,22 +145,8 @@ mod tests {
             Key::new(327, KeyKind::CharArray(1032)),
             Key::new(1359, KeyKind::PString(1, 0x0F.into(), None)),
             Key::new(1360, KeyKind::PString(8, 0x0F.into(), None)),
-            Key::new(
-                1368,
-                KeyKind::PString(
-                    1,
-                    0x0F.into(),
-                    Some(Box::new(Key::new(1369, KeyKind::CharArray(2)))),
-                ),
-            ),
-            Key::new(
-                1371,
-                KeyKind::PString(
-                    8,
-                    0x0F.into(),
-                    Some(Box::new(Key::new(1379, KeyKind::CharArray(2)))),
-                ),
-            ),
+            Key::new(1368, KeyKind::PString(1, 0x0F.into(), Some(2))),
+            Key::new(1371, KeyKind::PString(8, 0x0F.into(), Some(2))),
         ];
         assert_eq!(&variant.keys, &expected);
     }
@@ -201,14 +187,7 @@ mod tests {
         assert_eq!(store.entry_def.variants.len(), 2);
         let variant = &store.entry_def.variants[0];
         let expected = vec![
-            Key::new(
-                1,
-                KeyKind::PString(
-                    5,
-                    0x0F.into(),
-                    Some(Box::new(Key::new(6, KeyKind::CharArray(1)))),
-                ),
-            ),
+            Key::new(1, KeyKind::PString(5, 0x0F.into(), Some(1))),
             Key::new(11, KeyKind::ContentAddress(0)),
             Key::new(15, KeyKind::UnsignedInt(3)),
         ];

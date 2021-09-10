@@ -7,7 +7,7 @@ pub enum KeyKind {
     UnsignedInt(usize),
     SignedInt(usize),
     CharArray(usize),
-    PString(usize, Idx<u8>, Option<Box<Key>>),
+    PString(usize, Idx<u8>, Option<usize>),
     None,
 }
 

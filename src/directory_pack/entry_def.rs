@@ -64,23 +64,19 @@ impl VariantDef {
             KeyDefKind::PString(flookup, keystoreid) => {
                 let (subkey, new_idx, new_offset) = if flookup {
                     let subkey = Self::build_key(current_idx + 1, offset + keydef.size, keydefs)?;
-                    if let KeyKind::CharArray(_) = subkey.0.kind {
-                        //ok
+                    let subkey_size = if let KeyKind::CharArray(s) = subkey.0.kind {
+                        s
                     } else {
                         return Err(Error::FormatError);
-                    }
-                    (Some(subkey.0), subkey.1, subkey.2)
+                    };
+                    (Some(subkey_size), subkey.1, subkey.2)
                 } else {
                     (None, current_idx + 1, offset + keydef.size)
                 };
                 Ok((
                     Key::new(
                         offset,
-                        KeyKind::PString(
-                            keydef.size,
-                            keystoreid.into(),
-                            subkey.map(|k| Box::new(k)),
-                        ),
+                        KeyKind::PString(keydef.size, keystoreid.into(), subkey),
                     ),
                     new_idx,
                     new_offset,
