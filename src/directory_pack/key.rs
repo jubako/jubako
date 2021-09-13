@@ -94,7 +94,6 @@ impl Key {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_case::test_case;
 
     #[test]
     fn test_uint() {
@@ -229,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn test_charArray() {
+    fn test_chararray() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
         let reader = BufReader::new(content, End::None);
         let key = Key::new(0, KeyKind::CharArray(1));

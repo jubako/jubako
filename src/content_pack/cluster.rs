@@ -2,11 +2,11 @@ use crate::bases::*;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum CompressionType {
-    NONE = 0,
-    LZ4 = 1,
-    LZMA = 2,
-    ZSTD = 3,
+enum CompressionType {
+    None = 0,
+    Lz4 = 1,
+    Lzma = 2,
+    Zstd = 3,
 }
 
 impl Producable for CompressionType {
@@ -14,10 +14,10 @@ impl Producable for CompressionType {
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let v = stream.read_u8()?;
         match v {
-            0 => Ok(CompressionType::NONE),
-            1 => Ok(CompressionType::LZ4),
-            2 => Ok(CompressionType::LZMA),
-            3 => Ok(CompressionType::ZSTD),
+            0 => Ok(CompressionType::None),
+            1 => Ok(CompressionType::Lz4),
+            2 => Ok(CompressionType::Lzma),
+            3 => Ok(CompressionType::Zstd),
             v => Err(format_error!(
                 &format!("Invalid compression type ({})", v),
                 stream
@@ -78,7 +78,7 @@ impl Cluster {
             End::Size(raw_data_size),
         );
         let reader = match header.compression {
-            CompressionType::NONE => {
+            CompressionType::None => {
                 if raw_data_size != data_size {
                     return Err(format_error!(
                         &format!(
@@ -90,18 +90,18 @@ impl Cluster {
                 }
                 raw_reader
             }
-            CompressionType::LZ4 => {
+            CompressionType::Lz4 => {
                 let stream = raw_reader.create_stream_all();
                 Box::new(Lz4Reader::new(lz4::Decoder::new(stream)?, data_size))
             }
-            CompressionType::LZMA => {
+            CompressionType::Lzma => {
                 let stream = raw_reader.create_stream_all();
                 Box::new(LzmaReader::new(
                     lzma::LzmaReader::new_decompressor(stream)?,
                     data_size,
                 ))
             }
-            CompressionType::ZSTD => {
+            CompressionType::Zstd => {
                 let stream = raw_reader.create_stream_all();
                 Box::new(ZstdReader::new(zstd::Decoder::new(stream)?, data_size))
             }
@@ -137,19 +137,19 @@ mod tests {
         let mut stream = reader.create_stream_all();
         assert_eq!(
             CompressionType::produce(stream.as_mut()).unwrap(),
-            CompressionType::NONE
+            CompressionType::None
         );
         assert_eq!(
             CompressionType::produce(stream.as_mut()).unwrap(),
-            CompressionType::LZ4
+            CompressionType::Lz4
         );
         assert_eq!(
             CompressionType::produce(stream.as_mut()).unwrap(),
-            CompressionType::LZMA
+            CompressionType::Lzma
         );
         assert_eq!(
             CompressionType::produce(stream.as_mut()).unwrap(),
-            CompressionType::ZSTD
+            CompressionType::Zstd
         );
         assert_eq!(stream.tell(), Offset::from(4));
         assert!(CompressionType::produce(stream.as_mut()).is_err());
@@ -169,7 +169,7 @@ mod tests {
         assert_eq!(
             ClusterHeader::produce(stream.as_mut()).unwrap(),
             ClusterHeader {
-                compression: CompressionType::NONE,
+                compression: CompressionType::None,
                 offset_size: 1,
                 blob_count: Count(2),
             }
@@ -204,7 +204,7 @@ mod tests {
             0x21, 0x22, 0x23, // Blob 1
             0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Blob 3
         ];
-        create_cluster(CompressionType::NONE, &raw_data)
+        create_cluster(CompressionType::None, &raw_data)
     }
 
     fn create_lz4_cluster() -> (SizedOffset, Vec<u8>) {
@@ -225,7 +225,7 @@ mod tests {
             err.unwrap();
             compressed_content.into_inner()
         };
-        create_cluster(CompressionType::LZ4, &data)
+        create_cluster(CompressionType::Lz4, &data)
     }
 
     fn create_lzma_cluster() -> (SizedOffset, Vec<u8>) {
@@ -242,7 +242,7 @@ mod tests {
             std::io::copy(&mut incursor, &mut encoder).unwrap();
             encoder.finish().unwrap().into_inner()
         };
-        create_cluster(CompressionType::LZMA, &data)
+        create_cluster(CompressionType::Lzma, &data)
     }
 
     fn create_zstd_cluster() -> (SizedOffset, Vec<u8>) {
@@ -258,15 +258,15 @@ mod tests {
             std::io::copy(&mut incursor, &mut encoder).unwrap();
             encoder.finish().unwrap().into_inner()
         };
-        create_cluster(CompressionType::ZSTD, &data)
+        create_cluster(CompressionType::Zstd, &data)
     }
 
     type ClusterCreator = fn() -> (SizedOffset, Vec<u8>);
 
-    #[test_case(CompressionType::NONE, create_raw_cluster)]
-    #[test_case(CompressionType::LZ4, create_lz4_cluster)]
-    #[test_case(CompressionType::LZMA, create_lzma_cluster)]
-    #[test_case(CompressionType::ZSTD, create_zstd_cluster)]
+    #[test_case(CompressionType::None, create_raw_cluster)]
+    #[test_case(CompressionType::Lz4, create_lz4_cluster)]
+    #[test_case(CompressionType::Lzma, create_lzma_cluster)]
+    #[test_case(CompressionType::Zstd, create_zstd_cluster)]
     fn test_cluster(comp: CompressionType, creator: ClusterCreator) {
         let (ptr_info, data) = creator();
         let reader = BufReader::new(data, End::None);

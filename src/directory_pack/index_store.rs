@@ -4,7 +4,7 @@ use crate::bases::*;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum StoreKind {
+enum StoreKind {
     Plain = 0,
     Ref = 1,
     Full = 2,
@@ -26,7 +26,7 @@ impl Producable for StoreKind {
 }
 
 pub enum IndexStore {
-    PLAIN(PlainStore),
+    Plain(PlainStore),
 }
 
 impl IndexStore {
@@ -34,7 +34,7 @@ impl IndexStore {
         let mut header_stream = reader.create_stream_for(pos_info);
         Ok(match StoreKind::produce(header_stream.as_mut())? {
             StoreKind::Plain => {
-                IndexStore::PLAIN(PlainStore::new(header_stream.as_mut(), reader, pos_info)?)
+                IndexStore::Plain(PlainStore::new(header_stream.as_mut(), reader, pos_info)?)
             }
             _ => todo!(),
         })
@@ -42,7 +42,7 @@ impl IndexStore {
 
     pub fn get_entry(&self, idx: Idx<u32>) -> Result<Entry> {
         match self {
-            IndexStore::PLAIN(store) => store.get_entry(idx),
+            IndexStore::Plain(store) => store.get_entry(idx),
             /*            _ => todo!()*/
         }
     }
@@ -128,7 +128,7 @@ mod tests {
         )
         .unwrap();
         let store = match store {
-            IndexStore::PLAIN(s) => s,
+            IndexStore::Plain(s) => s,
         };
         assert_eq!(store.entry_def.variants.len(), 1);
         let variant = &store.entry_def.variants[0];
@@ -185,7 +185,7 @@ mod tests {
         )
         .unwrap();
         let store = match store {
-            IndexStore::PLAIN(s) => s,
+            IndexStore::Plain(s) => s,
         };
         assert_eq!(store.entry_def.variants.len(), 2);
         let variant = &store.entry_def.variants[0];

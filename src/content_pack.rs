@@ -179,7 +179,7 @@ mod tests {
             ContentPackHeader::produce(stream.as_mut()).unwrap(),
             ContentPackHeader {
                 pack_header: PackHeader {
-                    magic: PackKind::CONTENT,
+                    magic: PackKind::Content,
                     app_vendor_id: 0x01000000_u32,
                     major_version: 0x01_u8,
                     minor_version: 0x02_u8,

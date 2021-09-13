@@ -175,7 +175,7 @@ mod tests {
     #[test]
     fn test_directorypackheader() {
         let mut content = vec![
-            0x61, 0x72, 0x78, 0x63, // magic
+            0x61, 0x72, 0x78, 0x69, // magic
             0x01, 0x00, 0x00, 0x00, // app_vendor_id
             0x01, // major_version
             0x02, // minor_version
@@ -198,7 +198,7 @@ mod tests {
             DirectoryPackHeader::produce(stream.as_mut()).unwrap(),
             DirectoryPackHeader {
                 pack_header: PackHeader {
-                    magic: PackKind::CONTENT,
+                    magic: PackKind::Directory,
                     app_vendor_id: 0x01000000_u32,
                     major_version: 0x01_u8,
                     minor_version: 0x02_u8,

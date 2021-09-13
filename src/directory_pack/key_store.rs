@@ -2,17 +2,17 @@ use crate::bases::*;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum KeyStoreKind {
-    PLAIN = 0,
-    INDEXED = 1,
+enum KeyStoreKind {
+    Plain = 0,
+    Indexed = 1,
 }
 
 impl Producable for KeyStoreKind {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         match stream.read_u8()? {
-            0 => Ok(KeyStoreKind::PLAIN),
-            1 => Ok(KeyStoreKind::INDEXED),
+            0 => Ok(KeyStoreKind::Plain),
+            1 => Ok(KeyStoreKind::Indexed),
             v => Err(format_error!(
                 &format!("Invalid KeyStoreKind ({})", v),
                 stream
@@ -22,20 +22,20 @@ impl Producable for KeyStoreKind {
 }
 
 pub enum KeyStore {
-    PLAIN(PlainKeyStore),
-    INDEXED(IndexedKeyStore),
+    Plain(PlainKeyStore),
+    Indexed(IndexedKeyStore),
 }
 
 impl KeyStore {
     pub fn new(reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
         let mut header_stream = reader.create_stream_for(pos_info);
         Ok(match KeyStoreKind::produce(header_stream.as_mut())? {
-            KeyStoreKind::PLAIN => KeyStore::PLAIN(PlainKeyStore::new(
+            KeyStoreKind::Plain => KeyStore::Plain(PlainKeyStore::new(
                 header_stream.as_mut(),
                 reader,
                 pos_info,
             )?),
-            KeyStoreKind::INDEXED => KeyStore::INDEXED(IndexedKeyStore::new(
+            KeyStoreKind::Indexed => KeyStore::Indexed(IndexedKeyStore::new(
                 header_stream.as_mut(),
                 reader,
                 pos_info,
@@ -44,8 +44,8 @@ impl KeyStore {
     }
     pub fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>> {
         match self {
-            KeyStore::PLAIN(store) => store.get_data(id),
-            KeyStore::INDEXED(store) => store.get_data(id),
+            KeyStore::Plain(store) => store.get_data(id),
+            KeyStore::Indexed(store) => store.get_data(id),
         }
     }
 }
@@ -123,11 +123,11 @@ mod tests {
         let mut stream = reader.create_stream_all();
         assert_eq!(
             KeyStoreKind::produce(stream.as_mut()).unwrap(),
-            KeyStoreKind::PLAIN
+            KeyStoreKind::Plain
         );
         assert_eq!(
             KeyStoreKind::produce(stream.as_mut()).unwrap(),
-            KeyStoreKind::INDEXED
+            KeyStoreKind::Indexed
         );
         assert_eq!(stream.tell(), Offset::from(2));
         assert!(KeyStoreKind::produce(stream.as_mut()).is_err());
@@ -154,7 +154,7 @@ mod tests {
         )
         .unwrap();
         match &key_store {
-            KeyStore::PLAIN(plainkeystore) => {
+            KeyStore::Plain(plainkeystore) => {
                 assert_eq!(plainkeystore.reader.size(), Size::from(0x10_u64));
                 assert_eq!(
                     plainkeystore.reader.read_u64(Offset(0)).unwrap(),
@@ -195,7 +195,7 @@ mod tests {
         )
         .unwrap();
         match &key_store {
-            KeyStore::INDEXED(indexedkeystore) => {
+            KeyStore::Indexed(indexedkeystore) => {
                 assert_eq!(
                     indexedkeystore.entry_offsets,
                     vec![0.into(), 5.into(), 8.into(), 15.into()]

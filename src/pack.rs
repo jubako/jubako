@@ -5,18 +5,18 @@ use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PackKind {
-    ARX,
-    DIRECTORY,
-    CONTENT,
+    Arx,
+    Directory,
+    Content,
 }
 
 impl Producable for PackKind {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         match stream.read_u32()? {
-            0x61_72_78_66_u32 => Ok(PackKind::ARX),
-            0x61_72_78_69_u32 => Ok(PackKind::DIRECTORY),
-            0x61_72_78_63_u32 => Ok(PackKind::CONTENT),
+            0x61_72_78_66_u32 => Ok(PackKind::Arx),
+            0x61_72_78_69_u32 => Ok(PackKind::Directory),
+            0x61_72_78_63_u32 => Ok(PackKind::Content),
             _ => Err(format_error!("Invalid pack kind", stream)),
         }
     }
@@ -33,16 +33,16 @@ impl Producable for Uuid {
 
 #[derive(Clone, Copy)]
 enum CheckKind {
-    NONE,
-    BLAKE3,
+    None,
+    Blake3,
 }
 
 impl Producable for CheckKind {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         match stream.read_u8()? {
-            0_u8 => Ok(CheckKind::NONE),
-            1_u8 => Ok(CheckKind::BLAKE3),
+            0_u8 => Ok(CheckKind::None),
+            1_u8 => Ok(CheckKind::Blake3),
             _ => Err(format_error!("Invalid check kind", stream)),
         }
     }
@@ -67,7 +67,7 @@ impl Producable for CheckInfo {
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let kind = CheckKind::produce(stream)?;
         let b3hash = match kind {
-            CheckKind::BLAKE3 => Some(blake3::Hash::produce(stream)?),
+            CheckKind::Blake3 => Some(blake3::Hash::produce(stream)?),
             _ => None,
         };
         Ok(Self { b3hash })
@@ -157,7 +157,7 @@ mod tests {
         assert_eq!(
             PackHeader::produce(stream.as_mut()).unwrap(),
             PackHeader {
-                magic: PackKind::CONTENT,
+                magic: PackKind::Content,
                 app_vendor_id: 0x01000000_u32,
                 major_version: 0x01_u8,
                 minor_version: 0x02_u8,
