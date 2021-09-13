@@ -39,6 +39,12 @@ impl KeyStore {
             )?),
         })
     }
+    pub fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>> {
+        match self {
+            KeyStore::PLAIN(store) => store.get_data(id),
+            KeyStore::INDEXED(store) => store.get_data(id),
+        }
+    }
 }
 
 pub struct PlainKeyStore {
@@ -53,6 +59,11 @@ impl PlainKeyStore {
             End::Size(data_size),
         );
         Ok(PlainKeyStore { reader })
+    }
+
+    fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>> {
+        let mut stream = self.reader.create_stream_from(Offset(id.0));
+        PString::produce(stream.as_mut())
     }
 }
 
@@ -90,6 +101,13 @@ impl IndexedKeyStore {
             reader,
         })
     }
+
+    fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>> {
+        let start = self.entry_offsets[id.0 as usize];
+        let end = self.entry_offsets[(id.0 + 1) as usize];
+        let mut stream = self.reader.create_stream(start, End::Offset(end));
+        stream.read_vec((end - start).0 as usize)
+    }
 }
 
 #[cfg(test)]
@@ -117,8 +135,9 @@ mod tests {
         #[rustfmt::skip]
         let reader = BufReader::new(
             vec![
-                0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, // data
-                0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x00, // kind
+                0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+                0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, // data
+                0x00, // kind
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, // data_size
             ],
             End::None,

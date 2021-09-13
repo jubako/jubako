@@ -1,5 +1,6 @@
 use super::ContentAddress;
 use crate::bases::*;
+use crate::directory_pack::KeyStore;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Content {
@@ -37,6 +38,14 @@ pub struct Array {
 impl Array {
     pub fn new(base: Vec<u8>, extend: Option<Extend>) -> Self {
         Self { base, extend }
+    }
+
+    pub fn resolve_to_vec(&self, key_store: &KeyStore) -> Result<Vec<u8>> {
+        let extend = match &self.extend {
+            None => Vec::new(),
+            Some(e) => key_store.get_data(e.key_id.into())?,
+        };
+        Ok([self.base.as_slice(), extend.as_slice()].concat())
     }
 }
 

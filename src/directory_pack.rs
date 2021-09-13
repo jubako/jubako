@@ -242,8 +242,10 @@ mod tests {
         content.extend_from_slice(&[0xff; 47]); // free data
                                                 // Add one key store offset 128/0x80
         content.extend_from_slice(&[
-            b'H', b'e', b'l', b'l', b'o', b'F', b'o', b'o', b'x', b'm', b'c', b'm', b'e', b'g',
-            b'a', 0x01, // kind
+            b'H', b'e', b'l', b'l', b'o', // key 0
+            b'F', b'o', b'o', // key 1
+            b'x', b'm', b'c', b'm', b'e', b'g', b'a', // key 2
+            0x01, // kind
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // key count
             0x01, // offset_size
             0x0f, // data_size
@@ -306,14 +308,26 @@ mod tests {
         {
             let entry = index.get_entry(Idx(0)).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
+            let value0 = if let Value::Array(a) = entry.get_value(Idx(0)).unwrap() {
+                a
+            } else {
+                panic!("Must be a array");
+            };
             assert_eq!(
-                entry.get_value(Idx(0)).unwrap(),
-                &Value::Array(Array::new(Vec::new(), Some(Extend::new(Idx(0), 2))))
+                value0,
+                &Array::new(Vec::new(), Some(Extend::new(Idx(0), 2)))
             );
+            assert_eq!(value0.resolve_to_vec(&key_store).unwrap(), b"xmcmega");
+            let value1 = if let Value::Array(a) = entry.get_value(Idx(1)).unwrap() {
+                a
+            } else {
+                panic!("Must be a array");
+            };
             assert_eq!(
-                entry.get_value(Idx(1)).unwrap(),
-                &Value::Array(Array::new(vec![b'a', b'B'], Some(Extend::new(Idx(0), 0))))
+                value1,
+                &Array::new(vec![b'a', b'B'], Some(Extend::new(Idx(0), 0)))
             );
+            assert_eq!(value1.resolve_to_vec(&key_store).unwrap(), b"aBHello");
             assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x212223));
             assert_eq!(
                 entry.get_value(Idx(3)).unwrap(),
@@ -329,14 +343,26 @@ mod tests {
         {
             let entry = index.get_entry(Idx(1)).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
+            let value0 = if let Value::Array(a) = entry.get_value(Idx(0)).unwrap() {
+                a
+            } else {
+                panic!("Must be a array");
+            };
             assert_eq!(
-                entry.get_value(Idx(0)).unwrap(),
-                &Value::Array(Array::new(Vec::new(), Some(Extend::new(Idx(0), 1))))
+                value0,
+                &Array::new(Vec::new(), Some(Extend::new(Idx(0), 1)))
             );
+            assert_eq!(value0.resolve_to_vec(&key_store).unwrap(), b"Foo");
+            let value1 = if let Value::Array(a) = entry.get_value(Idx(1)).unwrap() {
+                a
+            } else {
+                panic!("Must be a array");
+            };
             assert_eq!(
-                entry.get_value(Idx(1)).unwrap(),
-                &Value::Array(Array::new(vec![b'A', b'B'], Some(Extend::new(Idx(0), 2))))
+                value1,
+                &Array::new(vec![b'A', b'B'], Some(Extend::new(Idx(0), 2)))
             );
+            assert_eq!(value1.resolve_to_vec(&key_store).unwrap(), b"ABxmcmega");
             assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x313233));
             assert_eq!(
                 entry.get_value(Idx(3)).unwrap(),
@@ -352,14 +378,26 @@ mod tests {
         {
             let entry = index.get_entry(Idx(2)).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
+            let value0 = if let Value::Array(a) = entry.get_value(Idx(0)).unwrap() {
+                a
+            } else {
+                panic!("Must be a array");
+            };
             assert_eq!(
-                entry.get_value(Idx(0)).unwrap(),
-                &Value::Array(Array::new(Vec::new(), Some(Extend::new(Idx(0), 2))))
+                value0,
+                &Array::new(Vec::new(), Some(Extend::new(Idx(0), 2)))
             );
+            assert_eq!(value0.resolve_to_vec(&key_store).unwrap(), b"xmcmega");
+            let value1 = if let Value::Array(a) = entry.get_value(Idx(1)).unwrap() {
+                a
+            } else {
+                panic!("Must be a array");
+            };
             assert_eq!(
-                entry.get_value(Idx(1)).unwrap(),
-                &Value::Array(Array::new(vec![b'A', b'B'], Some(Extend::new(Idx(0), 1))))
+                value1,
+                &Array::new(vec![b'A', b'B'], Some(Extend::new(Idx(0), 1)))
             );
+            assert_eq!(value1.resolve_to_vec(&key_store).unwrap(), b"ABFoo");
             assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x414243));
             assert_eq!(
                 entry.get_value(Idx(3)).unwrap(),
@@ -375,14 +413,26 @@ mod tests {
         {
             let entry = index.get_entry(Idx(3)).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
+            let value0 = if let Value::Array(a) = entry.get_value(Idx(0)).unwrap() {
+                a
+            } else {
+                panic!("Must be a array");
+            };
             assert_eq!(
-                entry.get_value(Idx(0)).unwrap(),
-                &Value::Array(Array::new(Vec::new(), Some(Extend::new(Idx(0), 0))))
+                value0,
+                &Array::new(Vec::new(), Some(Extend::new(Idx(0), 0)))
             );
+            assert_eq!(value0.resolve_to_vec(&key_store).unwrap(), b"Hello");
+            let value1 = if let Value::Array(a) = entry.get_value(Idx(1)).unwrap() {
+                a
+            } else {
+                panic!("Must be a array");
+            };
             assert_eq!(
-                entry.get_value(Idx(1)).unwrap(),
-                &Value::Array(Array::new(vec![0, 0], Some(Extend::new(Idx(0), 1))))
+                value1,
+                &Array::new(vec![0, 0], Some(Extend::new(Idx(0), 1)))
             );
+            assert_eq!(value1.resolve_to_vec(&key_store).unwrap(), b"\0\0Foo");
             assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x515253));
             assert_eq!(
                 entry.get_value(Idx(3)).unwrap(),
