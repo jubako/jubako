@@ -5,6 +5,7 @@ mod index_store;
 mod key;
 mod key_def;
 mod key_store;
+mod value;
 
 use self::index::{Index, IndexHeader};
 use self::index_store::IndexStore;
@@ -53,10 +54,10 @@ impl Producable for DirectoryPackHeader {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ContentAddress {
-    pack_id: Idx<u8>,
-    content_id: Idx<u32>,
+    pub pack_id: Idx<u8>,
+    pub content_id: Idx<u32>,
 }
 
 impl Producable for ContentAddress {
@@ -169,6 +170,7 @@ impl Pack for DirectoryPack<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::directory_pack::value::*;
 
     #[test]
     fn test_directorypackheader() {
@@ -216,5 +218,181 @@ mod tests {
                 free_data: FreeData::clone_from_slice(&[0xff; 47]),
             }
         );
+    }
+
+    #[test]
+    fn test_directorypack() {
+        let mut content = vec![
+            0x61, 0x72, 0x78, 0x63, // magic
+            0x01, 0x00, 0x00, 0x00, // app_vendor_id
+            0x01, // major_version
+            0x02, // minor_version
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+            0x0e, 0x0f, // uuid
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x39, // file_size
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x19, // check_info_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x11, // index_ptr_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xEF, // entry_store_ptr_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x9C, // key_store_ptr_pos
+            0x00, 0x00, 0x00, 0x01, // index count
+            0x00, 0x00, 0x00, 0x01, // entry_store count
+            0x01, //key_store count
+        ];
+        content.extend_from_slice(&[0xff; 47]); // free data
+                                                // Add one key store offset 128/0x80
+        content.extend_from_slice(&[
+            b'H', b'e', b'l', b'l', b'o', b'F', b'o', b'o', b'x', b'm', b'c', b'm', b'e', b'g',
+            b'a', 0x01, // kind
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // key count
+            0x01, // offset_size
+            0x0f, // data_size
+            0x05, // Offset of entry 1
+            0x08, // Offset of entry 2
+        ]);
+        // Add key_stores_ptr (offset 128+15+13=156/0x9C)
+        content.extend_from_slice(&[
+            0x00, 0x00, 13, //size
+            0x00, 0x00, 0x00, 0x00, 0x8F, // Offset the tailler (128+15=143/0x8F)
+        ]);
+        // Add a entry_store (offset 156+8=164/0xA4)
+        // One variant, with on PString, a 2ArrayChar/Pstring, a u24 and a content address
+        #[rustfmt::skip]
+        content.extend_from_slice(&[
+            0x00, 0x01, b'A', b'B', 0x11, 0x12, 0x13, 0x00, 0x00, 0x00, 0x00, // Entry 0
+            0x02, 0x00, b'a', b'B', 0x21, 0x22, 0x23, 0x01, 0x00, 0x00, 0x00, // Entry 1
+            0x01, 0x02, b'A', b'B', 0x31, 0x32, 0x33, 0x00, 0x00, 0x00, 0x01, // Entry 2
+            0x02, 0x01, b'A', b'B', 0x41, 0x42, 0x43, 0x00, 0x00, 0x00, 0x02, // Entry 3
+            0x00, 0x01, 0x00, 0x00, 0x51, 0x52, 0x53, 0x00, 0xaa, 0xaa, 0xaa, // Entry 4
+            0x00, // kind
+            0x00, 0x0B, // entry size
+            0x01, // variant count
+            0x05, // key count
+            0b0110_0000, 0x00, // Pstring(1), idx 0x00
+            0b0111_0000, 0x00,        // Psstringlookup(1), idx 0x00
+            0b0100_0001, // char[2]
+            0b0010_0010, // u24
+            0b0001_0000, // content address
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x37, // data size
+        ]);
+        // Add a index_store_ptr (offset 164+55+20=239/0xEF)
+        content.extend_from_slice(&[
+            0x00, 0x00, 20, // size
+            0x00, 0x00, 0x00, 0x00, 0xDB, // offset of the tailler (164+55=219/0xDB)
+        ]);
+        // Add one index (offset 239+8=247/0xF7)
+        content.extend_from_slice(&[
+            0x00, 0x00, 0x00, 0x00, // store_id
+            0x00, 0x00, 0x00, 0x04, // entry_count (use only 4 from the 5 available)
+            0x00, 0x00, 0x00, 0x01, // entry offset (skip the first one)
+            0x00, 0x00, 0x00, 0x00, // extra_data
+            0x00, // index_key (use the first pstring a binary search key
+            0x08, b'm', b'y', b' ', b'i', b'n', b'd', b'e', b'x', // Pstring "my index"
+        ]);
+        // Add a index_ptr (offset 247+26=273/0x111)
+        content.extend_from_slice(&[
+            0x00, 0x00, 26, //size
+            0x00, 0x00, 0x00, 0x00, 0xF7, // offset
+        ]);
+        // end = 273+8=281/0x119
+        let hash = blake3::hash(&content);
+        content.push(0x01); // check info off: 281
+        content.extend(hash.as_bytes()); // end : 281+32 = 313/0x139
+        let reader = Box::new(BufReader::new(content, End::None));
+        let directory_pack = DirectoryPack::new(reader).unwrap();
+        let index = directory_pack.get_index(Idx(0)).unwrap();
+        assert_eq!(index.entry_count().0, 4);
+        {
+            let entry = index.get_entry(Idx(0)).unwrap();
+            assert_eq!(entry.get_variant_id(), 0);
+            assert_eq!(
+                entry.get_value(Idx(0)).unwrap(),
+                &Value::Array(Array::new(Vec::new(), Some(Extend::new(Idx(0), 2))))
+            );
+            assert_eq!(
+                entry.get_value(Idx(1)).unwrap(),
+                &Value::Array(Array::new(vec![b'a', b'B'], Some(Extend::new(Idx(0), 0))))
+            );
+            assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x212223));
+            assert_eq!(
+                entry.get_value(Idx(3)).unwrap(),
+                &Value::Content(Content::new(
+                    ContentAddress {
+                        pack_id: Idx(1),
+                        content_id: Idx(0)
+                    },
+                    None
+                ))
+            );
+        }
+        {
+            let entry = index.get_entry(Idx(1)).unwrap();
+            assert_eq!(entry.get_variant_id(), 0);
+            assert_eq!(
+                entry.get_value(Idx(0)).unwrap(),
+                &Value::Array(Array::new(Vec::new(), Some(Extend::new(Idx(0), 1))))
+            );
+            assert_eq!(
+                entry.get_value(Idx(1)).unwrap(),
+                &Value::Array(Array::new(vec![b'A', b'B'], Some(Extend::new(Idx(0), 2))))
+            );
+            assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x313233));
+            assert_eq!(
+                entry.get_value(Idx(3)).unwrap(),
+                &Value::Content(Content::new(
+                    ContentAddress {
+                        pack_id: Idx(0),
+                        content_id: Idx(1)
+                    },
+                    None
+                ))
+            );
+        }
+        {
+            let entry = index.get_entry(Idx(2)).unwrap();
+            assert_eq!(entry.get_variant_id(), 0);
+            assert_eq!(
+                entry.get_value(Idx(0)).unwrap(),
+                &Value::Array(Array::new(Vec::new(), Some(Extend::new(Idx(0), 2))))
+            );
+            assert_eq!(
+                entry.get_value(Idx(1)).unwrap(),
+                &Value::Array(Array::new(vec![b'A', b'B'], Some(Extend::new(Idx(0), 1))))
+            );
+            assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x414243));
+            assert_eq!(
+                entry.get_value(Idx(3)).unwrap(),
+                &Value::Content(Content::new(
+                    ContentAddress {
+                        pack_id: Idx(0),
+                        content_id: Idx(2)
+                    },
+                    None
+                ))
+            );
+        }
+        {
+            let entry = index.get_entry(Idx(3)).unwrap();
+            assert_eq!(entry.get_variant_id(), 0);
+            assert_eq!(
+                entry.get_value(Idx(0)).unwrap(),
+                &Value::Array(Array::new(Vec::new(), Some(Extend::new(Idx(0), 0))))
+            );
+            assert_eq!(
+                entry.get_value(Idx(1)).unwrap(),
+                &Value::Array(Array::new(vec![0, 0], Some(Extend::new(Idx(0), 1))))
+            );
+            assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x515253));
+            assert_eq!(
+                entry.get_value(Idx(3)).unwrap(),
+                &Value::Content(Content::new(
+                    ContentAddress {
+                        pack_id: Idx(0),
+                        content_id: Idx(0xaaaaaa)
+                    },
+                    None
+                ))
+            );
+        }
     }
 }

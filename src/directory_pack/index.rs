@@ -47,6 +47,7 @@ impl Index {
     }
 
     pub fn get_entry(&self, id: Idx<u32>) -> Result<Entry> {
+        let id = self.header.entry_offset + id;
         self.store.get_entry(id)
     }
 }

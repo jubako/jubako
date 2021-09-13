@@ -260,6 +260,16 @@ where
     }
 }
 
+impl<T> Add for Idx<T>
+where
+    T: std::ops::Add<Output = T>,
+{
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        Idx(self.0 + other.0)
+    }
+}
+
 impl<T> From<T> for Idx<T> {
     fn from(v: T) -> Idx<T> {
         Idx(v)

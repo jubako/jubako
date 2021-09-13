@@ -3,6 +3,7 @@ use super::key::{Key, KeyKind};
 use super::key_def::{KeyDef, KeyDefKind};
 use crate::bases::*;
 
+#[derive(Debug)]
 pub struct VariantDef {
     pub keys: Vec<Key>,
 }
@@ -86,6 +87,7 @@ impl VariantDef {
     }
 }
 
+#[derive(Debug)]
 pub struct EntryDef {
     pub variants: Vec<VariantDef>,
     pub size: Size,
@@ -130,7 +132,9 @@ impl Producable for EntryDef {
 
 impl EntryDef {
     pub fn create_entry(&self, reader: &dyn Reader) -> Result<Entry> {
+        let mut offset = Offset(0);
         let variant_id = if self.variants.len() > 1 {
+            offset += 1;
             reader.read_u8(Offset(0))?
         } else {
             0
@@ -139,7 +143,7 @@ impl EntryDef {
         Ok(Entry::new(
             variant_id,
             variant_def,
-            reader.create_sub_reader(Offset(1), End::None),
+            reader.create_sub_reader(offset, End::None),
         ))
     }
 }
