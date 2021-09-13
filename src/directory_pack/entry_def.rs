@@ -26,7 +26,7 @@ impl VariantDef {
     fn build_key(
         current_idx: usize,
         offset: usize,
-        keydefs: &Vec<KeyDef>,
+        keydefs: &[KeyDef],
     ) -> Result<(Key, usize /*new_idx*/, usize /*new_offset*/)> {
         let keydef = keydefs[current_idx];
         match keydef.kind {

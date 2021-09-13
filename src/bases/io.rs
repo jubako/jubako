@@ -195,12 +195,30 @@ mod tests {
         assert_eq!(reader.read_isized(Offset(0), 4).unwrap(), -0x01234568_i64);
         assert_eq!(reader.read_usized(Offset(0), 5).unwrap(), 0xFEDCBA9876_u64);
         assert_eq!(reader.read_isized(Offset(0), 5).unwrap(), -0x012345678A_i64);
-        assert_eq!(reader.read_usized(Offset(0), 6).unwrap(), 0xFEDCBA987654_u64);
-        assert_eq!(reader.read_isized(Offset(0), 6).unwrap(), -0x0123456789AC_i64);
-        assert_eq!(reader.read_usized(Offset(0), 7).unwrap(), 0xFEDCBA98765432_u64);
-        assert_eq!(reader.read_isized(Offset(0), 7).unwrap(), -0x0123456789ABCE_i64);
-        assert_eq!(reader.read_usized(Offset(0), 8).unwrap(), 0xFEDCBA9876543210_u64);
-        assert_eq!(reader.read_isized(Offset(0), 8).unwrap(), -0x0123456789ABCDF0_i64);
+        assert_eq!(
+            reader.read_usized(Offset(0), 6).unwrap(),
+            0xFEDCBA987654_u64
+        );
+        assert_eq!(
+            reader.read_isized(Offset(0), 6).unwrap(),
+            -0x0123456789AC_i64
+        );
+        assert_eq!(
+            reader.read_usized(Offset(0), 7).unwrap(),
+            0xFEDCBA98765432_u64
+        );
+        assert_eq!(
+            reader.read_isized(Offset(0), 7).unwrap(),
+            -0x0123456789ABCE_i64
+        );
+        assert_eq!(
+            reader.read_usized(Offset(0), 8).unwrap(),
+            0xFEDCBA9876543210_u64
+        );
+        assert_eq!(
+            reader.read_isized(Offset(0), 8).unwrap(),
+            -0x0123456789ABCDF0_i64
+        );
     }
 
     #[test_case(create_buf_reader)]
@@ -282,7 +300,6 @@ mod tests {
         assert_eq!(sub_reader.size().0, 6);
         let sub_reader = reader.create_sub_reader(Offset(2), End::Offset(Offset(6)));
         assert_eq!(sub_reader.size().0, 4);
-
     }
 
     #[test_case(create_buf_reader)]
@@ -320,6 +337,5 @@ mod tests {
         assert_eq!(sub_reader.size().0, 6);
         let sub_reader = reader.create_stream(Offset(2), End::Offset(Offset(6)));
         assert_eq!(sub_reader.size().0, 4);
-
     }
 }

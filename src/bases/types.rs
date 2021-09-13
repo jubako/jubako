@@ -303,7 +303,7 @@ impl Producable for PString {
     type Output = Vec<u8>;
     fn produce(stream: &mut dyn Stream) -> Result<Vec<u8>> {
         let size = stream.read_u8()?;
-        Ok(stream.read_vec(size as usize)?)
+        stream.read_vec(size as usize)
     }
 }
 

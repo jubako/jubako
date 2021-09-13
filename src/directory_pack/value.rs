@@ -12,7 +12,7 @@ impl Content {
     pub fn new(content_address: ContentAddress, base: Option<Content>) -> Self {
         Self {
             content_address,
-            base: base.map(|c| Box::new(c)),
+            base: base.map(Box::new),
         }
     }
 }
