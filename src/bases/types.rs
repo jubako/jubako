@@ -6,30 +6,71 @@ use std::ops::{Add, AddAssign, Sub};
 use std::string::FromUtf8Error;
 
 #[derive(Debug)]
+pub struct FormatError {
+    what: String,
+    where_: Option<Offset>,
+}
+
+impl FormatError {
+    pub fn new(what: &str, where_: Option<Offset>) -> Error {
+        FormatError {
+            what: what.into(),
+            where_,
+        }
+        .into()
+    }
+}
+
+//#[macro_export]
+macro_rules! format_error {
+    ($what:expr, $stream:ident) => {
+        FormatError::new($what, Some($stream.global_offset()))
+    };
+    ($what:expr) => {
+        FormatError::new($what, None)
+    };
+}
+
+impl fmt::Display for FormatError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.where_ {
+            None => write!(f, "{}", self.what),
+            Some(w) => write!(f, "{} at offset {}", self.what, w),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum Error {
-    IOError(std::io::Error),
-    FormatError,
-    ArgError,
+    Io(std::io::Error),
+    Format(FormatError),
+    Arg,
     Other(String),
 }
 
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Error {
-        Error::IOError(e)
+        Error::Io(e)
+    }
+}
+
+impl From<FormatError> for Error {
+    fn from(e: FormatError) -> Error {
+        Error::Format(e)
     }
 }
 
 impl From<FromUtf8Error> for Error {
     fn from(_e: FromUtf8Error) -> Error {
-        Error::FormatError
+        FormatError::new("Utf8DecodingError", None)
     }
 }
 
 impl From<lzma::LzmaError> for Error {
     fn from(e: LzmaError) -> Error {
         match e {
-            LzmaError::Io(e) => Error::IOError(e),
-            _ => Error::FormatError,
+            LzmaError::Io(e) => Error::Io(e),
+            _ => FormatError::new("Lzma compression error", None),
         }
     }
 }
@@ -37,9 +78,9 @@ impl From<lzma::LzmaError> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::IOError(e) => write!(f, "IO Error {}", e),
-            Error::FormatError => write!(f, "Arx format error"),
-            Error::ArgError => write!(f, "Invalid argument"),
+            Error::Io(e) => write!(f, "IO Error {}", e),
+            Error::Format(e) => write!(f, "Arx format error {}", e),
+            Error::Arg => write!(f, "Invalid argument"),
             Error::Other(e) => write!(f, "Unknown error : {}", e),
         }
     }
@@ -123,6 +164,12 @@ impl Sub for Offset {
     }
 }
 
+impl fmt::Display for Offset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Offset({})", self.0)
+    }
+}
+
 /// A size used in xar.
 /// We handling content in 64 bits space.
 /// We cannot use a usize as it is arch dependent.
@@ -156,6 +203,12 @@ impl From<usize> for Size {
     fn from(v: usize) -> Size {
         // We are compiling on 32 or 64 bits.
         Size(v as u64)
+    }
+}
+
+impl fmt::Display for Size {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Size({})", self.0)
     }
 }
 
@@ -193,6 +246,15 @@ pub struct Count<T>(pub T);
 impl<T> From<T> for Count<T> {
     fn from(v: T) -> Count<T> {
         Count(v)
+    }
+}
+
+impl<T> fmt::Display for Count<T>
+where
+    T: std::fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Count({})", self.0)
     }
 }
 
@@ -249,6 +311,15 @@ impl Producable for Idx<u32> {
 }
 impl SizedProducable for Idx<u32> {
     type Size = typenum::U4;
+}
+
+impl<T> fmt::Display for Idx<T>
+where
+    T: std::fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Idx({})", self.0)
+    }
 }
 
 impl<T> Idx<T>

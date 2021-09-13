@@ -1,3 +1,4 @@
+#[macro_use]
 mod bases;
 mod content_pack;
 mod directory_pack;

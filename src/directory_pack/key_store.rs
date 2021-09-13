@@ -13,7 +13,10 @@ impl Producable for KeyStoreKind {
         match stream.read_u8()? {
             0 => Ok(KeyStoreKind::PLAIN),
             1 => Ok(KeyStoreKind::INDEXED),
-            _ => Err(Error::FormatError),
+            v => Err(format_error!(
+                &format!("Invalid KeyStoreKind ({})", v),
+                stream
+            )),
         }
     }
 }

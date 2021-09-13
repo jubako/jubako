@@ -51,8 +51,14 @@ where
             self.offset = new_offset;
             Ok(())
         } else {
-            Err(Error::FormatError)
+            Err(format_error!(&format!(
+                "Cannot skip ({}) after end of stream ({}).",
+                size, self.end
+            )))
         }
+    }
+    fn global_offset(&self) -> Offset {
+        self.offset
     }
 }
 

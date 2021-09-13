@@ -9,6 +9,7 @@ use std::io::Read;
 /// Each stream is independant.
 pub trait Stream: Read {
     fn tell(&self) -> Offset;
+    fn global_offset(&self) -> Offset;
     fn size(&self) -> Size;
     fn skip(&mut self, size: Size) -> Result<()>;
 

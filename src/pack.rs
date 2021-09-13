@@ -17,7 +17,7 @@ impl Producable for PackKind {
             0x61_72_78_66_u32 => Ok(PackKind::ARX),
             0x61_72_78_69_u32 => Ok(PackKind::DIRECTORY),
             0x61_72_78_63_u32 => Ok(PackKind::CONTENT),
-            _ => Err(Error::FormatError),
+            _ => Err(format_error!("Invalid pack kind", stream)),
         }
     }
 }
@@ -43,7 +43,7 @@ impl Producable for CheckKind {
         match stream.read_u8()? {
             0_u8 => Ok(CheckKind::NONE),
             1_u8 => Ok(CheckKind::BLAKE3),
-            _ => Err(Error::FormatError),
+            _ => Err(format_error!("Invalid check kind", stream)),
         }
     }
 }

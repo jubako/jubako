@@ -34,7 +34,7 @@ impl VariantDef {
                 if current_idx == 0 {
                     Ok((Key::new(offset, KeyKind::None), current_idx + 1, offset + 1))
                 } else {
-                    Err(Error::FormatError)
+                    Err(format_error!("VariantId cannot be in the middle of keys"))
                 }
             }
             KeyDefKind::Padding => Ok((
@@ -68,7 +68,9 @@ impl VariantDef {
                     let subkey_size = if let KeyKind::CharArray(s) = subkey.0.kind {
                         s
                     } else {
-                        return Err(Error::FormatError);
+                        return Err(format_error!(
+                            "Lookup PString key must be followed by a CharArray key."
+                        ));
                     };
                     (Some(subkey_size), subkey.1, subkey.2)
                 } else {
@@ -105,12 +107,21 @@ impl Producable for EntryDef {
         for _ in 0..key_count.0 {
             let key = KeyDef::produce(stream)?;
             if key.kind == KeyDefKind::VariantId && !entry_def.is_empty() {
-                return Err(Error::FormatError);
+                return Err(format_error!(
+                    "VariantId cannot appear in the middle of a entry.",
+                    stream
+                ));
             }
             current_size += key.size;
             entry_def.push(key);
             if current_size > entry_size {
-                return Err(Error::FormatError);
+                return Err(format_error!(
+                    &format!(
+                        "Sum of key size ({}) cannot exceed the entry size ({})",
+                        current_size, entry_size
+                    ),
+                    stream
+                ));
             } else if current_size == entry_size {
                 variants.push(VariantDef::new(entry_def)?);
                 entry_def = Vec::new();
@@ -121,7 +132,14 @@ impl Producable for EntryDef {
             variants.push(VariantDef::new(entry_def)?);
         }
         if variants.len() != variant_count.0 as usize {
-            return Err(Error::FormatError);
+            return Err(format_error!(
+                &format!(
+                    "Entry declare ({}) variants but keys define ({})",
+                    variant_count.0,
+                    variants.len()
+                ),
+                stream
+            ));
         }
         Ok(EntryDef {
             variants,

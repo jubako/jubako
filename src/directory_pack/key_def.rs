@@ -61,7 +61,12 @@ impl Producable for KeyDef {
                 (size, KeyDefKind::PString(flookup, keystoreidx))
             }
             0b1000 => (1, KeyDefKind::VariantId),
-            _ => return Err(Error::FormatError),
+            _ => {
+                return Err(format_error!(
+                    &format!("Invalid key type ({})", keytype),
+                    stream
+                ))
+            }
         };
         Ok(Self {
             size: keysize as usize,

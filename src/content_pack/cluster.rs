@@ -18,7 +18,10 @@ impl Producable for CompressionType {
             1 => Ok(CompressionType::LZ4),
             2 => Ok(CompressionType::LZMA),
             3 => Ok(CompressionType::ZSTD),
-            _ => Err(Error::FormatError),
+            v => Err(format_error!(
+                &format!("Invalid compression type ({})", v),
+                stream
+            )),
         }
     }
 }
@@ -77,7 +80,13 @@ impl Cluster {
         let reader = match header.compression {
             CompressionType::NONE => {
                 if raw_data_size != data_size {
-                    return Err(Error::FormatError);
+                    return Err(format_error!(
+                        &format!(
+                            "Stored size ({}) must be equal to data size ({}) if no comprresion.",
+                            raw_data_size, data_size
+                        ),
+                        stream
+                    ));
                 }
                 raw_reader
             }

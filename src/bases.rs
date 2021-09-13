@@ -1,8 +1,9 @@
+#[macro_use]
+mod types;
 mod io;
 pub mod primitive;
 mod reader;
 mod stream;
-mod types;
 
 pub use io::*;
 pub use reader::*;

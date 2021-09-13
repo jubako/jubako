@@ -95,11 +95,14 @@ impl<'a> ContentPack<'a> {
 
     pub fn get_content(&self, index: Idx<u32>) -> Result<Box<dyn Reader + 'a>> {
         if !index.is_valid(self.header.entry_count) {
-            return Err(Error::ArgError);
+            return Err(Error::Arg);
         }
         let entry_info = self.entry_infos.index(index);
         if !entry_info.cluster_index.is_valid(self.header.cluster_count) {
-            return Err(Error::FormatError);
+            return Err(format_error!(&format!(
+                "Cluster index ({}) is not valid in regard of cluster count ({})",
+                entry_info.cluster_index, self.header.cluster_count
+            )));
         }
         let cluster_info = self.cluster_ptrs.index(entry_info.cluster_index);
         let cluster = Cluster::new(self.reader.as_ref(), cluster_info)?;
