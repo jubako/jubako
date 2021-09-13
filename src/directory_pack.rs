@@ -301,6 +301,7 @@ mod tests {
         let reader = Box::new(BufReader::new(content, End::None));
         let directory_pack = DirectoryPack::new(reader).unwrap();
         let index = directory_pack.get_index(Idx(0)).unwrap();
+        let key_store = directory_pack.get_key_store(Idx(0)).unwrap();
         assert_eq!(index.entry_count().0, 4);
         {
             let entry = index.get_entry(Idx(0)).unwrap();

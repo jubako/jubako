@@ -37,6 +37,14 @@ pub trait Stream: Read {
         self.read_exact(&mut d[0..size])?;
         Ok(read_to_u64(size, &d))
     }
+    fn read_vec(&mut self, size: usize) -> Result<Vec<u8>> {
+        let mut v = Vec::with_capacity(size);
+        unsafe {
+            v.set_len(size);
+        }
+        self.read_exact(v.as_mut_slice())?;
+        Ok(v)
+    }
 }
 
 /// A Producable is a object that can be produce from a stream.

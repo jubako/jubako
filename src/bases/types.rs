@@ -300,15 +300,10 @@ impl<N: ArrayLength<u8>> SizedProducable for FreeData<N> {
 pub struct PString {}
 
 impl Producable for PString {
-    type Output = String;
-    fn produce(stream: &mut dyn Stream) -> Result<String> {
+    type Output = Vec<u8>;
+    fn produce(stream: &mut dyn Stream) -> Result<Vec<u8>> {
         let size = stream.read_u8()?;
-        let mut v = Vec::with_capacity(size as usize);
-        unsafe {
-            v.set_len(size as usize);
-        }
-        stream.read_exact(v.as_mut_slice())?;
-        Ok(String::from_utf8(v)?)
+        Ok(stream.read_vec(size as usize)?)
     }
 }
 
@@ -348,6 +343,6 @@ mod tests {
         content.extend_from_slice(source);
         let reader = BufReader::new(content, End::None);
         let mut stream = reader.create_stream_all();
-        PString::produce(stream.as_mut()).unwrap()
+        String::from_utf8(PString::produce(stream.as_mut()).unwrap()).unwrap()
     }
 }

@@ -21,7 +21,7 @@ impl Producable for IndexHeader {
         let entry_offset = Idx::<u32>::produce(stream)?;
         let extra_data = ContentAddress::produce(stream)?;
         let index_key = stream.read_u8()?;
-        let name = PString::produce(stream)?;
+        let name = String::from_utf8(PString::produce(stream)?)?;
         Ok(Self {
             store_id,
             entry_count,
