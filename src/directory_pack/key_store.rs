@@ -147,10 +147,7 @@ mod tests {
         );
         let key_store = KeyStore::new(
             &reader,
-            SizedOffset {
-                size: Size(9),
-                offset: Offset(16),
-            },
+            SizedOffset::new(Size(9), Offset(16)),
         )
         .unwrap();
         match &key_store {
@@ -188,10 +185,7 @@ mod tests {
         );
         let key_store = KeyStore::new(
             &reader,
-            SizedOffset {
-                size: Size(13),
-                offset: Offset(15),
-            },
+            SizedOffset::new(Size(13), Offset(15)),
         )
         .unwrap();
         match &key_store {

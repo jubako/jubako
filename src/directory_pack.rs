@@ -111,7 +111,7 @@ impl<'a> DirectoryPack<'a> {
     }
 
     pub fn get_index(&self, index_id: Idx<u32>) -> Result<Index> {
-        let sized_offset: SizedOffset = self.index_ptrs.index(index_id);
+        let sized_offset = self.index_ptrs.index(index_id);
         let mut index_stream = self.reader.create_stream_for(sized_offset);
         let index_header = IndexHeader::produce(index_stream.as_mut())?;
         let store = self.get_store(index_header.store_id)?;
@@ -254,8 +254,8 @@ mod tests {
         ]);
         // Add key_stores_ptr (offset 128+15+13=156/0x9C)
         content.extend_from_slice(&[
-            0x00, 0x00, 13, //size
-            0x00, 0x00, 0x00, 0x00, 0x8F, // Offset the tailler (128+15=143/0x8F)
+            0x00, 13, //size
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x8F, // Offset the tailler (128+15=143/0x8F)
         ]);
         // Add a entry_store (offset 156+8=164/0xA4)
         // One variant, with on PString, a 2ArrayChar/Pstring, a u24 and a content address
@@ -279,8 +279,8 @@ mod tests {
         ]);
         // Add a index_store_ptr (offset 164+55+20=239/0xEF)
         content.extend_from_slice(&[
-            0x00, 0x00, 20, // size
-            0x00, 0x00, 0x00, 0x00, 0xDB, // offset of the tailler (164+55=219/0xDB)
+            0x00, 20, // size
+            0x00, 0x00, 0x00, 0x00, 0x00, 0xDB, // offset of the tailler (164+55=219/0xDB)
         ]);
         // Add one index (offset 239+8=247/0xF7)
         content.extend_from_slice(&[
@@ -293,8 +293,8 @@ mod tests {
         ]);
         // Add a index_ptr (offset 247+26=273/0x111)
         content.extend_from_slice(&[
-            0x00, 0x00, 26, //size
-            0x00, 0x00, 0x00, 0x00, 0xF7, // offset
+            0x00, 26, //size
+            0x00, 0x00, 0x00, 0x00, 0x00, 0xF7, // offset
         ]);
         // end = 273+8=281/0x119
         let hash = blake3::hash(&content);

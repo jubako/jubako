@@ -190,10 +190,10 @@ mod tests {
             0x08,             // Offset of blob 2
         ]);
         (
-            SizedOffset {
-                offset: Offset(data.len() as u64),
-                size: Size::from(cluster_data.len() - data.len()),
-            },
+            SizedOffset::new(
+                Size::from(cluster_data.len() - data.len()),
+                Offset(data.len() as u64),
+            ),
             cluster_data,
         )
     }

@@ -121,10 +121,7 @@ mod tests {
         let reader = Box::new(BufReader::new(content, End::None));
         let store = IndexStore::new(
             reader.as_ref(),
-            SizedOffset {
-                offset: Offset(0),
-                size,
-            },
+            SizedOffset::new(size, Offset(0)),
         )
         .unwrap();
         let store = match store {
@@ -178,10 +175,7 @@ mod tests {
         let reader = Box::new(BufReader::new(content, End::None));
         let store = IndexStore::new(
             reader.as_ref(),
-            SizedOffset {
-                offset: Offset(0),
-                size,
-            },
+            SizedOffset::new(size, Offset(0)),
         )
         .unwrap();
         let store = match store {
