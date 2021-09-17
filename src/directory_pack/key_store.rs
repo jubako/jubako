@@ -145,11 +145,7 @@ mod tests {
             ],
             End::None,
         );
-        let key_store = KeyStore::new(
-            &reader,
-            SizedOffset::new(Size(9), Offset(16)),
-        )
-        .unwrap();
+        let key_store = KeyStore::new(&reader, SizedOffset::new(Size(9), Offset(16))).unwrap();
         match &key_store {
             KeyStore::Plain(plainkeystore) => {
                 assert_eq!(plainkeystore.reader.size(), Size::from(0x10_u64));
@@ -183,11 +179,7 @@ mod tests {
             ],
             End::None,
         );
-        let key_store = KeyStore::new(
-            &reader,
-            SizedOffset::new(Size(13), Offset(15)),
-        )
-        .unwrap();
+        let key_store = KeyStore::new(&reader, SizedOffset::new(Size(13), Offset(15))).unwrap();
         match &key_store {
             KeyStore::Indexed(indexedkeystore) => {
                 assert_eq!(

@@ -220,10 +220,7 @@ pub struct SizedOffset {
 
 impl SizedOffset {
     pub fn new(size: Size, offset: Offset) -> Self {
-        Self {
-            size,
-            offset,
-        }
+        Self { size, offset }
     }
 }
 

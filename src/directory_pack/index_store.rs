@@ -119,11 +119,7 @@ mod tests {
         ];
         let size = Size(content.len() as u64);
         let reader = Box::new(BufReader::new(content, End::None));
-        let store = IndexStore::new(
-            reader.as_ref(),
-            SizedOffset::new(size, Offset(0)),
-        )
-        .unwrap();
+        let store = IndexStore::new(reader.as_ref(), SizedOffset::new(size, Offset(0))).unwrap();
         let store = match store {
             IndexStore::Plain(s) => s,
         };
@@ -173,11 +169,7 @@ mod tests {
         ];
         let size = Size(content.len() as u64);
         let reader = Box::new(BufReader::new(content, End::None));
-        let store = IndexStore::new(
-            reader.as_ref(),
-            SizedOffset::new(size, Offset(0)),
-        )
-        .unwrap();
+        let store = IndexStore::new(reader.as_ref(), SizedOffset::new(size, Offset(0))).unwrap();
         let store = match store {
             IndexStore::Plain(s) => s,
         };
