@@ -8,8 +8,8 @@ pub struct IndexHeader {
     pub store_id: Idx<u32>,
     pub entry_count: Count<u32>,
     pub entry_offset: Idx<u32>,
-    pub index_key: u8,
     pub extra_data: ContentAddress,
+    pub index_key: u8,
     pub name: String,
 }
 
