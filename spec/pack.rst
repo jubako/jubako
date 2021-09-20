@@ -2,92 +2,82 @@
 Pack
 ====
 
-Content Pack header
-===================
+Pack represent part of a XMC.
+They can be stored concatenated to each other or stored in separated unit (file, url, ...)
 
-This is the header of an pack. An pack can be store of a fs or part of a arx file.
+
+Pack header
+===========
+
+All packs starts with the same header
 
 ============= ======= ====== ===========
 Field Name    Type    Offset Description
 ============= ======= ====== ===========
 magic         u32     0      The magic number to detect the type of the file
-                             0x61727863 (arxc)
-majorVersion  u8      4      The major version of the pack = 1
-minorVersion  u8      5      The minor version of the pack = 0
-id            [u8,16] 6      id of the pack
-packSize      u64     22     Size of the pack
-checkInfoPos  u64     48     The checksum position (allways at end of the pack)
-_padding      u24     22     A padding, may be used in the futur
-entryCount    u24     24     Number of entry in the pack (max of 2^24 entry per pack)
-clusterCount  u32     28     Number of cluster in the pack (max of 2^20)
-entryPtrPos   u64     32     A ``8pointer`` to a array of entryInfo offsets.
-clusterPtrPos u64     40     A ``8pointer`` to a array of cluster offsets.
+appVendorId   u32     4      Specific magic number to identify specific usage
+majorVersion  u8      8      The major version of the pack = 1
+minorVersion  u8      9      The minor version of the pack = 0
+id            [u8,16] 10     uuid of the pack
+_padding      [u8, 6] 26     MUST be 0.
+packSize      Size    32     Size of the pack
+checkInfoPos  Offset  40     The checksum position (allways at end of the pack)
+_reserved     [u8,16] 48     MUST be 0.
 ============= ======= ====== ===========
 
-Full Size : 56 bytes
+Full Size : 64 bytes
 
-ClusterPtrPos array
-===================
-
-A array of ``8pointer``. Each entry is a offset to the start of a cluster.
-Offsets may not be writen sequentially. Offsets are relative to the start of the pack.
-
-EntryPtrPos array
-=================
-
-An array of EntryInfo
-
-Cluster
-=======
-
-A cluster is a container of content. It contains plain data.
-There is no information about the name or anything else about a file.
-
-============= ========= ================= ===========
-Field Name    Type      Offset            Description
-============= ========= ================= ===========
-type          u8        0                 | The hightest 4 bits are reserved.
-                                            Must be equal to 0.
-                                          | The lowest 4 bits are the cluster
-                                            compression :
-
-                                          - 0: nocompression
-                                          - 1: lz4
-                                          - 2: lzma
-                                          - 3: zstd
-clusterSize   ``8size`` 1                 The size of the (potentially compressed)
-                                          cluster (including this header)
-blobCount     u16       9                 The number of blob in the cluster
-                                          (limited to 2^12==4096)
-offsetSize    u8        11                | The size (in bytes) of the offsets.
-                                          | Define uN (N == offsetSize)
-dataSize      uN        12                The size of the uncompressed data
-                                          (without the header and the offsets)
-blob1 offset  uN        12+uN             Start of second (1) blob, end of the first
-                                          blob (0)
-blob2 offset  uN        12+uN*2           Start of third (2) blob, end of second blob
-...           ...       ...               ...
-blobN offset  uN        12+uN*(blobCount) Start of the last blob, end of the end of the
-                                          second to last blob
-data          u8*       12+uN*blobCount   The data, potentially compressed
-============= ========= ================= ===========
-
-blob1..blobN represent a array of dimension blobCount-1
-
-| blob0 offset is always 0. Its size is blob1 (array[0]
-| blobN (0 < N < blobCount) offset is array[N-1]. Its size is (array[N]-array[N-1])
-| blobN (N==blobCount) offset is array[N-1]. It size is (dataSize-array[N-1])
+This header is extended with a specific header for each pack kind.
 
 
-Entry info
-==========
+appVendorId
+-----------
 
-While the cluster store the data itself, an entry info store metadata about this data.
+The appVendorId, is a identifier of the vendor (user of XMC format).
 
-============= ==== ====== ===========
-Field Name    Type Offset Description
-============= ==== ====== ===========
-clusterNumber u32  0      | 20 highest bytes = clusterIndex (so 1 048 576 max cluster in
-                            a pack)
-                          | 12 lowest bytes = blobIndex (so 4096 max blob per cluster)
-============= ==== ====== ===========
+appVendorId is used to identify the kind of the archive. It could be :
+
+- Kiwix (html content).
+- A file archive (file/directory with file access right metadata).
+- Embedded resources in a specific executable.
+- A media container (video/sound/subtitle as entry in the arx archive)
+- ...
+
+The couple ``magic``/``appVendorId`` must be considered as the true, full magic number of the format.
+
+
+Version
+-------
+
+Major version (M) is updated if there are not compatible changes in the format.
+Minor version (m) is updated if there are compatible changes in the format.
+
+A implementation able to read M.m will be able to read M.m+k (by definition of minor).
+It SHOULD be able to read M.m-k (by testing minor and conditiannaly use existing features)
+It WOULD be able to read M-k.* but it could be assume that two differents major version is
+two different formats.
+
+
+
+CheckInfo tailer
+================
+
+All pack must end with a checkInfo structure.
+
+``packSize`` - ``checkInfoPos`` give the size of this structure.
+
+The global structure of checkInfo is a series of checks.
+Each series of check start with a byte telling which it is and by the data of the actual check.
+
+For now, two checks are supported :
+
+- 0 : No check. No data.
+- 1 : Blake3 chek. The data is the 32 bytes checksum.
+
+CheckInfo is mandatory so the mimimun length of CheckInfo is 1 Byte (no check).
+For now, maximum length is 33 bytes.
+
+New check kind will be added in the future.
+
+The checksum is computed base of the whole content of the pack, from Offset(0) to Offset(checkInfoPos).
+The XMC Pack is the only exception to this as we mask some mutable (See XMC Pack spec for this).
