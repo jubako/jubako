@@ -2,7 +2,7 @@
 Pack
 ====
 
-Pack represent part of a XMC.
+Pack represent part of a Jubako container.
 They can be stored concatenated to each other or stored in separated unit (file, url, ...)
 
 
@@ -33,14 +33,14 @@ This header is extended with a specific header for each pack kind.
 appVendorId
 -----------
 
-The appVendorId, is a identifier of the vendor (user of XMC format).
+The appVendorId, is a identifier of the vendor (user of Jubako format).
 
 appVendorId is used to identify the kind of the archive. It could be :
 
 - Kiwix (html content).
 - A file archive (file/directory with file access right metadata).
 - Embedded resources in a specific executable.
-- A media container (video/sound/subtitle as entry in the arx archive)
+- A media container (video/sound/subtitle as entry in the Jubako archive)
 - ...
 
 The couple ``magic``/``appVendorId`` must be considered as the true, full magic number of the format.
@@ -80,4 +80,4 @@ For now, maximum length is 33 bytes.
 New check kind will be added in the future.
 
 The checksum is computed base of the whole content of the pack, from Offset(0) to Offset(checkInfoPos).
-The XMC Pack is the only exception to this as we mask some mutable (See XMC Pack spec for this).
+The mainPack is the only exception to this as we mask some mutable data (See Jubako mainPack spec for this).

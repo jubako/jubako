@@ -1,84 +1,69 @@
-==========
-Arx format
-==========
+=========
+Head pack
+=========
+
+The head pack is the main pack.
+This is the pack that represent the "container".
+It give all main information about the container and list other packs.
+
+Jubako mainHeader
+=================
+
+As any other pack, a header pack must start with pack header.
+This pack header is followed by a mainHeader.
+
+============= ======== ====== ===========
+Field Name    Type     Offset Description
+============= ======== ====== ===========
+packCount     u8       0      Number of packInfo slots. (excluding directoryPack)
+freeData      [u8,63]  1      Free data, application specific to extend the header
+
+The size of of this header, is 64 bytes. Associated to the common pack header, the total header size is 128 bytes.
+FreeData is a 63 bytes free space to extend the header with application specific information.
+
+PackInfo
+========
+
+The mainHeader is directly (at offset 128) followed by an array of packInfo.
+There is ``packCount+1`` packInfo (one for the directoryPack and ``packCount`` for the contentPacks)
+
+It describe the pack parts of a Jubako container and where to find them.
 
 
-Main ideas
-==========
+================ ========= ====== ===========
+Field Name       Type      Offset Description
+================ ========= ====== ===========
+id               [u8,16]   0      The id of the pack
+                                  Must be equal to the id in the packheader of the pointed pack
+packId           u8        16     The id of the pack. 0 for index pack.
+freeData         [u8,103]  17     A 256 bytes array free data. Application specific.
+packSize         Size      120    The size of the pack.
+                                  Must be equal to the packSize in the packheader of the pointed pack
+packOffset       Offset    128    | The offset (starting from the beggining of
+                                    the file) where to find the pack.
+                                  | If ==0, the pack is not concatenate and must be located somewhere else (file system, bdd, ...)
+packCheckInfoPos Offset    136    The checkInfo of the pack (mandatory)
+packPath         pstring   144    | A pString pointing to the path of the pack file
+                 [u8, 112]        | The array is always 104 length.
+                                    The max string length : 112.
+================ ========= ====== ===========
+
+Full Size : 256 bytes.
+
+An packOffset and an packPath can be set in the same time. In this case the packOffset is predominant. This can be usefull when a Jubako head file and its packs are concatened together, a tool just have to change the offset from 0 to the offset.
+
+The packPath is always relative to the head pack filepath.
+
+This is not an error if an pack cannot be found in the file system. The implementation may warn the user (in case of mistake in the file handling). The implementation MUST correctly handle the pack missing:
+
+- A library can return that the entry cannot be found because an pack is missing.
+- A client application warn the user the pack is missing. A client can offer to the user to download the missing pack. html link to a missing entry could be displayed differently (red).
+
+Several packs can share the same id. In this case, they are considered as alternatives.
+Each pack with the same id must provide the same entries (but potentially different content). The pack declared first is considered with high priority on the others.  
+This can be used to have several packs providing the images (same entries) but differents resolution (different content).
+
+It is to the application to handle correctly the alternatives.
 
 
-The idea is to have a different kind of subcontent. Those subcontent could be
-stored as independent files or all in one file (concat). The full content,
-usefull to the user is the combination of different subcontents.
-
-Base Structures
-===============
-
-Integer
--------
-
-All integers are bigendian. This allow comparaison of integer to be made the
-same way as comparaison of bytes array.
-
-Size of integer are specified with the number of bits.
-- A 8 bits unsigned integer is called u8
-- A 64 bits unsigned integer is called u64.
-
-Strings
--------
-
-- C format. This is the classical array of char ending with a ``\0``. This allow
-  string to be as long as needed but need parsing of all the array (find the ``\0``)
-  to know size of the string. This is noted as ``cstring`` format.
-
-- Pascal format. This is an array where the first char is the size of the
-  string. There is no ``\0`` at the end. The size of the array is the same than a
-  ``cstring`` (n + 1). The string is limite to 255 bytes, but a implementation can
-  know the size of string (and how many memory to reserve) by simply reading the
-  first byte. This is noted as ``pstring`` format.
-
-An empty string is the same in ``cstring`` or ``pstring``  : a ``\0`` .
-
-``cstring`` and ``pstring`` are array of byte (uint8). They are utf8 encoded.
-Because of the utf8 encoding, the size of the (unicode) string may be lower than
-the size of the ``pstring``. The size stored in the first byte is the size of the
-encoded string.
-
-Offset / Size
--------------
-
-Otherwise specified, Offset and Size are 64 bits (u64).
-
-Size and Offset may be combined together in one u64.
-In this case, the u64 is called a SizedOffset.
-The 16 first (highest) bits (2 Bytes) of the SizedOffset represent the Size.
-The 48 last (lowest) bits of the SizeOffset represent the Offset.
-
-This allow to point a 16MB sized memory at a position up to 256TB.
-
-Header/Tailer
--------------
-
-Most of XMC structure are headers. They are starting the content they are describing
-(pack, index, ...)
-
-However, some structures are tailers. They are writen at the **end** of the content
-they are describing.
-
-Offset (and SizedOffset) always point to the start of the header/tailer. Never
-to the start of the content.
-
-- In the case of the header, the data is directly following the header, without padding.
-- In the case of the tailer, the data is just before the tailer, without padding.
-  The start of the data can be computed by subscribing the data size (specified in the tailer) to the offset of the tailer.
-
-tContent Part
-============
-
-There are three kinds of pack : XMC, directory and content.
-
-- `pack <pack.rst>`_ describe the common structures of all packs.
-- `head <head.rst>`_ file itself. It is mainly a header "pointing" to other subcontent.
-
-- The `pack <pack.rst>`_. This is where contents are stored.
-- The `directory <directory.rst>`_. This is where all indexes are stored, pointing to content in the packs.
+The checkInfo tailler of each packs must be copied in the head pack.

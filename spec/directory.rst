@@ -4,22 +4,22 @@ Directory
 
 The packs store the content of the data. However, no metadata is stored in packs.
 
-To discover content in a Arx file, this content has to be referenced in the directory.
+To discover content in a Jubako container, this content has to be referenced in the directory.
 
-The directory is somehow the most complex part of the Arx format as it allow different
+The directory is somehow the most complex part of the Jubako format as it allow different
 kind of situation and usage :
 
 - Most applications want to access entries using text key (a name/url/path).
 - Some applications want to access entries using differents keys.
-- Some applications may want different kind of entries in the same Arx file.
+- Some applications may want different kind of entries in the same Jubako container.
 - Some applications may want to separate entries in different "namespaces".
 - Some applications may want to use a tree/directory index.
 - Some applications may want to use some complex specific index (fulltext index)
 
-Arx format provide a sets of indexes kind that can be used to index the content.
+Jubako format provide a sets of indexes kind that can be used to index the content.
 It is also possible to reference an application specific index (as a xapian index).
 
-Arx indexes tries to answer the following constraints :
+Jubako indexes tries to answer the following constraints :
 
 - An index can contain all the entries or not.
 - An index can be associated to a key.
@@ -303,77 +303,8 @@ The bytes array stored in the deported store does NOT contains the first byte.
 Ref EntryStore [TODO]
 =====================
 
-This kind of index is usefull to create index and reuse metadata declared in another index(es).
-It can be used to sort entries in a different order, or merge several indexes or ...
-
-Header
-------
-
-============== ================== ====== ===========
-Field Name     Type               Offset Description
-============== ================== ====== ===========
-indexType      u8                 0      1 or 2
-headerSize     u16                1      The size of the header
-padding        u8                 3      Reserved.
-                                         the entryIndexArray.
-extraData      ``contentAddress`` 32     An app specific content. Used as free form data
-indexName      ``pstring``        36     The name of the index, may be used to indentify
-                                         the index
-============== ================== ====== ===========
-
-
-If indexType is 1, the indexArray is a array of u32. Each u32 is the index of the entry in the base index.
-
-If indexType is 2, the indexArray is a array of u40. Each u40 is composed of ::
-
-    +-----------+------+------+------+------+
-    | baseIndex | Entry number in baseIndex |
-    +-----------+------+------+------+------+
-
-If indexType is 2 and indexKey != 0, the different base indexes must be coherent (The indexKey keys of all index must be comparable)
-
-
 Overlay EntryStore [TODO]
 =========================
-
-This kind of index allow to reuse a already existing index, adding new keys to the entries in the index.
-
-
-Header
-------
-
-The first kind of index know by arx implementation is a listing of entry, along with some metadata
-
-============== ================== ====== ===========
-Field Name     Type               Offset Description
-============== ================== ====== ===========
-indexType      u8                 0      3
-headerSize     u16                1      The size of the header
-baseIndex      u8                 1      The number of the base index.
-                                         (0 if indexType is 2)
-indexKey       u8                 2      | The primary key of the index.
-                                         | (using keys declared in base index)
-padding        u8                 3      Reserved.
-indexLength    u32                4      | The number of entry in the index.
-                                         | Must be <= to the number of entry in the base
-                                           index
-indexArrayPos  u64                24     The offset (relative to the header's start) of
-                                         the entryIndexArray.
-extraData      ``contentAddress`` 32     An app specific content. Used as free form data
-indexName      ``pstring``        36     The name of the index, may be used to indentify
-                                         the index
-============== ================== ====== ===========
-
-
-If indexType is 1, the indexArray is a array of u32. Each u32 is the index of the entry in the base index.
-
-If indexType is 2, the indexArray is a array of u40. Each u40 is composed of ::
-
-    +-----------+------+------+------+------+
-    | baseIndex | Entry number in baseIndex |
-    +-----------+------+------+------+------+
-
-If indexType is 2 and indexKey != 0, the different base indexes must be coherent (The indexKey keys of all index must be comparable)
 
 Index
 =====
@@ -385,7 +316,7 @@ It is a simple header describing the index and where to find the data.
 Header
 ------
 
-The first kind of index know by arx implementation is a listing of entry, along with
+The first kind of index know by Jubako implementation is a listing of entry, along with
 some metadata
 
 ============= ================== ================= =============

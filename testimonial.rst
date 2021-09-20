@@ -56,10 +56,3 @@ This work is made independently from kiwix or openzim organization.
 For now this is more an essay than a real project to implement this.
 It may change in the futur but for now there is absolutly no plan nor promise
 that I (or other) will implement this format.
-
-Why the name "Arx" ?
-====================
-
-Arx means ARchive eXtensible.
-
-It is Archive format extensible to furfill specific need.

@@ -1,32 +1,53 @@
-=============
-What is Arx ?
-=============
+======
+Jubako
+======
 
-Arx means "ARchive eXtensible".
 
-It is archive format extensible to furfill specific need.
-As any archive format it allow to store content in the archive.
+What is Jubako ?
+================
+
+Jūbako is the traditional lunch box used in Japan to store Bentos.
+It is a small box that stores food in small compartiments.
+
+Jubake is a container format to store things in organized manner.
+It is composed of packs that can be composed as needed.
+
+It is container format extensible to furfill specific need.
+As any container format it allow to store content in the container.
 It has some specificties :
 
-- Content can be compressed or not. Both decision can be made in the same archive to
-  different content.
+- Content can be compressed or not. Weither the content is compressed or not is made
+  at content level.
 - Direct access. You don't need to decompress the whole archive on the filesystem or in
   memory to access a content.
 - Content is accessed using one or several entries stored in indexes.
-- The metadata (stored in te entries) are not defined. Each use case can (and must)
+- The metadata (stored in the entries) are not defined. Each use case can (and must)
   specify which metadata to store.
 - Each entry can point to one content (basic use case) but it is not necessary.
   An entry can point to several content or none.
 - The content can come in different variants. For exemple, images can be in low and high
   resolution.
-- Arx can be incremental. It is possible to create archive containing only the
+- Jubako can be incremental. It is possible to create archive containing only the
   difference between an existing archive and the content you want to store.
+- Content can be put in different packs inside a container. Packs may be missing or
+  reused in another Jubako container.
+
+
+What Jubako is no ?
+===================
+
+Jubako is not a file format.
+
+As xml, Jubako is a format describing how to store content and how it is
+structured. It doesn't specficy what is stored and the hierarchy between thoses content.
+
+The classical usage Jubako is to be used as base structure for a real life container.
 
 
 Technical point
 ===============
 
-The specification (WIP) is available `here <spec/main.rst>`_
+The specification (WIP) is available `here <spec/index.rst>`_
 
 Use case
 ========
@@ -34,7 +55,11 @@ Use case
 Replace zim
 -----------
 
-Arx archives could be use to replace zim format :
+The `zim format<https://github.com/openzim/libzim>`_ is a archive format to store content (mainly html content) in one archive.
+
+It shares a lot of feature of Jubako. (In fact, Jubako is inspired from zim).
+
+Jubako could be use to replace zim format :
 
 - Content would be put in one pack
 - An index for the entries with four keys : url, title, mimetype and a contentAddress.
@@ -45,7 +70,14 @@ Arx archives could be use to replace zim format :
 Add variants to zim
 -------------------
 
-We have different variants of a same zim file : No image, No video, ...
+The main usage of zim format is the Kiwix project.
+
+The Kiwix project creates different variants of a same zim file :
+Full, No image, No video, ...
+
+Jubako could be use to define a new format which handle those variants.
+
+For exemple:
 
 The directory structure would be the same as a "simple" zim. But:
 
@@ -54,46 +86,46 @@ The directory structure would be the same as a "simple" zim. But:
 - All images goes in the "image" pack
 - All video goes in the "video" pack
 
-The final arx files would be created by combining the packs:
+The final Jubako files would be created by combining the packs:
 
-- Full arx with packs "fulltext", "image", "video"
+- Full Jubako with packs "fulltext", "image", "video"
 - No vid, no image with only the "fulltext" pack
 - No det, with only the "nodet" pack.
 
 We could also imagine that we create several image packs with different resolutions
 
 The same way, we could create different fulltext packs with only "WP100", "WP1000"
-(minus WP100), "WP10000" (minus WP100 and WP1000), then we will create the arx files
+(minus WP100), "WP10000" (minus WP100 and WP1000), then we will create the Jubako files
 with :
 
-- The WP100 pack for the WP100 arx file.
-- The WP100 and WP1000 packs for the WP1000 arx file.
+- The WP100 pack for the WP100 Jubako file.
+- The WP100 and WP1000 packs for the WP1000 Jubako file.
 
 As all those packs store the "same" content. They could be created in the same round.
 
 And as packs can be stored as separated files in the fs so we could avoid dupliaction
 storage on the server (library.kiwi.org).
 
-The server application (kiwix-serve or other) could slicy change the arxheader to set
-the offsets to packs and "stream" the different packs as if they were only one file.
-The client would download only one file, without knowing that everything were store
-separatly.
+The server application (kiwix-serve or other) could slicy change the Jubako main header
+to set the offsets to packs and "stream" the different packs as if they were only one
+file. The client would download only one file, without knowing that everything were
+store separatly.
 
-Allowing a user to change an arx content
-----------------------------------------
+Allowing a user to change an Jubako content
+-------------------------------------------
 
-A overlay file can be used to store changes to a arx file.
+A overlay file can be used to store changes to a Jubako file.
 
 A client application allowing the user to change the content of wikipedia's article
-would simply store the new (user) version of the article in the overlay arx.
+would simply store the new (user) version of the article in the overlay Jubako.
 The article content would be store in the overlay.
-When application lookup for article, it will first look in the overlay arx and so,
+When application lookup for article, it will first look in the overlay Jubako and so,
 use the modified version.
 
 File Archive
 ------------
 
-Arx file can be use to archive as other classic archive does (tar, zip).
+Jubako file can be use to archive as other classic archive does (tar, zip).
 
 Index would store keys:
 
@@ -107,16 +139,16 @@ Index would store keys:
 Another keys could be added to handle symlink or directory.
 Two entries using the same contentAddress could be used for hardlink.
 
-As content can be accessed without full decompression, an arx file could be fuse-mount
+As content can be accessed without full decompression, an Jubako file could be fuse-mount
 to access its content read only.
-In conjuction with an overlay arx, it could be possible to create read/write mount.
+In conjuction with an overlay Jubako, it could be possible to create read/write mount.
 
 Other
 -----
 
-- Using arx overlay, it would be possible to create incremental backup.
-- Embend arx file as resource in a binary.
-- Store python programme in a arx file, along side a modified python interpreter to look
-  file in the arx file.
-- Use arx file as mediacontainer.
+- Using Jubako overlay, it would be possible to create incremental backup.
+- Embend Jubako container as resource in a binary.
+- Store python programme in a Jubako file, along side a modified python interpreter to look
+  file in the Jubako file.
+- Use Jubako file as mediacontainer.
 
