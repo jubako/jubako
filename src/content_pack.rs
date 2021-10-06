@@ -158,7 +158,7 @@ mod tests {
     #[test]
     fn test_contentpackheader() {
         let mut content = vec![
-            0x61, 0x72, 0x78, 0x63, // magic
+            0x6a, 0x62, 0x6b, 0x63, // magic
             0x01, 0x00, 0x00, 0x00, // app_vendor_id
             0x01, // major_version
             0x02, // minor_version
@@ -204,7 +204,7 @@ mod tests {
     #[test]
     fn test_contentpack() {
         let mut content = vec![
-            0x61, 0x72, 0x78, 0x63, // magic off:0
+            0x6a, 0x62, 0x6b, 0x63, // magic off:0
             0x01, 0x00, 0x00, 0x00, // app_vendor_id off:4
             0x01, // major_version off:8
             0x02, // minor_version off:9
