@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PackKind {
-    Arx,
+    Main,
     Directory,
     Content,
 }
@@ -14,7 +14,7 @@ impl Producable for PackKind {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         match stream.read_u32()? {
-            0x61_72_78_66_u32 => Ok(PackKind::Arx),
+            0x61_72_78_66_u32 => Ok(PackKind::Main),
             0x61_72_78_69_u32 => Ok(PackKind::Directory),
             0x61_72_78_63_u32 => Ok(PackKind::Content),
             _ => Err(format_error!("Invalid pack kind", stream)),
@@ -122,7 +122,7 @@ impl Producable for PackHeader {
     }
 }
 
-/// A Pack is the more global entity in Arx.
+/// A Pack is the more global entity in Jubako.
 /// It is a "File", which can be a single file in the fs
 /// or embedded in another file.
 pub trait Pack {

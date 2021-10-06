@@ -79,7 +79,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::Io(e) => write!(f, "IO Error {}", e),
-            Error::Format(e) => write!(f, "Arx format error {}", e),
+            Error::Format(e) => write!(f, "Jubako format error {}", e),
             Error::Arg => write!(f, "Invalid argument"),
             Error::Other(e) => write!(f, "Unknown error : {}", e),
         }
@@ -90,7 +90,7 @@ impl std::error::Error for Error {}
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// A offset used in xar.
+/// A offset used Jubako.
 /// We handling content in 64 bits space.
 /// We cannot use a usize as it is arch dependent.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
@@ -170,7 +170,7 @@ impl fmt::Display for Offset {
     }
 }
 
-/// A size used in xar.
+/// A size used in Jubako.
 /// We handling content in 64 bits space.
 /// We cannot use a usize as it is arch dependent.
 /// Let's define our own type.

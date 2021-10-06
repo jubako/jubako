@@ -248,7 +248,7 @@ mod tests {
         content.extend_from_slice(&[
             b'H', b'e', b'l', b'l', b'o', // key 0
             b'F', b'o', b'o', // key 1
-            b'x', b'm', b'c', b'm', b'e', b'g', b'a', // key 2
+            b'J', 0xc5, 0xab, b'b', b'a', b'k', b'o', // key 2
             0x01, // kind
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // key count
             0x01, // offset_size
@@ -321,7 +321,7 @@ mod tests {
                 value0,
                 &Array::new(Vec::new(), Some(Extend::new(Idx(0), 2)))
             );
-            assert_eq!(value0.resolve_to_vec(&key_store).unwrap(), b"xmcmega");
+            assert_eq!(value0.resolve_to_vec(&key_store).unwrap(), b"J\xc5\xabbako"); // Jūbako
             let value1 = if let Value::Array(a) = entry.get_value(Idx(1)).unwrap() {
                 a
             } else {
@@ -366,7 +366,7 @@ mod tests {
                 value1,
                 &Array::new(vec![b'A', b'B'], Some(Extend::new(Idx(0), 2)))
             );
-            assert_eq!(value1.resolve_to_vec(&key_store).unwrap(), b"ABxmcmega");
+            assert_eq!(value1.resolve_to_vec(&key_store).unwrap(), b"ABJ\xc5\xabbako");
             assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x313233));
             assert_eq!(
                 entry.get_value(Idx(3)).unwrap(),
@@ -391,7 +391,7 @@ mod tests {
                 value0,
                 &Array::new(Vec::new(), Some(Extend::new(Idx(0), 2)))
             );
-            assert_eq!(value0.resolve_to_vec(&key_store).unwrap(), b"xmcmega");
+            assert_eq!(value0.resolve_to_vec(&key_store).unwrap(), b"J\xc5\xabbako");
             let value1 = if let Value::Array(a) = entry.get_value(Idx(1)).unwrap() {
                 a
             } else {

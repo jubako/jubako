@@ -1,5 +1,5 @@
 [package]
-name = "xar"
+name = "jubako"
 version = "0.1.0"
 authors = ["Matthieu Gautier <mgautier@kymeria.fr>"]
 edition = "2018"
