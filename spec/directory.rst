@@ -10,7 +10,7 @@ The directory is somehow the most complex part of the Jubako format as it allow 
 kind of situation and usage :
 
 - Most applications want to access entries using text key (a name/url/path).
-- Some applications want to access entries using differents keys.
+- Some applications want to access entries using different keys.
 - Some applications may want different kind of entries in the same Jubako container.
 - Some applications may want to separate entries in different "namespaces".
 - Some applications may want to use a tree/directory index.
@@ -76,17 +76,17 @@ Key Store
 
 Deported bytes array are stored in key stores.
 
-A store is composed of data and a tailer.
+A store is composed of data and a tail.
 
 Plain store
 -----------
 
 If the ``storeType`` is 0, the store is a plain store.
-There is no (internal) index, and the store is only composed of the data and small tailer.
+There is no (internal) index, and the store is only composed of the data and small tail.
 The data is composed of Pstring, the entries key contains directly the offsets
-of the pstring in the data.
+of the Pstring in the data.
 
-The plain store tailer is :
+The plain store tail is :
 
 ============== ================== ====== ===========
 Field Name     Type               Offset Description
@@ -99,10 +99,10 @@ Indexed Store
 -------------
 
 If ``storeType`` is 1, the store is indexed.
-The store type is composed of the data, and the tailer.
-The tailer itself contains a index, storing the offset of the key data in data.
+The store type is composed of the data, and the tail.
+The tail itself contains a index, storing the offset of the key data in data.
 
-By definition, a indexed keystore is usefull if ``nb_bytes(entryCount) < offsetSize``.
+By definition, a indexed keystore is useful if ``nb_bytes(entryCount) < offsetSize``.
 
 
 ============== ================== ====== ===========
@@ -147,16 +147,16 @@ data                                     The data
 ============== ================== ====== ===========
 
 
-Enty Store
-==========
+Entry Store
+===========
 
 Plain EntryStore
 ================
 
 The first kind of index is a plain listing of entry.
 
-Tailer
-------
+Tail
+----
 
 ============= ================== ================= =============
 Field Name    Type               Offset            Description
@@ -166,7 +166,7 @@ entrySize     u16                1                 The size of one entry.
 variantCount  u8                 3                 The number of variants in this index.
 keyCount      u8                 4                 The number of key info.
                                                    (May differs from the number of key
-                                                    as key may be composed of several key infos)
+                                                    as key may be composed of several key info)
 keyInfo0                                           The type of the key0
 keyInfo1                                           The type of the key1
 ...                                                ...
@@ -182,7 +182,7 @@ The index itself is a array of entries, each entry having a size of
 The number of entries is ``dataSize``/``entrySize``.
 
 Each entry is a list of values. The number of values is to be defined after decoding
-the key infos.
+the key info.
 
 Variant
 -------
@@ -199,7 +199,7 @@ The first key of each variant MUST be a variant identifier (0b1000).
 At parsing the index header, it is what allow implementation where the variant definitions start and stop.
 When parsing the entry, this key allow implementation to know which variant to use.
 
-If there is only one variant, the ``variantCount`` is 1 and the variantId key SHOULD be omited.
+If there is only one variant, the ``variantCount`` is 1 and the variantId key SHOULD be omitted.
 If a variant identifier is present, ``entrySize`` and ``keyCount`` MUST integrate it.
 
 All variants MUST have the same time. (Use padding if not)
@@ -240,7 +240,7 @@ Padding may be used to combine different index using the same data (as union or
 specialized index).
 
 If a entry ends wit a padding, the last padding key (of the last variant) is not necessary.
-However, writer implementantion SHOULD include it.
+However, writer implementation SHOULD include it.
 
 The size of a padding is ``0bSSSS + 1``.
 
@@ -249,7 +249,7 @@ Content Address
 
 ``contentAddress`` is used to point to a specific blob.
 
-The content adress can be "patched". The bits `0bSSSS` are used to identify the number of patches.
+The content address can be "patched". The bits `0bSSSS` are used to identify the number of patches.
 
 If ``0bSSSS`` is 0, it "Classic" content address. No patch. The size of the key is 4.
 Else we have a "chained" content patch.
@@ -273,16 +273,16 @@ than what is stored.
 Byte array and PString
 ......................
 
-Byte array can be stored (embeded) in the entry or deported in another store.
-As entries in an index must always have the same size, an embeded array must always be the same size.
+Byte array can be stored (embedded) in the entry or deported in another store.
+As entries in an index must always have the same size, an embedded array must always be the same size.
 
 If the key needs variable array size, the array must be deported.
 
-Embeded bytes use a ``char[]`` (0b0100).
+Embedded bytes use a ``char[]`` (0b0100).
 ``0b0SSS + 1``  defined the size of the char (0 size array are impossible).
 If the key data starts with a 10 (``0b10SS``), the key info is followed by a complement
 byte (``0bssssssss``). The size of the array is ``0b00SS<<8 + 0bssssssss + 9`` (maximum size is 1024 bytes)
-The third lower bit of ``0bSXSS`` MUST be 0 and is reserved for futur use.
+The third lower bit of ``0bSXSS`` MUST be 0 and is reserved for future use.
 
 Deported bytes use a ``PString`` (``0b0110``)
 ``0bSSSS + 1`` define the size of the key.
@@ -331,7 +331,7 @@ indexKey      u8                 16                | The primary key of the inde
                                                    | 1 for the first key.
                                                    | 2 for second ...
 indexName     ``pstring``        17                The name of the index, may be used to
-                                                   indentify the index
+                                                   identify the index
 ============= ================== ================= =============
 
 

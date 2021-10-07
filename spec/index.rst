@@ -9,7 +9,7 @@ Main ideas
 
 The idea is to have a different kind of subcontent. Those subcontent could be
 stored as independent files or all in one file (concat). The full content,
-usefull to the user is the combination of different subcontents.
+useful to the user is the combination of different subcontents.
 
 Base Structures
 ===============
@@ -17,8 +17,8 @@ Base Structures
 Integer
 -------
 
-All integers are bigendian. This allow comparaison of integer to be made the
-same way as comparaison of bytes array.
+All integers are bigendian. This allow comparison of integer to be made the
+same way as comparison of bytes array.
 
 Size of integer are specified with the number of bits.
 - A 8 bits unsigned integer is called u8
@@ -40,7 +40,7 @@ Strings
 An empty string is the same in ``cstring`` or ``pstring``  : a ``\0`` .
 
 ``cstring`` and ``pstring`` are array of byte (uint8). They are utf8 encoded.
-Because of the utf8 encoding, the size of the (unicode) string may be lower than
+Because of the utf8 encoding, the size of the (Unicode) string may be lower than
 the size of the ``pstring``. The size stored in the first byte is the size of the
 encoded string.
 
@@ -56,23 +56,23 @@ The 48 last (lowest) bits of the SizeOffset represent the Offset.
 
 This allow to point a 16MB sized memory at a position up to 256TB.
 
-Header/Tailer
+Header/Tail
 -------------
 
 Most of Jubako structure are headers. They are starting the content they are describing
 (pack, index, ...)
 
-However, some structures are tailers. They are writen at the **end** of the content
+However, some structures are tails. They are written at the **end** of the content
 they are describing.
 
-Offset (and SizedOffset) always point to the start of the header/tailer. Never
+Offset (and SizedOffset) always point to the start of the header/tail. Never
 to the start of the content.
 
 - In the case of the header, the data is directly following the header, without padding.
-- In the case of the tailer, the data is just before the tailer, without padding.
-  The start of the data can be computed by subscribing the data size (specified in the tailer) to the offset of the tailer.
+- In the case of the tail, the data is just before the tail, without padding.
+  The start of the data can be computed by subscribing the data size (specified in the tail) to the offset of the tail.
 
-tContent Part
+Content Part
 ============
 
 There are three kinds of pack : main, directory and content.

@@ -20,7 +20,7 @@ Full Size : 64 bytes
 ClusterPtrPos array
 ===================
 
-A array of SizedOffset. Each entry is a offset to the a cluster **tailler**.
+A array of SizedOffset. Each entry is a offset to the a cluster **tail**.
 Offsets may not be writen sequentially. Offsets are relative to the start of the pack.
 
 EntryPtrPos array
@@ -34,12 +34,12 @@ Cluster
 A cluster is a container of content. It contains plain data.
 There is no information about the name or anything else about a file.
 
-A cluster consisted of the input (potentially compressed) datai **followed** by a tailler.
+A cluster consisted of the input (potentially compressed) data **followed** by a tail.
 
 ============= ========= =================== ===========
 Field Name    Type      Offset              Description
 ============= ========= =================== ===========
-type          u8        0                   | The hightest 4 bits are reserved.
+type          u8        0                   | The highest 4 bits are reserved.
                                               Must be equal to 0.
                                             | The lowest 4 bits are the cluster
                                               compression :
@@ -70,7 +70,7 @@ blob1..blobN represent a array of dimension blobCount-1
 | blobN (0 < N < blobCount) offset is array[N-1]. Its size is (array[N]-array[N-1])
 | blobN (N==blobCount) offset is array[N-1]. It size is (dataSize-array[N-1])
 
-The localisation of the cluster data is `offset of the tailler - RawDataSize`
+The localization of the cluster data is `offset of the tail - RawDataSize`
 
 Entry info
 ==========

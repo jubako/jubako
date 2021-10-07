@@ -11,7 +11,7 @@ creation process.
   the end of the url)
 - Cluster has no size information. You cannot now directly the size of a
   cluster. For an uncompressed cluster you can find the size quite easily has the
-  header is not compressed. But for compressed cluster, you have to uncompress the
+  header is not compressed. But for compressed cluster, you have to decompress the
   data (and you don't know the size of the compressed data, nor the uncompressed
   one) to be able to read the data.
 - At creation, the size of the "Header"'s datas is not known before you know all
@@ -44,7 +44,7 @@ We also want to do a series of improvement in the zim format :
   (as wikipedia does), and store the change as a zim update.
 
 While all this improvement concerns the kiwix usage, I also want to explore new
-use case of an advanced archive format. For exemple:
+use case of an advanced archive format. For example:
 
 - Classical file system archive
 - Backup
@@ -54,5 +54,5 @@ use case of an advanced archive format. For exemple:
 
 This work is made independently from kiwix or openzim organization.
 For now this is more an essay than a real project to implement this.
-It may change in the futur but for now there is absolutly no plan nor promise
+It may change in the future but for now there is absolutely no plan nor promise
 that I (or other) will implement this format.
