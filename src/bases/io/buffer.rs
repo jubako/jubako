@@ -6,8 +6,7 @@ use std::rc::Rc;
 pub type BufReader = ReaderWrapper<Vec<u8>>;
 
 impl BufReader {
-    pub fn new(source: Vec<u8>, end: End) -> Self {
-        let source = Rc::new(source);
+    pub fn new_from_rc(source: Rc<Vec<u8>>, end: End) -> Self {
         let end = match end {
             End::None => Offset(source.len() as u64),
             End::Offset(o) => o,
@@ -19,6 +18,10 @@ impl BufReader {
             end,
             origin: Offset(0),
         }
+    }
+    pub fn new(source: Vec<u8>, end: End) -> Self {
+        let source = Rc::new(source);
+        BufReader::new_from_rc(source, end)
     }
 
     fn slice(&self) -> &[u8] {

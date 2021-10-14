@@ -14,9 +14,9 @@ impl Producable for PackKind {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         match stream.read_u32()? {
-            0x6a_62_6b_6d_u32 => Ok(PackKind::Main), // jbkm
+            0x6a_62_6b_6d_u32 => Ok(PackKind::Main),      // jbkm
             0x6a_62_6b_64_u32 => Ok(PackKind::Directory), // jbkd
-            0x6a_62_6b_63_u32 => Ok(PackKind::Content), // jbkc
+            0x6a_62_6b_63_u32 => Ok(PackKind::Content),   // jbkc
             _ => Err(format_error!("Invalid pack kind", stream)),
         }
     }

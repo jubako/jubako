@@ -180,7 +180,7 @@ mod tests {
             0x01, // major_version
             0x02, // minor_version
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
-            0x0e, 0x0f, // uui
+            0x0e, 0x0f, // uuid
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, // file_size
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xee, // check_info_pos
@@ -366,7 +366,10 @@ mod tests {
                 value1,
                 &Array::new(vec![b'A', b'B'], Some(Extend::new(Idx(0), 2)))
             );
-            assert_eq!(value1.resolve_to_vec(&key_store).unwrap(), b"ABJ\xc5\xabbako");
+            assert_eq!(
+                value1.resolve_to_vec(&key_store).unwrap(),
+                b"ABJ\xc5\xabbako"
+            );
             assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x313233));
             assert_eq!(
                 entry.get_value(Idx(3)).unwrap(),
