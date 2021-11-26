@@ -25,6 +25,9 @@ impl Producable for ContentPackHeader {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let pack_header = PackHeader::produce(stream)?;
+        if pack_header.magic != PackKind::Content {
+            return Err(format_error!("Pack Magic is not ContentPack"));
+        }
         let entry_ptr_pos = Offset::produce(stream)?;
         let cluster_ptr_pos = Offset::produce(stream)?;
         let entry_count = Count::<u32>::produce(stream)?;

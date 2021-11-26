@@ -18,6 +18,9 @@ impl Producable for MainPackHeader {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let pack_header = PackHeader::produce(stream)?;
+        if pack_header.magic != PackKind::Main {
+            return Err(format_error!("Pack Magic is not MainPack"));
+        }
         let pack_count = Count::<u8>::produce(stream)?;
         let free_data = FreeData::produce(stream)?;
         Ok(Self {

@@ -36,6 +36,9 @@ impl Producable for DirectoryPackHeader {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let pack_header = PackHeader::produce(stream)?;
+        if pack_header.magic != PackKind::Directory {
+            return Err(format_error!("Pack Magic is not DirectoryPack"));
+        }
         let index_ptr_pos = Offset::produce(stream)?;
         let entry_store_ptr_pos = Offset::produce(stream)?;
         let key_store_ptr_pos = Offset::produce(stream)?;
