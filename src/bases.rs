@@ -18,14 +18,14 @@ pub trait SizedProducable: Producable {
 
 /// ArrayReader is a wrapper a reader to access element stored as a array.
 /// (Consecutif block of data of the same size).
-pub struct ArrayReader<'a, OutType, IdxType> {
-    reader: Box<dyn Reader + 'a>,
+pub struct ArrayReader<OutType, IdxType> {
+    reader: Box<dyn Reader>,
     length: Count<IdxType>,
     elem_size: usize,
     produced_type: PhantomData<*const OutType>,
 }
 
-impl<'a, OutType, IdxType> ArrayReader<'a, OutType, IdxType>
+impl<OutType, IdxType> ArrayReader<OutType, IdxType>
 where
     OutType: SizedProducable,
     OutType::Size: typenum::Unsigned,
@@ -45,7 +45,7 @@ where
     }
 }
 
-impl<OutType: Producable, IdxType> IndexTrait<Idx<IdxType>> for ArrayReader<'_, OutType, IdxType>
+impl<OutType: Producable, IdxType> IndexTrait<Idx<IdxType>> for ArrayReader<OutType, IdxType>
 where
     u64: std::convert::From<IdxType>,
     IdxType: std::cmp::PartialOrd + Copy,

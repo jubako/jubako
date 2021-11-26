@@ -74,17 +74,17 @@ impl Producable for ContentAddress {
     }
 }
 
-pub struct DirectoryPack<'a> {
+pub struct DirectoryPack {
     header: DirectoryPackHeader,
-    key_stores_ptrs: ArrayReader<'a, SizedOffset, u8>,
-    entry_stores_ptrs: ArrayReader<'a, SizedOffset, u32>,
-    index_ptrs: ArrayReader<'a, SizedOffset, u32>,
-    reader: Box<dyn Reader + 'a>,
+    key_stores_ptrs: ArrayReader<SizedOffset, u8>,
+    entry_stores_ptrs: ArrayReader<SizedOffset, u32>,
+    index_ptrs: ArrayReader<SizedOffset, u32>,
+    reader: Box<dyn Reader>,
     check_info: Cell<Option<CheckInfo>>,
 }
 
-impl<'a> DirectoryPack<'a> {
-    pub fn new(reader: Box<dyn Reader>) -> Result<Self> {
+impl DirectoryPack {
+    pub fn new(reader: Box<dyn Reader>) -> Result<DirectoryPack> {
         let mut stream = reader.create_stream_all();
         let header = DirectoryPackHeader::produce(stream.as_mut())?;
         let key_stores_ptrs = ArrayReader::new_from_reader(
@@ -132,7 +132,7 @@ impl<'a> DirectoryPack<'a> {
     }
 }
 
-impl Pack for DirectoryPack<'_> {
+impl Pack for DirectoryPack {
     fn kind(&self) -> PackKind {
         self.header.pack_header.magic
     }

@@ -64,15 +64,15 @@ impl SizedProducable for EntryInfo {
     type Size = typenum::U4;
 }
 
-pub struct ContentPack<'a> {
+pub struct ContentPack {
     header: ContentPackHeader,
-    entry_infos: ArrayReader<'a, EntryInfo, u32>,
-    cluster_ptrs: ArrayReader<'a, SizedOffset, u32>,
-    reader: Box<dyn Reader + 'a>,
+    entry_infos: ArrayReader<EntryInfo, u32>,
+    cluster_ptrs: ArrayReader<SizedOffset, u32>,
+    reader: Box<dyn Reader>,
     check_info: Cell<Option<CheckInfo>>,
 }
 
-impl<'a> ContentPack<'a> {
+impl ContentPack {
     pub fn new(reader: Box<dyn Reader>) -> Result<Self> {
         let header = ContentPackHeader::produce(reader.create_stream_all().as_mut())?;
         let entry_infos =
@@ -95,7 +95,7 @@ impl<'a> ContentPack<'a> {
         self.header.entry_count
     }
 
-    pub fn get_content(&self, index: Idx<u32>) -> Result<Box<dyn Reader + 'a>> {
+    pub fn get_content(&self, index: Idx<u32>) -> Result<Box<dyn Reader>> {
         if !index.is_valid(self.header.entry_count) {
             return Err(Error::Arg);
         }
@@ -116,7 +116,7 @@ impl<'a> ContentPack<'a> {
     }
 }
 
-impl Pack for ContentPack<'_> {
+impl Pack for ContentPack {
     fn kind(&self) -> PackKind {
         self.header.pack_header.magic
     }
