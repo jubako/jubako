@@ -127,11 +127,11 @@ impl MainPack {
         CheckInfo::produce(checkinfo_stream.as_mut())
     }
 
-    fn get_directory_pack_info(&self) -> &PackInfo {
+    pub fn get_directory_pack_info(&self) -> &PackInfo {
         &self.directory_pack_info
     }
 
-    fn get_content_pack_info(&self, pack_id: u8) -> Result<&PackInfo> {
+    pub fn get_content_pack_info(&self, pack_id: u8) -> Result<&PackInfo> {
         for pack_info in &self.pack_infos {
             if pack_info.pack_id == pack_id {
                 return Ok(pack_info);
