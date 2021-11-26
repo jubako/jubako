@@ -2,7 +2,7 @@ use crate::bases::*;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum CompressionType {
+pub enum CompressionType {
     None = 0,
     Lz4 = 1,
     Lzma = 2,

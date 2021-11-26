@@ -18,6 +18,8 @@ use std::fmt::Debug;
 use std::io::Read;
 use uuid::Uuid;
 
+pub use value::{Array, Content, Extend, Value};
+
 #[derive(Debug, PartialEq)]
 struct DirectoryPackHeader {
     pack_header: PackHeader,

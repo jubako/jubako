@@ -29,19 +29,19 @@ impl Producable for MainPackHeader {
 }
 
 #[derive(PartialEq, Debug)]
-enum PackPos {
+pub enum PackPos {
     Offset(Offset),
     Path(String),
 }
 
 #[derive(PartialEq, Debug)]
-struct PackInfo {
-    id: Uuid,
-    pack_id: u8,
-    free_data: FreeData<typenum::U103>,
-    pack_size: Size,
-    pack_check_info: Offset,
-    pack_pos: PackPos,
+pub struct PackInfo {
+    pub id: Uuid,
+    pub pack_id: u8,
+    pub free_data: FreeData<typenum::U103>,
+    pub pack_size: Size,
+    pub pack_check_info: Offset,
+    pub pack_pos: PackPos,
 }
 
 impl Producable for PackInfo {
