@@ -52,8 +52,8 @@ where
             Ok(())
         } else {
             Err(format_error!(&format!(
-                "Cannot skip ({}) after end of stream ({}).",
-                size, self.end
+                "Cannot skip at offset {} ({}+{}) after end of stream ({}).",
+                new_offset, self.offset, size, self.end
             )))
         }
     }
