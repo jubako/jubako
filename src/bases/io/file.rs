@@ -1,6 +1,7 @@
 use crate::bases::primitive::*;
 use crate::bases::*;
 use std::cell::RefCell;
+use std::cmp::min;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::rc::Rc;
@@ -125,7 +126,8 @@ impl Read for FileStream {
     fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
         let mut file = self.source.as_ref().borrow_mut();
         file.seek(SeekFrom::Start(self.offset.0))?;
-        match file.read(buf) {
+        let max_read_size = min(buf.len(), (self.end.0 - self.offset.0) as usize);
+        match file.read(&mut buf[..max_read_size]) {
             Ok(s) => {
                 self.offset += s;
                 Ok(s)
