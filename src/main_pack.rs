@@ -79,6 +79,7 @@ pub struct MainPack {
     directory_pack_info: PackInfo,
     pack_infos: Vec<PackInfo>,
     check_info: OnceCell<CheckInfo>,
+    max_id: u8,
 }
 
 impl MainPack {
@@ -99,6 +100,7 @@ impl MainPack {
             directory_pack_info,
             pack_infos,
             check_info: OnceCell::new(),
+            max_id,
         })
     }
 }
@@ -106,6 +108,9 @@ impl MainPack {
 impl MainPack {
     pub fn pack_count(&self) -> u8 {
         self.header.pack_count.0
+    }
+    pub fn max_id(&self) -> u8 {
+        self.max_id
     }
 
     fn get_check_info<'b>(&'b self) -> Result<&'b CheckInfo> {
