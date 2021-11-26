@@ -33,6 +33,7 @@ impl Producable for IndexHeader {
     }
 }
 
+#[derive(Debug)]
 pub struct Index {
     header: IndexHeader,
     store: Box<IndexStore>,

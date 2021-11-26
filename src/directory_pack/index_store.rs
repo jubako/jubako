@@ -25,6 +25,7 @@ impl Producable for StoreKind {
     }
 }
 
+#[derive(Debug)]
 pub enum IndexStore {
     Plain(PlainStore),
 }
@@ -48,6 +49,7 @@ impl IndexStore {
     }
 }
 
+#[derive(Debug)]
 pub struct PlainStore {
     pub entry_def: EntryDef,
     pub entry_reader: Box<dyn Reader>,

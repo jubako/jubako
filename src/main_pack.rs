@@ -11,7 +11,7 @@ use uuid::Uuid;
 struct MainPackHeader {
     pack_header: PackHeader,
     pack_count: Count<u8>,
-    free_data: FreeData<typenum::U15>,
+    free_data: FreeData<typenum::U63>,
 }
 
 impl Producable for MainPackHeader {
@@ -226,7 +226,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
             0x02, // pack_count
         ];
-        content.extend_from_slice(&[0xff; 15]);
+        content.extend_from_slice(&[0xff; 63]);
         let reader = BufReader::new(content, End::None);
         let mut stream = reader.create_stream_all();
         assert_eq!(
@@ -245,7 +245,7 @@ mod tests {
                     check_info_pos: Offset::from(0xffee_u64),
                 },
                 pack_count: Count(2),
-                free_data: FreeData::clone_from_slice(&[0xff; 15])
+                free_data: FreeData::clone_from_slice(&[0xff; 63])
             }
         );
     }
@@ -269,7 +269,7 @@ mod tests {
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
                 0x02, // pack_count
             ]);
-            content.extend_from_slice(&[0xff; 15]);
+            content.extend_from_slice(&[0xff; 63]);
             // First packInfo (directory pack)
             content.extend_from_slice(&[
                 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d,

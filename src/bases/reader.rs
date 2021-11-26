@@ -1,5 +1,6 @@
 use super::stream::*;
 use super::types::*;
+use std::fmt;
 
 /// A Reader is the main trait containing stuff from "raw data".
 /// A Reader may have a size.
@@ -35,4 +36,10 @@ pub trait Reader {
     fn read_i32(&self, offset: Offset) -> Result<i32>;
     fn read_i64(&self, offset: Offset) -> Result<i64>;
     fn read_isized(&self, offset: Offset, size: usize) -> Result<i64>;
+}
+
+impl fmt::Debug for Box<dyn Reader> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("Reader size {}", self.size()))
+    }
 }
