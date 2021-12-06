@@ -5,6 +5,7 @@ use crate::pack::*;
 use generic_array::typenum;
 use std::cmp;
 use std::io::{repeat, Read};
+use typenum::Unsigned;
 use uuid::Uuid;
 
 #[derive(Debug, PartialEq)]
@@ -12,6 +13,11 @@ struct MainPackHeader {
     pack_header: PackHeader,
     pack_count: Count<u8>,
     free_data: FreeData<typenum::U63>,
+}
+
+impl SizedProducable for MainPackHeader {
+    // PackHeader::Size (64) + Count<u8>::Size (1) + FreeData (63)
+    type Size = typenum::U128;
 }
 
 impl Producable for MainPackHeader {
@@ -45,6 +51,10 @@ pub struct PackInfo {
     pub pack_size: Size,
     pub pack_check_info: Offset,
     pub pack_pos: PackPos,
+}
+
+impl SizedProducable for PackInfo {
+    type Size = typenum::U256;
 }
 
 impl Producable for PackInfo {
@@ -148,7 +158,8 @@ struct CheckStream<'a> {
 
 impl<'a> CheckStream<'a> {
     pub fn new(source: &'a mut dyn Stream, pack_count: Count<u8>) -> Self {
-        let start_safe_zone = 128 + 256 * (pack_count.0 as u64);
+        let start_safe_zone =
+            <MainPackHeader as SizedProducable>::Size::U64 + 256 * (pack_count.0 as u64);
         Self {
             source,
             start_safe_zone,
@@ -156,25 +167,29 @@ impl<'a> CheckStream<'a> {
     }
 }
 
+const HEADER_SIZE: u64 = <MainPackHeader as SizedProducable>::Size::U64;
+const PACK_INFO_SIZE: u64 = <PackInfo as SizedProducable>::Size::U64;
+const PACK_INFO_TO_CHECK: u64 = 144;
+
 impl Read for CheckStream<'_> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         // Data we don't want to check are positionned between
         // 128 + k*256 + 144  and 128 + k*256 + 144 + 112
         // => between  (208 + k*256) and (320+ k*256)
         // for k < pack_count
-        let offset = self.source.tell().0 as u64;
-        if offset < 128 {
-            let size = cmp::min(buf.len(), (128 - offset) as usize);
+        let offset = self.source.tell().0;
+        if offset < HEADER_SIZE {
+            let size = cmp::min(buf.len(), (HEADER_SIZE - offset) as usize);
             self.source.read(&mut buf[..size])
         } else if offset >= self.start_safe_zone {
             self.source.read(buf)
         } else {
-            let local_offset = ((offset - 128) % 256) as usize;
-            if local_offset < 144 {
-                let size = cmp::min(buf.len(), 144 - local_offset);
+            let local_offset = (offset - HEADER_SIZE) % PACK_INFO_SIZE;
+            if local_offset < PACK_INFO_TO_CHECK {
+                let size = cmp::min(buf.len(), (PACK_INFO_TO_CHECK - local_offset) as usize);
                 self.source.read(&mut buf[..size])
             } else {
-                let size = cmp::min(buf.len(), 256 - local_offset);
+                let size = cmp::min(buf.len(), (PACK_INFO_SIZE - local_offset) as usize);
                 let size = repeat(0).read(&mut buf[..size])?;
                 self.source.skip(Size::from(size)).unwrap();
                 Ok(size)
