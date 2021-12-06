@@ -57,7 +57,7 @@ impl Producable for blake3::Hash {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct CheckInfo {
     b3hash: Option<blake3::Hash>,
 }

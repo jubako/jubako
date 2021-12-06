@@ -1,6 +1,7 @@
 ///! All base traits use to produce structure from raw data.
 use crate::bases::*;
 use primitive::*;
+use std::fmt;
 use std::io::Read;
 
 /// A stream is a object streaming a reader and producing data.
@@ -54,4 +55,15 @@ pub trait Producable {
     fn produce(stream: &mut dyn Stream) -> Result<Self::Output>
     where
         Self::Output: Sized;
+}
+
+impl fmt::Debug for Box<dyn Stream> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!(
+            "Stream{{Size:{}, Pos:{}, GlobalPos:{} }}",
+            self.size(),
+            self.tell(),
+            self.global_offset()
+        ))
+    }
 }
