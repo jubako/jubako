@@ -92,7 +92,7 @@ impl MainPack {
         let directory_pack_info = PackInfo::produce(stream.as_mut())?;
         let mut pack_infos: Vec<PackInfo> = Vec::with_capacity(header.pack_count.0 as usize);
         let mut max_id = 0;
-        for _i in 0..header.pack_count.0 as u64 {
+        for _i in 0..(header.pack_count.0) {
             let pack_info = PackInfo::produce(stream.as_mut())?;
             max_id = cmp::max(max_id, pack_info.pack_id);
             pack_infos.push(pack_info);
@@ -148,7 +148,7 @@ struct CheckStream<'a> {
 
 impl<'a> CheckStream<'a> {
     pub fn new(source: &'a mut dyn Stream, pack_count: Count<u8>) -> Self {
-        let start_safe_zone = 64 + 256 * (pack_count.0 as u64 + 1);
+        let start_safe_zone = 128 + 256 * (pack_count.0 as u64);
         Self {
             source,
             start_safe_zone,
@@ -159,22 +159,22 @@ impl<'a> CheckStream<'a> {
 impl Read for CheckStream<'_> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         // Data we don't want to check are positionned between
-        // 64 + k*256 + 144  and 64 + k*256 + 144 + 112
+        // 128 + k*256 + 144  and 128 + k*256 + 144 + 112
         // => between  (208 + k*256) and (320+ k*256)
         // for k < pack_count
         let offset = self.source.tell().0 as u64;
-        if offset < 64 {
-            let size = cmp::min(buf.len(), (64 - offset) as usize);
+        if offset < 128 {
+            let size = cmp::min(buf.len(), (128 - offset) as usize);
             self.source.read(&mut buf[..size])
         } else if offset >= self.start_safe_zone {
             self.source.read(buf)
         } else {
-            let local_offset = ((offset - 64) % 256) as usize;
+            let local_offset = ((offset - 128) % 256) as usize;
             if local_offset < 144 {
                 let size = cmp::min(buf.len(), 144 - local_offset);
                 self.source.read(&mut buf[..size])
             } else {
-                let size = cmp::min(buf.len(), local_offset - 144);
+                let size = cmp::min(buf.len(), 256 - local_offset);
                 let size = repeat(0).read(&mut buf[..size])?;
                 self.source.skip(Size::from(size)).unwrap();
                 Ok(size)
@@ -204,10 +204,19 @@ impl Pack for MainPack {
     }
     fn check(&self) -> Result<bool> {
         let check_info = self.get_check_info()?;
+        {
+            let mut check_stream = self
+                .reader
+                .create_stream_to(End::Offset(self.header.pack_header.check_info_pos));
+            let mut check_stream =
+                CheckStream::new(check_stream.as_mut(), self.header.pack_count + 1);
+            let mut v = vec![];
+            check_stream.read_to_end(&mut v)?;
+        }
         let mut check_stream = self
             .reader
             .create_stream_to(End::Offset(self.header.pack_header.check_info_pos));
-        let mut check_stream = CheckStream::new(check_stream.as_mut(), self.header.pack_count);
+        let mut check_stream = CheckStream::new(check_stream.as_mut(), self.header.pack_count + 1);
         check_info.check(&mut check_stream as &mut dyn Read)
     }
 }
@@ -272,7 +281,7 @@ mod tests {
                 0x0e, 0x0f, // uuid
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x71, // file_size
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x50, // check_info_pos
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x80, // check_info_pos
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
                 0x02, // pack_count

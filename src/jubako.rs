@@ -4,6 +4,7 @@ use crate::bases::*;
 use crate::content_pack::ContentPack;
 use crate::directory_pack::DirectoryPack;
 use crate::main_pack::{MainPack, PackInfo, PackPos};
+use crate::pack::Pack;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
@@ -22,7 +23,7 @@ impl Container {
         let reader = FileReader::new(file, End::None);
         let main_pack = MainPack::new(reader.create_sub_reader(Offset(0), End::None))?;
         let mut packs = Vec::new();
-        packs.resize_with(main_pack.max_id() as usize, Default::default);
+        packs.resize_with((main_pack.max_id() + 1) as usize, Default::default);
         Ok(Self {
             path,
             main_pack,
@@ -54,11 +55,8 @@ impl Container {
     }
 
     fn _get_directory_pack(&self) -> Result<DirectoryPack> {
-        println!("1");
         let pack_info = self.main_pack.get_directory_pack_info();
-        println!("2 {:?}", pack_info);
         let pack_reader = self._get_pack_reader(pack_info)?;
-        println!("3");
         DirectoryPack::new(pack_reader)
     }
 
@@ -76,5 +74,9 @@ impl Container {
                 )))
             }
         }
+    }
+
+    pub fn check(&self) -> Result<bool> {
+        self.main_pack.check()
     }
 }

@@ -253,7 +253,7 @@ test_suite! {
 
     use jubako;
     use std::fs::OpenOptions;
-    use std::io::{Write, Seek, SeekFrom, Result};
+    use std::io::{Write, Seek, SeekFrom, Result, Read};
     use std::io;
     use crate::{Entry, Cluster, KeyStore, IndexStore, Index, PackInfo, CheckInfo};
     use uuid::Uuid;
@@ -280,11 +280,12 @@ test_suite! {
         }
     }
 
-    fn contentPack(compression: jubako::CompressionType, entries:&Vec<Entry>) -> Result<PackInfo> {
+    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<Entry>) -> Result<PackInfo> {
         let mut file = OpenOptions::new()
                         .read(true)
                         .write(true)
                         .create(true)
+                        .truncate(true)
                         .open("/tmp/contentPack.jbkc")?;
         file.write_all(&[
             0x6a, 0x62, 0x6b, 0x63,
@@ -336,11 +337,12 @@ test_suite! {
         })
     }
 
-    fn directoryPack(entries: &Vec<Entry>) -> Result<PackInfo> {
+    fn create_directory_pack(entries: &Vec<Entry>) -> Result<PackInfo> {
         let mut file = OpenOptions::new()
                         .read(true)
                         .write(true)
                         .create(true)
+                        .truncate(true)
                         .open("/tmp/directoryPack.jbkd")?;
         file.write_all(&[
             0x6a, 0x62, 0x6b, 0x64,
@@ -417,19 +419,20 @@ test_suite! {
         })
     }
 
-    fn mainPack(directoryPack: PackInfo, contentPack:PackInfo) -> Result<String> {
+    fn create_main_pack(directory_pack: PackInfo, content_pack:PackInfo) -> Result<String> {
         let uuid = Uuid::new_v4();
         let mut file_size:u64 = 128 + 2*256;
         let directory_check_info_pos = file_size;
-        file_size += directoryPack.get_check_size();
+        file_size += directory_pack.get_check_size();
         let content_check_info_pos = file_size;
-        file_size += contentPack.get_check_size();
-        let checkInfo_pos = file_size;
+        file_size += content_pack.get_check_size();
+        let check_info_pos = file_size;
         file_size += 33;
         let mut file = OpenOptions::new()
                         .read(true)
                         .write(true)
                         .create(true)
+                        .truncate(true)
                         .open("/tmp/mainPack.jbkm")?;
         file.write_all(&[
             0x6a, 0x62, 0x6b, 0x6d,
@@ -439,20 +442,29 @@ test_suite! {
         file.write_all(uuid.as_bytes())?;
         file.write_all(&[0x00;6])?; // padding
         file.write_all(&file_size.to_be_bytes())?;
-        file.write_all(&checkInfo_pos.to_be_bytes())?;
+        file.write_all(&check_info_pos.to_be_bytes())?;
         file.write_all(&[0x00;16])?; // reserved
-        file.write_all(&[0x02])?;
+        file.write_all(&[0x01])?; // number of contentpack
         file.write_all(&[0xff;63])?; // free_data
 
-
-        file.write_all(&directoryPack.bytes(directory_check_info_pos))?;
-        file.write_all(&contentPack.bytes(content_check_info_pos))?;
-        file.write_all(&directoryPack.check_info.bytes())?;
-        file.write_all(&contentPack.check_info.bytes())?;
+        file.write_all(&directory_pack.bytes(directory_check_info_pos))?;
+        file.write_all(&content_pack.bytes(content_check_info_pos))?;
+        assert_eq!(directory_check_info_pos, file.seek(SeekFrom::End(0))?);
+        file.write_all(&directory_pack.check_info.bytes())?;
+        file.write_all(&content_pack.check_info.bytes())?;
 
         file.seek(SeekFrom::Start(0))?;
         let mut hasher = blake3::Hasher::new();
-        io::copy(&mut file, &mut hasher)?;
+        let mut buf = [0u8;256];
+        file.read_exact(&mut buf[..128])?;
+        hasher.write_all(&buf[..128])?; //check start
+        for _i in 0..2 {
+            file.read_exact(&mut buf[..144])?;
+            hasher.write_all(&buf[..144])?; //check beggining of pack
+            io::copy(&mut io::repeat(0).take(112), &mut hasher)?; // fill with 0 the path
+            file.seek(SeekFrom::Current(112))?;
+        }
+        io::copy(&mut file, &mut hasher)?; // finish
         let hash = hasher.finalize();
         file.write_all(&[0x01])?;
         file.write_all(hash.as_bytes())?;
@@ -461,16 +473,16 @@ test_suite! {
 
 
 
-    test test_contentPack(compression, articles) {
-        let content_info = contentPack(compression.val, &articles.val).unwrap();
-        let directory_info = directoryPack(&articles.val).unwrap();
-        let main_path = mainPack(directory_info, content_info).unwrap();
+    test test_content_pack(compression, articles) {
+        let content_info = create_content_pack(compression.val, &articles.val).unwrap();
+        let directory_info = create_directory_pack(&articles.val).unwrap();
+        let main_path = create_main_pack(directory_info, content_info).unwrap();
         let container = jubako::Container::new(main_path).unwrap();
-        assert_eq!(container.pack_count(), 2);
+        assert_eq!(container.pack_count(), 1);
+        assert!(container.check().unwrap());
 
         let directory_pack = container.get_directory_pack().unwrap();
         let index = directory_pack.get_index(jubako::Idx(0)).unwrap();
-        println!("{:?}", index);
         assert_eq!(index.entry_count().0, articles.val.len() as u32);
         for i in 0..index.entry_count().0 {
             let entry = index.get_entry(jubako::Idx(i)).unwrap();
@@ -499,15 +511,9 @@ test_suite! {
                     ));
                 let pack = container.get_pack(1.into()).unwrap();
                 let reader = pack.get_content(i.into()).unwrap();
-                println!("reader size is : {}", reader.size());
                 let mut stream = reader.create_stream_all();
-                println!("stream size is : {}", stream.size());
                 let mut read_content: String = "".to_string();
                 stream.read_to_string(&mut read_content).unwrap();
-                /*let mut read_content = vec!();
-                stream.read_to_end(&mut read_content).unwrap();
-                println!("{:?}", read_content);
-                assert_eq!(read_content, articles.val[i as usize].content.as_bytes());*/
                 assert_eq!(read_content, articles.val[i as usize].content);
             } else {
               panic!();

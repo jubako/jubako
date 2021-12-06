@@ -256,6 +256,16 @@ impl<T> From<T> for Count<T> {
     }
 }
 
+impl<T> Add<T> for Count<T>
+where
+    T: std::ops::Add<Output = T>,
+{
+    type Output = Self;
+    fn add(self, other: T) -> Self {
+        Count(self.0 + other)
+    }
+}
+
 impl<T> fmt::Display for Count<T>
 where
     T: std::fmt::Display,
