@@ -40,10 +40,14 @@ enum CheckKind {
 impl Producable for CheckKind {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        match stream.read_u8()? {
+        let kind = stream.read_u8()?;
+        match kind {
             0_u8 => Ok(CheckKind::None),
             1_u8 => Ok(CheckKind::Blake3),
-            _ => Err(format_error!("Invalid check kind", stream)),
+            _ => Err(format_error!(
+                &format!("Invalid check kind {}", kind),
+                stream
+            )),
         }
     }
 }
