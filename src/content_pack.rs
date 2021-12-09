@@ -3,22 +3,53 @@ mod cluster;
 use crate::bases::*;
 use crate::pack::*;
 use cluster::Cluster;
-use generic_array::typenum;
+use generic_array::typenum::{U4, U40};
 use std::cell::Cell;
 use std::fmt::Debug;
 use std::io::Read;
 use uuid::Uuid;
 
-pub use cluster::CompressionType;
+pub use cluster::{CompressionType, ClusterHeader};
 
 #[derive(Debug, PartialEq)]
-struct ContentPackHeader {
-    pack_header: PackHeader,
+pub struct ContentPackHeader {
+    pub pack_header: PackHeader,
     entry_ptr_pos: Offset,
     cluster_ptr_pos: Offset,
     entry_count: Count<u32>,
     cluster_count: Count<u32>,
-    free_data: FreeData<typenum::U40>,
+    free_data: FreeData<U40>,
+}
+
+impl ContentPackHeader {
+    pub fn new(
+        app_vendor_id: u32,
+        free_data: FreeData<U40>,
+        cluster_ptr_pos: Offset,
+        cluster_count: Count<u32>,
+        entry_ptr_pos: Offset,
+        entry_count: Count<u32>,
+        check_info_pos: Offset,
+        file_size: Size,
+    ) -> Self {
+        let pack_header = PackHeader {
+            magic: PackKind::Content,
+            app_vendor_id,
+            major_version: 0,
+            minor_version: 0,
+            uuid: uuid::Uuid::new_v4(),
+            file_size,
+            check_info_pos,
+        };
+        Self {
+            pack_header,
+            entry_ptr_pos,
+            cluster_ptr_pos,
+            entry_count,
+            cluster_count,
+            free_data,
+        }
+    }
 }
 
 impl Producable for ContentPackHeader {
@@ -44,10 +75,31 @@ impl Producable for ContentPackHeader {
     }
 }
 
+impl Writable for ContentPackHeader {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        self.pack_header.write(stream)?;
+        self.entry_ptr_pos.write(stream)?;
+        self.cluster_ptr_pos.write(stream)?;
+        self.entry_count.write(stream)?;
+        self.cluster_count.write(stream)?;
+        self.free_data.write(stream)?;
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct EntryInfo {
     cluster_index: Idx<u32>,
     blob_index: Idx<u16>,
+}
+
+impl EntryInfo {
+    pub fn new(cluster_index: Idx<u32>, blob_index: Idx<u16>) -> Self {
+        Self {
+            cluster_index,
+            blob_index,
+        }
+    }
 }
 
 impl Producable for EntryInfo {
@@ -64,7 +116,14 @@ impl Producable for EntryInfo {
 }
 
 impl SizedProducable for EntryInfo {
-    type Size = typenum::U4;
+    type Size = U4;
+}
+
+impl Writable for EntryInfo {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        let data: u32 = (self.cluster_index.0 << 12) + (self.blob_index.0 & 0xFFF_u16) as u32;
+        stream.write_u32(data)
+    }
 }
 
 pub struct ContentPack {

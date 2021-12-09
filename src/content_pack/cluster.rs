@@ -26,11 +26,28 @@ impl Producable for CompressionType {
     }
 }
 
+impl Writable for CompressionType {
+    fn write(&self, out_stream: &mut dyn OutStream) -> IoResult<()> {
+        out_stream.write_u8(*self as u8)?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, PartialEq)]
-struct ClusterHeader {
+pub struct ClusterHeader {
     compression: CompressionType,
     offset_size: u8,
     blob_count: Count<u16>,
+}
+
+impl ClusterHeader {
+    pub fn new(compression:CompressionType, offset_size: u8, blob_count: Count<u16>) -> Self {
+        Self {
+            compression,
+            offset_size,
+            blob_count
+        }
+    }
 }
 
 impl Producable for ClusterHeader {
@@ -44,6 +61,15 @@ impl Producable for ClusterHeader {
             offset_size,
             blob_count,
         })
+    }
+}
+
+impl Writable for ClusterHeader {
+    fn write(&self, out_stream: &mut dyn OutStream) -> IoResult<()> {
+        self.compression.write(out_stream)?;
+        out_stream.write_u8(self.offset_size)?;
+        self.blob_count.write(out_stream)?;
+        Ok(())
     }
 }
 

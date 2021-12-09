@@ -112,6 +112,12 @@ impl SizedProducable for Offset {
     type Size = typenum::U8;
 }
 
+impl Writable for Offset {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        stream.write_u64(self.0)
+    }
+}
+
 impl From<Size> for Offset {
     fn from(v: Size) -> Offset {
         v.0.into()
@@ -186,6 +192,11 @@ impl Producable for Size {
 impl SizedProducable for Size {
     type Size = typenum::U8;
 }
+impl Writable for Size {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        stream.write_u64(self.0)
+    }
+}
 
 impl From<Offset> for Size {
     fn from(v: Offset) -> Size {
@@ -235,6 +246,13 @@ impl Producable for SizedOffset {
         let offset = Offset(data & 0xFF_FF_FF_FF_FF_FF_u64);
         let size = Size(data >> 48);
         Ok(Self::new(size, offset))
+    }
+}
+
+impl Writable for SizedOffset {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        let data: u64 = (self.size.0 << 48) + (self.offset.0 & 0xFF_FF_FF_FF_FF_FF_u64);
+        stream.write_u64(data)
     }
 }
 
@@ -315,6 +333,27 @@ impl SizedProducable for Count<u64> {
     type Size = typenum::U8;
 }
 
+impl Writable for Count<u8> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        stream.write_u8(self.0)
+    }
+}
+impl Writable for Count<u16> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        stream.write_u16(self.0)
+    }
+}
+impl Writable for Count<u32> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        stream.write_u32(self.0)
+    }
+}
+impl Writable for Count<u64> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        stream.write_u64(self.0)
+    }
+}
+
 /// A index of a object.
 /// All count object can be stored in a u32.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
@@ -383,6 +422,12 @@ impl<N: ArrayLength<u8>> Producable for FreeData<N> {
 }
 impl<N: ArrayLength<u8>> SizedProducable for FreeData<N> {
     type Size = N;
+}
+impl<N: ArrayLength<u8>> Writable for FreeData<N> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        stream.write_all(self.as_slice())?;
+        Ok(())
+    }
 }
 
 pub struct PString {}

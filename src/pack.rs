@@ -22,6 +22,16 @@ impl Producable for PackKind {
     }
 }
 
+impl Writable for PackKind {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        match self {
+            PackKind::Main => stream.write_u32(0x6a_62_6b_6d_u32),
+            PackKind::Directory => stream.write_u32(0x6a_62_6b_64_u32),
+            PackKind::Content => stream.write_u32(0x6a_62_6b_63_u32),
+        }
+    }
+}
+
 impl Producable for Uuid {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
@@ -30,11 +40,17 @@ impl Producable for Uuid {
         Ok(Uuid::from_bytes(v))
     }
 }
+impl Writable for Uuid {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        stream.write_all(self.as_bytes())?;
+        Ok(())
+    }
+}
 
 #[derive(Clone, Copy)]
-enum CheckKind {
-    None,
-    Blake3,
+pub enum CheckKind {
+    None = 0,
+    Blake3 = 1,
 }
 
 impl Producable for CheckKind {
@@ -49,6 +65,13 @@ impl Producable for CheckKind {
                 stream
             )),
         }
+    }
+}
+
+impl Writable for CheckKind {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        stream.write_u8(*self as u8)?;
+        Ok(())
     }
 }
 
@@ -123,6 +146,21 @@ impl Producable for PackHeader {
             file_size,
             check_info_pos,
         })
+    }
+}
+
+impl Writable for PackHeader {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        self.magic.write(stream)?;
+        stream.write_u32(self.app_vendor_id)?;
+        stream.write_u8(self.major_version)?;
+        stream.write_u8(self.minor_version)?;
+        self.uuid.write(stream)?;
+        stream.write_all(&[0_u8; 6])?;
+        self.file_size.write(stream)?;
+        self.check_info_pos.write(stream)?;
+        stream.write_all(&[0_u8; 16])?;
+        Ok(())
     }
 }
 

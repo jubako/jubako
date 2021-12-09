@@ -1,21 +1,23 @@
 use std::mem::size_of;
+use std::mem::size_of_val;
 use std::ptr::copy_nonoverlapping;
-//use std::mem::{size_of, size_of_val};
 
-/*
 macro_rules! write_num_bytes {
-    ($size:expr, $n:expr, $dst:expr) => ({
+    ($size:expr, $n:expr, $dst:expr) => {{
         assert!($size <= $dst.len());
+        let bytes = $n.to_be_bytes();
         unsafe {
             // N.B. https://github.com/rust-lang/rust/issues/22776
-            let bytes = $n.to_be_bytes();
             copy_nonoverlapping(
-                (&bytes).as_ptr().offset(size_of_val(&$n) as isize-($size as isize)),
+                (&bytes)
+                    .as_ptr()
+                    .offset(size_of_val(&$n) as isize - ($size as isize)),
                 $dst.as_mut_ptr(),
-                $size);
+                $size,
+            );
         }
-    });
-}*/
+    }};
+}
 
 macro_rules! read_num_bytes {
     ($size:expr, $buf:expr, $ty:ty) => {{
@@ -33,52 +35,26 @@ macro_rules! read_num_bytes {
     }};
 }
 
-/*
-pub fn write_u8(val: u8, out: &mut[u8;1])
-{
+pub fn write_u8(val: u8, out: &mut [u8; 1]) {
     out[0] = val;
 }
 
-pub fn write_u16(val: u16, out: &mut[u8;2])
-{
+pub fn write_u16(val: u16, out: &mut [u8; 2]) {
     write_num_bytes!(2, val, out);
 }
 
-pub fn write_u24(val: u32, out: &mut[u8;3])
-{
-    write_num_bytes!(3, val, out);
-}
-
-pub fn write_u32(val: u32, out: &mut[u8;4])
-{
+pub fn write_u32(val: u32, out: &mut [u8; 4]) {
     write_num_bytes!(4, val, out);
 }
 
-pub fn write_u40(val: u64, out: &mut[u8;5])
-{
-    write_num_bytes!(5, val, out);
-}
-
-pub fn write_u48(val: u64, out: &mut[u8;6])
-{
-    write_num_bytes!(6, val, out);
-}
-
-pub fn write_u56(val: u64, out: &mut[u8;7])
-{
-    write_num_bytes!(7, val, out);
-}
-
-pub fn write_u64(val: u64, out: &mut[u8;8])
-{
+pub fn write_u64(val: u64, out: &mut [u8; 8]) {
     write_num_bytes!(8, val, out);
 }
 
-pub fn write_from_u64(val: u64, size:usize, out:&mut[u8])
-{
+pub fn write_from_u64(val: u64, size: usize, out: &mut [u8]) {
     assert!(size <= 8);
     write_num_bytes!(size, val, out);
-}*/
+}
 
 pub fn read_u8(buf: &[u8]) -> u8 {
     assert!(!buf.is_empty());
@@ -89,33 +65,10 @@ pub fn read_u16(buf: &[u8]) -> u16 {
     read_num_bytes!(2, buf, u16)
 }
 
-/*
-pub fn read_u24(buf: &[u8]) -> u32
-{
-    read_num_bytes!(3, buf, u32)
-}
-*/
-
 pub fn read_u32(buf: &[u8]) -> u32 {
     read_num_bytes!(4, buf, u32)
 }
 
-/*
-pub fn read_u40(buf: &[u8]) -> u64
-{
-    read_num_bytes!(5, buf, u64)
-}
-
-pub fn read_u48(buf: &[u8]) -> u64
-{
-    read_num_bytes!(6, buf, u64)
-}
-
-pub fn read_u56(buf: &[u8]) -> u64
-{
-    read_num_bytes!(7, buf, u64)
-}
-*/
 pub fn read_u64(buf: &[u8]) -> u64 {
     read_num_bytes!(8, buf, u64)
 }
@@ -216,6 +169,68 @@ mod tests {
     #[test_case(8 => 0x0123456789abcdef_u64)]
     fn read_to_u64_test(size: usize) -> u64 {
         read_to_u64(size, &[0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef])
+    }
+
+    #[test_case(1_u8 => [0x01])]
+    #[test_case(255_u8 => [0xff])]
+    #[test_case(128_u8 => [0x80])]
+    fn write_u8_tests(input: u8) -> [u8;1] {
+        let mut buf = [0;1];
+        write_u8(input, &mut buf);
+        buf
+    }
+
+
+    #[test_case(1_u16 => [0x00, 0x01])]
+    #[test_case(0x0100_u16 => [0x01, 0x00])]
+    #[test_case(255_u16 => [0x00, 0xff])]
+    #[test_case(128_u16 => [0x00, 0x80])]
+    #[test_case(0x8000_u16 => [0x80, 0x00])]
+    #[test_case(0xffff_u16 => [0xff, 0x0ff])]
+    fn write_u16_tests(input: u16) -> [u8;2] {
+        let mut buf = [0;2];
+        write_u16(input, &mut buf);
+        buf
+    }
+
+    #[test_case(0_u32 => [0x00, 0x00, 0x00, 0x00])]
+    #[test_case(1_u32 => [0x00, 0x00, 0x00, 0x01])]
+    #[test_case(255_u32 => [0x00, 0x00, 0x00, 0xff])]
+    #[test_case(128_u32 => [0x00, 0x00, 0x00, 0x80])]
+    #[test_case(0x8000_u32 => [0x00, 0x00, 0x80, 0x00])]
+    #[test_case(0x800000_u32 => [0x00, 0x80, 0x00, 0x00])]
+    #[test_case(0x80000000_u32 => [0x80, 0x00, 0x00, 0x00])]
+    #[test_case(0x12345678_u32 => [0x12, 0x34, 0x56, 0x78])]
+    #[test_case( 0xffffffff_u32 => [0xff, 0xff, 0xff, 0xff])]
+    fn write_u32_tests(input: u32) -> [u8;4] {
+        let mut buf = [0;4];
+        write_u32(input, &mut buf);
+        buf
+    }
+
+    #[test_case(0_u64 => [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])]
+    #[test_case(1_u64 => [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01])]
+    #[test_case(255_u64 => [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff])]
+    #[test_case(0xff00000000000000_u64 => [0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])]
+    #[test_case(0x0123456789abcdef_u64 => [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef])]
+    fn write_u64_test(input: u64) -> [u8;8] {
+        let mut buf = [0;8];
+        write_u64(input, &mut buf);
+        buf
+    }
+
+    #[test_case(1 => [0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])]
+    #[test_case(2 => [0xcd, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])]
+    #[test_case(3 => [0xab, 0xcd, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00])]
+    #[test_case(4 => [0x89, 0xab, 0xcd, 0xef, 0x00, 0x00, 0x00, 0x00])]
+    #[test_case(5 => [0x67, 0x89, 0xab, 0xcd, 0xef, 0x00, 0x00, 0x00])]
+    #[test_case(6 => [0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x00, 0x00])]
+    #[test_case(7 => [0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x00])]
+    #[test_case(8 => [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef])]
+    fn write_from_u64_test(size: usize) -> [u8;8] {
+        let mut buf = [0;8];
+        write_from_u64(0x0123456789abcdef_u64, size, &mut buf);
+        buf
     }
 
     #[test_case(&[0x00] => 0_i8; "0_i8")]

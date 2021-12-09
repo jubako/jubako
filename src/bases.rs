@@ -4,6 +4,7 @@ mod io;
 pub mod primitive;
 mod reader;
 mod stream;
+mod write;
 
 pub use io::*;
 pub use reader::*;
@@ -11,6 +12,7 @@ use std::marker::PhantomData;
 pub use stream::*;
 use typenum::Unsigned;
 pub use types::*;
+pub use write::*;
 
 pub trait SizedProducable: Producable {
     type Size;
