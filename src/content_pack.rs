@@ -9,7 +9,7 @@ use std::fmt::Debug;
 use std::io::Read;
 use uuid::Uuid;
 
-pub use cluster::{CompressionType, ClusterHeader};
+pub use cluster::{ClusterHeader, CompressionType};
 
 #[derive(Debug, PartialEq)]
 pub struct ContentPackHeader {

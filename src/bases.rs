@@ -62,3 +62,15 @@ where
         OutType::produce(stream.as_mut()).unwrap()
     }
 }
+
+pub fn needed_bytes<T>(mut val: T) -> usize
+where
+    T: std::cmp::PartialOrd + std::ops::Shr<Output = T> + From<u8>,
+{
+    let mut nb_bytes = 0_usize;
+    while val > 0.into() {
+        val = val >> 8.into();
+        nb_bytes += 1;
+    }
+    nb_bytes
+}

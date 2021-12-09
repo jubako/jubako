@@ -41,11 +41,11 @@ pub struct ClusterHeader {
 }
 
 impl ClusterHeader {
-    pub fn new(compression:CompressionType, offset_size: u8, blob_count: Count<u16>) -> Self {
+    pub fn new(compression: CompressionType, offset_size: u8, blob_count: Count<u16>) -> Self {
         Self {
             compression,
             offset_size,
-            blob_count
+            blob_count,
         }
     }
 }

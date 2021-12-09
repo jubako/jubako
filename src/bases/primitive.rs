@@ -174,12 +174,11 @@ mod tests {
     #[test_case(1_u8 => [0x01])]
     #[test_case(255_u8 => [0xff])]
     #[test_case(128_u8 => [0x80])]
-    fn write_u8_tests(input: u8) -> [u8;1] {
-        let mut buf = [0;1];
+    fn write_u8_tests(input: u8) -> [u8; 1] {
+        let mut buf = [0; 1];
         write_u8(input, &mut buf);
         buf
     }
-
 
     #[test_case(1_u16 => [0x00, 0x01])]
     #[test_case(0x0100_u16 => [0x01, 0x00])]
@@ -187,8 +186,8 @@ mod tests {
     #[test_case(128_u16 => [0x00, 0x80])]
     #[test_case(0x8000_u16 => [0x80, 0x00])]
     #[test_case(0xffff_u16 => [0xff, 0x0ff])]
-    fn write_u16_tests(input: u16) -> [u8;2] {
-        let mut buf = [0;2];
+    fn write_u16_tests(input: u16) -> [u8; 2] {
+        let mut buf = [0; 2];
         write_u16(input, &mut buf);
         buf
     }
@@ -202,8 +201,8 @@ mod tests {
     #[test_case(0x80000000_u32 => [0x80, 0x00, 0x00, 0x00])]
     #[test_case(0x12345678_u32 => [0x12, 0x34, 0x56, 0x78])]
     #[test_case( 0xffffffff_u32 => [0xff, 0xff, 0xff, 0xff])]
-    fn write_u32_tests(input: u32) -> [u8;4] {
-        let mut buf = [0;4];
+    fn write_u32_tests(input: u32) -> [u8; 4] {
+        let mut buf = [0; 4];
         write_u32(input, &mut buf);
         buf
     }
@@ -213,8 +212,8 @@ mod tests {
     #[test_case(255_u64 => [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff])]
     #[test_case(0xff00000000000000_u64 => [0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])]
     #[test_case(0x0123456789abcdef_u64 => [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef])]
-    fn write_u64_test(input: u64) -> [u8;8] {
-        let mut buf = [0;8];
+    fn write_u64_test(input: u64) -> [u8; 8] {
+        let mut buf = [0; 8];
         write_u64(input, &mut buf);
         buf
     }
@@ -227,8 +226,8 @@ mod tests {
     #[test_case(6 => [0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x00, 0x00])]
     #[test_case(7 => [0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x00])]
     #[test_case(8 => [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef])]
-    fn write_from_u64_test(size: usize) -> [u8;8] {
-        let mut buf = [0;8];
+    fn write_from_u64_test(size: usize) -> [u8; 8] {
+        let mut buf = [0; 8];
         write_from_u64(0x0123456789abcdef_u64, size, &mut buf);
         buf
     }

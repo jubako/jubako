@@ -1,0 +1,440 @@
+use galvanic_test::test_suite;
+
+struct Entry {
+    path: String,
+    content: String,
+    word_count: u16,
+}
+
+struct KeyStore {
+    data: Vec<Vec<u8>>,
+    entries_offset: Vec<usize>,
+    tail_size: Option<u16>,
+}
+
+impl KeyStore {
+    pub fn new(entries: &Vec<Entry>) -> Self {
+        let mut data: Vec<Vec<u8>> = vec![];
+        let mut entries_offset = vec![];
+        let mut current_offset = 0;
+        for entry in entries {
+            data.push(entry.path.as_bytes().to_vec());
+            current_offset += entry.path.as_bytes().len();
+            entries_offset.push(current_offset);
+        }
+        KeyStore {
+            data,
+            entries_offset,
+            tail_size: None,
+        }
+    }
+
+    pub fn data_bytes(&self) -> Vec<u8> {
+        let mut data = vec![];
+        for content in &self.data {
+            data.extend(content);
+        }
+        data
+    }
+
+    pub fn tail_bytes(&mut self) -> Vec<u8> {
+        let mut data = vec![];
+        data.push(0x01); // kind
+        data.extend((self.entries_offset.len() as u64).to_be_bytes()); // key count
+        data.push(0x08); // offset size [TODO] Use a better size
+        data.extend((self.entries_offset[self.entries_offset.len() - 1] as u64).to_be_bytes()); //data size
+        for offset in &self.entries_offset[..(self.entries_offset.len() - 1)] {
+            data.extend((*offset as u64).to_be_bytes());
+        }
+        self.tail_size = Some(data.len() as u16);
+        data
+    }
+
+    pub fn tail_size(&self) -> u16 {
+        self.tail_size.unwrap()
+    }
+}
+
+struct IndexStore {
+    data: Vec<u8>,
+    tail_size: Option<u16>,
+}
+
+impl IndexStore {
+    pub fn new(entries: &Vec<Entry>) -> Self {
+        let mut data: Vec<u8> = vec![];
+        let mut idx: u8 = 0;
+        for entry in entries {
+            // We are creating entry data.
+            // Each entry has 3 keys :
+            // - The path : A 0Array/PString
+            // - The content : a content address
+            // - The words counts : a u16
+            data.extend(&[idx].to_vec());
+            data.extend(&(idx as u32).to_be_bytes().to_vec());
+            data.extend(&entry.word_count.to_be_bytes().to_vec());
+            idx += 1;
+        }
+        IndexStore {
+            data,
+            tail_size: None,
+        }
+    }
+
+    pub fn data_bytes(&self) -> &Vec<u8> {
+        &self.data
+    }
+
+    pub fn tail_bytes(&mut self) -> Vec<u8> {
+        let mut data = vec![];
+        data.push(0x00); // kind
+        data.extend(7_u16.to_be_bytes()); // entry_size
+        data.push(0x01); // variant count
+        data.push(0x03); // key count
+        data.extend(&[0b0110_0000, 0x00]); // The first key, a PString(1) idx 0
+        data.extend(&[0b0001_0000]); // The second key, the content address
+        data.extend(&[0b0010_0001]); // The third key, the u16
+        data.extend((self.data.len() as u64).to_be_bytes()); //data size
+        self.tail_size = Some(data.len() as u16);
+        data
+    }
+
+    pub fn tail_size(&self) -> u16 {
+        self.tail_size.unwrap()
+    }
+}
+
+struct Index {
+    store_id: u32,
+    entry_count: u32,
+    index_key: u8,
+    index_name: String,
+    tail_size: Option<u16>,
+}
+
+impl Index {
+    pub fn new(entries: &Vec<Entry>) -> Self {
+        Index {
+            store_id: 0,
+            entry_count: entries.len() as u32,
+            index_key: 0,
+            index_name: "Super index".to_string(),
+            tail_size: None,
+        }
+    }
+
+    pub fn bytes(&mut self) -> Vec<u8> {
+        let mut data = vec![];
+        data.extend(self.store_id.to_be_bytes()); // store_id
+        data.extend(self.entry_count.to_be_bytes()); // entry_count
+        data.extend(0_u32.to_be_bytes()); // entry_offset
+        data.extend(0_u32.to_be_bytes()); // extra_data
+        data.extend(self.index_key.to_be_bytes()); // index_key
+        data.push(self.index_name.len() as u8);
+        data.extend(self.index_name.bytes()); // The third key, the u16
+        self.tail_size = Some(data.len() as u16);
+        data
+    }
+
+    pub fn tail_size(&self) -> u16 {
+        self.tail_size.unwrap()
+    }
+}
+
+struct CheckInfo {
+    kind: u8,
+    data: Vec<u8>,
+}
+
+impl CheckInfo {
+    pub fn bytes(&self) -> Vec<u8> {
+        let mut data = vec![];
+        data.push(self.kind);
+        data.extend(&self.data);
+        data
+    }
+
+    pub fn size(&self) -> u64 {
+        (self.data.len() as u64) + 1
+    }
+}
+
+struct PackInfo {
+    uuid: uuid::Uuid,
+    pack_id: u8,
+    pack_size: u64,
+    pack_path: String,
+    check_info: CheckInfo,
+}
+
+impl PackInfo {
+    pub fn bytes(&self, check_info_pos: u64) -> Vec<u8> {
+        let mut data = vec![];
+        data.extend(self.uuid.as_bytes());
+        data.push(self.pack_id);
+        data.extend(&[0; 103]);
+        data.extend(self.pack_size.to_be_bytes());
+        data.extend(check_info_pos.to_be_bytes());
+        data.extend(&[0; 8]); // offest
+        let path_data = self.pack_path.as_bytes();
+        data.extend((path_data.len() as u8).to_be_bytes());
+        data.extend(path_data);
+        data.extend(vec![0; 256 - data.len()]);
+        data
+    }
+
+    pub fn get_check_size(&self) -> u64 {
+        self.check_info.size()
+    }
+}
+
+test_suite! {
+    name basic_reading;
+
+    use jubako;
+    use jubako::Writable;
+    use std::fs::OpenOptions;
+    use std::io::{Write, Seek, SeekFrom, Result, Read};
+    use std::io;
+    use crate::{Entry, KeyStore, IndexStore, Index, PackInfo, CheckInfo};
+    use uuid::Uuid;
+    use typenum::U40;
+
+    fixture compression() -> jubako::CompressionType {
+        setup(&mut self) {
+            jubako::CompressionType::None
+        }
+    }
+
+    fixture articles() -> Vec<Entry> {
+        setup(&mut self) {
+            vec![
+                Entry{
+                    path: "foo".to_string(),
+                    content: "foo".to_string(),
+                    word_count: 1},
+                Entry{
+                    path: "bar".to_string(),
+                    content: "foo bar".to_string(),
+                    word_count: 2
+                }
+            ]
+        }
+    }
+
+    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<Entry>) -> Result<jubako::PackInfo> {
+        let mut creator = jubako::ContentPackCreator::new(
+            "/tmp/contentPack.jbkc",
+            1,
+            1,
+            jubako::FreeData::<U40>::clone_from_slice(&[0xff; 40])
+        );
+        creator.start()?;
+        for entry in entries {
+            creator.add_content(entry.content.as_bytes())?;
+        }
+        let pack_info = creator.finalize()?;
+        Ok(pack_info)
+    }
+
+    fn create_directory_pack(entries: &Vec<Entry>) -> Result<PackInfo> {
+        let mut file = OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open("/tmp/directoryPack.jbkd")?;
+        file.write_all(&[
+            0x6a, 0x62, 0x6b, 0x64,
+            0x01, 0x00, 0x00, 0x00,
+            0x00, 0x00,
+        ])?;
+        let uuid = Uuid::new_v4();
+        file.write_all(uuid.as_bytes())?;
+        file.write_all(&[0x00;6])?; // padding
+        file.write_all(&[0x00;16])?; // file size and checksum pos, to be write after
+        file.write_all(&[0x00;16])?; // reserved
+        file.write_all(&[0x00;24])?; // index_ptr_offset, entry_store_ptr_offset, key_store_ptr_offset, to be write after
+        file.write_all(&1_u32.to_be_bytes())?; // index count
+        file.write_all(&1_u32.to_be_bytes())?; // entry_store count
+        file.write_all(&1_u8.to_be_bytes())?; // key_store counti
+        file.write_all(&[0xff;31])?; // free_data
+
+        let key_store_ptr_offset = {
+            let mut key_store = KeyStore::new(entries);
+            file.write_all(&key_store.data_bytes())?;
+            let key_store_offset = file.seek(SeekFrom::Current(0))?.to_be_bytes();
+            file.write_all(&key_store.tail_bytes())?;
+            let key_store_ptr_offset = file.seek(SeekFrom::Current(0))?;
+            file.write_all(&key_store.tail_size().to_be_bytes())?;
+            file.write_all(&key_store_offset[2..])?;
+            key_store_ptr_offset
+        };
+
+        let index_store_ptr_offset = {
+            let mut index_store = IndexStore::new(entries);
+            file.write_all(&index_store.data_bytes())?;
+            let index_store_offset = file.seek(SeekFrom::Current(0))?.to_be_bytes();
+            file.write_all(&index_store.tail_bytes())?;
+            let index_store_ptr_offset = file.seek(SeekFrom::Current(0))?;
+            file.write_all(&index_store.tail_size().to_be_bytes())?;
+            file.write_all(&index_store_offset[2..])?;
+            index_store_ptr_offset
+        };
+
+        let index_ptr_offset = {
+            let mut index = Index::new(entries);
+            let index_offset = file.seek(SeekFrom::Current(0))?.to_be_bytes();
+            file.write_all(&index.bytes())?;
+            let index_ptr_offset = file.seek(SeekFrom::Current(0))?;
+            file.write_all(&index.tail_size().to_be_bytes())?;
+            file.write_all(&index_offset[2..])?;
+            index_ptr_offset
+        };
+        let checksum_pos = file.seek(SeekFrom::End(0))?;
+        file.seek(SeekFrom::Start(32))?;
+        file.write_all(&(checksum_pos+33).to_be_bytes())?;
+        file.write_all(&checksum_pos.to_be_bytes())?;
+        file.seek(SeekFrom::Start(64))?;
+        file.write_all(&index_ptr_offset.to_be_bytes())?;
+        file.write_all(&index_store_ptr_offset.to_be_bytes())?;
+        file.write_all(&key_store_ptr_offset.to_be_bytes())?;
+
+        file.seek(SeekFrom::Start(0))?;
+        let mut hasher = blake3::Hasher::new();
+        io::copy(&mut file, &mut hasher)?;
+        let hash = hasher.finalize();
+        file.write_all(&[0x01])?;
+        file.write_all(hash.as_bytes())?;
+        let pack_size = file.seek(SeekFrom::End(0))?;
+        Ok(PackInfo{
+            check_info: CheckInfo {
+                kind: 1,
+                data: hash.as_bytes().to_vec(),
+            },
+            pack_path: "/tmp/directoryPack.jbkd".to_string(),
+            pack_size,
+            pack_id: 0,
+            uuid,
+        })
+    }
+
+    fn create_main_pack(directory_pack: PackInfo, content_pack:jubako::PackInfo) -> Result<String> {
+        let uuid = Uuid::new_v4();
+        let mut file_size:u64 = 128 + 2*256;
+        let directory_check_info_pos = file_size;
+        file_size += directory_pack.get_check_size();
+        let content_check_info_pos = file_size;
+        file_size += content_pack.get_check_size();
+        let check_info_pos = file_size;
+        file_size += 33;
+        let mut file = OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open("/tmp/mainPack.jbkm")?;
+        file.write_all(&[
+            0x6a, 0x62, 0x6b, 0x6d,
+            0x01, 0x00, 0x00, 0x00,
+            0x00, 0x00,
+        ])?;
+        file.write_all(uuid.as_bytes())?;
+        file.write_all(&[0x00;6])?; // padding
+        file.write_all(&file_size.to_be_bytes())?;
+        file.write_all(&check_info_pos.to_be_bytes())?;
+        file.write_all(&[0x00;16])?; // reserved
+        file.write_all(&[0x01])?; // number of contentpack
+        file.write_all(&[0xff;63])?; // free_data
+
+        file.write_all(&directory_pack.bytes(directory_check_info_pos))?;
+        file.write_all(&content_pack.bytes(content_check_info_pos))?;
+        assert_eq!(directory_check_info_pos, file.seek(SeekFrom::End(0))?);
+        file.write_all(&directory_pack.check_info.bytes())?;
+        content_pack.check_info.write(&mut file)?;
+
+        file.seek(SeekFrom::Start(0))?;
+        let mut hasher = blake3::Hasher::new();
+        let mut buf = [0u8;256];
+        file.read_exact(&mut buf[..128])?;
+        hasher.write_all(&buf[..128])?; //check start
+        for _i in 0..2 {
+            file.read_exact(&mut buf[..144])?;
+            hasher.write_all(&buf[..144])?; //check beggining of pack
+            io::copy(&mut io::repeat(0).take(112), &mut hasher)?; // fill with 0 the path
+            file.seek(SeekFrom::Current(112))?;
+        }
+        io::copy(&mut file, &mut hasher)?; // finish
+        let hash = hasher.finalize();
+        file.write_all(&[0x01])?;
+        file.write_all(hash.as_bytes())?;
+        Ok("/tmp/mainPack.jbkm".to_string())
+    }
+
+
+
+    test test_content_pack(compression, articles) {
+        let content_info = create_content_pack(compression.val, &articles.val).unwrap();
+        let directory_info = create_directory_pack(&articles.val).unwrap();
+        let main_path = create_main_pack(directory_info, content_info).unwrap();
+
+        let container = jubako::Container::new(main_path).unwrap();
+        assert_eq!(container.pack_count(), 1);
+        assert!(container.check().unwrap());
+        println!("Read directory pack");
+        let directory_pack = container.get_directory_pack().unwrap();
+        let index = directory_pack.get_index(jubako::Idx(0)).unwrap();
+        println!("Read index");
+        assert_eq!(index.entry_count().0, articles.val.len() as u32);
+        for i in 0..index.entry_count().0 {
+            println!("Check entry count {}", i);
+            let entry = index.get_entry(jubako::Idx(i)).unwrap();
+            assert_eq!(entry.get_variant_id(), 0);
+            println!("Check value 0");
+            let value_0 = entry.get_value(jubako::Idx(0)).unwrap();
+            if let jubako::Value::Array(array) = value_0 {
+                assert_eq!(
+                    array,
+                    &jubako::Array::new(
+                        vec!(),
+                        Some(jubako::Extend::new(jubako::Idx(0), i.into()))
+                    ));
+                let key_store = directory_pack.get_key_store(jubako::Idx(0)).unwrap();
+                let vec = array.resolve_to_vec(&key_store).unwrap();
+                assert_eq!(vec, articles.val[i as usize].path.as_bytes());
+            } else {
+              panic!();
+            }
+            println!("Check value 1");
+            let value_1 = entry.get_value(jubako::Idx(1)).unwrap();
+            if let jubako::Value::Content(content) = value_1 {
+                assert_eq!(
+                    content,
+                    &jubako::Content::new(
+                        jubako::ContentAddress{pack_id:0.into(), content_id:i.into()},
+                        None
+                    ));
+                println!("Get pack");
+                let pack = container.get_pack(1.into()).unwrap();
+                println!("Get reader");
+                let reader = pack.get_content(i.into()).unwrap();
+                println!("Readir is {:?}", reader);
+                let mut stream = reader.create_stream_all();
+                println!("Stream is {:?}", stream);
+                let mut read_content: String = "".to_string();
+                println!("Read from stream");
+                stream.read_to_string(&mut read_content).unwrap();
+                assert_eq!(read_content, articles.val[i as usize].content);
+            } else {
+              panic!();
+            }
+            println!("Check value 2");
+            let value_2= entry.get_value(jubako::Idx(2)).unwrap();
+            if let jubako::Value::U16(v) = value_2 {
+                assert_eq!(*v, articles.val[i as usize].word_count);
+            } else {
+              panic!();
+            }
+        }
+    }
+}

@@ -1,8 +1,8 @@
 use crate::bases::*;
 use primitive::*;
+use std::fs::File;
 pub use std::io::Result as IoResult;
 use std::io::{Seek, Write};
-use std::fs::File;
 
 /// A OutStream is a object on which we can write data.
 pub trait OutStream: Write + Seek {
@@ -39,7 +39,6 @@ pub trait OutStream: Write + Seek {
 pub trait Writable {
     fn write(&self, write: &mut dyn OutStream) -> IoResult<()>;
 }
-
 
 impl OutStream for File {
     fn tell(&mut self) -> Offset {
