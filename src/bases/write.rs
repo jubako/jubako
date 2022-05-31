@@ -37,7 +37,7 @@ pub trait OutStream: Write + Seek {
 
 /// A Writable is a object we can write on a `Write` trait.
 pub trait Writable {
-    fn write(&self, write: &mut dyn OutStream) -> IoResult<()>;
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()>;
 }
 
 impl OutStream for File {

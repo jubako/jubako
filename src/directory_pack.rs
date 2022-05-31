@@ -16,12 +16,14 @@ use generic_array::typenum;
 use std::cell::Cell;
 use std::fmt::Debug;
 use std::io::Read;
+use typenum::U31;
 use uuid::Uuid;
 
+pub use key_def::{KeyDef, KeyDefKind};
 pub use value::{Array, Content, Extend, Value};
 
 #[derive(Debug, PartialEq)]
-struct DirectoryPackHeader {
+pub struct DirectoryPackHeader {
     pack_header: PackHeader,
     entry_store_ptr_pos: Offset,
     key_store_ptr_pos: Offset,
@@ -29,7 +31,39 @@ struct DirectoryPackHeader {
     entry_store_count: Count<u32>,
     index_count: Count<u32>,
     key_store_count: Count<u8>,
-    free_data: FreeData<typenum::U31>,
+    free_data: FreeData<U31>,
+}
+
+impl DirectoryPackHeader {
+    pub fn new(
+        app_vendor_id: u32,
+        free_data: FreeData<U31>,
+        index_ptr_pos: Offset,
+        index_count: Count<u32>,
+        key_store_ptr_pos: Offset,
+        key_store_count: Count<u8>,
+        entry_store_ptr_pos: Offset,
+        entry_store_count: Count<u32>,
+        check_offset: Offset,
+        pack_size: Size,
+    ) -> Self {
+        let pack_header =
+            PackHeader::new(PackKind::Directory, app_vendor_id, pack_size, check_offset);
+        DirectoryPackHeader {
+            pack_header,
+            index_ptr_pos,
+            index_count,
+            key_store_ptr_pos,
+            key_store_count,
+            entry_store_ptr_pos,
+            entry_store_count,
+            free_data,
+        }
+    }
+
+    pub fn uuid(&self) -> Uuid {
+        self.pack_header.uuid
+    }
 }
 
 impl Producable for DirectoryPackHeader {
@@ -59,10 +93,33 @@ impl Producable for DirectoryPackHeader {
     }
 }
 
+impl Writable for DirectoryPackHeader {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        self.pack_header.write(stream)?;
+        self.index_ptr_pos.write(stream)?;
+        self.entry_store_ptr_pos.write(stream)?;
+        self.key_store_ptr_pos.write(stream)?;
+        self.index_count.write(stream)?;
+        self.entry_store_count.write(stream)?;
+        self.key_store_count.write(stream)?;
+        self.free_data.write(stream)?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ContentAddress {
     pub pack_id: Idx<u8>,
     pub content_id: Idx<u32>,
+}
+
+impl ContentAddress {
+    pub fn new(pack_id: Idx<u8>, content_id: Idx<u32>) -> Self {
+        Self {
+            pack_id,
+            content_id,
+        }
+    }
 }
 
 impl Producable for ContentAddress {
@@ -74,6 +131,14 @@ impl Producable for ContentAddress {
             pack_id: pack_id.into(),
             content_id: content_id.into(),
         })
+    }
+}
+
+impl Writable for ContentAddress {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        let data: u32 = (self.pack_id.0 as u32) << 24 | (self.content_id.0 & 0x0FFF);
+        stream.write_u32(data)?;
+        Ok(())
     }
 }
 

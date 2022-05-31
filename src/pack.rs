@@ -125,6 +125,25 @@ pub struct PackHeader {
     pub check_info_pos: Offset,
 }
 
+impl PackHeader {
+    pub fn new(
+        magic: PackKind,
+        app_vendor_id: u32,
+        file_size: Size,
+        check_info_pos: Offset,
+    ) -> Self {
+        PackHeader {
+            magic,
+            app_vendor_id,
+            major_version: 0,
+            minor_version: 0,
+            uuid: Uuid::new_v4(),
+            file_size,
+            check_info_pos,
+        }
+    }
+}
+
 impl Producable for PackHeader {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {

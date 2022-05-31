@@ -1,8 +1,11 @@
 mod content_pack;
+mod directory_pack;
 
 use crate::bases::*;
 use crate::pack::CheckKind;
 pub use content_pack::ContentPackCreator;
+pub use directory_pack::entry_def::{EntryDef as Entry, KeyDef as Key, VariantDef as Variant};
+pub use directory_pack::{DirectoryPackCreator, Value};
 use std::path::PathBuf;
 use typenum::U103;
 

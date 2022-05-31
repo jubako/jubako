@@ -22,6 +22,12 @@ pub struct KeyDef {
     pub kind: KeyDefKind,
 }
 
+impl KeyDef {
+    pub fn new(kind: KeyDefKind, size: usize) -> Self {
+        Self { size, kind }
+    }
+}
+
 impl Producable for KeyDef {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {

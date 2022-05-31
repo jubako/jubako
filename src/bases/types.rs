@@ -368,6 +368,16 @@ impl Producable for Idx<u32> {
 impl SizedProducable for Idx<u32> {
     type Size = typenum::U4;
 }
+impl Writable for Idx<u8> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        stream.write_u8(self.0)
+    }
+}
+impl Writable for Idx<u32> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        stream.write_u32(self.0)
+    }
+}
 
 impl<T> fmt::Display for Idx<T>
 where
@@ -431,6 +441,15 @@ impl<N: ArrayLength<u8>> Writable for FreeData<N> {
 }
 
 pub struct PString {}
+
+impl PString {
+    pub fn write_string(string: &str, stream: &mut dyn OutStream) -> IoResult<()> {
+        assert!(string.len() <= 255);
+        stream.write_u8(string.len() as u8)?;
+        stream.write_all(string.as_bytes())?;
+        Ok(())
+    }
+}
 
 impl Producable for PString {
     type Output = Vec<u8>;

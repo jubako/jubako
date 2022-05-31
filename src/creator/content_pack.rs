@@ -1,7 +1,7 @@
+use super::{CheckInfo, PackInfo};
 use crate::bases::*;
 use crate::content_pack::EntryInfo;
 use crate::content_pack::{ClusterHeader, CompressionType, ContentPackHeader};
-use crate::{CheckInfo, PackInfo};
 use std::fs::{File, OpenOptions};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -109,7 +109,6 @@ impl ContentPackCreator {
         cluster.write_data(self.file.as_mut().unwrap())?;
         let cluster_offset = self.file.as_mut().unwrap().tell();
         cluster.write_tail(self.file.as_mut().unwrap())?;
-        println!("{:?} {:?}", self.cluster_addresses, cluster.index);
         if self.cluster_addresses.len() <= cluster.index {
             self.cluster_addresses.resize(
                 cluster.index + 1,

@@ -6,199 +6,18 @@ struct Entry {
     word_count: u16,
 }
 
-struct KeyStore {
-    data: Vec<Vec<u8>>,
-    entries_offset: Vec<usize>,
-    tail_size: Option<u16>,
-}
-
-impl KeyStore {
-    pub fn new(entries: &Vec<Entry>) -> Self {
-        let mut data: Vec<Vec<u8>> = vec![];
-        let mut entries_offset = vec![];
-        let mut current_offset = 0;
-        for entry in entries {
-            data.push(entry.path.as_bytes().to_vec());
-            current_offset += entry.path.as_bytes().len();
-            entries_offset.push(current_offset);
-        }
-        KeyStore {
-            data,
-            entries_offset,
-            tail_size: None,
-        }
-    }
-
-    pub fn data_bytes(&self) -> Vec<u8> {
-        let mut data = vec![];
-        for content in &self.data {
-            data.extend(content);
-        }
-        data
-    }
-
-    pub fn tail_bytes(&mut self) -> Vec<u8> {
-        let mut data = vec![];
-        data.push(0x01); // kind
-        data.extend((self.entries_offset.len() as u64).to_be_bytes()); // key count
-        data.push(0x08); // offset size [TODO] Use a better size
-        data.extend((self.entries_offset[self.entries_offset.len() - 1] as u64).to_be_bytes()); //data size
-        for offset in &self.entries_offset[..(self.entries_offset.len() - 1)] {
-            data.extend((*offset as u64).to_be_bytes());
-        }
-        self.tail_size = Some(data.len() as u16);
-        data
-    }
-
-    pub fn tail_size(&self) -> u16 {
-        self.tail_size.unwrap()
-    }
-}
-
-struct IndexStore {
-    data: Vec<u8>,
-    tail_size: Option<u16>,
-}
-
-impl IndexStore {
-    pub fn new(entries: &Vec<Entry>) -> Self {
-        let mut data: Vec<u8> = vec![];
-        let mut idx: u8 = 0;
-        for entry in entries {
-            // We are creating entry data.
-            // Each entry has 3 keys :
-            // - The path : A 0Array/PString
-            // - The content : a content address
-            // - The words counts : a u16
-            data.extend(&[idx].to_vec());
-            data.extend(&(idx as u32).to_be_bytes().to_vec());
-            data.extend(&entry.word_count.to_be_bytes().to_vec());
-            idx += 1;
-        }
-        IndexStore {
-            data,
-            tail_size: None,
-        }
-    }
-
-    pub fn data_bytes(&self) -> &Vec<u8> {
-        &self.data
-    }
-
-    pub fn tail_bytes(&mut self) -> Vec<u8> {
-        let mut data = vec![];
-        data.push(0x00); // kind
-        data.extend(7_u16.to_be_bytes()); // entry_size
-        data.push(0x01); // variant count
-        data.push(0x03); // key count
-        data.extend(&[0b0110_0000, 0x00]); // The first key, a PString(1) idx 0
-        data.extend(&[0b0001_0000]); // The second key, the content address
-        data.extend(&[0b0010_0001]); // The third key, the u16
-        data.extend((self.data.len() as u64).to_be_bytes()); //data size
-        self.tail_size = Some(data.len() as u16);
-        data
-    }
-
-    pub fn tail_size(&self) -> u16 {
-        self.tail_size.unwrap()
-    }
-}
-
-struct Index {
-    store_id: u32,
-    entry_count: u32,
-    index_key: u8,
-    index_name: String,
-    tail_size: Option<u16>,
-}
-
-impl Index {
-    pub fn new(entries: &Vec<Entry>) -> Self {
-        Index {
-            store_id: 0,
-            entry_count: entries.len() as u32,
-            index_key: 0,
-            index_name: "Super index".to_string(),
-            tail_size: None,
-        }
-    }
-
-    pub fn bytes(&mut self) -> Vec<u8> {
-        let mut data = vec![];
-        data.extend(self.store_id.to_be_bytes()); // store_id
-        data.extend(self.entry_count.to_be_bytes()); // entry_count
-        data.extend(0_u32.to_be_bytes()); // entry_offset
-        data.extend(0_u32.to_be_bytes()); // extra_data
-        data.extend(self.index_key.to_be_bytes()); // index_key
-        data.push(self.index_name.len() as u8);
-        data.extend(self.index_name.bytes()); // The third key, the u16
-        self.tail_size = Some(data.len() as u16);
-        data
-    }
-
-    pub fn tail_size(&self) -> u16 {
-        self.tail_size.unwrap()
-    }
-}
-
-struct CheckInfo {
-    kind: u8,
-    data: Vec<u8>,
-}
-
-impl CheckInfo {
-    pub fn bytes(&self) -> Vec<u8> {
-        let mut data = vec![];
-        data.push(self.kind);
-        data.extend(&self.data);
-        data
-    }
-
-    pub fn size(&self) -> u64 {
-        (self.data.len() as u64) + 1
-    }
-}
-
-struct PackInfo {
-    uuid: uuid::Uuid,
-    pack_id: u8,
-    pack_size: u64,
-    pack_path: String,
-    check_info: CheckInfo,
-}
-
-impl PackInfo {
-    pub fn bytes(&self, check_info_pos: u64) -> Vec<u8> {
-        let mut data = vec![];
-        data.extend(self.uuid.as_bytes());
-        data.push(self.pack_id);
-        data.extend(&[0; 103]);
-        data.extend(self.pack_size.to_be_bytes());
-        data.extend(check_info_pos.to_be_bytes());
-        data.extend(&[0; 8]); // offest
-        let path_data = self.pack_path.as_bytes();
-        data.extend((path_data.len() as u8).to_be_bytes());
-        data.extend(path_data);
-        data.extend(vec![0; 256 - data.len()]);
-        data
-    }
-
-    pub fn get_check_size(&self) -> u64 {
-        self.check_info.size()
-    }
-}
-
 test_suite! {
     name basic_reading;
 
-    use jubako;
+    use jubako::{ContentAddress, KeyDef, KeyDefKind};
     use jubako::Writable;
+    use jubako::creator as creator;
     use std::fs::OpenOptions;
     use std::io::{Write, Seek, SeekFrom, Result, Read};
     use std::io;
-    use crate::{Entry, KeyStore, IndexStore, Index, PackInfo, CheckInfo};
+    use crate::Entry;
     use uuid::Uuid;
-    use typenum::U40;
+    use typenum::{U31, U40};
 
     fixture compression() -> jubako::CompressionType {
         setup(&mut self) {
@@ -222,8 +41,8 @@ test_suite! {
         }
     }
 
-    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<Entry>) -> Result<jubako::PackInfo> {
-        let mut creator = jubako::ContentPackCreator::new(
+    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<Entry>) -> Result<creator::PackInfo> {
+        let mut creator = creator::ContentPackCreator::new(
             "/tmp/contentPack.jbkc",
             1,
             1,
@@ -237,89 +56,45 @@ test_suite! {
         Ok(pack_info)
     }
 
-    fn create_directory_pack(entries: &Vec<Entry>) -> Result<PackInfo> {
-        let mut file = OpenOptions::new()
-                        .read(true)
-                        .write(true)
-                        .create(true)
-                        .truncate(true)
-                        .open("/tmp/directoryPack.jbkd")?;
-        file.write_all(&[
-            0x6a, 0x62, 0x6b, 0x64,
-            0x01, 0x00, 0x00, 0x00,
-            0x00, 0x00,
-        ])?;
-        let uuid = Uuid::new_v4();
-        file.write_all(uuid.as_bytes())?;
-        file.write_all(&[0x00;6])?; // padding
-        file.write_all(&[0x00;16])?; // file size and checksum pos, to be write after
-        file.write_all(&[0x00;16])?; // reserved
-        file.write_all(&[0x00;24])?; // index_ptr_offset, entry_store_ptr_offset, key_store_ptr_offset, to be write after
-        file.write_all(&1_u32.to_be_bytes())?; // index count
-        file.write_all(&1_u32.to_be_bytes())?; // entry_store count
-        file.write_all(&1_u8.to_be_bytes())?; // key_store counti
-        file.write_all(&[0xff;31])?; // free_data
+    fn create_directory_pack(entries: &Vec<Entry>) -> Result<creator::PackInfo> {
+        let mut creator = creator::DirectoryPackCreator::new(
+            "/tmp/directoryPack.jbkd",
+            1,
+            1,
+            jubako::FreeData::<U31>::clone_from_slice(&[0xff; 31])
+        );
+        let key_store_handle = creator.create_key_store();
+        let entryDef = creator::Entry::new(
+            vec![
+                creator::Variant::new(vec![
+                    creator::Key::PString(0, key_store_handle),
+                    creator::Key::ContentAddress,
+                    creator::Key::UnsignedInt(2)
+                ])
+            ]
+        );
+        let entry_store_handle = creator.create_entry_store(entryDef);
+        for (idx, entry) in entries.iter().enumerate() {
+            entry_store_handle.get_mut().add_entry(0, vec![
+                creator::Value::Array{data:entry.path.clone().into(), key_id:None},
+                creator::Value::Content(jubako::ContentAddress::new(0.into(), (idx as u32).into())),
+                creator::Value::Unsigned(entry.word_count.into())]
+            );
+        }
 
-        let key_store_ptr_offset = {
-            let mut key_store = KeyStore::new(entries);
-            file.write_all(&key_store.data_bytes())?;
-            let key_store_offset = file.seek(SeekFrom::Current(0))?.to_be_bytes();
-            file.write_all(&key_store.tail_bytes())?;
-            let key_store_ptr_offset = file.seek(SeekFrom::Current(0))?;
-            file.write_all(&key_store.tail_size().to_be_bytes())?;
-            file.write_all(&key_store_offset[2..])?;
-            key_store_ptr_offset
-        };
-
-        let index_store_ptr_offset = {
-            let mut index_store = IndexStore::new(entries);
-            file.write_all(&index_store.data_bytes())?;
-            let index_store_offset = file.seek(SeekFrom::Current(0))?.to_be_bytes();
-            file.write_all(&index_store.tail_bytes())?;
-            let index_store_ptr_offset = file.seek(SeekFrom::Current(0))?;
-            file.write_all(&index_store.tail_size().to_be_bytes())?;
-            file.write_all(&index_store_offset[2..])?;
-            index_store_ptr_offset
-        };
-
-        let index_ptr_offset = {
-            let mut index = Index::new(entries);
-            let index_offset = file.seek(SeekFrom::Current(0))?.to_be_bytes();
-            file.write_all(&index.bytes())?;
-            let index_ptr_offset = file.seek(SeekFrom::Current(0))?;
-            file.write_all(&index.tail_size().to_be_bytes())?;
-            file.write_all(&index_offset[2..])?;
-            index_ptr_offset
-        };
-        let checksum_pos = file.seek(SeekFrom::End(0))?;
-        file.seek(SeekFrom::Start(32))?;
-        file.write_all(&(checksum_pos+33).to_be_bytes())?;
-        file.write_all(&checksum_pos.to_be_bytes())?;
-        file.seek(SeekFrom::Start(64))?;
-        file.write_all(&index_ptr_offset.to_be_bytes())?;
-        file.write_all(&index_store_ptr_offset.to_be_bytes())?;
-        file.write_all(&key_store_ptr_offset.to_be_bytes())?;
-
-        file.seek(SeekFrom::Start(0))?;
-        let mut hasher = blake3::Hasher::new();
-        io::copy(&mut file, &mut hasher)?;
-        let hash = hasher.finalize();
-        file.write_all(&[0x01])?;
-        file.write_all(hash.as_bytes())?;
-        let pack_size = file.seek(SeekFrom::End(0))?;
-        Ok(PackInfo{
-            check_info: CheckInfo {
-                kind: 1,
-                data: hash.as_bytes().to_vec(),
-            },
-            pack_path: "/tmp/directoryPack.jbkd".to_string(),
-            pack_size,
-            pack_id: 0,
-            uuid,
-        })
+        let entry_store_idx = entry_store_handle.get().get_idx();
+        creator.create_index(
+            "Super index",
+            jubako::ContentAddress::new(0.into(), 0.into()),
+            0.into(),
+            entry_store_idx,
+            jubako::Count(entries.len() as u32),
+            jubako::Idx(0));
+        let pack_info = creator.finalize().unwrap();
+        Ok(pack_info)
     }
 
-    fn create_main_pack(directory_pack: PackInfo, content_pack:jubako::PackInfo) -> Result<String> {
+    fn create_main_pack(directory_pack: creator::PackInfo, content_pack:creator::PackInfo) -> Result<String> {
         let uuid = Uuid::new_v4();
         let mut file_size:u64 = 128 + 2*256;
         let directory_check_info_pos = file_size;
@@ -350,7 +125,7 @@ test_suite! {
         file.write_all(&directory_pack.bytes(directory_check_info_pos))?;
         file.write_all(&content_pack.bytes(content_check_info_pos))?;
         assert_eq!(directory_check_info_pos, file.seek(SeekFrom::End(0))?);
-        file.write_all(&directory_pack.check_info.bytes())?;
+        directory_pack.check_info.write(&mut file)?;
         content_pack.check_info.write(&mut file)?;
 
         file.seek(SeekFrom::Start(0))?;
