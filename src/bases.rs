@@ -50,11 +50,16 @@ where
 impl<OutType: Producable, IdxType> IndexTrait<Idx<IdxType>> for ArrayReader<OutType, IdxType>
 where
     u64: std::convert::From<IdxType>,
-    IdxType: std::cmp::PartialOrd + Copy,
+    IdxType: std::cmp::PartialOrd + Copy + std::fmt::Debug,
 {
     type OutputType = OutType::Output;
     fn index(&self, idx: Idx<IdxType>) -> OutType::Output {
-        assert!(idx.is_valid(self.length));
+        assert!(
+            idx.is_valid(self.length),
+            "idx = {:?}, length = {:?}",
+            idx,
+            self.length
+        );
         let offset = u64::from(idx.0) * self.elem_size as u64;
         let mut stream = self
             .reader

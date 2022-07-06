@@ -49,7 +49,12 @@ impl Reader for FileReader {
             End::Offset(o) => self.origin + o,
             End::Size(s) => origin + s,
         };
-        assert!(end <= self.end);
+        assert!(
+            end <= self.end,
+            "Stream end ({:?}) is after reader end ({:?})",
+            end,
+            self.end
+        );
         Box::new(StreamWrapper::new_from_parts(source, origin, end, origin))
     }
 
