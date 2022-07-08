@@ -157,6 +157,12 @@ impl AddAssign<usize> for Offset {
     }
 }
 
+impl AddAssign<Size> for Offset {
+    fn add_assign(&mut self, other: Size) {
+        self.0 = self.0.checked_add(other.0).unwrap();
+    }
+}
+
 impl AddAssign for Offset {
     fn add_assign(&mut self, other: Offset) {
         self.0 = self.0.checked_add(other.0).unwrap();
