@@ -9,10 +9,31 @@ use typenum::Unsigned;
 use uuid::Uuid;
 
 #[derive(Debug, PartialEq)]
-struct MainPackHeader {
+pub struct MainPackHeader {
     pack_header: PackHeader,
     pack_count: Count<u8>,
     free_data: FreeData<typenum::U63>,
+}
+
+impl MainPackHeader {
+    pub fn new(
+        app_vendor_id: u32,
+        free_data: FreeData<typenum::U63>,
+        pack_count: Count<u8>,
+        check_offset: Offset,
+        pack_size: Size,
+    ) -> Self {
+        let pack_header = PackHeader::new(PackKind::Main, app_vendor_id, pack_size, check_offset);
+        MainPackHeader {
+            pack_header,
+            pack_count,
+            free_data,
+        }
+    }
+
+    pub fn uuid(&self) -> Uuid {
+        self.pack_header.uuid
+    }
 }
 
 impl SizedProducable for MainPackHeader {
@@ -34,6 +55,15 @@ impl Producable for MainPackHeader {
             pack_count,
             free_data,
         })
+    }
+}
+
+impl Writable for MainPackHeader {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        self.pack_header.write(stream)?;
+        self.pack_count.write(stream)?;
+        self.free_data.write(stream)?;
+        Ok(())
     }
 }
 
