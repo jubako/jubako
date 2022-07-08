@@ -443,11 +443,22 @@ impl<N: ArrayLength<u8>> Writable for FreeData<N> {
 pub struct PString {}
 
 impl PString {
-    pub fn write_string(string: &str, stream: &mut dyn OutStream) -> IoResult<()> {
-        assert!(string.len() <= 255);
+    fn write_string_size(string: &[u8], max_len: u8, stream: &mut dyn OutStream) -> IoResult<()> {
+        assert!(string.len() <= max_len.into());
         stream.write_u8(string.len() as u8)?;
-        stream.write_all(string.as_bytes())?;
-        Ok(())
+        stream.write_all(string)
+    }
+    pub fn write_string(string: &[u8], stream: &mut dyn OutStream) -> IoResult<()> {
+        Self::write_string_size(string, 255, stream)
+    }
+
+    pub fn write_string_padded(
+        string: &[u8],
+        size: u8,
+        stream: &mut dyn OutStream,
+    ) -> IoResult<()> {
+        Self::write_string_size(string, size, stream)?;
+        stream.write_all(vec![0; size as usize - string.len()].as_slice())
     }
 }
 
