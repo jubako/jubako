@@ -46,7 +46,7 @@ impl Container {
     fn _get_pack(&self, pack_id: u8) -> Result<ContentPack> {
         let pack_info = self.main_pack.get_content_pack_info(pack_id)?;
         let pack_reader = self._get_pack_reader(pack_info)?;
-        return ContentPack::new(pack_reader);
+        ContentPack::new(pack_reader)
     }
 
     pub fn get_directory_pack(&self) -> Result<&DirectoryPack> {
