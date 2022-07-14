@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use std::io::{self, Read};
 use uuid::Uuid;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PackKind {
     Main,
     Directory,
@@ -130,7 +130,7 @@ impl PackHeaderInfo {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct PackHeader {
     pub magic: PackKind,
     pub app_vendor_id: u32,

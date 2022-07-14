@@ -1,7 +1,7 @@
 use crate::bases::*;
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CompressionType {
     None = 0,
     Lz4 = 1,
@@ -33,7 +33,7 @@ impl Writable for CompressionType {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ClusterHeader {
     compression: CompressionType,
     offset_size: u8,

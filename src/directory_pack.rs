@@ -22,7 +22,7 @@ use uuid::Uuid;
 pub use key_def::{KeyDef, KeyDefKind};
 pub use value::{Array, Content, Extend, Value};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct DirectoryPackHeader {
     pack_header: PackHeader,
     entry_store_ptr_pos: Offset,
@@ -103,7 +103,7 @@ impl Writable for DirectoryPackHeader {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct ContentAddress {
     pub pack_id: Idx<u8>,
     pub content_id: Idx<u32>,

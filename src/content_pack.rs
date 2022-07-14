@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 pub use cluster::{ClusterHeader, CompressionType};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ContentPackHeader {
     pub pack_header: PackHeader,
     entry_ptr_pos: Offset,

@@ -17,7 +17,7 @@ impl Content {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Extend {
     store_id: Idx<u8>,
     key_id: u64,
@@ -29,7 +29,7 @@ impl Extend {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Array {
     base: Vec<u8>,
     extend: Option<Extend>,

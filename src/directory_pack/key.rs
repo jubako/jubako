@@ -3,7 +3,7 @@ use super::ContentAddress;
 use crate::bases::*;
 
 // The kind of the key. This will be the descriminant to how parse the value.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum KeyKind {
     ContentAddress(u8),
     UnsignedInt(usize),
@@ -16,7 +16,7 @@ pub enum KeyKind {
 /// The definition of a key, as we need to parse it.
 /// In opposition to KeyDef, the key is the "final" key.
 /// It describe how to parse te value of a entry.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Key {
     offset: Offset,
     pub kind: KeyKind,

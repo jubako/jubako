@@ -3,7 +3,7 @@ use super::index_store::IndexStore;
 use super::ContentAddress;
 use crate::bases::*;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct IndexHeader {
     pub store_id: Idx<u32>,
     pub entry_count: Count<u32>,

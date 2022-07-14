@@ -8,7 +8,7 @@ use std::io::{repeat, Read};
 use typenum::Unsigned;
 use uuid::Uuid;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct MainPackHeader {
     pack_header: PackHeader,
     pack_count: Count<u8>,
@@ -64,13 +64,13 @@ impl Writable for MainPackHeader {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum PackPos {
     Offset(Offset),
     Path(String),
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct PackInfo {
     pub id: Uuid,
     pub pack_id: u8,

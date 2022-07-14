@@ -1,7 +1,7 @@
 use crate::bases::*;
 
 /// The kind of key definition as specified in the store.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyDefKind {
     Padding,
     ContentAddress(u8),
@@ -16,7 +16,7 @@ pub enum KeyDefKind {
 /// The KeyDef is somehow independent of the other key :
 /// It may be sementically dependent but this structure doesn't represent it.
 /// The resolition of the depedencies is made later.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyDef {
     pub size: usize,
     pub kind: KeyDefKind,
