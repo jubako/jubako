@@ -153,7 +153,7 @@ impl MainPack {
         self.max_id
     }
 
-    fn get_check_info<'b>(&'b self) -> Result<&'b CheckInfo> {
+    fn get_check_info(&self) -> Result<&CheckInfo> {
         self.check_info.get_or_try_init(|| self._get_check_info())
     }
 
