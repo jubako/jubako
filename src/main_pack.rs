@@ -17,15 +17,12 @@ pub struct MainPackHeader {
 
 impl MainPackHeader {
     pub fn new(
-        app_vendor_id: u32,
+        pack_info: PackHeaderInfo,
         free_data: FreeData<typenum::U63>,
         pack_count: Count<u8>,
-        check_offset: Offset,
-        pack_size: Size,
     ) -> Self {
-        let pack_header = PackHeader::new(PackKind::Main, app_vendor_id, pack_size, check_offset);
         MainPackHeader {
-            pack_header,
+            pack_header: PackHeader::new(PackKind::Main, pack_info),
             pack_count,
             free_data,
         }

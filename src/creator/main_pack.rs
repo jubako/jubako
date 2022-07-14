@@ -1,6 +1,7 @@
 use super::PackInfo;
 use crate::bases::*;
 use crate::main_pack::MainPackHeader;
+use crate::pack::PackHeaderInfo;
 use std::fs::OpenOptions;
 use std::io::{copy, repeat, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -51,11 +52,9 @@ impl MainPackCreator {
         let pack_size: Size = (check_offset + 33).into();
         file.rewind()?;
         let header = MainPackHeader::new(
-            self.app_vendor_id,
+            PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset),
             self.free_data,
             ((self.packs.len() as u8) - 1).into(),
-            check_offset,
-            pack_size,
         );
         header.write(&mut file)?;
         file.rewind()?;

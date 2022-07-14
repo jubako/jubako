@@ -36,7 +36,7 @@ pub struct DirectoryPackHeader {
 
 impl DirectoryPackHeader {
     pub fn new(
-        app_vendor_id: u32,
+        pack_info: PackHeaderInfo,
         free_data: FreeData<U31>,
         index_ptr_pos: Offset,
         index_count: Count<u32>,
@@ -44,13 +44,9 @@ impl DirectoryPackHeader {
         key_store_count: Count<u8>,
         entry_store_ptr_pos: Offset,
         entry_store_count: Count<u32>,
-        check_offset: Offset,
-        pack_size: Size,
     ) -> Self {
-        let pack_header =
-            PackHeader::new(PackKind::Directory, app_vendor_id, pack_size, check_offset);
         DirectoryPackHeader {
-            pack_header,
+            pack_header: PackHeader::new(PackKind::Directory, pack_info),
             index_ptr_pos,
             index_count,
             key_store_ptr_pos,

@@ -2,8 +2,8 @@ pub mod entry_def;
 
 use super::{CheckInfo, PackInfo};
 use crate::bases::*;
+use crate::pack::PackHeaderInfo;
 use crate::directory_pack::{ContentAddress, DirectoryPackHeader};
-use crate::main_pack::PackPos;
 use std::cell::{Ref, RefCell, RefMut};
 use std::fs::OpenOptions;
 use std::io::{Seek, SeekFrom, Write};
@@ -340,7 +340,7 @@ impl DirectoryPackCreator {
         let pack_size: Size = (check_offset + 33).into();
         file.rewind()?;
         let header = DirectoryPackHeader::new(
-            self.app_vendor_id,
+            PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset),
             self.free_data,
             indexes_ptr_offsets,
             (indexes_offsets.len() as u32).into(),
@@ -348,8 +348,6 @@ impl DirectoryPackCreator {
             (key_stores_offsets.len() as u8).into(),
             entry_stores_ptr_offsets,
             (entry_stores_offsets.len() as u32).into(),
-            check_offset,
-            pack_size,
         );
         header.write(&mut file)?;
         file.rewind()?;

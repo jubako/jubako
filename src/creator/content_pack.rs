@@ -3,6 +3,7 @@ use crate::bases::*;
 use crate::content_pack::EntryInfo;
 use crate::content_pack::{ClusterHeader, CompressionType, ContentPackHeader};
 use crate::main_pack::PackPos;
+use crate::pack::PackHeaderInfo;
 use std::fs::{File, OpenOptions};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -179,14 +180,12 @@ impl ContentPackCreator {
         let pack_size: Size = (check_offset + 33).into();
         file.rewind()?;
         let header = ContentPackHeader::new(
-            self.app_vendor_id,
+            PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset),
             self.free_data,
             clusters_offset,
             (self.cluster_addresses.len() as u32).into(),
             entries_offset,
             (self.blob_addresses.len() as u32).into(),
-            check_offset,
-            pack_size,
         );
         header.write(file)?;
         file.rewind()?;

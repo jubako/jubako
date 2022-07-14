@@ -114,6 +114,22 @@ impl CheckInfo {
     }
 }
 
+pub struct PackHeaderInfo {
+    pub app_vendor_id: u32,
+    pub file_size: Size,
+    pub check_info_pos: Offset,
+}
+
+impl PackHeaderInfo {
+    pub fn new(app_vendor_id: u32, file_size: Size, check_info_pos: Offset) -> Self {
+        Self {
+            app_vendor_id,
+            file_size,
+            check_info_pos,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct PackHeader {
     pub magic: PackKind,
@@ -126,20 +142,15 @@ pub struct PackHeader {
 }
 
 impl PackHeader {
-    pub fn new(
-        magic: PackKind,
-        app_vendor_id: u32,
-        file_size: Size,
-        check_info_pos: Offset,
-    ) -> Self {
+    pub fn new(magic: PackKind, pack_info: PackHeaderInfo) -> Self {
         PackHeader {
             magic,
-            app_vendor_id,
             major_version: 0,
             minor_version: 0,
             uuid: Uuid::new_v4(),
-            file_size,
-            check_info_pos,
+            app_vendor_id: pack_info.app_vendor_id,
+            file_size: pack_info.file_size,
+            check_info_pos: pack_info.check_info_pos,
         }
     }
 }

@@ -23,26 +23,15 @@ pub struct ContentPackHeader {
 
 impl ContentPackHeader {
     pub fn new(
-        app_vendor_id: u32,
+        pack_info: PackHeaderInfo,
         free_data: FreeData<U40>,
         cluster_ptr_pos: Offset,
         cluster_count: Count<u32>,
         entry_ptr_pos: Offset,
         entry_count: Count<u32>,
-        check_info_pos: Offset,
-        file_size: Size,
     ) -> Self {
-        let pack_header = PackHeader {
-            magic: PackKind::Content,
-            app_vendor_id,
-            major_version: 0,
-            minor_version: 0,
-            uuid: uuid::Uuid::new_v4(),
-            file_size,
-            check_info_pos,
-        };
         Self {
-            pack_header,
+            pack_header: PackHeader::new(PackKind::Content, pack_info),
             entry_ptr_pos,
             cluster_ptr_pos,
             entry_count,
