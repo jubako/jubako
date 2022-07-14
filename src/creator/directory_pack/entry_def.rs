@@ -105,7 +105,7 @@ impl VariantDef {
                 KeyDef::UnsignedInt(size) => {
                     let value = value_iter.next().unwrap();
                     if let creator::Value::Unsigned(value) = value {
-                        stream.write_sized(*value, *size as usize);
+                        stream.write_sized(*value, *size as usize)?;
                     } else {
                         return Err(Error::Other("Not a unsigned".to_string()));
                     }
