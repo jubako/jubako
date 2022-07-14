@@ -89,7 +89,7 @@ impl VariantDef {
                             store_handle.borrow().key_size() as usize,
                         )?;
                         stream.write_all(data)?;
-                        stream.write_all(&vec![0; flookup_size - data.len()].as_slice())?;
+                        stream.write_all(vec![0; flookup_size - data.len()].as_slice())?;
                     } else {
                         return Err(Error::Other("Not a Array".to_string()));
                     }
