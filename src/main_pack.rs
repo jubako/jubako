@@ -7,6 +7,7 @@ use std::cmp;
 use std::io::{repeat, Read};
 use typenum::Unsigned;
 use uuid::Uuid;
+use std::os::unix::ffi::OsStringExt;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct MainPackHeader {
@@ -67,7 +68,13 @@ impl Writable for MainPackHeader {
 #[derive(PartialEq, Eq, Debug)]
 pub enum PackPos {
     Offset(Offset),
-    Path(String),
+    Path(Vec<u8>),
+}
+
+impl From<std::path::PathBuf> for PackPos {
+    fn from(p: std::path::PathBuf) -> Self {
+        PackPos::Path(p.as_os_str().to_os_string().into_vec())
+    }
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -99,8 +106,7 @@ impl Producable for PackInfo {
         } else {
             let v = PString::produce(stream)?;
             stream.skip(Size((111 - v.len()) as u64))?;
-            let path = String::from_utf8(v)?;
-            PackPos::Path(path)
+            PackPos::Path(v)
         };
         Ok(Self {
             id,
@@ -436,7 +442,7 @@ mod tests {
                 free_data: FreeData::clone_from_slice(&[0xf2; 103]),
                 pack_size: Size(0xffffff),
                 pack_check_info: Offset(0xffffff),
-                pack_pos: PackPos::Path("packpath".to_string())
+                pack_pos: PackPos::Path("packpath".into())
             }
         );
         assert!(main_pack.get_content_pack_info(3).is_err());

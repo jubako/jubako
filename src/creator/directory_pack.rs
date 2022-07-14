@@ -362,7 +362,7 @@ impl DirectoryPackCreator {
             free_data: FreeData::clone_from_slice(&[0; 103]),
             pack_size: pack_size.0,
             check_info: CheckInfo::new_blake3(hash.as_bytes()),
-            pack_pos: PackPos::Path(self.path.to_str().unwrap().into()),
+            pack_pos: self.path.clone().into(),
         })
     }
 }

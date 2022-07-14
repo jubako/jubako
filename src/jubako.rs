@@ -6,6 +6,8 @@ use crate::directory_pack::DirectoryPack;
 use crate::main_pack::{MainPack, PackInfo, PackPos};
 use crate::pack::Pack;
 use std::fs::File;
+use std::ffi::OsString;
+use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 
 pub struct Container {
@@ -66,7 +68,7 @@ impl Container {
                 .reader
                 .create_sub_reader(*offset, End::Size(pack_info.pack_size))),
             PackPos::Path(path) => {
-                let path = self.path.parent().unwrap().join(path);
+                let path = self.path.parent().unwrap().join(OsString::from_vec(path.clone()));
                 let file = File::open(path)?;
                 Ok(Box::new(FileReader::new(
                     file,
