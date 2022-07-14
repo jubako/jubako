@@ -14,9 +14,5 @@ This Jubako library is still in early stage development and absolutitly not read
 Reading part is partly done. Parsing of all main structures is done.
 Few (optional) structures are missing.
 
-Writing part is NOT done.
-
-Yes, it means that Jubako library is able to read a container format even if
-no code is able to create it.
-
-This is the joy of development and early stage.
+Writing part is partly done. Basic Jubako files can be created.
+Some structures still need to be crafted by hands.
