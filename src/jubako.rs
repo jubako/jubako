@@ -1,4 +1,4 @@
-use std::lazy::OnceCell;
+use std::cell::OnceCell;
 
 use crate::bases::*;
 use crate::content_pack::ContentPack;

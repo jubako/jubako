@@ -1,7 +1,7 @@
 use super::entry_def::VariantDef;
 use super::value::Value;
 use crate::bases::*;
-use std::lazy::OnceCell;
+use std::cell::OnceCell;
 
 /// A lazy entry
 pub struct Entry<'a> {
