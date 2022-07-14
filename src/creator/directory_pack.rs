@@ -189,10 +189,6 @@ struct Index {
     offset: Idx<u32>,
 }
 
-pub struct IndexHandle {
-    idx: usize,
-}
-
 impl Index {
     pub fn new(
         name: &str,
@@ -287,14 +283,11 @@ impl DirectoryPackCreator {
         store_id: Idx<u32>,
         count: Count<u32>,
         offset: Idx<u32>,
-    ) -> IndexHandle {
+    ) {
         let index = Box::new(Index::new(
             name, extra_data, index_key, store_id, count, offset,
         ));
         self.indexes.push(index);
-        IndexHandle {
-            idx: self.indexes.len() - 1,
-        }
     }
 
     pub fn finalize(&mut self) -> Result<PackInfo> {
