@@ -9,15 +9,10 @@ struct Entry {
 test_suite! {
     name basic_reading;
 
-    use jubako::{ContentAddress, KeyDef, KeyDefKind};
-    use jubako::Writable;
     use jubako::creator as creator;
-    use std::fs::OpenOptions;
-    use std::io::{Write, Seek, SeekFrom, Result, Read};
-    use std::io;
+    use std::io::{Result, Read};
     use crate::Entry;
-    use uuid::Uuid;
-    use typenum::{U31, U40};
+    use typenum::{U31, U40, U63};
 
     fixture compression() -> jubako::CompressionType {
         setup(&mut self) {
@@ -95,54 +90,15 @@ test_suite! {
     }
 
     fn create_main_pack(directory_pack: creator::PackInfo, content_pack:creator::PackInfo) -> Result<String> {
-        let uuid = Uuid::new_v4();
-        let mut file_size:u64 = 128 + 2*256;
-        let directory_check_info_pos = file_size;
-        file_size += directory_pack.get_check_size();
-        let content_check_info_pos = file_size;
-        file_size += content_pack.get_check_size();
-        let check_info_pos = file_size;
-        file_size += 33;
-        let mut file = OpenOptions::new()
-                        .read(true)
-                        .write(true)
-                        .create(true)
-                        .truncate(true)
-                        .open("/tmp/mainPack.jbkm")?;
-        file.write_all(&[
-            0x6a, 0x62, 0x6b, 0x6d,
-            0x01, 0x00, 0x00, 0x00,
-            0x00, 0x00,
-        ])?;
-        file.write_all(uuid.as_bytes())?;
-        file.write_all(&[0x00;6])?; // padding
-        file.write_all(&file_size.to_be_bytes())?;
-        file.write_all(&check_info_pos.to_be_bytes())?;
-        file.write_all(&[0x00;16])?; // reserved
-        file.write_all(&[0x01])?; // number of contentpack
-        file.write_all(&[0xff;63])?; // free_data
+        let mut creator = creator::MainPackCreator::new(
+            "/tmp/mainPack.jbkm",
+            1,
+            jubako::FreeData::<U63>::clone_from_slice(&[0xff; 63])
+        );
 
-        file.write_all(&directory_pack.bytes(directory_check_info_pos))?;
-        file.write_all(&content_pack.bytes(content_check_info_pos))?;
-        assert_eq!(directory_check_info_pos, file.seek(SeekFrom::End(0))?);
-        directory_pack.check_info.write(&mut file)?;
-        content_pack.check_info.write(&mut file)?;
-
-        file.seek(SeekFrom::Start(0))?;
-        let mut hasher = blake3::Hasher::new();
-        let mut buf = [0u8;256];
-        file.read_exact(&mut buf[..128])?;
-        hasher.write_all(&buf[..128])?; //check start
-        for _i in 0..2 {
-            file.read_exact(&mut buf[..144])?;
-            hasher.write_all(&buf[..144])?; //check beggining of pack
-            io::copy(&mut io::repeat(0).take(112), &mut hasher)?; // fill with 0 the path
-            file.seek(SeekFrom::Current(112))?;
-        }
-        io::copy(&mut file, &mut hasher)?; // finish
-        let hash = hasher.finalize();
-        file.write_all(&[0x01])?;
-        file.write_all(hash.as_bytes())?;
+        creator.add_pack(directory_pack);
+        creator.add_pack(content_pack);
+        creator.finalize()?;
         Ok("/tmp/mainPack.jbkm".to_string())
     }
 

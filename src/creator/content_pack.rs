@@ -2,6 +2,7 @@ use super::{CheckInfo, PackInfo};
 use crate::bases::*;
 use crate::content_pack::EntryInfo;
 use crate::content_pack::{ClusterHeader, CompressionType, ContentPackHeader};
+use crate::main_pack::PackPos;
 use std::fs::{File, OpenOptions};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -200,7 +201,7 @@ impl ContentPackCreator {
             free_data: FreeData::clone_from_slice(&[0; 103]),
             pack_size: pack_size.0,
             check_info: CheckInfo::new_blake3(hash.as_bytes()),
-            pack_path: self.path.clone(),
+            pack_pos: PackPos::Path(self.path.to_str().unwrap().into()),
         })
     }
 }

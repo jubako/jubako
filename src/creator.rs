@@ -1,12 +1,14 @@
 mod content_pack;
 mod directory_pack;
+mod main_pack;
 
 use crate::bases::*;
+use crate::main_pack::PackPos;
 use crate::pack::CheckKind;
 pub use content_pack::ContentPackCreator;
 pub use directory_pack::entry_def::{EntryDef as Entry, KeyDef as Key, VariantDef as Variant};
 pub use directory_pack::{DirectoryPackCreator, Value};
-use std::path::PathBuf;
+pub use main_pack::MainPackCreator;
 use typenum::U103;
 
 pub struct CheckInfo {
@@ -21,10 +23,10 @@ impl CheckInfo {
             data: Some(hash.to_vec()),
         }
     }
-    pub fn size(&self) -> u64 {
+    pub fn size(&self) -> Size {
         match self.kind {
-            CheckKind::None => 1,
-            CheckKind::Blake3 => 33,
+            CheckKind::None => Size(1),
+            CheckKind::Blake3 => Size(33),
         }
     }
 }
@@ -42,27 +44,31 @@ pub struct PackInfo {
     pub pack_id: u8,
     pub free_data: FreeData<U103>,
     pub pack_size: u64,
-    pub pack_path: PathBuf,
+    pub pack_pos: PackPos,
     pub check_info: CheckInfo,
 }
 
 impl PackInfo {
-    pub fn bytes(&self, check_info_pos: u64) -> Vec<u8> {
-        let mut data = vec![];
-        data.extend(self.uuid.as_bytes());
-        data.push(self.pack_id);
-        data.extend(&[0; 103]);
-        data.extend(self.pack_size.to_be_bytes());
-        data.extend(check_info_pos.to_be_bytes());
-        data.extend(&[0; 8]); // offest
-        let path_data = self.pack_path.as_os_str().to_str().unwrap().as_bytes();
-        data.extend((path_data.len() as u8).to_be_bytes());
-        data.extend(path_data);
-        data.extend(vec![0; 256 - data.len()]);
-        data
+    pub fn write(&self, check_info_pos: Offset, stream: &mut dyn OutStream) -> IoResult<()> {
+        self.uuid.write(stream)?;
+        stream.write_u8(self.pack_id)?;
+        self.free_data.write(stream)?;
+        stream.write_u64(self.pack_size)?;
+        check_info_pos.write(stream)?;
+        match &self.pack_pos {
+            PackPos::Offset(offset) => {
+                offset.write(stream)?;
+                PString::write_string_padded(b"", 111, stream)?;
+            }
+            PackPos::Path(path) => {
+                stream.write_u64(0)?;
+                PString::write_string_padded(path.as_ref(), 111, stream)?;
+            }
+        }
+        Ok(())
     }
 
-    pub fn get_check_size(&self) -> u64 {
+    pub fn get_check_size(&self) -> Size {
         self.check_info.size()
     }
 }

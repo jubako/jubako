@@ -3,6 +3,7 @@ pub mod entry_def;
 use super::{CheckInfo, PackInfo};
 use crate::bases::*;
 use crate::directory_pack::{ContentAddress, DirectoryPackHeader};
+use crate::main_pack::PackPos;
 use std::cell::{Ref, RefCell, RefMut};
 use std::fs::OpenOptions;
 use std::io::{Seek, SeekFrom, Write};
@@ -220,7 +221,7 @@ impl WritableTell for Index {
         self.offset.write(stream)?;
         self.extra_data.write(stream)?;
         self.index_key.write(stream)?;
-        PString::write_string(&self.name, stream)?;
+        PString::write_string(self.name.as_ref(), stream)?;
         Ok(())
     }
 }
@@ -363,7 +364,7 @@ impl DirectoryPackCreator {
             free_data: FreeData::clone_from_slice(&[0; 103]),
             pack_size: pack_size.0,
             check_info: CheckInfo::new_blake3(hash.as_bytes()),
-            pack_path: self.path.clone(),
+            pack_pos: PackPos::Path(self.path.to_str().unwrap().into()),
         })
     }
 }
