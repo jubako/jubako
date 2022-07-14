@@ -2,6 +2,7 @@ use super::entry::Entry;
 use super::key::{Key, KeyKind};
 use super::key_def::{KeyDef, KeyDefKind};
 use crate::bases::*;
+use std::cmp::Ordering;
 
 #[derive(Debug)]
 pub struct VariantDef {
@@ -114,18 +115,25 @@ impl Producable for EntryDef {
             }
             current_size += key.size;
             entry_def.push(key);
-            if current_size > entry_size {
-                return Err(format_error!(
-                    &format!(
-                        "Sum of key size ({}) cannot exceed the entry size ({})",
-                        current_size, entry_size
-                    ),
-                    stream
-                ));
-            } else if current_size == entry_size {
-                variants.push(VariantDef::new(entry_def)?);
-                entry_def = Vec::new();
-                current_size = 0;
+            match current_size.cmp(&entry_size) {
+                Ordering::Greater => {
+                    return Err(format_error!(
+                        &format!(
+                            "Sum of key size ({}) cannot exceed the entry size ({})",
+                            current_size, entry_size
+                        ),
+                        stream
+                    ))
+                }
+                Ordering::Equal => {
+                    variants.push(VariantDef::new(entry_def)?);
+                    entry_def = Vec::new();
+                    current_size = 0;
+                }
+                Ordering::Less => {
+                    /* Noting to do */
+                    continue;
+                }
             }
         }
         if !entry_def.is_empty() {
