@@ -7,7 +7,7 @@ struct Entry {
 }
 
 test_suite! {
-    name basic_reading;
+    name basic_creation;
 
     use jubako::creator as creator;
     use std::io::{Result, Read};
@@ -109,7 +109,7 @@ test_suite! {
         let directory_info = create_directory_pack(&articles.val).unwrap();
         let main_path = create_main_pack(directory_info, content_info).unwrap();
 
-        let container = jubako::Container::new(main_path).unwrap();
+        let container = jubako::reader::Container::new(main_path).unwrap();
         assert_eq!(container.pack_count(), 1);
         assert!(container.check().unwrap());
         println!("Read directory pack");
@@ -123,12 +123,12 @@ test_suite! {
             assert_eq!(entry.get_variant_id(), 0);
             println!("Check value 0");
             let value_0 = entry.get_value(jubako::Idx(0)).unwrap();
-            if let jubako::Value::Array(array) = value_0 {
+            if let jubako::reader::Value::Array(array) = value_0 {
                 assert_eq!(
                     array,
-                    &jubako::Array::new(
+                    &jubako::reader::Array::new(
                         vec!(),
-                        Some(jubako::Extend::new(jubako::Idx(0), i.into()))
+                        Some(jubako::reader::Extend::new(jubako::Idx(0), i.into()))
                     ));
                 let key_store = directory_pack.get_key_store(jubako::Idx(0)).unwrap();
                 let vec = array.resolve_to_vec(&key_store).unwrap();
@@ -138,11 +138,11 @@ test_suite! {
             }
             println!("Check value 1");
             let value_1 = entry.get_value(jubako::Idx(1)).unwrap();
-            if let jubako::Value::Content(content) = value_1 {
+            if let jubako::reader::Value::Content(content) = value_1 {
                 assert_eq!(
                     content,
-                    &jubako::Content::new(
-                        jubako::ContentAddress{pack_id:0.into(), content_id:i.into()},
+                    &jubako::reader::Content::new(
+                        jubako::reader::ContentAddress{pack_id:0.into(), content_id:i.into()},
                         None
                     ));
                 println!("Get pack");
@@ -161,7 +161,7 @@ test_suite! {
             }
             println!("Check value 2");
             let value_2= entry.get_value(jubako::Idx(2)).unwrap();
-            if let jubako::Value::U16(v) = value_2 {
+            if let jubako::reader::Value::U16(v) = value_2 {
                 assert_eq!(*v, articles.val[i as usize].word_count);
             } else {
               panic!();

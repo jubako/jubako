@@ -1,7 +1,7 @@
 use crate::bases::Writable;
 use crate::bases::*;
-use crate::creator;
 use crate::creator::directory_pack::{Entry, KeyStore};
+use crate::creator::Value;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -83,7 +83,7 @@ impl VariantDef {
                 KeyDef::PString(flookup_size, store_handle) => {
                     let flookup_size = *flookup_size as usize;
                     let value = value_iter.next().unwrap();
-                    if let creator::Value::Array { data, key_id } = value {
+                    if let Value::Array { data, key_id } = value {
                         stream.write_sized(
                             key_id.unwrap(),
                             store_handle.borrow().key_size() as usize,
@@ -96,7 +96,7 @@ impl VariantDef {
                 }
                 KeyDef::ContentAddress => {
                     let value = value_iter.next().unwrap();
-                    if let creator::Value::Content(value) = value {
+                    if let Value::Content(value) = value {
                         value.write(stream)?;
                     } else {
                         return Err(Error::Other("Not a Content".to_string()));
@@ -104,7 +104,7 @@ impl VariantDef {
                 }
                 KeyDef::UnsignedInt(size) => {
                     let value = value_iter.next().unwrap();
-                    if let creator::Value::Unsigned(value) = value {
+                    if let Value::Unsigned(value) = value {
                         stream.write_sized(*value, *size as usize)?;
                     } else {
                         return Err(Error::Other("Not a unsigned".to_string()));
