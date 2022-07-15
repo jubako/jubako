@@ -11,97 +11,14 @@ use self::index::{Index, IndexHeader};
 use self::index_store::IndexStore;
 use self::key_store::KeyStore;
 use crate::bases::*;
+use crate::common::DirectoryPackHeader;
 use crate::pack::*;
-use generic_array::typenum;
 use std::cell::Cell;
-use std::fmt::Debug;
 use std::io::Read;
-use typenum::U31;
 use uuid::Uuid;
 
 pub use key_def::{KeyDef, KeyDefKind};
 pub use value::{Array, Content, Extend, Value};
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct DirectoryPackHeader {
-    pack_header: PackHeader,
-    entry_store_ptr_pos: Offset,
-    key_store_ptr_pos: Offset,
-    index_ptr_pos: Offset,
-    entry_store_count: Count<u32>,
-    index_count: Count<u32>,
-    key_store_count: Count<u8>,
-    free_data: FreeData<U31>,
-}
-
-impl DirectoryPackHeader {
-    pub fn new(
-        pack_info: PackHeaderInfo,
-        free_data: FreeData<U31>,
-        index_ptr_pos: Offset,
-        index_count: Count<u32>,
-        key_store_ptr_pos: Offset,
-        key_store_count: Count<u8>,
-        entry_store_ptr_pos: Offset,
-        entry_store_count: Count<u32>,
-    ) -> Self {
-        DirectoryPackHeader {
-            pack_header: PackHeader::new(PackKind::Directory, pack_info),
-            index_ptr_pos,
-            index_count,
-            key_store_ptr_pos,
-            key_store_count,
-            entry_store_ptr_pos,
-            entry_store_count,
-            free_data,
-        }
-    }
-
-    pub fn uuid(&self) -> Uuid {
-        self.pack_header.uuid
-    }
-}
-
-impl Producable for DirectoryPackHeader {
-    type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        let pack_header = PackHeader::produce(stream)?;
-        if pack_header.magic != PackKind::Directory {
-            return Err(format_error!("Pack Magic is not DirectoryPack"));
-        }
-        let index_ptr_pos = Offset::produce(stream)?;
-        let entry_store_ptr_pos = Offset::produce(stream)?;
-        let key_store_ptr_pos = Offset::produce(stream)?;
-        let index_count = Count::<u32>::produce(stream)?;
-        let entry_store_count = Count::<u32>::produce(stream)?;
-        let key_store_count = Count::<u8>::produce(stream)?;
-        let free_data = FreeData::produce(stream)?;
-        Ok(DirectoryPackHeader {
-            pack_header,
-            entry_store_ptr_pos,
-            key_store_ptr_pos,
-            index_ptr_pos,
-            entry_store_count,
-            index_count,
-            key_store_count,
-            free_data,
-        })
-    }
-}
-
-impl Writable for DirectoryPackHeader {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        self.pack_header.write(stream)?;
-        self.index_ptr_pos.write(stream)?;
-        self.entry_store_ptr_pos.write(stream)?;
-        self.key_store_ptr_pos.write(stream)?;
-        self.index_count.write(stream)?;
-        self.entry_store_count.write(stream)?;
-        self.key_store_count.write(stream)?;
-        self.free_data.write(stream)?;
-        Ok(())
-    }
-}
 
 pub struct DirectoryPack {
     header: DirectoryPackHeader,

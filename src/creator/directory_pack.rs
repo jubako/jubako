@@ -2,9 +2,8 @@ pub mod entry_def;
 
 use super::{CheckInfo, PackInfo};
 use crate::bases::*;
-use crate::common::ContentAddress;
+use crate::common::{ContentAddress, DirectoryPackHeader};
 use crate::pack::PackHeaderInfo;
-use crate::reader::DirectoryPackHeader;
 use std::cell::{Ref, RefCell, RefMut};
 use std::fs::OpenOptions;
 use std::io::{Seek, SeekFrom, Write};
