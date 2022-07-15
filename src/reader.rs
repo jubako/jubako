@@ -7,4 +7,4 @@ mod main_pack;
 pub use self::jubako::Container;
 pub use content_pack::ContentPack;
 pub use directory_pack::{Array, Content, DirectoryPack, Extend, KeyDef, KeyDefKind, Value};
-pub use main_pack::{MainPack, MainPackHeader};
+pub use main_pack::MainPack;
