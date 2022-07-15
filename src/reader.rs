@@ -9,4 +9,4 @@ pub use content_pack::{ClusterHeader, ContentPack, ContentPackHeader, EntryInfo}
 pub use directory_pack::{
     Array, Content, DirectoryPack, DirectoryPackHeader, Extend, KeyDef, KeyDefKind, Value,
 };
-pub use main_pack::{MainPack, MainPackHeader, PackPos};
+pub use main_pack::{MainPack, MainPackHeader};

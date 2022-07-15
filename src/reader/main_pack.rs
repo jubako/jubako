@@ -1,11 +1,11 @@
 use std::cell::OnceCell;
 
 use crate::bases::*;
+use crate::common::PackPos;
 use crate::pack::*;
 use generic_array::typenum;
 use std::cmp;
 use std::io::{repeat, Read};
-use std::os::unix::ffi::OsStringExt;
 use typenum::Unsigned;
 use uuid::Uuid;
 
@@ -62,18 +62,6 @@ impl Writable for MainPackHeader {
         self.pack_count.write(stream)?;
         self.free_data.write(stream)?;
         Ok(())
-    }
-}
-
-#[derive(PartialEq, Eq, Debug)]
-pub enum PackPos {
-    Offset(Offset),
-    Path(Vec<u8>),
-}
-
-impl From<std::path::PathBuf> for PackPos {
-    fn from(p: std::path::PathBuf) -> Self {
-        PackPos::Path(p.as_os_str().to_os_string().into_vec())
     }
 }
 

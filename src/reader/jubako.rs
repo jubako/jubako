@@ -2,8 +2,9 @@ use std::cell::OnceCell;
 
 use super::content_pack::ContentPack;
 use super::directory_pack::DirectoryPack;
-use super::main_pack::{MainPack, PackInfo, PackPos};
+use super::main_pack::{MainPack, PackInfo};
 use crate::bases::*;
+use crate::common::PackPos;
 use crate::pack::Pack;
 use std::ffi::OsString;
 use std::fs::File;
