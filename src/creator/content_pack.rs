@@ -1,8 +1,8 @@
 use super::{CheckInfo, PackInfo};
 use crate::bases::*;
-use crate::common::{ClusterHeader, CompressionType, PackPos};
+use crate::common::{ClusterHeader, CompressionType, ContentPackHeader, PackPos};
 use crate::pack::PackHeaderInfo;
-use crate::reader::{ContentPackHeader, EntryInfo};
+use crate::reader::EntryInfo;
 use std::fs::{File, OpenOptions};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
