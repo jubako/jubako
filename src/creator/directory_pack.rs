@@ -3,7 +3,7 @@ pub mod entry_def;
 use super::{CheckInfo, PackInfo};
 use crate::bases::*;
 use crate::pack::PackHeaderInfo;
-use crate::directory_pack::{ContentAddress, DirectoryPackHeader};
+use crate::reader::{ContentAddress, DirectoryPackHeader};
 use std::cell::{Ref, RefCell, RefMut};
 use std::fs::OpenOptions;
 use std::io::{Seek, SeekFrom, Write};

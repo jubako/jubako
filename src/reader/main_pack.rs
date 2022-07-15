@@ -5,9 +5,9 @@ use crate::pack::*;
 use generic_array::typenum;
 use std::cmp;
 use std::io::{repeat, Read};
+use std::os::unix::ffi::OsStringExt;
 use typenum::Unsigned;
 use uuid::Uuid;
-use std::os::unix::ffi::OsStringExt;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct MainPackHeader {

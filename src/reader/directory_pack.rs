@@ -235,8 +235,8 @@ impl Pack for DirectoryPack {
 
 #[cfg(test)]
 mod tests {
+    use super::value::*;
     use super::*;
-    use crate::directory_pack::value::*;
 
     #[test]
     fn test_directorypackheader() {

@@ -1,12 +1,12 @@
 use std::cell::OnceCell;
 
+use super::content_pack::ContentPack;
+use super::directory_pack::DirectoryPack;
+use super::main_pack::{MainPack, PackInfo, PackPos};
 use crate::bases::*;
-use crate::content_pack::ContentPack;
-use crate::directory_pack::DirectoryPack;
-use crate::main_pack::{MainPack, PackInfo, PackPos};
 use crate::pack::Pack;
-use std::fs::File;
 use std::ffi::OsString;
+use std::fs::File;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 
@@ -68,7 +68,11 @@ impl Container {
                 .reader
                 .create_sub_reader(*offset, End::Size(pack_info.pack_size))),
             PackPos::Path(path) => {
-                let path = self.path.parent().unwrap().join(OsString::from_vec(path.clone()));
+                let path = self
+                    .path
+                    .parent()
+                    .unwrap()
+                    .join(OsString::from_vec(path.clone()));
                 let file = File::open(path)?;
                 Ok(Box::new(FileReader::new(
                     file,
