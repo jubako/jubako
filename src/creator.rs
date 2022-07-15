@@ -4,7 +4,7 @@ mod main_pack;
 
 use crate::bases::*;
 use crate::pack::CheckKind;
-use crate::reader::{PackPos, ContentAddress};
+use crate::reader::PackPos;
 pub use content_pack::ContentPackCreator;
 pub use directory_pack::entry_def::{EntryDef as Entry, KeyDef as Key, VariantDef as Variant};
 pub use directory_pack::{DirectoryPackCreator, Value};

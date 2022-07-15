@@ -506,7 +506,7 @@ test_suite! {
                 assert_eq!(
                     content,
                     &reader::Content::new(
-                        reader::ContentAddress{pack_id:0.into(), content_id:i.into()},
+                        jubako::ContentAddress{pack_id:0.into(), content_id:i.into()},
                         None
                     ));
                 let pack = container.get_pack(1.into()).unwrap();

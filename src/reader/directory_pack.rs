@@ -103,41 +103,6 @@ impl Writable for DirectoryPackHeader {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct ContentAddress {
-    pub pack_id: Idx<u8>,
-    pub content_id: Idx<u32>,
-}
-
-impl ContentAddress {
-    pub fn new(pack_id: Idx<u8>, content_id: Idx<u32>) -> Self {
-        Self {
-            pack_id,
-            content_id,
-        }
-    }
-}
-
-impl Producable for ContentAddress {
-    type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        let pack_id = stream.read_u8()?;
-        let content_id = stream.read_sized(3)? as u32;
-        Ok(ContentAddress {
-            pack_id: pack_id.into(),
-            content_id: content_id.into(),
-        })
-    }
-}
-
-impl Writable for ContentAddress {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        let data: u32 = (self.pack_id.0 as u32) << 24 | (self.content_id.0 & 0x0FFF);
-        stream.write_u32(data)?;
-        Ok(())
-    }
-}
-
 pub struct DirectoryPack {
     header: DirectoryPackHeader,
     key_stores_ptrs: ArrayReader<SizedOffset, u8>,
@@ -237,6 +202,7 @@ impl Pack for DirectoryPack {
 mod tests {
     use super::value::*;
     use super::*;
+    use crate::common::ContentAddress;
 
     #[test]
     fn test_directorypackheader() {

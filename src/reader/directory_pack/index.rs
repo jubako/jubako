@@ -1,7 +1,7 @@
 use super::entry::Entry;
 use super::index_store::IndexStore;
-use super::ContentAddress;
 use crate::bases::*;
+use crate::common::ContentAddress;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct IndexHeader {

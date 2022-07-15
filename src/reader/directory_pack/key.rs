@@ -1,6 +1,6 @@
 use super::value::{Array, Content, Extend, Value};
-use super::ContentAddress;
 use crate::bases::*;
+use crate::common::ContentAddress;
 
 // The kind of the key. This will be the descriminant to how parse the value.
 #[derive(Debug, PartialEq, Eq)]

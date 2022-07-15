@@ -1,6 +1,6 @@
-use super::ContentAddress;
 use super::KeyStore;
 use crate::bases::*;
+use crate::common::ContentAddress;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Content {

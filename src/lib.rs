@@ -8,5 +8,4 @@ mod pack;
 pub mod reader;
 
 pub use crate::bases::{Count, FreeData, Idx};
-pub use crate::common::CompressionType;
-pub use reader::ContentAddress;
+pub use crate::common::{CompressionType, ContentAddress};

@@ -142,7 +142,7 @@ test_suite! {
                 assert_eq!(
                     content,
                     &jubako::reader::Content::new(
-                        jubako::reader::ContentAddress{pack_id:0.into(), content_id:i.into()},
+                        jubako::ContentAddress{pack_id:0.into(), content_id:i.into()},
                         None
                     ));
                 println!("Get pack");
