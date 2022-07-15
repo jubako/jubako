@@ -5,7 +5,7 @@ mod jubako;
 mod main_pack;
 
 pub use self::jubako::Container;
-pub use content_pack::{ClusterHeader, CompressionType, ContentPack, ContentPackHeader, EntryInfo};
+pub use content_pack::{ClusterHeader, ContentPack, ContentPackHeader, EntryInfo};
 pub use directory_pack::{
     Array, Content, ContentAddress, DirectoryPack, DirectoryPackHeader, Extend, KeyDef, KeyDefKind,
     Value,
