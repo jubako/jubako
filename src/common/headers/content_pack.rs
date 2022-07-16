@@ -1,5 +1,5 @@
 use crate::bases::*;
-use crate::pack::*;
+use crate::common::{PackHeader, PackHeaderInfo, PackKind};
 use generic_array::typenum::U40;
 use std::fmt::Debug;
 

@@ -1,7 +1,6 @@
 use super::PackInfo;
 use crate::bases::*;
-use crate::common::ManifestPackHeader;
-use crate::pack::PackHeaderInfo;
+use crate::common::{ManifestPackHeader, PackHeaderInfo};
 use std::fs::OpenOptions;
 use std::io::{copy, repeat, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};

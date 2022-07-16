@@ -3,8 +3,7 @@ mod directory_pack;
 mod manifest_pack;
 
 use crate::bases::*;
-use crate::common::PackPos;
-use crate::pack::CheckKind;
+use crate::common::{CheckKind, PackPos};
 pub use content_pack::ContentPackCreator;
 pub use directory_pack::entry_def::{EntryDef as Entry, KeyDef as Key, VariantDef as Variant};
 pub use directory_pack::{DirectoryPackCreator, Value};

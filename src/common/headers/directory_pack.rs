@@ -1,5 +1,5 @@
 use crate::bases::*;
-use crate::pack::{PackHeader, PackHeaderInfo, PackKind};
+use crate::common::{PackHeader, PackHeaderInfo, PackKind};
 use std::fmt::Debug;
 use typenum::U31;
 use uuid::Uuid;

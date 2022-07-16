@@ -1,8 +1,7 @@
 use std::cell::OnceCell;
 
 use crate::bases::*;
-use crate::common::{ManifestPackHeader, PackPos};
-use crate::pack::*;
+use crate::common::{CheckInfo, ManifestPackHeader, Pack, PackKind, PackPos};
 use generic_array::typenum;
 use std::cmp;
 use std::io::{repeat, Read};

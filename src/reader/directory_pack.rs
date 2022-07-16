@@ -11,8 +11,7 @@ use self::index::{Index, IndexHeader};
 use self::index_store::IndexStore;
 use self::key_store::KeyStore;
 use crate::bases::*;
-use crate::common::DirectoryPackHeader;
-use crate::pack::*;
+use crate::common::{CheckInfo, DirectoryPackHeader, Pack, PackKind};
 use std::cell::Cell;
 use std::io::Read;
 use uuid::Uuid;
@@ -119,7 +118,7 @@ impl Pack for DirectoryPack {
 mod tests {
     use super::value::*;
     use super::*;
-    use crate::common::ContentAddress;
+    use crate::common::{ContentAddress, PackHeader};
 
     #[test]
     fn test_directorypackheader() {

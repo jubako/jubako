@@ -1,118 +1,7 @@
 use crate::bases::*;
+use crate::common::PackKind;
 use std::fmt::Debug;
-use std::io::{self, Read};
 use uuid::Uuid;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PackKind {
-    Manifest,
-    Directory,
-    Content,
-}
-
-impl Producable for PackKind {
-    type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        match stream.read_u32()? {
-            0x6a_62_6b_6d_u32 => Ok(PackKind::Manifest),      // jbkm
-            0x6a_62_6b_64_u32 => Ok(PackKind::Directory), // jbkd
-            0x6a_62_6b_63_u32 => Ok(PackKind::Content),   // jbkc
-            _ => Err(format_error!("Invalid pack kind", stream)),
-        }
-    }
-}
-
-impl Writable for PackKind {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        match self {
-            PackKind::Manifest => stream.write_u32(0x6a_62_6b_6d_u32),
-            PackKind::Directory => stream.write_u32(0x6a_62_6b_64_u32),
-            PackKind::Content => stream.write_u32(0x6a_62_6b_63_u32),
-        }
-    }
-}
-
-impl Producable for Uuid {
-    type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        let mut v = [0_u8; 16];
-        stream.read_exact(&mut v)?;
-        Ok(Uuid::from_bytes(v))
-    }
-}
-impl Writable for Uuid {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        stream.write_all(self.as_bytes())?;
-        Ok(())
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum CheckKind {
-    None = 0,
-    Blake3 = 1,
-}
-
-impl Producable for CheckKind {
-    type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        let kind = stream.read_u8()?;
-        match kind {
-            0_u8 => Ok(CheckKind::None),
-            1_u8 => Ok(CheckKind::Blake3),
-            _ => Err(format_error!(
-                &format!("Invalid check kind {}", kind),
-                stream
-            )),
-        }
-    }
-}
-
-impl Writable for CheckKind {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        stream.write_u8(*self as u8)?;
-        Ok(())
-    }
-}
-
-impl Producable for blake3::Hash {
-    type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        let mut v = [0_u8; blake3::OUT_LEN];
-        stream.read_exact(&mut v)?;
-        Ok(v.into())
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct CheckInfo {
-    b3hash: Option<blake3::Hash>,
-}
-
-impl Producable for CheckInfo {
-    type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        let kind = CheckKind::produce(stream)?;
-        let b3hash = match kind {
-            CheckKind::Blake3 => Some(blake3::Hash::produce(stream)?),
-            _ => None,
-        };
-        Ok(Self { b3hash })
-    }
-}
-
-impl CheckInfo {
-    pub fn check(&self, source: &mut dyn Read) -> Result<bool> {
-        if let Some(b3hash) = self.b3hash {
-            let mut hasher = blake3::Hasher::new();
-            io::copy(source, &mut hasher)?;
-            let hash = hasher.finalize();
-            Ok(hash == b3hash)
-        } else {
-            Ok(true)
-        }
-    }
-}
 
 pub struct PackHeaderInfo {
     pub app_vendor_id: u32,
@@ -192,18 +81,6 @@ impl Writable for PackHeader {
         stream.write_all(&[0_u8; 16])?;
         Ok(())
     }
-}
-
-/// A Pack is the more global entity in Jubako.
-/// It is a "File", which can be a single file in the fs
-/// or embedded in another file.
-pub trait Pack {
-    fn kind(&self) -> PackKind;
-    fn app_vendor_id(&self) -> u32;
-    fn version(&self) -> (u8, u8);
-    fn uuid(&self) -> Uuid;
-    fn size(&self) -> Size;
-    fn check(&self) -> Result<bool>;
 }
 
 #[cfg(test)]
