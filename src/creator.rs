@@ -1,6 +1,6 @@
 mod content_pack;
 mod directory_pack;
-mod main_pack;
+mod manifest_pack;
 
 use crate::bases::*;
 use crate::common::PackPos;
@@ -8,7 +8,7 @@ use crate::pack::CheckKind;
 pub use content_pack::ContentPackCreator;
 pub use directory_pack::entry_def::{EntryDef as Entry, KeyDef as Key, VariantDef as Variant};
 pub use directory_pack::{DirectoryPackCreator, Value};
-pub use main_pack::MainPackCreator;
+pub use manifest_pack::ManifestPackCreator;
 use typenum::U103;
 
 pub struct CheckInfo {

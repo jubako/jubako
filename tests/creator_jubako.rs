@@ -90,7 +90,7 @@ test_suite! {
     }
 
     fn create_main_pack(directory_pack: creator::PackInfo, content_pack:creator::PackInfo) -> Result<String> {
-        let mut creator = creator::MainPackCreator::new(
+        let mut creator = creator::ManifestPackCreator::new(
             "/tmp/mainPack.jbkm",
             1,
             jubako::FreeData::<U63>::clone_from_slice(&[0xff; 63])

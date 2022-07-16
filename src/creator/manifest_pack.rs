@@ -1,22 +1,22 @@
 use super::PackInfo;
 use crate::bases::*;
-use crate::common::MainPackHeader;
+use crate::common::ManifestPackHeader;
 use crate::pack::PackHeaderInfo;
 use std::fs::OpenOptions;
 use std::io::{copy, repeat, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use typenum::U63;
 
-pub struct MainPackCreator {
+pub struct ManifestPackCreator {
     app_vendor_id: u32,
     free_data: FreeData<U63>,
     packs: Vec<PackInfo>,
     path: PathBuf,
 }
 
-impl MainPackCreator {
+impl ManifestPackCreator {
     pub fn new<P: AsRef<Path>>(path: P, app_vendor_id: u32, free_data: FreeData<U63>) -> Self {
-        MainPackCreator {
+        ManifestPackCreator {
             app_vendor_id,
             free_data,
             packs: vec![],
@@ -51,7 +51,7 @@ impl MainPackCreator {
         let check_offset = file.tell();
         let pack_size: Size = (check_offset + 33).into();
         file.rewind()?;
-        let header = MainPackHeader::new(
+        let header = ManifestPackHeader::new(
             PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset),
             self.free_data,
             ((self.packs.len() as u8) - 1).into(),

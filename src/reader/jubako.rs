@@ -2,7 +2,7 @@ use std::cell::OnceCell;
 
 use super::content_pack::ContentPack;
 use super::directory_pack::DirectoryPack;
-use super::main_pack::{MainPack, PackInfo};
+use super::manifest_pack::{ManifestPack, PackInfo};
 use crate::bases::*;
 use crate::common::PackPos;
 use crate::pack::Pack;
@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 pub struct Container {
     path: PathBuf,
-    main_pack: MainPack,
+    main_pack: ManifestPack,
     reader: FileReader,
     directory_pack: OnceCell<DirectoryPack>,
     packs: Vec<OnceCell<ContentPack>>,
@@ -24,7 +24,7 @@ impl Container {
         let path: PathBuf = path.as_ref().into();
         let file = File::open(path.clone())?;
         let reader = FileReader::new(file, End::None);
-        let main_pack = MainPack::new(reader.create_sub_reader(Offset(0), End::None))?;
+        let main_pack = ManifestPack::new(reader.create_sub_reader(Offset(0), End::None))?;
         let mut packs = Vec::new();
         packs.resize_with((main_pack.max_id() + 1) as usize, Default::default);
         Ok(Self {

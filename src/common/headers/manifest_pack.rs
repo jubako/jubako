@@ -3,37 +3,37 @@ use crate::pack::*;
 use generic_array::typenum;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct MainPackHeader {
+pub struct ManifestPackHeader {
     pub pack_header: PackHeader,
     pub pack_count: Count<u8>,
     pub free_data: FreeData<typenum::U63>,
 }
 
-impl MainPackHeader {
+impl ManifestPackHeader {
     pub fn new(
         pack_info: PackHeaderInfo,
         free_data: FreeData<typenum::U63>,
         pack_count: Count<u8>,
     ) -> Self {
-        MainPackHeader {
-            pack_header: PackHeader::new(PackKind::Main, pack_info),
+        ManifestPackHeader {
+            pack_header: PackHeader::new(PackKind::Manifest, pack_info),
             pack_count,
             free_data,
         }
     }
 }
 
-impl SizedProducable for MainPackHeader {
+impl SizedProducable for ManifestPackHeader {
     // PackHeader::Size (64) + Count<u8>::Size (1) + FreeData (63)
     type Size = typenum::U128;
 }
 
-impl Producable for MainPackHeader {
+impl Producable for ManifestPackHeader {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let pack_header = PackHeader::produce(stream)?;
-        if pack_header.magic != PackKind::Main {
-            return Err(format_error!("Pack Magic is not MainPack"));
+        if pack_header.magic != PackKind::Manifest {
+            return Err(format_error!("Pack Magic is not ManifestPack"));
         }
         let pack_count = Count::<u8>::produce(stream)?;
         let free_data = FreeData::produce(stream)?;
@@ -45,7 +45,7 @@ impl Producable for MainPackHeader {
     }
 }
 
-impl Writable for MainPackHeader {
+impl Writable for ManifestPackHeader {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
         self.pack_header.write(stream)?;
         self.pack_count.write(stream)?;
@@ -79,10 +79,10 @@ mod tests {
         let reader = BufReader::new(content, End::None);
         let mut stream = reader.create_stream_all();
         assert_eq!(
-            MainPackHeader::produce(stream.as_mut()).unwrap(),
-            MainPackHeader {
+            ManifestPackHeader::produce(stream.as_mut()).unwrap(),
+            ManifestPackHeader {
                 pack_header: PackHeader {
-                    magic: PackKind::Main,
+                    magic: PackKind::Manifest,
                     app_vendor_id: 0x01000000_u32,
                     major_version: 0x01_u8,
                     minor_version: 0x02_u8,

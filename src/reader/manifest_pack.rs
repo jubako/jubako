@@ -1,7 +1,7 @@
 use std::cell::OnceCell;
 
 use crate::bases::*;
-use crate::common::{MainPackHeader, PackPos};
+use crate::common::{ManifestPackHeader, PackPos};
 use crate::pack::*;
 use generic_array::typenum;
 use std::cmp;
@@ -51,8 +51,8 @@ impl Producable for PackInfo {
     }
 }
 
-pub struct MainPack {
-    header: MainPackHeader,
+pub struct ManifestPack {
+    header: ManifestPackHeader,
     reader: Box<dyn Reader>,
     directory_pack_info: PackInfo,
     pack_infos: Vec<PackInfo>,
@@ -60,10 +60,10 @@ pub struct MainPack {
     max_id: u8,
 }
 
-impl MainPack {
+impl ManifestPack {
     pub fn new(reader: Box<dyn Reader>) -> Result<Self> {
         let mut stream = reader.create_stream_all();
-        let header = MainPackHeader::produce(stream.as_mut())?;
+        let header = ManifestPackHeader::produce(stream.as_mut())?;
         let directory_pack_info = PackInfo::produce(stream.as_mut())?;
         let mut pack_infos: Vec<PackInfo> = Vec::with_capacity(header.pack_count.0 as usize);
         let mut max_id = 0;
@@ -83,7 +83,7 @@ impl MainPack {
     }
 }
 
-impl MainPack {
+impl ManifestPack {
     pub fn pack_count(&self) -> Count<u8> {
         self.header.pack_count
     }
@@ -124,7 +124,7 @@ struct CheckStream<'a> {
 impl<'a> CheckStream<'a> {
     pub fn new(source: &'a mut dyn Stream, pack_count: Count<u8>) -> Self {
         let start_safe_zone =
-            <MainPackHeader as SizedProducable>::Size::U64 + 256 * (pack_count.0 as u64);
+            <ManifestPackHeader as SizedProducable>::Size::U64 + 256 * (pack_count.0 as u64);
         Self {
             source,
             start_safe_zone,
@@ -132,7 +132,7 @@ impl<'a> CheckStream<'a> {
     }
 }
 
-const HEADER_SIZE: u64 = <MainPackHeader as SizedProducable>::Size::U64;
+const HEADER_SIZE: u64 = <ManifestPackHeader as SizedProducable>::Size::U64;
 const PACK_INFO_SIZE: u64 = <PackInfo as SizedProducable>::Size::U64;
 const PACK_INFO_TO_CHECK: u64 = 144;
 
@@ -163,7 +163,7 @@ impl Read for CheckStream<'_> {
     }
 }
 
-impl Pack for MainPack {
+impl Pack for ManifestPack {
     fn kind(&self) -> PackKind {
         self.header.pack_header.magic
     }
@@ -282,8 +282,8 @@ mod tests {
             content.extend(hash.as_bytes());
         }
         let reader = Box::new(BufReader::new_from_rc(rc_content, End::None));
-        let main_pack = MainPack::new(reader).unwrap();
-        assert_eq!(main_pack.kind(), PackKind::Main);
+        let main_pack = ManifestPack::new(reader).unwrap();
+        assert_eq!(main_pack.kind(), PackKind::Manifest);
         assert_eq!(main_pack.app_vendor_id(), 0x01000000);
         assert_eq!(main_pack.version(), (1, 2));
         assert_eq!(
