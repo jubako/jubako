@@ -124,12 +124,6 @@ test_suite! {
             println!("Check value 0");
             let value_0 = entry.get_value(jubako::Idx(0)).unwrap();
             if let jubako::reader::Value::Array(array) = value_0 {
-                assert_eq!(
-                    array,
-                    &jubako::reader::Array::new(
-                        vec!(),
-                        Some(jubako::reader::Extend::new(jubako::Idx(0), i.into()))
-                    ));
                 let key_store = directory_pack.get_key_store(jubako::Idx(0)).unwrap();
                 let vec = array.resolve_to_vec(&key_store).unwrap();
                 assert_eq!(vec, articles.val[i as usize].path.as_bytes());
@@ -139,12 +133,6 @@ test_suite! {
             println!("Check value 1");
             let value_1 = entry.get_value(jubako::Idx(1)).unwrap();
             if let jubako::reader::Value::Content(content) = value_1 {
-                assert_eq!(
-                    content,
-                    &jubako::reader::Content::new(
-                        jubako::ContentAddress{pack_id:0.into(), content_id:i.into()},
-                        None
-                    ));
                 println!("Get pack");
                 let pack = container.get_pack(1.into()).unwrap();
                 println!("Get reader");

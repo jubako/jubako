@@ -491,9 +491,9 @@ test_suite! {
             if let reader::Value::Array(array) = value_0 {
                 assert_eq!(
                     array,
-                    &reader::Array::new(
+                    &reader::testing::Array::new(
                         vec!(),
-                        Some(reader::Extend::new(jubako::Idx(0), i.into()))
+                        Some(reader::testing::Extend::new(jubako::Idx(0), i.into()))
                     ));
                 let key_store = directory_pack.get_key_store(jubako::Idx(0)).unwrap();
                 let vec = array.resolve_to_vec(&key_store).unwrap();
@@ -505,7 +505,7 @@ test_suite! {
             if let reader::Value::Content(content) = value_1 {
                 assert_eq!(
                     content,
-                    &reader::Content::new(
+                    &reader::testing::Content::new(
                         jubako::ContentAddress{pack_id:0.into(), content_id:i.into()},
                         None
                     ));
