@@ -286,7 +286,7 @@ mod tests {
                 entry.get_value(Idx(3)).unwrap(),
                 &Value::Content(Content::new(
                     ContentAddress {
-                        pack_id: Idx(1),
+                        pack_id: Id(1),
                         content_id: Idx(0)
                     },
                     None
@@ -324,7 +324,7 @@ mod tests {
                 entry.get_value(Idx(3)).unwrap(),
                 &Value::Content(Content::new(
                     ContentAddress {
-                        pack_id: Idx(0),
+                        pack_id: Id(0),
                         content_id: Idx(1)
                     },
                     None
@@ -359,7 +359,7 @@ mod tests {
                 entry.get_value(Idx(3)).unwrap(),
                 &Value::Content(Content::new(
                     ContentAddress {
-                        pack_id: Idx(0),
+                        pack_id: Id(0),
                         content_id: Idx(2)
                     },
                     None
@@ -394,7 +394,7 @@ mod tests {
                 entry.get_value(Idx(3)).unwrap(),
                 &Value::Content(Content::new(
                     ContentAddress {
-                        pack_id: Idx(0),
+                        pack_id: Id(0),
                         content_id: Idx(0xaaaaaa)
                     },
                     None

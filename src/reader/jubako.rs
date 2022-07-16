@@ -42,11 +42,11 @@ impl Container {
         self.main_pack.pack_count().into()
     }
 
-    pub fn get_pack(&self, pack_id: u8) -> Result<&ContentPack> {
-        self.packs[pack_id as usize].get_or_try_init(|| self._get_pack(pack_id))
+    pub fn get_pack(&self, pack_id: Id<u8>) -> Result<&ContentPack> {
+        self.packs[pack_id.0 as usize].get_or_try_init(|| self._get_pack(pack_id))
     }
 
-    fn _get_pack(&self, pack_id: u8) -> Result<ContentPack> {
+    fn _get_pack(&self, pack_id: Id<u8>) -> Result<ContentPack> {
         let pack_info = self.main_pack.get_content_pack_info(pack_id)?;
         let pack_reader = self._get_pack_reader(pack_info)?;
         ContentPack::new(pack_reader)

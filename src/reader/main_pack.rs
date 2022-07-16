@@ -12,7 +12,7 @@ use uuid::Uuid;
 #[derive(PartialEq, Eq, Debug)]
 pub struct PackInfo {
     pub id: Uuid,
-    pub pack_id: u8,
+    pub pack_id: Id<u8>,
     pub free_data: FreeData<typenum::U103>,
     pub pack_size: Size,
     pub pack_check_info: Offset,
@@ -27,7 +27,7 @@ impl Producable for PackInfo {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let id = Uuid::produce(stream)?;
-        let pack_id = stream.read_u8()?;
+        let pack_id = Id::produce(stream)?;
         let free_data = FreeData::produce(stream)?;
         let pack_size = Size::produce(stream)?;
         let pack_check_info = Offset::produce(stream)?;
@@ -69,7 +69,7 @@ impl MainPack {
         let mut max_id = 0;
         for _i in 0..(header.pack_count.0) {
             let pack_info = PackInfo::produce(stream.as_mut())?;
-            max_id = cmp::max(max_id, pack_info.pack_id);
+            max_id = cmp::max(max_id, pack_info.pack_id.0);
             pack_infos.push(pack_info);
         }
         Ok(Self {
@@ -106,7 +106,7 @@ impl MainPack {
         &self.directory_pack_info
     }
 
-    pub fn get_content_pack_info(&self, pack_id: u8) -> Result<&PackInfo> {
+    pub fn get_content_pack_info(&self, pack_id: Id<u8>) -> Result<&PackInfo> {
         for pack_info in &self.pack_infos {
             if pack_info.pack_id == pack_id {
                 return Ok(pack_info);
@@ -302,7 +302,7 @@ mod tests {
                     0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c,
                     0x1d, 0x1e, 0x1f
                 ]),
-                pack_id: 0,
+                pack_id: Id(0),
                 free_data: FreeData::clone_from_slice(&[0xf0; 103]),
                 pack_size: Size(0xffff),
                 pack_check_info: Offset(0xff),
@@ -310,13 +310,13 @@ mod tests {
             }
         );
         assert_eq!(
-            main_pack.get_content_pack_info(1).unwrap(),
+            main_pack.get_content_pack_info(Id(1)).unwrap(),
             &PackInfo {
                 id: Uuid::from_bytes([
                     0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c,
                     0x2d, 0x2e, 0x2f
                 ]),
-                pack_id: 1,
+                pack_id: Id(1),
                 free_data: FreeData::clone_from_slice(&[0xf1; 103]),
                 pack_size: Size(0xffffff),
                 pack_check_info: Offset(0xff00ff),
@@ -324,19 +324,19 @@ mod tests {
             }
         );
         assert_eq!(
-            main_pack.get_content_pack_info(2).unwrap(),
+            main_pack.get_content_pack_info(Id(2)).unwrap(),
             &PackInfo {
                 id: Uuid::from_bytes([
                     0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c,
                     0x3d, 0x3e, 0x3f
                 ]),
-                pack_id: 2,
+                pack_id: Id(2),
                 free_data: FreeData::clone_from_slice(&[0xf2; 103]),
                 pack_size: Size(0xffffff),
                 pack_check_info: Offset(0xffffff),
                 pack_pos: PackPos::Path("packpath".into())
             }
         );
-        assert!(main_pack.get_content_pack_info(3).is_err());
+        assert!(main_pack.get_content_pack_info(Id(3)).is_err());
     }
 }

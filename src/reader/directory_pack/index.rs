@@ -77,7 +77,7 @@ mod tests {
                 entry_count: Count(0xff00),
                 entry_offset: Idx(2),
                 extra_data: ContentAddress {
-                    pack_id: Idx(5),
+                    pack_id: Id(5),
                     content_id: Idx(1)
                 },
                 index_key: 1,

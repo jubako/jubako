@@ -2,6 +2,7 @@
 mod error;
 mod count;
 mod free_data;
+mod id;
 mod idx;
 mod offset;
 mod pstring;
@@ -11,6 +12,7 @@ mod sized_offset;
 pub use count::Count;
 pub use error::{Error, FormatError, Result};
 pub use free_data::FreeData;
+pub use id::Id;
 pub use idx::{Idx, IndexTrait};
 pub use offset::Offset;
 pub use pstring::PString;

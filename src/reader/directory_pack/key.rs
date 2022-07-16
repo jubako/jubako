@@ -373,8 +373,8 @@ mod tests {
             key.create_value(&reader).unwrap(),
             Value::Content(Content::new(
                 ContentAddress {
-                    pack_id: Idx::from(0xFE),
-                    content_id: Idx::from(0xDCBA98)
+                    pack_id: Id(0xFE),
+                    content_id: Idx(0xDCBA98)
                 },
                 None
             ))
@@ -384,8 +384,8 @@ mod tests {
             key.create_value(&reader).unwrap(),
             Value::Content(Content::new(
                 ContentAddress {
-                    pack_id: Idx::from(0xBA),
-                    content_id: Idx::from(0x987654)
+                    pack_id: Id(0xBA),
+                    content_id: Idx(0x987654)
                 },
                 None
             ))

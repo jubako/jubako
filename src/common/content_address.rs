@@ -3,12 +3,12 @@ use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct ContentAddress {
-    pub pack_id: Idx<u8>,
+    pub pack_id: Id<u8>,
     pub content_id: Idx<u32>,
 }
 
 impl ContentAddress {
-    pub fn new(pack_id: Idx<u8>, content_id: Idx<u32>) -> Self {
+    pub fn new(pack_id: Id<u8>, content_id: Idx<u32>) -> Self {
         Self {
             pack_id,
             content_id,
