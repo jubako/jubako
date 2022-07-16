@@ -84,8 +84,8 @@ impl MainPack {
 }
 
 impl MainPack {
-    pub fn pack_count(&self) -> u8 {
-        self.header.pack_count.0
+    pub fn pack_count(&self) -> Count<u8> {
+        self.header.pack_count
     }
     pub fn max_id(&self) -> u8 {
         self.max_id

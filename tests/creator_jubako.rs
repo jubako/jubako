@@ -110,7 +110,7 @@ test_suite! {
         let main_path = create_main_pack(directory_info, content_info).unwrap();
 
         let container = jubako::reader::Container::new(main_path).unwrap();
-        assert_eq!(container.pack_count(), 1);
+        assert_eq!(container.pack_count(), jubako::Count(1));
         assert!(container.check().unwrap());
         println!("Read directory pack");
         let directory_pack = container.get_directory_pack().unwrap();

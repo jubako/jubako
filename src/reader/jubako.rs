@@ -38,8 +38,8 @@ impl Container {
 }
 
 impl Container {
-    pub fn pack_count(&self) -> u8 {
-        self.main_pack.pack_count()
+    pub fn pack_count(&self) -> Count<u8> {
+        self.main_pack.pack_count().into()
     }
 
     pub fn get_pack(&self, pack_id: u8) -> Result<&ContentPack> {
