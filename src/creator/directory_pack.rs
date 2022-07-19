@@ -39,10 +39,10 @@ impl KeyStore {
     }
 
     fn current_offset(&self) -> usize {
-        if self.entries_offset.len() > 0 {
-            self.entries_offset[self.entries_offset.len() - 1]
-        } else {
+        if self.entries_offset.is_empty() {
             0
+        } else {
+            self.entries_offset[self.entries_offset.len() - 1]
         }
     }
 
