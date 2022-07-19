@@ -124,7 +124,7 @@ test_suite! {
             println!("Check value 0");
             let value_0 = entry.get_value(jubako::Idx(0)).unwrap();
             if let jubako::reader::Value::Array(array) = value_0 {
-                let key_store = directory_pack.get_key_store(jubako::Idx(0)).unwrap();
+                let key_store = directory_pack.get_key_store(array.key_store_id().unwrap()).unwrap();
                 let vec = array.resolve_to_vec(&key_store).unwrap();
                 assert_eq!(vec, articles.val[i as usize].path.as_bytes());
             } else {

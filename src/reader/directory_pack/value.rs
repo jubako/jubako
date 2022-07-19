@@ -40,6 +40,10 @@ impl Array {
         Self { base, extend }
     }
 
+    pub fn key_store_id(&self) -> Option<Idx<u8>> {
+        self.extend.as_ref().map(|e| e.store_id)
+    }
+
     pub fn resolve_to_vec(&self, key_store: &KeyStore) -> Result<Vec<u8>> {
         let extend = match &self.extend {
             None => Vec::new(),
