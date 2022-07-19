@@ -14,18 +14,21 @@ impl Cluster {
         let header = ClusterHeader::produce(stream.as_mut())?;
         let raw_data_size: Size = stream.read_sized(header.offset_size.into())?.into();
         let data_size: Size = stream.read_sized(header.offset_size.into())?.into();
-        let mut blob_offsets: Vec<Offset> = Vec::with_capacity((header.blob_count.0 + 1) as usize);
-        unsafe { blob_offsets.set_len((header.blob_count.0).into()) }
+        let blob_count = header.blob_count.0 as usize;
+        let mut blob_offsets: Vec<Offset> = Vec::with_capacity(blob_count + 1);
+        let uninit = blob_offsets.spare_capacity_mut();
         let mut first = true;
-        for elem in blob_offsets.iter_mut() {
-            if first {
-                *elem = 0.into();
+        for elem in &mut uninit[0..blob_count] {
+            let value: Offset = if first {
                 first = false;
+                0.into()
             } else {
-                *elem = stream.read_sized(header.offset_size.into())?.into();
-            }
-            assert!(elem.is_valid(data_size));
+                stream.read_sized(header.offset_size.into())?.into()
+            };
+            assert!(value.is_valid(data_size));
+            elem.write(value);
         }
+        unsafe { blob_offsets.set_len(blob_count) }
         blob_offsets.push(data_size.into());
         let raw_reader = reader.create_sub_reader(
             Offset(cluster_info.offset.0 - raw_data_size.0),

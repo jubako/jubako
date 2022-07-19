@@ -2,7 +2,7 @@
 use crate::bases::*;
 use primitive::*;
 use std::fmt;
-use std::io::Read;
+use std::io::{Read, ReadBuf};
 
 /// A stream is a object streaming a reader and producing data.
 /// A stream may have a size, and is positionned.
@@ -41,10 +41,11 @@ pub trait Stream: Read {
     }
     fn read_vec(&mut self, size: usize) -> Result<Vec<u8>> {
         let mut v = Vec::with_capacity(size);
+        let mut read_buf = ReadBuf::uninit(v.spare_capacity_mut());
+        self.read_buf_exact(&mut read_buf)?;
         unsafe {
             v.set_len(size);
         }
-        self.read_exact(v.as_mut_slice())?;
         Ok(v)
     }
 }

@@ -1,8 +1,8 @@
 use crate::bases::primitive::*;
 use crate::bases::*;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::cmp;
-use std::io::Read;
+use std::io::{Read, ReadBuf};
 use std::rc::Rc;
 
 // A intermediate object acting as source for ReaderWrapper and StreamWrapper.
@@ -10,39 +10,37 @@ use std::rc::Rc;
 // It allow implementation of Reader and Stream.
 pub struct SeekableDecoder<T> {
     decoder: RefCell<T>,
-    buffer: RefCell<Box<[u8]>>,
-    decoded: Cell<Offset>,
+    buffer: RefCell<Vec<u8>>,
 }
 
 impl<T: Read> SeekableDecoder<T> {
     pub fn new(decoder: T, size: Size) -> Self {
-        let mut buffer = Vec::with_capacity(size.0 as usize);
-        unsafe {
-            buffer.set_len(size.0 as usize);
-        }
+        let buffer = Vec::with_capacity(size.0 as usize);
         Self {
             decoder: RefCell::new(decoder),
-            buffer: RefCell::new(buffer.into()),
-            decoded: Cell::new(Offset(0)),
+            buffer: RefCell::new(buffer),
         }
     }
 
     pub fn decode_to(&self, end: Offset) -> std::result::Result<(), std::io::Error> {
-        if end >= self.decoded.get() {
-            let o = self.decoded.get().0 as usize;
-            let e = std::cmp::min(end.0 as usize, self.buffer.borrow().len());
+        let mut buffer = self.buffer.borrow_mut();
+        if end.0 >= buffer.len() as u64 {
+            let e = std::cmp::min(end.0 as usize, buffer.capacity());
+            let s = e - buffer.len();
+            let uninit = buffer.spare_capacity_mut();
             self.decoder
                 .borrow_mut()
-                .read_exact(&mut self.buffer.borrow_mut()[o..e])?;
-            self.decoded.set(Offset::from(e as u64));
+                .read_buf_exact(&mut ReadBuf::uninit(&mut uninit[0..s]))?;
+            unsafe {
+                buffer.set_len(e);
+            };
         }
         Ok(())
     }
 
     pub fn decoded_slice(&self) -> &[u8] {
-        let size = self.decoded.get().0 as usize;
-        assert!(size <= self.buffer.borrow().len());
         let ptr = self.buffer.borrow().as_ptr();
+        let size = self.buffer.borrow().len();
         unsafe { std::slice::from_raw_parts(ptr, size) }
     }
 }

@@ -80,19 +80,22 @@ impl IndexedKeyStore {
         let entry_count = Count::<u64>::produce(stream)?;
         let offset_size = stream.read_u8()?;
         let data_size: Size = stream.read_sized(offset_size.into())?.into();
-        let mut entry_offsets: Vec<Offset> = Vec::with_capacity((entry_count.0 + 1) as usize);
-        // [TOOD] Handle 32 and 16 bits
-        unsafe { entry_offsets.set_len(entry_count.0 as usize) }
+        let entry_count = entry_count.0 as usize;
+        let mut entry_offsets: Vec<Offset> = Vec::with_capacity(entry_count + 1);
+        // [TODO] Handle 32 and 16 bits
+        let uninit = entry_offsets.spare_capacity_mut();
         let mut first = true;
-        for elem in entry_offsets.iter_mut() {
-            if first {
-                *elem = 0.into();
+        for elem in &mut uninit[0..entry_count] {
+            let value: Offset = if first {
                 first = false;
+                0.into()
             } else {
-                *elem = stream.read_sized(offset_size.into())?.into();
-            }
-            assert!(elem.is_valid(data_size));
+                stream.read_sized(offset_size.into())?.into()
+            };
+            assert!(value.is_valid(data_size));
+            elem.write(value);
         }
+        unsafe { entry_offsets.set_len(entry_count) }
         entry_offsets.push(data_size.into());
         assert_eq!(stream.tell().0, pos_info.size.0);
         let reader = reader.create_sub_reader(

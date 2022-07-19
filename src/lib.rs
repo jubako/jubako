@@ -1,4 +1,5 @@
 #![feature(once_cell)]
+#![feature(read_buf)]
 
 #[macro_use]
 mod bases;
