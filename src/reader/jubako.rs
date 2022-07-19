@@ -38,7 +38,7 @@ impl Container {
 
 impl Container {
     pub fn pack_count(&self) -> Count<u8> {
-        self.main_pack.pack_count().into()
+        self.main_pack.pack_count()
     }
 
     pub fn get_pack(&self, pack_id: Id<u8>) -> Result<&ContentPack> {
