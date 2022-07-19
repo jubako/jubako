@@ -231,7 +231,7 @@ pub struct DirectoryPackCreator {
     free_data: FreeData<U31>,
     key_stores: Vec<Rc<RefCell<KeyStore>>>,
     entry_stores: Vec<RefCell<EntryStore>>,
-    indexes: Vec<Box<Index>>,
+    indexes: Vec<Index>,
     path: PathBuf,
 }
 
@@ -284,9 +284,7 @@ impl DirectoryPackCreator {
         count: Count<u32>,
         offset: Idx<u32>,
     ) {
-        let index = Box::new(Index::new(
-            name, extra_data, index_key, store_id, count, offset,
-        ));
+        let index = Index::new(name, extra_data, index_key, store_id, count, offset);
         self.indexes.push(index);
     }
 
