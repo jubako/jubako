@@ -39,7 +39,7 @@ test_suite! {
     fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<Entry>) -> Result<creator::PackInfo> {
         let mut creator = creator::ContentPackCreator::new(
             "/tmp/contentPack.jbkc",
-            1,
+            jubako::Id(1),
             1,
             jubako::FreeData::<U40>::clone_from_slice(&[0xff; 40])
         );
@@ -54,7 +54,7 @@ test_suite! {
     fn create_directory_pack(entries: &Vec<Entry>) -> Result<creator::PackInfo> {
         let mut creator = creator::DirectoryPackCreator::new(
             "/tmp/directoryPack.jbkd",
-            1,
+            jubako::Id(1),
             1,
             jubako::FreeData::<U31>::clone_from_slice(&[0xff; 31])
         );
@@ -72,7 +72,7 @@ test_suite! {
         for (idx, entry) in entries.iter().enumerate() {
             entry_store_handle.get_mut().add_entry(0, vec![
                 creator::Value::Array{data:entry.path.clone().into(), key_id:None},
-                creator::Value::Content(jubako::ContentAddress::new(0.into(), (idx as u32).into())),
+                creator::Value::Content(jubako::ContentAddress::new(1.into(), (idx as u32).into())),
                 creator::Value::Unsigned(entry.word_count.into())]
             );
         }

@@ -227,7 +227,7 @@ impl WritableTell for Index {
 
 pub struct DirectoryPackCreator {
     app_vendor_id: u32,
-    pack_id: u8,
+    pack_id: Id<u8>,
     free_data: FreeData<U31>,
     key_stores: Vec<Rc<RefCell<KeyStore>>>,
     entry_stores: Vec<RefCell<EntryStore>>,
@@ -238,7 +238,7 @@ pub struct DirectoryPackCreator {
 impl DirectoryPackCreator {
     pub fn new<P: AsRef<Path>>(
         path: P,
-        pack_id: u8,
+        pack_id: Id<u8>,
         app_vendor_id: u32,
         free_data: FreeData<U31>,
     ) -> Self {

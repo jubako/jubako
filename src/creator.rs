@@ -40,7 +40,7 @@ impl Writable for CheckInfo {
 
 pub struct PackInfo {
     pub uuid: uuid::Uuid,
-    pub pack_id: u8,
+    pub pack_id: Id<u8>,
     pub free_data: FreeData<U103>,
     pub pack_size: u64,
     pub pack_pos: PackPos,
@@ -50,7 +50,7 @@ pub struct PackInfo {
 impl PackInfo {
     pub fn write(&self, check_info_pos: Offset, stream: &mut dyn OutStream) -> IoResult<()> {
         self.uuid.write(stream)?;
-        stream.write_u8(self.pack_id)?;
+        self.pack_id.write(stream)?;
         self.free_data.write(stream)?;
         stream.write_u64(self.pack_size)?;
         check_info_pos.write(stream)?;

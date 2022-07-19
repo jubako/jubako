@@ -71,7 +71,7 @@ impl ClusterCreator {
 
 pub struct ContentPackCreator {
     app_vendor_id: u32,
-    pack_id: u8,
+    pack_id: Id<u8>,
     free_data: FreeData<U40>,
     blob_addresses: Vec<EntryInfo>,
     open_cluster: Option<ClusterCreator>,
@@ -83,7 +83,7 @@ pub struct ContentPackCreator {
 impl ContentPackCreator {
     pub fn new<P: AsRef<Path>>(
         path: P,
-        pack_id: u8,
+        pack_id: Id<u8>,
         app_vendor_id: u32,
         free_data: FreeData<U40>,
     ) -> Self {
