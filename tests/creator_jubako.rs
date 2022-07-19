@@ -133,10 +133,8 @@ test_suite! {
             println!("Check value 1");
             let value_1 = entry.get_value(jubako::Idx(1)).unwrap();
             if let jubako::reader::Value::Content(content) = value_1 {
-                println!("Get pack");
-                let pack = container.get_pack(1.into()).unwrap();
                 println!("Get reader");
-                let reader = pack.get_content(i.into()).unwrap();
+                let reader = container.get_reader(content).unwrap();
                 println!("Readir is {:?}", reader);
                 let mut stream = reader.create_stream_all();
                 println!("Stream is {:?}", stream);

@@ -1,7 +1,7 @@
 use std::cell::OnceCell;
 
 use super::content_pack::ContentPack;
-use super::directory_pack::DirectoryPack;
+use super::directory_pack::{Content, DirectoryPack};
 use super::manifest_pack::{ManifestPack, PackInfo};
 use crate::bases::*;
 use crate::common::{Pack, PackPos};
@@ -43,6 +43,11 @@ impl Container {
 
     pub fn get_pack(&self, pack_id: Id<u8>) -> Result<&ContentPack> {
         self.packs[pack_id.0 as usize].get_or_try_init(|| self._get_pack(pack_id))
+    }
+
+    pub fn get_reader(&self, content: &Content) -> Result<Box<dyn Reader>> {
+        let pack = self.get_pack(content.pack_id())?;
+        pack.get_content(content.content_id())
     }
 
     fn _get_pack(&self, pack_id: Id<u8>) -> Result<ContentPack> {

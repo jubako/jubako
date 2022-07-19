@@ -15,6 +15,14 @@ impl Content {
             base: base.map(Box::new),
         }
     }
+
+    pub fn pack_id(&self) -> Id<u8> {
+        self.content_address.pack_id
+    }
+
+    pub fn content_id(&self) -> Idx<u32> {
+        self.content_address.content_id
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
