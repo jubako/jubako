@@ -71,9 +71,24 @@ impl DirectoryPack {
         IndexStore::new(self.reader.as_ref(), sized_offset)
     }
 
-    pub fn get_key_store(&self, store_id: Idx<u8>) -> Result<KeyStore> {
+    pub(self) fn get_key_store(&self, store_id: Idx<u8>) -> Result<KeyStore> {
         let sized_offset = self.key_stores_ptrs.index(store_id);
         KeyStore::new(self.reader.as_ref(), sized_offset)
+    }
+
+    pub fn get_key_storage(&self) -> KeyStorage {
+        KeyStorage { directory: self }
+    }
+}
+
+pub struct KeyStorage<'a> {
+    directory: &'a DirectoryPack,
+}
+
+impl<'a> KeyStorage<'a> {
+    pub fn get_data(&self, extend: &Extend) -> Result<Vec<u8>> {
+        let key_store = self.directory.get_key_store(extend.store_id)?;
+        key_store.get_data(extend.key_id.into())
     }
 }
 
@@ -255,7 +270,7 @@ mod tests {
         let reader = Box::new(BufReader::new(content, End::None));
         let directory_pack = DirectoryPack::new(reader).unwrap();
         let index = directory_pack.get_index(Idx(0)).unwrap();
-        let key_store = directory_pack.get_key_store(Idx(0)).unwrap();
+        let key_storage = directory_pack.get_key_storage();
         assert_eq!(index.entry_count().0, 4);
         {
             let entry = index.get_entry(Idx(0)).unwrap();
@@ -269,7 +284,10 @@ mod tests {
                 value0,
                 &Array::new(Vec::new(), Some(Extend::new(Idx(0), 2)))
             );
-            assert_eq!(value0.resolve_to_vec(&key_store).unwrap(), b"J\xc5\xabbako"); // Jūbako
+            assert_eq!(
+                value0.resolve_to_vec(&key_storage).unwrap(),
+                b"J\xc5\xabbako" // Jūbako
+            );
             let value1 = if let Value::Array(a) = entry.get_value(Idx(1)).unwrap() {
                 a
             } else {
@@ -279,7 +297,7 @@ mod tests {
                 value1,
                 &Array::new(vec![b'a', b'B'], Some(Extend::new(Idx(0), 0)))
             );
-            assert_eq!(value1.resolve_to_vec(&key_store).unwrap(), b"aBHello");
+            assert_eq!(value1.resolve_to_vec(&key_storage).unwrap(), b"aBHello");
             assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x212223));
             assert_eq!(
                 entry.get_value(Idx(3)).unwrap(),
@@ -304,7 +322,7 @@ mod tests {
                 value0,
                 &Array::new(Vec::new(), Some(Extend::new(Idx(0), 1)))
             );
-            assert_eq!(value0.resolve_to_vec(&key_store).unwrap(), b"Foo");
+            assert_eq!(value0.resolve_to_vec(&key_storage).unwrap(), b"Foo");
             let value1 = if let Value::Array(a) = entry.get_value(Idx(1)).unwrap() {
                 a
             } else {
@@ -315,7 +333,7 @@ mod tests {
                 &Array::new(vec![b'A', b'B'], Some(Extend::new(Idx(0), 2)))
             );
             assert_eq!(
-                value1.resolve_to_vec(&key_store).unwrap(),
+                value1.resolve_to_vec(&key_storage).unwrap(),
                 b"ABJ\xc5\xabbako"
             );
             assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x313233));
@@ -342,7 +360,10 @@ mod tests {
                 value0,
                 &Array::new(Vec::new(), Some(Extend::new(Idx(0), 2)))
             );
-            assert_eq!(value0.resolve_to_vec(&key_store).unwrap(), b"J\xc5\xabbako");
+            assert_eq!(
+                value0.resolve_to_vec(&key_storage).unwrap(),
+                b"J\xc5\xabbako"
+            );
             let value1 = if let Value::Array(a) = entry.get_value(Idx(1)).unwrap() {
                 a
             } else {
@@ -352,7 +373,7 @@ mod tests {
                 value1,
                 &Array::new(vec![b'A', b'B'], Some(Extend::new(Idx(0), 1)))
             );
-            assert_eq!(value1.resolve_to_vec(&key_store).unwrap(), b"ABFoo");
+            assert_eq!(value1.resolve_to_vec(&key_storage).unwrap(), b"ABFoo");
             assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x414243));
             assert_eq!(
                 entry.get_value(Idx(3)).unwrap(),
@@ -377,7 +398,7 @@ mod tests {
                 value0,
                 &Array::new(Vec::new(), Some(Extend::new(Idx(0), 0)))
             );
-            assert_eq!(value0.resolve_to_vec(&key_store).unwrap(), b"Hello");
+            assert_eq!(value0.resolve_to_vec(&key_storage).unwrap(), b"Hello");
             let value1 = if let Value::Array(a) = entry.get_value(Idx(1)).unwrap() {
                 a
             } else {
@@ -387,7 +408,7 @@ mod tests {
                 value1,
                 &Array::new(vec![0, 0], Some(Extend::new(Idx(0), 1)))
             );
-            assert_eq!(value1.resolve_to_vec(&key_store).unwrap(), b"\0\0Foo");
+            assert_eq!(value1.resolve_to_vec(&key_storage).unwrap(), b"\0\0Foo");
             assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x515253));
             assert_eq!(
                 entry.get_value(Idx(3)).unwrap(),

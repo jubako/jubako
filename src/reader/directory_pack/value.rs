@@ -1,4 +1,4 @@
-use super::KeyStore;
+use super::KeyStorage;
 use crate::bases::*;
 use crate::common::ContentAddress;
 
@@ -27,8 +27,8 @@ impl Content {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Extend {
-    store_id: Idx<u8>,
-    key_id: u64,
+    pub(crate) store_id: Idx<u8>,
+    pub(crate) key_id: u64,
 }
 
 impl Extend {
@@ -48,16 +48,14 @@ impl Array {
         Self { base, extend }
     }
 
-    pub fn key_store_id(&self) -> Option<Idx<u8>> {
-        self.extend.as_ref().map(|e| e.store_id)
-    }
-
-    pub fn resolve_to_vec(&self, key_store: &KeyStore) -> Result<Vec<u8>> {
-        let extend = match &self.extend {
-            None => Vec::new(),
-            Some(e) => key_store.get_data(e.key_id.into())?,
-        };
-        Ok([self.base.as_slice(), extend.as_slice()].concat())
+    pub fn resolve_to_vec(&self, key_storage: &KeyStorage) -> Result<Vec<u8>> {
+        Ok(match &self.extend {
+            None => self.base.clone(),
+            Some(e) => {
+                let data = key_storage.get_data(e)?;
+                [self.base.as_slice(), data.as_slice()].concat()
+            }
+        })
     }
 }
 

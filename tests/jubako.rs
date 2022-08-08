@@ -495,8 +495,7 @@ test_suite! {
                         vec!(),
                         Some(reader::testing::Extend::new(jubako::Idx(0), i.into()))
                     ));
-                let key_store = directory_pack.get_key_store(jubako::Idx(0)).unwrap();
-                let vec = array.resolve_to_vec(&key_store).unwrap();
+                let vec = array.resolve_to_vec(&directory_pack.get_key_storage()).unwrap();
                 assert_eq!(vec, articles.val[i as usize].path.as_bytes());
             } else {
               panic!();
