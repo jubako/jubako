@@ -16,6 +16,7 @@ use std::cell::Cell;
 use std::io::Read;
 use uuid::Uuid;
 
+pub use entry::Entry;
 pub use key_def::{KeyDef, KeyDefKind};
 pub use value::{Array, Content, Extend, Value};
 

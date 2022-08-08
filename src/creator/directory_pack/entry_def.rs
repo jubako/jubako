@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum KeyDef {
+    VariantId,
     PString(
         /*flookup_size:*/ usize,
         /*store_handle:*/ Rc<RefCell<KeyStore>>,
@@ -18,6 +19,7 @@ pub enum KeyDef {
 impl KeyDef {
     fn size(&self) -> u16 {
         match self {
+            KeyDef::VariantId => 1,
             KeyDef::PString(flookup_size, store_handle) => {
                 (*flookup_size as u16) + store_handle.borrow().key_size()
             }
@@ -35,6 +37,7 @@ impl KeyDef {
                     1
                 }
             }
+            KeyDef::VariantId => 1,
             KeyDef::ContentAddress => 1,
             KeyDef::UnsignedInt(_) => 1,
         }
@@ -44,6 +47,9 @@ impl KeyDef {
 impl Writable for KeyDef {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
         match self {
+            KeyDef::VariantId => {
+                stream.write_u8(0b1000_0000)?;
+            }
             KeyDef::PString(flookup_size, store_handle) => {
                 let keytype = if *flookup_size > 0 {
                     0b0111_0000
@@ -68,15 +74,22 @@ impl Writable for KeyDef {
 
 #[derive(Debug)]
 pub struct VariantDef {
+    pub(self) need_variant_id: bool,
     pub keys: Vec<KeyDef>,
 }
 
 impl VariantDef {
     pub fn new(keys: Vec<KeyDef>) -> Self {
-        Self { keys }
+        Self {
+            need_variant_id: false,
+            keys,
+        }
     }
 
     pub fn write_entry(&self, entry: &Entry, stream: &mut dyn OutStream) -> Result<()> {
+        if self.need_variant_id {
+            stream.write_u8(entry.variant_id)?;
+        }
         let mut value_iter = entry.values.iter();
         for key in &self.keys {
             match key {
@@ -110,24 +123,28 @@ impl VariantDef {
                         return Err("Not a unsigned".to_string().into());
                     }
                 }
+                KeyDef::VariantId => unreachable!(),
             }
         }
         Ok(())
     }
 
     fn entry_size(&self) -> u16 {
-        self.keys.iter().map(|k| k.size()).sum()
+        let base = if self.need_variant_id { 1 } else { 0 };
+        self.keys.iter().map(|k| k.size()).sum::<u16>() + base
     }
 
-    fn key_count(&self, with_variant_id: bool) -> u8 {
-        let base = if with_variant_id { 1 } else { 0 };
-        let key_count: u8 = self.keys.iter().map(|k| k.key_count()).sum();
-        key_count + base
+    fn key_count(&self) -> u8 {
+        let base = if self.need_variant_id { 1 } else { 0 };
+        self.keys.iter().map(|k| k.key_count()).sum::<u8>() + base
     }
 }
 
 impl Writable for VariantDef {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        if self.need_variant_id {
+            KeyDef::VariantId.write(stream)?;
+        }
         for key in &self.keys {
             key.write(stream)?;
         }
@@ -142,36 +159,26 @@ pub struct EntryDef {
 
 impl EntryDef {
     pub fn new(variants: Vec<VariantDef>) -> Self {
-        Self { variants }
+        let mut ret = Self { variants };
+        if ret.variants.len() > 1 {
+            for variant in &mut ret.variants {
+                variant.need_variant_id = true;
+            }
+        }
+        ret
     }
 
     pub fn write_entry(&self, entry: &Entry, stream: &mut dyn OutStream) -> Result<()> {
-        let variant_id = if self.variants.len() > 1 {
-            stream.write_u8(entry.variant_id)?;
-            entry.variant_id
-        } else {
-            0
-        };
-        let variant_def = &self.variants[variant_id as usize];
+        let variant_def = &self.variants[entry.variant_id as usize];
         variant_def.write_entry(entry, stream)
     }
 
     pub fn entry_size(&self) -> u16 {
-        let size = self.variants.iter().map(|v| v.entry_size()).max().unwrap();
-        // Add the extra key for the variant id
-        if self.variants.len() > 1 {
-            size + 1
-        } else {
-            size
-        }
+        self.variants.iter().map(|v| v.entry_size()).max().unwrap()
     }
 
     fn key_count(&self) -> u8 {
-        let with_variant_id = self.variants.len() > 1;
-        self.variants
-            .iter()
-            .map(|v| v.key_count(with_variant_id))
-            .sum()
+        self.variants.iter().map(|v| v.key_count()).sum()
     }
 }
 

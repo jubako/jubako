@@ -158,9 +158,7 @@ impl Producable for EntryDef {
 
 impl EntryDef {
     pub fn create_entry(&self, reader: &dyn Reader) -> Result<Entry> {
-        let mut offset = Offset(0);
         let variant_id = if self.variants.len() > 1 {
-            offset += 1;
             reader.read_u8(Offset(0))?
         } else {
             0
@@ -169,7 +167,107 @@ impl EntryDef {
         Ok(Entry::new(
             variant_id,
             variant_def,
-            reader.create_sub_reader(offset, End::None),
+            reader.create_sub_reader(Offset(0), End::None),
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::common::ContentAddress;
+    use crate::reader::directory_pack::{Array, KeyDef, KeyDefKind};
+    use crate::reader::{Content, Value};
+
+    #[test]
+    fn create_entry() {
+        let entry_def = EntryDef {
+            variants: vec![VariantDef::new(vec![
+                KeyDef::new(KeyDefKind::ContentAddress(0), 4),
+                KeyDef::new(KeyDefKind::UnsignedInt, 2),
+            ])
+            .unwrap()],
+            size: Size(6),
+        };
+
+        {
+            let content = vec![0x00, 0x00, 0x00, 0x01, 0x88, 0x99];
+
+            let reader = BufReader::new(content, End::None);
+            let entry = entry_def.create_entry(&reader).unwrap();
+
+            assert!(entry.get_variant_id() == 0);
+            assert!(
+                entry.get_value(0.into()).unwrap()
+                    == &Value::Content(Content::new(ContentAddress::new(0.into(), 1.into()), None))
+            );
+            assert!(entry.get_value(1.into()).unwrap() == &Value::U16(0x8899));
+        }
+
+        {
+            let content = vec![0x01, 0x00, 0x00, 0x02, 0x66, 0x77];
+
+            let reader = BufReader::new(content, End::None);
+            let entry = entry_def.create_entry(&reader).unwrap();
+
+            assert!(entry.get_variant_id() == 0);
+            assert!(
+                entry.get_value(0.into()).unwrap()
+                    == &Value::Content(Content::new(ContentAddress::new(1.into(), 2.into()), None))
+            );
+            assert!(entry.get_value(1.into()).unwrap() == &Value::U16(0x6677));
+        }
+    }
+
+    #[test]
+    fn create_entry_with_variant() {
+        let entry_def = EntryDef {
+            variants: vec![
+                VariantDef::new(vec![
+                    KeyDef::new(KeyDefKind::VariantId, 1),
+                    KeyDef::new(KeyDefKind::CharArray, 4),
+                    KeyDef::new(KeyDefKind::UnsignedInt, 2),
+                ])
+                .unwrap(),
+                VariantDef::new(vec![
+                    KeyDef::new(KeyDefKind::VariantId, 1),
+                    KeyDef::new(KeyDefKind::CharArray, 2),
+                    KeyDef::new(KeyDefKind::Padding, 1),
+                    KeyDef::new(KeyDefKind::SignedInt, 1),
+                    KeyDef::new(KeyDefKind::UnsignedInt, 2),
+                ])
+                .unwrap(),
+            ],
+            size: Size(7),
+        };
+
+        {
+            let content = vec![0x00, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99];
+
+            let reader = BufReader::new(content, End::None);
+            let entry = entry_def.create_entry(&reader).unwrap();
+
+            assert!(entry.get_variant_id() == 0);
+            assert!(
+                entry.get_value(0.into()).unwrap()
+                    == &Value::Array(Array::new(vec![0xFF, 0xEE, 0xDD, 0xCC], None))
+            );
+            assert!(entry.get_value(1.into()).unwrap() == &Value::U16(0x8899));
+        }
+
+        {
+            let content = vec![0x01, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99];
+
+            let reader = BufReader::new(content, End::None);
+            let entry = entry_def.create_entry(&reader).unwrap();
+
+            assert!(entry.get_variant_id() == 1);
+            assert!(
+                entry.get_value(0.into()).unwrap()
+                    == &Value::Array(Array::new(vec![0xFF, 0xEE], None))
+            );
+            assert!(entry.get_value(1.into()).unwrap() == &Value::I8(-52));
+            assert!(entry.get_value(2.into()).unwrap() == &Value::U16(0x8899));
+        }
     }
 }
