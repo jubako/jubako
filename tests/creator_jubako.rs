@@ -10,7 +10,8 @@ test_suite! {
     name basic_creation;
 
     use jubako::creator;
-    use std::io::{Result, Read};
+    use jubako::Result;
+    use std::io::Read;
     use crate::Entry;
     use typenum::{U31, U40, U63};
 
@@ -45,7 +46,9 @@ test_suite! {
         );
         creator.start()?;
         for entry in entries {
-            creator.add_content(entry.content.as_bytes())?;
+            let content = entry.content.clone().into_bytes();
+            let mut stream = creator::BufStream::new(content, jubako::End::None);
+            creator.add_content(&mut stream)?;
         }
         let pack_info = creator.finalize()?;
         Ok(pack_info)

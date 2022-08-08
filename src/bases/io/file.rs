@@ -127,6 +127,25 @@ impl Reader for FileReader {
     }
 }
 
+impl FileStream {
+    pub fn new(mut source: File, end: End) -> Self {
+        let len = source.seek(SeekFrom::End(0)).unwrap();
+        let source = Rc::new(RefCell::new(source));
+        let end = match end {
+            End::None => Offset(len as u64),
+            End::Offset(o) => o,
+            End::Size(s) => s.into(),
+        };
+        assert!(end.is_valid(len.into()));
+        Self {
+            source,
+            origin: Offset(0),
+            end,
+            offset: Offset(0),
+        }
+    }
+}
+
 impl Read for FileStream {
     fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
         let mut file = self.source.as_ref().borrow_mut();

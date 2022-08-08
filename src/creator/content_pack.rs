@@ -61,11 +61,11 @@ impl ClusterCreator {
         self.data.is_empty()
     }
 
-    pub fn add_content(&mut self, content: &[u8]) -> EntryInfo {
+    pub fn add_content(&mut self, content: &mut dyn Stream) -> IoResult<EntryInfo> {
         let idx = self.offsets.len() as u16;
-        self.data.extend(content);
+        content.read_to_end(&mut self.data)?;
         self.offsets.push(self.data.len());
-        EntryInfo::new((self.index as u32).into(), Idx(idx))
+        Ok(EntryInfo::new((self.index as u32).into(), Idx(idx)))
     }
 }
 
@@ -152,11 +152,11 @@ impl ContentPackCreator {
         Ok(())
     }
 
-    pub fn add_content(&mut self, content: &[u8]) -> IoResult<u64> {
+    pub fn add_content(&mut self, content: &mut dyn Stream) -> Result<Idx<u32>> {
         let cluster = self.get_open_cluster()?;
-        let entry_info = cluster.add_content(content);
+        let entry_info = cluster.add_content(content)?;
         self.blob_addresses.push(entry_info);
-        Ok((self.blob_addresses.len() - 1) as u64)
+        Ok(((self.blob_addresses.len() - 1) as u32).into())
     }
 
     pub fn finalize(&mut self) -> IoResult<PackInfo> {

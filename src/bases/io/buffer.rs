@@ -4,6 +4,7 @@ use std::io::Read;
 use std::rc::Rc;
 
 pub type BufReader = ReaderWrapper<Vec<u8>>;
+pub type BufStream = StreamWrapper<Vec<u8>>;
 
 impl BufReader {
     pub fn new_from_rc(source: Rc<Vec<u8>>, end: End) -> Self {
@@ -147,7 +148,23 @@ impl Reader for BufReader {
     }
 }
 
-impl StreamWrapper<Vec<u8>> {
+impl BufStream {
+    pub fn new(source: Vec<u8>, end: End) -> Self {
+        let end = match end {
+            End::None => Offset(source.len() as u64),
+            End::Offset(o) => o,
+            End::Size(s) => s.into(),
+        };
+        assert!(end.is_valid(source.len().into()));
+        let source = Rc::new(source);
+        Self {
+            source,
+            end,
+            origin: Offset(0),
+            offset: Offset(0),
+        }
+    }
+
     fn slice(&self) -> &[u8] {
         let offset = self.offset.0 as usize;
         let end = self.end.0 as usize;
@@ -155,7 +172,7 @@ impl StreamWrapper<Vec<u8>> {
     }
 }
 
-impl Read for StreamWrapper<Vec<u8>> {
+impl Read for BufStream {
     fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
         let mut slice = self.slice();
         match slice.read(buf) {
