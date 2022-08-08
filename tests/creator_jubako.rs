@@ -71,16 +71,16 @@ test_suite! {
                 ])
             ]
         );
-        let entry_store_handle = creator.create_entry_store(entry_def);
+        let entry_store_idx = creator.create_entry_store(entry_def);
+        let entry_store = creator.get_entry_store(entry_store_idx);
         for (idx, entry) in entries.iter().enumerate() {
-            entry_store_handle.get_mut().add_entry(0, vec![
+            entry_store.add_entry(0, vec![
                 creator::Value::Array{data:entry.path.clone().into(), key_id:None},
                 creator::Value::Content(jubako::ContentAddress::new(1.into(), (idx as u32).into())),
                 creator::Value::Unsigned(entry.word_count.into())]
             );
         }
 
-        let entry_store_idx = entry_store_handle.get().get_idx();
         creator.create_index(
             "Super index",
             jubako::ContentAddress::new(0.into(), 0.into()),

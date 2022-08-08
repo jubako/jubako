@@ -3,7 +3,7 @@ pub mod entry_def;
 use super::{CheckInfo, PackInfo};
 use crate::bases::*;
 use crate::common::{ContentAddress, DirectoryPackHeader, PackHeaderInfo};
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::RefCell;
 use std::fs::OpenOptions;
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -162,24 +162,6 @@ impl WritableTell for EntryStore {
     }
 }
 
-pub struct EntryStoreHandle<'a> {
-    store: &'a RefCell<EntryStore>,
-}
-
-impl<'a> EntryStoreHandle<'a> {
-    pub fn new(store: &'a RefCell<EntryStore>) -> Self {
-        Self { store }
-    }
-
-    pub fn get_mut(&self) -> RefMut<EntryStore> {
-        self.store.borrow_mut()
-    }
-
-    pub fn get(&self) -> Ref<EntryStore> {
-        self.store.borrow()
-    }
-}
-
 struct Index {
     store_id: Idx<u32>,
     extra_data: ContentAddress,
@@ -230,7 +212,7 @@ pub struct DirectoryPackCreator {
     pack_id: Id<u8>,
     free_data: FreeData<U31>,
     key_stores: Vec<Rc<RefCell<KeyStore>>>,
-    entry_stores: Vec<RefCell<EntryStore>>,
+    entry_stores: Vec<EntryStore>,
     indexes: Vec<Index>,
     path: PathBuf,
 }
@@ -264,16 +246,16 @@ impl DirectoryPackCreator {
         &self.key_stores[idx.0 as usize]
     }
 
-    pub fn create_entry_store(&mut self, entry_def: entry_def::EntryDef) -> EntryStoreHandle {
+    pub fn create_entry_store(&mut self, entry_def: entry_def::EntryDef) -> Idx<u32> {
         let idx = Idx::<u32>(self.entry_stores.len() as u32);
-        let entry_store = RefCell::new(EntryStore::new(idx, entry_def));
+        let entry_store = EntryStore::new(idx, entry_def);
         self.entry_stores.push(entry_store);
-        EntryStoreHandle::new(self.entry_stores.last().unwrap())
+        idx
     }
 
-    /*pub fn get_entry_store(&self, idx: Idx<u8>) -> &mut EntryStore {
-        &mut self.entry_stores[idx.0 as usize].borrow_mut()
-    }*/
+    pub fn get_entry_store(&mut self, idx: Idx<u32>) -> &mut EntryStore {
+        &mut self.entry_stores[idx.0 as usize]
+    }
 
     pub fn create_index(
         &mut self,
@@ -300,7 +282,7 @@ impl DirectoryPackCreator {
         file.seek(SeekFrom::Start(to_skip as u64))?;
 
         for entry_store in &mut self.entry_stores {
-            entry_store.borrow_mut().fill_key_store();
+            entry_store.fill_key_store();
         }
 
         let mut indexes_offsets = vec![];
@@ -310,7 +292,7 @@ impl DirectoryPackCreator {
 
         let mut entry_stores_offsets = vec![];
         for entry_store in &self.entry_stores {
-            entry_stores_offsets.push(entry_store.borrow().write(&mut file)?);
+            entry_stores_offsets.push(entry_store.write(&mut file)?);
         }
 
         let mut key_stores_offsets = vec![];
