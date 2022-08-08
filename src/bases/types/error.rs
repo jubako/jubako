@@ -1,5 +1,7 @@
 use crate::bases::*;
 use lzma::LzmaError;
+use std::any::Demand;
+use std::backtrace::Backtrace;
 use std::fmt;
 use std::string::FromUtf8Error;
 
@@ -10,22 +12,21 @@ pub struct FormatError {
 }
 
 impl FormatError {
-    pub fn new(what: &str, where_: Option<Offset>) -> Error {
+    pub fn new(what: &str, where_: Option<Offset>) -> Self {
         FormatError {
             what: what.into(),
             where_,
         }
-        .into()
     }
 }
 
 //#[macro_export]
 macro_rules! format_error {
     ($what:expr, $stream:ident) => {
-        FormatError::new($what, Some($stream.global_offset()))
+        FormatError::new($what, Some($stream.global_offset())).into()
     };
     ($what:expr) => {
-        FormatError::new($what, None)
+        FormatError::new($what, None).into()
     };
 }
 
@@ -39,51 +40,92 @@ impl fmt::Display for FormatError {
 }
 
 #[derive(Debug)]
-pub enum Error {
+pub enum ErrorKind {
     Io(std::io::Error),
     Format(FormatError),
     Arg,
     Other(String),
 }
 
+pub struct Error {
+    error: ErrorKind,
+    bt: Backtrace,
+}
+
+impl Error {
+    pub fn new(error: ErrorKind) -> Error {
+        Error {
+            error,
+            bt: Backtrace::capture(),
+        }
+    }
+    pub fn new_arg() -> Error {
+        Error::new(ErrorKind::Arg)
+    }
+}
+
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Error {
-        Error::Io(e)
+        Error::new(ErrorKind::Io(e))
     }
 }
 
 impl From<FormatError> for Error {
     fn from(e: FormatError) -> Error {
-        Error::Format(e)
+        Error::new(ErrorKind::Format(e))
     }
 }
 
 impl From<FromUtf8Error> for Error {
     fn from(_e: FromUtf8Error) -> Error {
-        FormatError::new("Utf8DecodingError", None)
+        FormatError::new("Utf8DecodingError", None).into()
     }
 }
 
 impl From<lzma::LzmaError> for Error {
     fn from(e: LzmaError) -> Error {
         match e {
-            LzmaError::Io(e) => Error::Io(e),
-            _ => FormatError::new("Lzma compression error", None),
+            LzmaError::Io(e) => Error::new(ErrorKind::Io(e)),
+            _ => FormatError::new("Lzma compression error", None).into(),
         }
+    }
+}
+
+impl From<String> for Error {
+    fn from(e: String) -> Error {
+        Error::new(ErrorKind::Other(e))
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::Io(e) => write!(f, "IO Error {}", e),
-            Error::Format(e) => write!(f, "Jubako format error {}", e),
-            Error::Arg => write!(f, "Invalid argument"),
-            Error::Other(e) => write!(f, "Unknown error : {}", e),
+        match &self.error {
+            ErrorKind::Io(e) => write!(f, "IO Error {}", e),
+            ErrorKind::Format(e) => write!(f, "Jubako format error {}", e),
+            ErrorKind::Arg => write!(f, "Invalid argument"),
+            ErrorKind::Other(e) => write!(f, "Unknown error : {}", e),
         }
     }
 }
 
-impl std::error::Error for Error {}
+impl fmt::Debug for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Kind: {:?}", self.error)?;
+        writeln!(f, "BT: {}", self.bt)?;
+        Ok(())
+    }
+}
+
+impl std::error::Error for Error {
+    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+        demand.provide_ref::<Backtrace>(&self.bt);
+        match &self.error {
+            ErrorKind::Io(e) => demand.provide_ref::<std::io::Error>(e),
+            ErrorKind::Format(e) => demand.provide_ref::<FormatError>(e),
+            ErrorKind::Other(e) => demand.provide_ref::<String>(e),
+            ErrorKind::Arg => demand, /* Nothing*/
+        };
+    }
+}
 
 pub type Result<T> = std::result::Result<T, Error>;

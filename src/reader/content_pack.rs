@@ -40,7 +40,7 @@ impl ContentPack {
 
     pub fn get_content(&self, index: Idx<u32>) -> Result<Box<dyn Reader>> {
         if !index.is_valid(self.header.entry_count) {
-            return Err(Error::Arg);
+            return Err(Error::new_arg());
         }
         let entry_info = self.entry_infos.index(index);
         if !entry_info.cluster_index.is_valid(self.header.cluster_count) {

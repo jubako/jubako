@@ -68,7 +68,7 @@ impl Reader for BufReader {
         let o = offset.0 as usize;
         let slice = self.slice();
         if o + 1 > slice.len() {
-            return Err(Error::Other(String::from("Out of slice")));
+            return Err(String::from("Out of slice").into());
         }
         Ok(read_u8(&slice[o..]))
     }
@@ -76,7 +76,7 @@ impl Reader for BufReader {
         let o = offset.0 as usize;
         let slice = self.slice();
         if o + 2 > slice.len() {
-            return Err(Error::Other(String::from("Out of slice")));
+            return Err(String::from("Out of slice").into());
         }
         Ok(read_u16(&slice[o..]))
     }
@@ -84,7 +84,7 @@ impl Reader for BufReader {
         let o = offset.0 as usize;
         let slice = self.slice();
         if o + 4 > slice.len() {
-            return Err(Error::Other(String::from("Out of slice")));
+            return Err(String::from("Out of slice").into());
         }
         Ok(read_u32(&slice[o..]))
     }
@@ -92,7 +92,7 @@ impl Reader for BufReader {
         let o = offset.0 as usize;
         let slice = self.slice();
         if o + 8 > slice.len() {
-            return Err(Error::Other(String::from("Out of slice")));
+            return Err(String::from("Out of slice").into());
         }
         Ok(read_u64(&slice[o..]))
     }
@@ -100,7 +100,7 @@ impl Reader for BufReader {
         let o = offset.0 as usize;
         let slice = self.slice();
         if o + size > slice.len() {
-            return Err(Error::Other(String::from("Out of slice")));
+            return Err(String::from("Out of slice").into());
         }
         Ok(read_to_u64(size, &slice[o..]))
     }
@@ -109,7 +109,7 @@ impl Reader for BufReader {
         let o = offset.0 as usize;
         let slice = self.slice();
         if o + 1 > slice.len() {
-            return Err(Error::Other(String::from("Out of slice")));
+            return Err(String::from("Out of slice").into());
         }
         Ok(read_i8(&slice[o..]))
     }
@@ -117,7 +117,7 @@ impl Reader for BufReader {
         let o = offset.0 as usize;
         let slice = self.slice();
         if o + 2 > slice.len() {
-            return Err(Error::Other(String::from("Out of slice")));
+            return Err(String::from("Out of slice").into());
         }
         Ok(read_i16(&slice[o..]))
     }
@@ -125,7 +125,7 @@ impl Reader for BufReader {
         let o = offset.0 as usize;
         let slice = self.slice();
         if o + 4 > slice.len() {
-            return Err(Error::Other(String::from("Out of slice")));
+            return Err(String::from("Out of slice").into());
         }
         Ok(read_i32(&slice[o..]))
     }
@@ -133,7 +133,7 @@ impl Reader for BufReader {
         let o = offset.0 as usize;
         let slice = self.slice();
         if o + 8 > slice.len() {
-            return Err(Error::Other(String::from("Out of slice")));
+            return Err(String::from("Out of slice").into());
         }
         Ok(read_i64(&slice[o..]))
     }
@@ -141,7 +141,7 @@ impl Reader for BufReader {
         let o = offset.0 as usize;
         let slice = self.slice();
         if o + size > slice.len() {
-            return Err(Error::Other(String::from("Out of slice")));
+            return Err(String::from("Out of slice").into());
         }
         Ok(read_to_i64(size, &slice[o..]))
     }

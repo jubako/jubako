@@ -67,7 +67,7 @@ impl<T: Read> ReaderWrapper<SeekableDecoder<T>> {
         self.source.decode_to(end)?;
         let slice = self.source.decoded_slice();
         if e > slice.len() {
-            return Err(Error::Other(String::from("Out of slice")));
+            return Err(String::from("Out of slice").into());
         }
         buf.copy_from_slice(&self.source.decoded_slice()[o..e]);
         Ok(())

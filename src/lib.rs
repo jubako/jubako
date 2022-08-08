@@ -1,5 +1,7 @@
 #![feature(once_cell)]
 #![feature(read_buf)]
+#![feature(provide_any)]
+#![feature(error_generic_member_access)]
 
 #[macro_use]
 mod bases;

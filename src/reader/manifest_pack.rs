@@ -111,7 +111,7 @@ impl ManifestPack {
                 return Ok(pack_info);
             }
         }
-        Err(Error::Arg)
+        Err(Error::new_arg())
     }
 }
 

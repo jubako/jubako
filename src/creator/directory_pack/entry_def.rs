@@ -91,7 +91,7 @@ impl VariantDef {
                         stream.write_all(data)?;
                         stream.write_all(vec![0; flookup_size - data.len()].as_slice())?;
                     } else {
-                        return Err(Error::Other("Not a Array".to_string()));
+                        return Err("Not a Array".to_string().into());
                     }
                 }
                 KeyDef::ContentAddress => {
@@ -99,7 +99,7 @@ impl VariantDef {
                     if let Value::Content(value) = value {
                         value.write(stream)?;
                     } else {
-                        return Err(Error::Other("Not a Content".to_string()));
+                        return Err("Not a Content".to_string().into());
                     }
                 }
                 KeyDef::UnsignedInt(size) => {
@@ -107,7 +107,7 @@ impl VariantDef {
                     if let Value::Unsigned(value) = value {
                         stream.write_sized(*value, *size as usize)?;
                     } else {
-                        return Err(Error::Other("Not a unsigned".to_string()));
+                        return Err("Not a unsigned".to_string().into());
                     }
                 }
             }
