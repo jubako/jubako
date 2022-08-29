@@ -2,7 +2,7 @@ use crate::bases::primitive::*;
 use crate::bases::*;
 use std::cell::RefCell;
 use std::cmp;
-use std::io::{Read, ReadBuf};
+use std::io::{BorrowedBuf, Read};
 use std::rc::Rc;
 
 // A intermediate object acting as source for ReaderWrapper and StreamWrapper.
@@ -28,9 +28,10 @@ impl<T: Read> SeekableDecoder<T> {
             let e = std::cmp::min(end.0 as usize, buffer.capacity());
             let s = e - buffer.len();
             let uninit = buffer.spare_capacity_mut();
+            let mut uninit = BorrowedBuf::from(&mut uninit[0..s]);
             self.decoder
                 .borrow_mut()
-                .read_buf_exact(&mut ReadBuf::uninit(&mut uninit[0..s]))?;
+                .read_buf_exact(uninit.unfilled())?;
             unsafe {
                 buffer.set_len(e);
             };

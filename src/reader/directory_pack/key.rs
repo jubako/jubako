@@ -1,7 +1,7 @@
 use super::value::{Array, Content, Extend, Value};
 use crate::bases::*;
 use crate::common::ContentAddress;
-use std::io::ReadBuf;
+use std::io::BorrowedBuf;
 
 // The kind of the key. This will be the descriminant to how parse the value.
 #[derive(Debug, PartialEq, Eq)]
@@ -45,8 +45,8 @@ impl Key {
     fn create_array(offset: Offset, size: usize, reader: &dyn Reader) -> Result<Vec<u8>> {
         let mut stream = reader.create_stream(offset, End::Size(size.into()));
         let mut ret = Vec::with_capacity(size);
-        let mut read_buf = ReadBuf::uninit(ret.spare_capacity_mut());
-        stream.read_buf_exact(&mut read_buf)?;
+        let mut uninit: BorrowedBuf = ret.spare_capacity_mut().into();
+        stream.read_buf_exact(uninit.unfilled())?;
         unsafe {
             ret.set_len(size);
         }
