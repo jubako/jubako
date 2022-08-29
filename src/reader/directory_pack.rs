@@ -12,7 +12,7 @@ use self::index_store::IndexStore;
 use self::key_store::KeyStore;
 use crate::bases::*;
 use crate::common::{CheckInfo, DirectoryPackHeader, Pack, PackKind};
-use std::cell::Cell;
+use std::cell::{Cell, OnceCell};
 use std::io::Read;
 use uuid::Uuid;
 
@@ -77,18 +77,37 @@ impl DirectoryPack {
         KeyStore::new(self.reader.as_ref(), sized_offset)
     }
 
+    pub(self) fn get_key_store_count(&self) -> Count<u8> {
+        self.header.key_store_count
+    }
+
     pub fn get_key_storage(&self) -> KeyStorage {
-        KeyStorage { directory: self }
+        KeyStorage::new(self)
     }
 }
 
 pub struct KeyStorage<'a> {
     directory: &'a DirectoryPack,
+    stores: Vec<OnceCell<KeyStore>>,
 }
 
 impl<'a> KeyStorage<'a> {
+    pub fn new(directory: &'a DirectoryPack) -> KeyStorage<'a> {
+        let mut stores = Vec::new();
+        stores.resize_with(directory.get_key_store_count().0 as usize, Default::default);
+        Self { directory, stores }
+    }
+
+    fn get_key_store(&self, id: Idx<u8>) -> Result<&KeyStore> {
+        self.stores[id.0 as usize].get_or_try_init(|| self._get_key_store(id))
+    }
+
+    fn _get_key_store(&self, id: Idx<u8>) -> Result<KeyStore> {
+        self.directory.get_key_store(id)
+    }
+
     pub fn get_data(&self, extend: &Extend) -> Result<Vec<u8>> {
-        let key_store = self.directory.get_key_store(extend.store_id)?;
+        let key_store = self.get_key_store(extend.store_id)?;
         key_store.get_data(extend.key_id.into())
     }
 }
