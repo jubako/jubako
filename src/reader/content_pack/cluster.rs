@@ -69,7 +69,8 @@ impl Cluster {
         })
     }
 
-    pub fn blob_count(&self) -> Count<u16> {
+    #[cfg(test)]
+    fn blob_count(&self) -> Count<u16> {
         Count::from((self.blob_offsets.len() - 1) as u16)
     }
 

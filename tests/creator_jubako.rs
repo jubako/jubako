@@ -9,7 +9,7 @@ struct Entry {
 test_suite! {
     name basic_creation;
 
-    use jubako::creator as creator;
+    use jubako::creator;
     use std::io::{Result, Read};
     use crate::Entry;
     use typenum::{U31, U40, U63};
@@ -36,7 +36,7 @@ test_suite! {
         }
     }
 
-    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<Entry>) -> Result<creator::PackInfo> {
+    fn create_content_pack(_compression: jubako::CompressionType, entries:&Vec<Entry>) -> Result<creator::PackInfo> {
         let mut creator = creator::ContentPackCreator::new(
             "/tmp/contentPack.jbkc",
             jubako::Id(1),
@@ -59,7 +59,7 @@ test_suite! {
             jubako::FreeData::<U31>::clone_from_slice(&[0xff; 31])
         );
         let key_store_handle = creator.create_key_store();
-        let entryDef = creator::Entry::new(
+        let entry_def = creator::Entry::new(
             vec![
                 creator::Variant::new(vec![
                     creator::Key::PString(0, key_store_handle),
@@ -68,7 +68,7 @@ test_suite! {
                 ])
             ]
         );
-        let entry_store_handle = creator.create_entry_store(entryDef);
+        let entry_store_handle = creator.create_entry_store(entry_def);
         for (idx, entry) in entries.iter().enumerate() {
             entry_store_handle.get_mut().add_entry(0, vec![
                 creator::Value::Array{data:entry.path.clone().into(), key_id:None},
