@@ -25,7 +25,7 @@ impl SizedProducable for Offset {
 }
 
 impl Writable for Offset {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         stream.write_u64(self.0)
     }
 }

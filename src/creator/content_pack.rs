@@ -23,9 +23,10 @@ impl ClusterCreator {
         }
     }
 
-    pub fn write_data(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+    pub fn write_data(&self, stream: &mut dyn OutStream) -> Result<Size> {
+        let offset = stream.tell();
         stream.write_all(&self.data)?;
-        Ok(())
+        Ok(stream.tell() - offset)
     }
 
     pub fn write_tail(&self, stream: &mut dyn OutStream) -> IoResult<()> {
@@ -105,7 +106,7 @@ impl ContentPackCreator {
         self.open_cluster = Some(ClusterCreator::new(cluster_id));
     }
 
-    fn write_cluster(&mut self) -> IoResult<()> {
+    fn write_cluster(&mut self) -> Result<()> {
         let cluster = self.open_cluster.as_ref().unwrap();
         cluster.write_data(self.file.as_mut().unwrap())?;
         let cluster_offset = self.file.as_mut().unwrap().tell();
@@ -127,7 +128,7 @@ impl ContentPackCreator {
         Ok(())
     }
 
-    fn get_open_cluster(&mut self) -> IoResult<&mut ClusterCreator> {
+    fn get_open_cluster(&mut self) -> Result<&mut ClusterCreator> {
         if let Some(cluster) = self.open_cluster.as_ref() {
             if cluster.is_full() {
                 self.write_cluster()?;
@@ -139,7 +140,7 @@ impl ContentPackCreator {
         Ok(self.open_cluster.as_mut().unwrap())
     }
 
-    pub fn start(&mut self) -> IoResult<()> {
+    pub fn start(&mut self) -> Result<()> {
         self.file = Some(
             OpenOptions::new()
                 .read(true)
@@ -159,7 +160,7 @@ impl ContentPackCreator {
         Ok(((self.blob_addresses.len() - 1) as u32).into())
     }
 
-    pub fn finalize(&mut self) -> IoResult<PackInfo> {
+    pub fn finalize(&mut self) -> Result<PackInfo> {
         assert!(self.file.is_some());
         if let Some(cluster) = self.open_cluster.as_ref() {
             if !cluster.is_empty() {

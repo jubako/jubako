@@ -33,11 +33,12 @@ impl Producable for ClusterHeader {
 }
 
 impl Writable for ClusterHeader {
-    fn write(&self, out_stream: &mut dyn OutStream) -> IoResult<()> {
-        self.compression.write(out_stream)?;
-        out_stream.write_u8(self.offset_size)?;
-        self.blob_count.write(out_stream)?;
-        Ok(())
+    fn write(&self, out_stream: &mut dyn OutStream) -> IoResult<usize> {
+        let mut written = 0;
+        written += self.compression.write(out_stream)?;
+        written += out_stream.write_u8(self.offset_size)?;
+        written += self.blob_count.write(out_stream)?;
+        Ok(written)
     }
 }
 

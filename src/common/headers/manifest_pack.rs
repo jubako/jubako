@@ -46,11 +46,12 @@ impl Producable for ManifestPackHeader {
 }
 
 impl Writable for ManifestPackHeader {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        self.pack_header.write(stream)?;
-        self.pack_count.write(stream)?;
-        self.free_data.write(stream)?;
-        Ok(())
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+        let mut written = 0;
+        written += self.pack_header.write(stream)?;
+        written += self.pack_count.write(stream)?;
+        written += self.free_data.write(stream)?;
+        Ok(written)
     }
 }
 

@@ -21,7 +21,7 @@ impl Producable for PackKind {
 }
 
 impl Writable for PackKind {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         match self {
             PackKind::Manifest => stream.write_u32(0x6a_62_6b_6d_u32),
             PackKind::Directory => stream.write_u32(0x6a_62_6b_64_u32),

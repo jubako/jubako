@@ -34,7 +34,7 @@ impl SizedProducable for EntryInfo {
 }
 
 impl Writable for EntryInfo {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         let data: u32 = (self.cluster_index.0 << 12) + (self.blob_index.0 & 0xFFF_u16) as u32;
         stream.write_u32(data)
     }

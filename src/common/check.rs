@@ -24,9 +24,8 @@ impl Producable for CheckKind {
 }
 
 impl Writable for CheckKind {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        stream.write_u8(*self as u8)?;
-        Ok(())
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+        stream.write_u8(*self as u8)
     }
 }
 

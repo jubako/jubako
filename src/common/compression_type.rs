@@ -27,9 +27,8 @@ impl Producable for CompressionType {
 }
 
 impl Writable for CompressionType {
-    fn write(&self, out_stream: &mut dyn OutStream) -> IoResult<()> {
-        out_stream.write_u8(*self as u8)?;
-        Ok(())
+    fn write(&self, out_stream: &mut dyn OutStream) -> IoResult<usize> {
+        out_stream.write_u8(*self as u8)
     }
 }
 

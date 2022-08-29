@@ -303,15 +303,15 @@ impl DirectoryPackCreator {
         file.seek(SeekFrom::Start(128))?;
         let indexes_ptr_offsets = file.tell();
         for offset in &indexes_offsets {
-            offset.write(&mut file)?
+            offset.write(&mut file)?;
         }
         let key_stores_ptr_offsets = file.tell();
         for offset in &key_stores_offsets {
-            offset.write(&mut file)?
+            offset.write(&mut file)?;
         }
         let entry_stores_ptr_offsets = file.tell();
         for offset in &entry_stores_offsets {
-            offset.write(&mut file)?
+            offset.write(&mut file)?;
         }
 
         file.seek(SeekFrom::End(0))?;

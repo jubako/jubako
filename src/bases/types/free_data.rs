@@ -15,8 +15,7 @@ impl<N: ArrayLength<u8>> SizedProducable for FreeData<N> {
     type Size = N;
 }
 impl<N: ArrayLength<u8>> Writable for FreeData<N> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        stream.write_all(self.as_slice())?;
-        Ok(())
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+        stream.write_data(self.as_slice())
     }
 }

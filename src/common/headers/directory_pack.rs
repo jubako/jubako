@@ -72,16 +72,17 @@ impl Producable for DirectoryPackHeader {
 }
 
 impl Writable for DirectoryPackHeader {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        self.pack_header.write(stream)?;
-        self.index_ptr_pos.write(stream)?;
-        self.entry_store_ptr_pos.write(stream)?;
-        self.key_store_ptr_pos.write(stream)?;
-        self.index_count.write(stream)?;
-        self.entry_store_count.write(stream)?;
-        self.key_store_count.write(stream)?;
-        self.free_data.write(stream)?;
-        Ok(())
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+        let mut written = 0;
+        written += self.pack_header.write(stream)?;
+        written += self.index_ptr_pos.write(stream)?;
+        written += self.entry_store_ptr_pos.write(stream)?;
+        written += self.key_store_ptr_pos.write(stream)?;
+        written += self.index_count.write(stream)?;
+        written += self.entry_store_count.write(stream)?;
+        written += self.key_store_count.write(stream)?;
+        written += self.free_data.write(stream)?;
+        Ok(written)
     }
 }
 

@@ -69,17 +69,18 @@ impl Producable for PackHeader {
 }
 
 impl Writable for PackHeader {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        self.magic.write(stream)?;
-        stream.write_u32(self.app_vendor_id)?;
-        stream.write_u8(self.major_version)?;
-        stream.write_u8(self.minor_version)?;
-        self.uuid.write(stream)?;
-        stream.write_all(&[0_u8; 6])?;
-        self.file_size.write(stream)?;
-        self.check_info_pos.write(stream)?;
-        stream.write_all(&[0_u8; 16])?;
-        Ok(())
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+        let mut written = 0;
+        written += self.magic.write(stream)?;
+        written += stream.write_u32(self.app_vendor_id)?;
+        written += stream.write_u8(self.major_version)?;
+        written += stream.write_u8(self.minor_version)?;
+        written += self.uuid.write(stream)?;
+        written += stream.write_data(&[0_u8; 6])?;
+        written += self.file_size.write(stream)?;
+        written += self.check_info_pos.write(stream)?;
+        written += stream.write_data(&[0_u8; 16])?;
+        Ok(written)
     }
 }
 

@@ -32,10 +32,11 @@ impl CheckInfo {
 }
 
 impl Writable for CheckInfo {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        self.kind.write(stream)?;
-        stream.write_all(self.data.as_ref().unwrap())?;
-        Ok(())
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+        let mut written = 0;
+        written += self.kind.write(stream)?;
+        written += stream.write_data(self.data.as_ref().unwrap())?;
+        Ok(written)
     }
 }
 

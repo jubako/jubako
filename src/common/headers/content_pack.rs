@@ -57,14 +57,15 @@ impl Producable for ContentPackHeader {
 }
 
 impl Writable for ContentPackHeader {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        self.pack_header.write(stream)?;
-        self.entry_ptr_pos.write(stream)?;
-        self.cluster_ptr_pos.write(stream)?;
-        self.entry_count.write(stream)?;
-        self.cluster_count.write(stream)?;
-        self.free_data.write(stream)?;
-        Ok(())
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+        let mut written = 0;
+        written += self.pack_header.write(stream)?;
+        written += self.entry_ptr_pos.write(stream)?;
+        written += self.cluster_ptr_pos.write(stream)?;
+        written += self.entry_count.write(stream)?;
+        written += self.cluster_count.write(stream)?;
+        written += self.free_data.write(stream)?;
+        Ok(written)
     }
 }
 

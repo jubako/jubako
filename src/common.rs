@@ -25,9 +25,8 @@ impl Producable for Uuid {
     }
 }
 impl Writable for Uuid {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        stream.write_all(self.as_bytes())?;
-        Ok(())
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+        stream.write_data(self.as_bytes())
     }
 }
 

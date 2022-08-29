@@ -29,9 +29,8 @@ impl Producable for ContentAddress {
 }
 
 impl Writable for ContentAddress {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         let data: u32 = (self.pack_id.0 as u32) << 24 | (self.content_id.0 & 0x0FFF);
-        stream.write_u32(data)?;
-        Ok(())
+        stream.write_u32(data)
     }
 }

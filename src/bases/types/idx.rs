@@ -17,12 +17,12 @@ impl SizedProducable for Idx<u32> {
     type Size = typenum::U4;
 }
 impl Writable for Idx<u8> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         stream.write_u8(self.0)
     }
 }
 impl Writable for Idx<u32> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         stream.write_u32(self.0)
     }
 }

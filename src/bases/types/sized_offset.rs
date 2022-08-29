@@ -27,7 +27,7 @@ impl Producable for SizedOffset {
 }
 
 impl Writable for SizedOffset {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         let data: u64 = (self.size.0 << 48) + (self.offset.0 & 0xFF_FF_FF_FF_FF_FF_u64);
         stream.write_u64(data)
     }

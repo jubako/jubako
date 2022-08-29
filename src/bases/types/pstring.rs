@@ -3,12 +3,18 @@ use crate::bases::*;
 pub struct PString {}
 
 impl PString {
-    fn write_string_size(string: &[u8], max_len: u8, stream: &mut dyn OutStream) -> IoResult<()> {
+    fn write_string_size(
+        string: &[u8],
+        max_len: u8,
+        stream: &mut dyn OutStream,
+    ) -> IoResult<usize> {
         assert!(string.len() <= max_len.into());
-        stream.write_u8(string.len() as u8)?;
-        stream.write_all(string)
+        let mut written = 0;
+        written += stream.write_u8(string.len() as u8)?;
+        written += stream.write_data(string)?;
+        Ok(written)
     }
-    pub fn write_string(string: &[u8], stream: &mut dyn OutStream) -> IoResult<()> {
+    pub fn write_string(string: &[u8], stream: &mut dyn OutStream) -> IoResult<usize> {
         Self::write_string_size(string, 255, stream)
     }
 
@@ -16,9 +22,11 @@ impl PString {
         string: &[u8],
         size: u8,
         stream: &mut dyn OutStream,
-    ) -> IoResult<()> {
-        Self::write_string_size(string, size, stream)?;
-        stream.write_all(vec![0; size as usize - string.len()].as_slice())
+    ) -> IoResult<usize> {
+        let mut written = 0;
+        written += Self::write_string_size(string, size, stream)?;
+        written += stream.write_data(vec![0; size as usize - string.len()].as_slice())?;
+        Ok(written)
     }
 }
 

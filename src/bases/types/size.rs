@@ -18,7 +18,7 @@ impl SizedProducable for Size {
     type Size = typenum::U8;
 }
 impl Writable for Size {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         stream.write_u64(self.0)
     }
 }
