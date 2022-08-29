@@ -15,9 +15,17 @@ test_suite! {
     use crate::Entry;
     use typenum::{U31, U40, U63};
 
-    fixture compression() -> jubako::CompressionType {
+    fixture compression(c: jubako::CompressionType) -> jubako::CompressionType {
+        params {
+            vec![
+                jubako::CompressionType::None,
+                jubako::CompressionType::Lz4,
+                jubako::CompressionType::Lzma,
+                jubako::CompressionType::Zstd,
+            ].into_iter()
+        }
         setup(&mut self) {
-            jubako::CompressionType::None
+            *self.c
         }
     }
 
@@ -37,12 +45,13 @@ test_suite! {
         }
     }
 
-    fn create_content_pack(_compression: jubako::CompressionType, entries:&Vec<Entry>) -> Result<creator::PackInfo> {
+    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<Entry>) -> Result<creator::PackInfo> {
         let mut creator = creator::ContentPackCreator::new(
             "/tmp/contentPack.jbkc",
             jubako::Id(1),
             1,
-            jubako::FreeData::<U40>::clone_from_slice(&[0xff; 40])
+            jubako::FreeData::<U40>::clone_from_slice(&[0xff; 40]),
+            compression
         );
         creator.start()?;
         for entry in entries {

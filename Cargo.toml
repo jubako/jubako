@@ -10,7 +10,7 @@ edition = "2018"
 uuid = { version = "0.8.2", features = ["v4"] }
 blake3 = "0.3.8"
 lz4 = "1.23.2"
-zstd = "0.9"
+zstd = { version = "0.9", features = ["zstdmt"] }
 rust-lzma = "0.5"
 generic-array = "0.14.4"
 typenum = "1.13.0"
