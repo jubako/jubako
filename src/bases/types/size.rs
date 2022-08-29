@@ -1,5 +1,6 @@
 use crate::bases::*;
 use std::fmt;
+use std::ops::Add;
 
 /// A size used in Jubako.
 /// We handling content in 64 bits space.
@@ -45,5 +46,12 @@ impl From<usize> for Size {
 impl fmt::Display for Size {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Size({})", self.0)
+    }
+}
+
+impl Add<Size> for Size {
+    type Output = Self;
+    fn add(self, other: Size) -> Size {
+        Size(self.0.checked_add(other.0).unwrap())
     }
 }

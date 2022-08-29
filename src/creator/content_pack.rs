@@ -87,8 +87,15 @@ impl ClusterCreator {
         size.into()
     }
 
-    pub fn is_full(&self) -> bool {
-        self.offsets.len() == MAX_BLOBS_PER_CLUSTER
+    fn data_size(&self) -> Size {
+        self.data.len().into()
+    }
+
+    pub fn is_full(&self, size: Size) -> bool {
+        if self.offsets.len() == MAX_BLOBS_PER_CLUSTER {
+            return true;
+        }
+        !self.offsets.is_empty() && self.data_size() + size > CLUSTER_SIZE
     }
 
     pub fn is_empty(&self) -> bool {
@@ -165,9 +172,9 @@ impl ContentPackCreator {
         Ok(())
     }
 
-    fn get_open_cluster(&mut self) -> Result<&mut ClusterCreator> {
+    fn get_open_cluster(&mut self, size: Size) -> Result<&mut ClusterCreator> {
         if let Some(cluster) = self.open_cluster.as_ref() {
-            if cluster.is_full() {
+            if cluster.is_full(size) {
                 self.write_cluster()?;
             }
         }
@@ -191,7 +198,7 @@ impl ContentPackCreator {
     }
 
     pub fn add_content(&mut self, content: &mut dyn Stream) -> Result<Idx<u32>> {
-        let cluster = self.get_open_cluster()?;
+        let cluster = self.get_open_cluster(content.size())?;
         let entry_info = cluster.add_content(content)?;
         self.blob_addresses.push(entry_info);
         Ok(((self.blob_addresses.len() - 1) as u32).into())
