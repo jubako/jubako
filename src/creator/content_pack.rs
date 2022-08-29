@@ -14,6 +14,8 @@ struct ClusterCreator {
     offsets: Vec<usize>,
 }
 
+const MAX_BLOBS_PER_CLUSTER: usize = 0xFFF;
+
 impl ClusterCreator {
     fn new(index: usize) -> Self {
         ClusterCreator {
@@ -55,7 +57,7 @@ impl ClusterCreator {
     }
 
     pub fn is_full(&self) -> bool {
-        false
+        self.offsets.len() == MAX_BLOBS_PER_CLUSTER
     }
 
     pub fn is_empty(&self) -> bool {
@@ -63,6 +65,7 @@ impl ClusterCreator {
     }
 
     pub fn add_content(&mut self, content: &mut dyn Stream) -> IoResult<EntryInfo> {
+        assert!(self.offsets.len() < MAX_BLOBS_PER_CLUSTER);
         let idx = self.offsets.len() as u16;
         content.read_to_end(&mut self.data)?;
         self.offsets.push(self.data.len());
