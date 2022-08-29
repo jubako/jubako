@@ -4,7 +4,7 @@ use std::ops::Add;
 
 /// A index of a object.
 /// All count object can be stored in a u32.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug, Hash)]
 pub struct Idx<T>(pub T);
 
 impl Producable for Idx<u32> {

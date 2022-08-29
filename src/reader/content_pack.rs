@@ -3,14 +3,17 @@ mod cluster;
 use crate::bases::*;
 use crate::common::{CheckInfo, ContentPackHeader, EntryInfo, Pack, PackKind};
 use cluster::Cluster;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::io::Read;
+use std::rc::Rc;
 use uuid::Uuid;
 
 pub struct ContentPack {
     header: ContentPackHeader,
     entry_infos: ArrayReader<EntryInfo, u32>,
     cluster_ptrs: ArrayReader<SizedOffset, u32>,
+    cluster_cache: RefCell<HashMap<Idx<u32>, Rc<Cluster>>>,
     reader: Box<dyn Reader>,
     check_info: Cell<Option<CheckInfo>>,
 }
@@ -29,6 +32,7 @@ impl ContentPack {
             header,
             entry_infos,
             cluster_ptrs,
+            cluster_cache: RefCell::new(HashMap::new()),
             reader,
             check_info: Cell::new(None),
         })
@@ -36,6 +40,24 @@ impl ContentPack {
 
     pub fn get_entry_count(&self) -> Count<u32> {
         self.header.entry_count
+    }
+
+    fn _get_cluster(&self, cluster_index: Idx<u32>) -> Result<Rc<Cluster>> {
+        let cluster_info = self.cluster_ptrs.index(cluster_index);
+        Ok(Rc::new(Cluster::new(self.reader.as_ref(), cluster_info)?))
+    }
+
+    fn get_cluster(&self, cluster_index: Idx<u32>) -> Result<Rc<Cluster>> {
+        let mut cache = self.cluster_cache.borrow_mut();
+        let cached = cache.get(&cluster_index);
+        Ok(match cached {
+            Some(c) => c.clone(),
+            None => {
+                let cluster = self._get_cluster(cluster_index)?;
+                cache.insert(cluster_index, cluster.clone());
+                cluster
+            }
+        })
     }
 
     pub fn get_content(&self, index: Idx<u32>) -> Result<Box<dyn Reader>> {
@@ -49,8 +71,7 @@ impl ContentPack {
                 entry_info.cluster_index, self.header.cluster_count
             )));
         }
-        let cluster_info = self.cluster_ptrs.index(entry_info.cluster_index);
-        let cluster = Cluster::new(self.reader.as_ref(), cluster_info)?;
+        let cluster = self.get_cluster(entry_info.cluster_index)?;
         cluster.get_reader(entry_info.blob_index)
     }
 
