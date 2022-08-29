@@ -29,6 +29,18 @@ test_suite! {
         }
     }
 
+    fixture key_store_kind(k: creator::KeyStoreKind) -> creator::KeyStoreKind {
+        params {
+            vec![
+                creator::KeyStoreKind::Plain,
+                creator::KeyStoreKind::Indexed,
+            ].into_iter()
+        }
+        setup(&mut self) {
+            *self.k
+        }
+    }
+
     fixture articles() -> Vec<Entry> {
         setup(&mut self) {
             vec![
@@ -63,14 +75,14 @@ test_suite! {
         Ok(pack_info)
     }
 
-    fn create_directory_pack(entries: &Vec<Entry>) -> Result<creator::PackInfo> {
+    fn create_directory_pack(key_store_kind: creator::KeyStoreKind, entries: &Vec<Entry>) -> Result<creator::PackInfo> {
         let mut creator = creator::DirectoryPackCreator::new(
             "/tmp/directoryPack.jbkd",
             jubako::Id(1),
             1,
             jubako::FreeData::<U31>::clone_from_slice(&[0xff; 31])
         );
-        let key_store_handle = creator.create_key_store();
+        let key_store_handle = creator.create_key_store(key_store_kind);
         let entry_def = creator::Entry::new(
             vec![
                 creator::Variant::new(vec![
@@ -116,9 +128,9 @@ test_suite! {
 
 
 
-    test test_content_pack(compression, articles) {
+    test test_content_pack(compression, key_store_kind, articles) {
         let content_info = create_content_pack(compression.val, &articles.val).unwrap();
-        let directory_info = create_directory_pack(&articles.val).unwrap();
+        let directory_info = create_directory_pack(key_store_kind.val, &articles.val).unwrap();
         let main_path = create_main_pack(directory_info, content_info).unwrap();
 
         let container = jubako::reader::Container::new(main_path).unwrap();

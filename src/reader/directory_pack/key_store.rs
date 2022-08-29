@@ -141,28 +141,42 @@ mod tests {
         #[rustfmt::skip]
         let reader = BufReader::new(
             vec![
-                0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
-                0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, // data
+                0x05, 0x11, 0x12, 0x13, 0x14, 0x15, // Data of entry 0
+                0x03, 0x21, 0x22, 0x23, // Data of entry 1
+                0x07, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of entry 2
                 0x00, // kind
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, // data_size
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, // data_size
             ],
             End::None,
         );
-        let key_store = KeyStore::new(&reader, SizedOffset::new(Size(9), Offset(16))).unwrap();
+        let key_store = KeyStore::new(&reader, SizedOffset::new(Size(9), Offset(18))).unwrap();
         match &key_store {
             KeyStore::Plain(plainkeystore) => {
-                assert_eq!(plainkeystore.reader.size(), Size::from(0x10_u64));
+                assert_eq!(plainkeystore.reader.size(), Size::from(0x12_u64));
                 assert_eq!(
                     plainkeystore.reader.read_u64(Offset(0)).unwrap(),
-                    0x1011121314151617_u64
+                    0x0511121314150321_u64
                 );
                 assert_eq!(
                     plainkeystore.reader.read_u64(Offset(8)).unwrap(),
-                    0x18191a1b1c1d1e1f_u64
+                    0x2223073132333435_u64
                 );
             }
             _ => panic!("Wrong type"),
         }
+
+        assert_eq!(
+            key_store.get_data(0.into()).unwrap(),
+            vec![0x11, 0x12, 0x13, 0x14, 0x15]
+        );
+        assert_eq!(
+            key_store.get_data(6.into()).unwrap(),
+            vec![0x21, 0x22, 0x23]
+        );
+        assert_eq!(
+            key_store.get_data(10.into()).unwrap(),
+            vec![0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]
+        );
     }
 
     #[test]
@@ -201,5 +215,18 @@ mod tests {
             }
             _ => panic!("Wrong type"),
         }
+
+        assert_eq!(
+            key_store.get_data(0.into()).unwrap(),
+            vec![0x11, 0x12, 0x13, 0x14, 0x15]
+        );
+        assert_eq!(
+            key_store.get_data(1.into()).unwrap(),
+            vec![0x21, 0x22, 0x23]
+        );
+        assert_eq!(
+            key_store.get_data(2.into()).unwrap(),
+            vec![0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]
+        );
     }
 }

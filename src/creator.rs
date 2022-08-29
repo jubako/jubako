@@ -7,7 +7,7 @@ pub use crate::bases::{BufStream, FileStream};
 use crate::common::{CheckKind, PackPos};
 pub use content_pack::ContentPackCreator;
 pub use directory_pack::entry_def::{EntryDef as Entry, KeyDef as Key, VariantDef as Variant};
-pub use directory_pack::{DirectoryPackCreator, Value};
+pub use directory_pack::{DirectoryPackCreator, KeyStoreKind, Value};
 pub use manifest_pack::ManifestPackCreator;
 use typenum::U103;
 
