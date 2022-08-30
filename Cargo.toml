@@ -14,6 +14,7 @@ zstd = { version = "0.9", features = ["zstdmt"] }
 rust-lzma = "0.5"
 generic-array = "0.14.4"
 typenum = "1.13.0"
+clap = { version = "3.2.15", features = ["derive"] }
 
 [dev-dependencies]
 test-case = "1.2.0"

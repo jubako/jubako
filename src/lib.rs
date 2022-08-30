@@ -8,6 +8,8 @@ mod bases;
 mod common;
 pub mod creator;
 pub mod reader;
+pub mod tools;
 
 pub use crate::bases::{Count, End, FreeData, Id, Idx, Result};
 pub use crate::common::{CompressionType, ContentAddress};
+pub use crate::tools::concat;
