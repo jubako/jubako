@@ -2,6 +2,7 @@ use super::entry::Entry;
 use super::index_store::IndexStore;
 use crate::bases::*;
 use crate::common::ContentAddress;
+use std::rc::Rc;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct IndexHeader {
@@ -36,11 +37,11 @@ impl Producable for IndexHeader {
 #[derive(Debug)]
 pub struct Index {
     header: IndexHeader,
-    store: Box<IndexStore>,
+    store: Rc<IndexStore>,
 }
 
 impl Index {
-    pub fn new(header: IndexHeader, store: Box<IndexStore>) -> Self {
+    pub fn new(header: IndexHeader, store: Rc<IndexStore>) -> Self {
         Self { header, store }
     }
 

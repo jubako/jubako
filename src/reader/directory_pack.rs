@@ -67,7 +67,7 @@ impl DirectoryPack {
         let mut index_stream = self.reader.create_stream_for(sized_offset);
         let index_header = IndexHeader::produce(index_stream.as_mut())?;
         let store = self.get_store(index_header.store_id)?;
-        let index = Index::new(index_header, Box::new(store));
+        let index = Index::new(index_header, Rc::new(store));
         Ok(index)
     }
 
@@ -78,7 +78,7 @@ impl DirectoryPack {
             let index_header = IndexHeader::produce(index_stream.as_mut())?;
             if index_header.name == index_name {
                 let store = self.get_store(index_header.store_id)?;
-                let index = Index::new(index_header, Box::new(store));
+                let index = Index::new(index_header, Rc::new(store));
                 return Ok(index);
             }
         }
