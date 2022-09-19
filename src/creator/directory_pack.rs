@@ -4,6 +4,7 @@ use super::{CheckInfo, PackInfo};
 use crate::bases::*;
 use crate::common::{ContentAddress, DirectoryPackHeader, PackHeaderInfo};
 use std::cell::RefCell;
+use std::cmp;
 use std::fs::OpenOptions;
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -230,20 +231,30 @@ impl EntryStore {
         self.idx
     }
 
-    fn fill_key_store(&mut self) {
+    fn finalize(&mut self) {
         for entry in &mut self.entries {
             let mut value_iter = entry.values.iter_mut();
-            let variant = &self.entry_def.variants[entry.variant_id as usize];
-            for key in &variant.keys {
-                if let entry_def::KeyDef::PString(flookup_size, store_handle) = key {
-                    let flookup_size = *flookup_size;
-                    let value = value_iter.next().unwrap();
-                    if let Value::Array { data, key_id } = value {
-                        *key_id = Some(store_handle.borrow_mut().add_key(&data[flookup_size..]));
-                        data.truncate(flookup_size);
+            let variant = &mut self.entry_def.variants[entry.variant_id as usize];
+            for key in &mut variant.keys {
+                match key {
+                    entry_def::KeyDef::PString(flookup_size, store_handle) => {
+                        let flookup_size = *flookup_size;
+                        let value = value_iter.next().unwrap();
+                        if let Value::Array { data, key_id } = value {
+                            *key_id =
+                                Some(store_handle.borrow_mut().add_key(&data[flookup_size..]));
+                            data.truncate(flookup_size);
+                        }
                     }
-                } else {
-                    value_iter.next();
+                    entry_def::KeyDef::UnsignedInt(max_value) => {
+                        let value = value_iter.next().unwrap();
+                        if let Value::Unsigned(v) = value {
+                            *key = entry_def::KeyDef::UnsignedInt(cmp::max(*max_value, *v));
+                        }
+                    }
+                    _ => {
+                        value_iter.next();
+                    }
                 }
             }
         }
@@ -386,7 +397,7 @@ impl DirectoryPackCreator {
         file.seek(SeekFrom::Start(to_skip as u64))?;
 
         for entry_store in &mut self.entry_stores {
-            entry_store.fill_key_store();
+            entry_store.finalize();
         }
 
         let mut indexes_offsets = vec![];

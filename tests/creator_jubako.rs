@@ -51,7 +51,7 @@ test_suite! {
                 Entry{
                     path: "bar".to_string(),
                     content: "foo bar".to_string(),
-                    word_count: 2
+                    word_count: 256
                 }
             ]
         }
@@ -88,7 +88,7 @@ test_suite! {
                 creator::Variant::new(vec![
                     creator::Key::PString(0, key_store_handle),
                     creator::Key::ContentAddress,
-                    creator::Key::UnsignedInt(2)
+                    creator::Key::new_int()
                 ])
             ]
         );

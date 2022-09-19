@@ -13,10 +13,14 @@ pub enum KeyDef {
         /*store_handle:*/ Rc<RefCell<KeyStore>>,
     ),
     ContentAddress,
-    UnsignedInt(/*size:*/ u8),
+    UnsignedInt(/*max_value:*/ u64),
 }
 
 impl KeyDef {
+    pub fn new_int() -> Self {
+        KeyDef::UnsignedInt(0)
+    }
+
     fn size(&self) -> u16 {
         match self {
             KeyDef::VariantId => 1,
@@ -24,7 +28,7 @@ impl KeyDef {
                 (*flookup_size as u16) + store_handle.borrow().key_size()
             }
             KeyDef::ContentAddress => 4,
-            KeyDef::UnsignedInt(size) => *size as u16,
+            KeyDef::UnsignedInt(max_value) => needed_bytes(*max_value) as u16,
         }
     }
 
@@ -61,7 +65,8 @@ impl Writable for KeyDef {
                 Ok(written)
             }
             KeyDef::ContentAddress => stream.write_u8(0b0001_0000),
-            KeyDef::UnsignedInt(size) => {
+            KeyDef::UnsignedInt(max_value) => {
+                let size = needed_bytes(*max_value) as u8;
                 let key_type = 0b0010_0000;
                 stream.write_u8(key_type + (size - 1))
             }
@@ -115,10 +120,11 @@ impl VariantDef {
                         return Err("Not a Content".to_string().into());
                     }
                 }
-                KeyDef::UnsignedInt(size) => {
+                KeyDef::UnsignedInt(max_value) => {
                     let value = value_iter.next().unwrap();
+                    let size = needed_bytes(*max_value);
                     if let Value::Unsigned(value) = value {
-                        written += stream.write_sized(*value, *size as usize)?;
+                        written += stream.write_sized(*value, size)?;
                     } else {
                         return Err("Not a unsigned".to_string().into());
                     }
