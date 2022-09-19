@@ -14,6 +14,7 @@ use crate::bases::*;
 use crate::common::{CheckInfo, DirectoryPackHeader, Pack, PackKind};
 use std::cell::{Cell, OnceCell};
 use std::io::Read;
+use std::rc::Rc;
 use uuid::Uuid;
 
 pub use entry::Entry;
@@ -81,18 +82,18 @@ impl DirectoryPack {
         self.header.key_store_count
     }
 
-    pub fn get_key_storage(&self) -> KeyStorage {
-        KeyStorage::new(self)
+    pub fn get_key_storage(self: &Rc<Self>) -> Rc<KeyStorage> {
+        Rc::new(KeyStorage::new(Rc::clone(self)))
     }
 }
 
-pub struct KeyStorage<'a> {
-    directory: &'a DirectoryPack,
+pub struct KeyStorage {
+    directory: Rc<DirectoryPack>,
     stores: Vec<OnceCell<KeyStore>>,
 }
 
-impl<'a> KeyStorage<'a> {
-    pub fn new(directory: &'a DirectoryPack) -> KeyStorage<'a> {
+impl KeyStorage {
+    pub fn new(directory: Rc<DirectoryPack>) -> KeyStorage {
         let mut stores = Vec::new();
         stores.resize_with(directory.get_key_store_count().0 as usize, Default::default);
         Self { directory, stores }
@@ -288,7 +289,7 @@ mod tests {
         content.push(0x01); // check info off: 281
         content.extend(hash.as_bytes()); // end : 281+32 = 313/0x139
         let reader = Box::new(BufReader::new(content, End::None));
-        let directory_pack = DirectoryPack::new(reader).unwrap();
+        let directory_pack = Rc::new(DirectoryPack::new(reader).unwrap());
         let index = directory_pack.get_index(Idx(0)).unwrap();
         let key_storage = directory_pack.get_key_storage();
         assert_eq!(index.entry_count().0, 4);

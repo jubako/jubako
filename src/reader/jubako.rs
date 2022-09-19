@@ -9,12 +9,13 @@ use std::ffi::OsString;
 use std::fs::File;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 pub struct Container {
     path: PathBuf,
     main_pack: ManifestPack,
     reader: FileReader,
-    directory_pack: OnceCell<DirectoryPack>,
+    directory_pack: OnceCell<Rc<DirectoryPack>>,
     packs: Vec<OnceCell<ContentPack>>,
 }
 
@@ -56,15 +57,15 @@ impl Container {
         ContentPack::new(pack_reader)
     }
 
-    pub fn get_directory_pack(&self) -> Result<&DirectoryPack> {
+    pub fn get_directory_pack(&self) -> Result<&Rc<DirectoryPack>> {
         self.directory_pack
             .get_or_try_init(|| self._get_directory_pack())
     }
 
-    fn _get_directory_pack(&self) -> Result<DirectoryPack> {
+    fn _get_directory_pack(&self) -> Result<Rc<DirectoryPack>> {
         let pack_info = self.main_pack.get_directory_pack_info();
         let pack_reader = self._get_pack_reader(pack_info)?;
-        DirectoryPack::new(pack_reader)
+        Ok(Rc::new(DirectoryPack::new(pack_reader)?))
     }
 
     fn _get_pack_reader(&self, pack_info: &PackInfo) -> Result<Box<dyn Reader>> {
