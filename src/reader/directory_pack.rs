@@ -69,6 +69,20 @@ impl DirectoryPack {
         Ok(index)
     }
 
+    pub fn get_index_from_name(&self, index_name: &str) -> Result<Index> {
+        for index_id in 0..self.header.index_count.0 {
+            let sized_offset = self.index_ptrs.index(Idx(index_id));
+            let mut index_stream = self.reader.create_stream_for(sized_offset);
+            let index_header = IndexHeader::produce(index_stream.as_mut())?;
+            if index_header.name == index_name {
+                let store = self.get_store(index_header.store_id)?;
+                let index = Index::new(index_header, Box::new(store));
+                return Ok(index);
+            }
+        }
+        Err("Cannot find index".to_string().into())
+    }
+
     fn get_store(&self, store_id: Idx<u32>) -> Result<IndexStore> {
         let sized_offset = self.entry_stores_ptrs.index(store_id);
         IndexStore::new(self.reader.as_ref(), sized_offset)
