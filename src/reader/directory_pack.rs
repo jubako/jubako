@@ -7,7 +7,7 @@ mod key_def;
 mod key_store;
 mod value;
 
-use self::index::{Index, IndexHeader};
+use self::index::IndexHeader;
 use self::index_store::IndexStore;
 use self::key_store::KeyStore;
 use crate::bases::*;
@@ -17,6 +17,7 @@ use std::io::Read;
 use std::rc::Rc;
 use uuid::Uuid;
 
+pub use self::index::Index;
 pub use entry::Entry;
 pub use key_def::{KeyDef, KeyDefKind};
 pub use value::{Array, Content, Extend, Value};

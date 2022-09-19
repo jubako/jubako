@@ -6,7 +6,7 @@ mod manifest_pack;
 
 pub use self::jubako::Container;
 pub use content_pack::ContentPack;
-pub use directory_pack::{Content, DirectoryPack, Entry, KeyStorage, Value};
+pub use directory_pack::{Content, DirectoryPack, Entry, Index, KeyStorage, Value};
 pub use manifest_pack::{ManifestPack, PackInfo};
 
 pub mod testing {
