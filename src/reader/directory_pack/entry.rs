@@ -2,17 +2,18 @@ use super::entry_def::VariantDef;
 use super::value::Value;
 use crate::bases::*;
 use std::cell::OnceCell;
+use std::rc::Rc;
 
 /// A lazy entry
-pub struct Entry<'a> {
+pub struct Entry {
     variant_id: u8,
-    variant_def: &'a VariantDef,
+    variant_def: Rc<VariantDef>,
     values: Vec<OnceCell<Value>>,
     reader: Box<dyn Reader>,
 }
 
-impl<'a> Entry<'a> {
-    pub fn new(variant_id: u8, variant_def: &'a VariantDef, reader: Box<dyn Reader>) -> Self {
+impl Entry {
+    pub fn new(variant_id: u8, variant_def: Rc<VariantDef>, reader: Box<dyn Reader>) -> Self {
         let mut values = Vec::new();
         values.resize_with(variant_def.keys.len(), Default::default);
         Self {

@@ -3,6 +3,7 @@ use super::key::{Key, KeyKind};
 use super::key_def::{KeyDef, KeyDefKind};
 use crate::bases::*;
 use std::cmp::Ordering;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct VariantDef {
@@ -92,7 +93,7 @@ impl VariantDef {
 
 #[derive(Debug)]
 pub struct EntryDef {
-    pub variants: Vec<VariantDef>,
+    pub variants: Vec<Rc<VariantDef>>,
     pub size: Size,
 }
 
@@ -126,7 +127,7 @@ impl Producable for EntryDef {
                     ))
                 }
                 Ordering::Equal => {
-                    variants.push(VariantDef::new(entry_def)?);
+                    variants.push(Rc::new(VariantDef::new(entry_def)?));
                     entry_def = Vec::new();
                     current_size = 0;
                 }
@@ -137,7 +138,7 @@ impl Producable for EntryDef {
             }
         }
         if !entry_def.is_empty() {
-            variants.push(VariantDef::new(entry_def)?);
+            variants.push(Rc::new(VariantDef::new(entry_def)?));
         }
         if variants.len() != variant_count.0 as usize {
             return Err(format_error!(
@@ -166,7 +167,7 @@ impl EntryDef {
         let variant_def = &self.variants[variant_id as usize];
         Ok(Entry::new(
             variant_id,
-            variant_def,
+            Rc::clone(variant_def),
             reader.create_sub_reader(Offset(0), End::None),
         ))
     }
@@ -182,11 +183,13 @@ mod tests {
     #[test]
     fn create_entry() {
         let entry_def = EntryDef {
-            variants: vec![VariantDef::new(vec![
-                KeyDef::new(KeyDefKind::ContentAddress(0), 4),
-                KeyDef::new(KeyDefKind::UnsignedInt, 2),
-            ])
-            .unwrap()],
+            variants: vec![Rc::new(
+                VariantDef::new(vec![
+                    KeyDef::new(KeyDefKind::ContentAddress(0), 4),
+                    KeyDef::new(KeyDefKind::UnsignedInt, 2),
+                ])
+                .unwrap(),
+            )],
             size: Size(6),
         };
 
@@ -223,20 +226,24 @@ mod tests {
     fn create_entry_with_variant() {
         let entry_def = EntryDef {
             variants: vec![
-                VariantDef::new(vec![
-                    KeyDef::new(KeyDefKind::VariantId, 1),
-                    KeyDef::new(KeyDefKind::CharArray, 4),
-                    KeyDef::new(KeyDefKind::UnsignedInt, 2),
-                ])
-                .unwrap(),
-                VariantDef::new(vec![
-                    KeyDef::new(KeyDefKind::VariantId, 1),
-                    KeyDef::new(KeyDefKind::CharArray, 2),
-                    KeyDef::new(KeyDefKind::Padding, 1),
-                    KeyDef::new(KeyDefKind::SignedInt, 1),
-                    KeyDef::new(KeyDefKind::UnsignedInt, 2),
-                ])
-                .unwrap(),
+                Rc::new(
+                    VariantDef::new(vec![
+                        KeyDef::new(KeyDefKind::VariantId, 1),
+                        KeyDef::new(KeyDefKind::CharArray, 4),
+                        KeyDef::new(KeyDefKind::UnsignedInt, 2),
+                    ])
+                    .unwrap(),
+                ),
+                Rc::new(
+                    VariantDef::new(vec![
+                        KeyDef::new(KeyDefKind::VariantId, 1),
+                        KeyDef::new(KeyDefKind::CharArray, 2),
+                        KeyDef::new(KeyDefKind::Padding, 1),
+                        KeyDef::new(KeyDefKind::SignedInt, 1),
+                        KeyDef::new(KeyDefKind::UnsignedInt, 2),
+                    ])
+                    .unwrap(),
+                ),
             ],
             size: Size(7),
         };
