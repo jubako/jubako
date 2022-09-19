@@ -1,6 +1,6 @@
 use crate::bases::*;
 use std::fmt;
-use std::ops::Add;
+use std::ops::{Add, AddAssign};
 
 /// A index of a object.
 /// All count object can be stored in a u32.
@@ -62,6 +62,15 @@ where
     type Output = Self;
     fn add(self, other: Count<T>) -> Self {
         Idx(self.0 + other.0)
+    }
+}
+
+impl<T> AddAssign<T> for Idx<T>
+where
+    T: std::ops::AddAssign,
+{
+    fn add_assign(&mut self, other: T) {
+        self.0 += other;
     }
 }
 
