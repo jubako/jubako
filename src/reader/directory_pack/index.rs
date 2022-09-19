@@ -43,6 +43,11 @@ impl Index {
     pub fn new(header: IndexHeader, store: Box<IndexStore>) -> Self {
         Self { header, store }
     }
+
+    pub fn entry_offset(&self) -> Idx<u32> {
+        self.header.entry_offset
+    }
+
     pub fn entry_count(&self) -> Count<u32> {
         self.header.entry_count
     }
