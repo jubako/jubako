@@ -1,5 +1,5 @@
 use super::entry_def::VariantDef;
-use super::value::Value;
+use super::raw_value::RawValue;
 use crate::bases::*;
 use std::cell::OnceCell;
 use std::rc::Rc;
@@ -8,7 +8,7 @@ use std::rc::Rc;
 pub struct Entry {
     variant_id: u8,
     variant_def: Rc<VariantDef>,
-    values: Vec<OnceCell<Value>>,
+    values: Vec<OnceCell<RawValue>>,
     reader: Box<dyn Reader>,
 }
 
@@ -28,11 +28,11 @@ impl Entry {
         self.variant_id
     }
 
-    pub fn get_value(&self, idx: Idx<u8>) -> Result<&Value> {
+    pub fn get_value(&self, idx: Idx<u8>) -> Result<&RawValue> {
         self.values[idx.0 as usize].get_or_try_init(|| self._get_value(idx))
     }
 
-    fn _get_value(&self, idx: Idx<u8>) -> Result<Value> {
+    fn _get_value(&self, idx: Idx<u8>) -> Result<RawValue> {
         let key = &self.variant_def.keys[idx.0 as usize];
         key.create_value(self.reader.as_ref())
     }

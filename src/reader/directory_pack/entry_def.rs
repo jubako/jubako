@@ -178,7 +178,7 @@ mod tests {
     use super::*;
     use crate::common::ContentAddress;
     use crate::reader::directory_pack::{Array, KeyDef, KeyDefKind};
-    use crate::reader::{Content, Value};
+    use crate::reader::{Content, RawValue};
 
     #[test]
     fn create_entry() {
@@ -202,9 +202,12 @@ mod tests {
             assert!(entry.get_variant_id() == 0);
             assert!(
                 entry.get_value(0.into()).unwrap()
-                    == &Value::Content(Content::new(ContentAddress::new(0.into(), 1.into()), None))
+                    == &RawValue::Content(Content::new(
+                        ContentAddress::new(0.into(), 1.into()),
+                        None
+                    ))
             );
-            assert!(entry.get_value(1.into()).unwrap() == &Value::U16(0x8899));
+            assert!(entry.get_value(1.into()).unwrap() == &RawValue::U16(0x8899));
         }
 
         {
@@ -216,9 +219,12 @@ mod tests {
             assert!(entry.get_variant_id() == 0);
             assert!(
                 entry.get_value(0.into()).unwrap()
-                    == &Value::Content(Content::new(ContentAddress::new(1.into(), 2.into()), None))
+                    == &RawValue::Content(Content::new(
+                        ContentAddress::new(1.into(), 2.into()),
+                        None
+                    ))
             );
-            assert!(entry.get_value(1.into()).unwrap() == &Value::U16(0x6677));
+            assert!(entry.get_value(1.into()).unwrap() == &RawValue::U16(0x6677));
         }
     }
 
@@ -257,9 +263,9 @@ mod tests {
             assert!(entry.get_variant_id() == 0);
             assert!(
                 entry.get_value(0.into()).unwrap()
-                    == &Value::Array(Array::new(vec![0xFF, 0xEE, 0xDD, 0xCC], None))
+                    == &RawValue::Array(Array::new(vec![0xFF, 0xEE, 0xDD, 0xCC], None))
             );
-            assert!(entry.get_value(1.into()).unwrap() == &Value::U16(0x8899));
+            assert!(entry.get_value(1.into()).unwrap() == &RawValue::U16(0x8899));
         }
 
         {
@@ -271,10 +277,10 @@ mod tests {
             assert!(entry.get_variant_id() == 1);
             assert!(
                 entry.get_value(0.into()).unwrap()
-                    == &Value::Array(Array::new(vec![0xFF, 0xEE], None))
+                    == &RawValue::Array(Array::new(vec![0xFF, 0xEE], None))
             );
-            assert!(entry.get_value(1.into()).unwrap() == &Value::I8(-52));
-            assert!(entry.get_value(2.into()).unwrap() == &Value::U16(0x8899));
+            assert!(entry.get_value(1.into()).unwrap() == &RawValue::I8(-52));
+            assert!(entry.get_value(2.into()).unwrap() == &RawValue::U16(0x8899));
         }
     }
 }

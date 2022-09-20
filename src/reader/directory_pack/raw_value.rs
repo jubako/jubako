@@ -60,7 +60,7 @@ impl Array {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum Value {
+pub enum RawValue {
     Content(Content),
     U8(u8),
     U16(u16),

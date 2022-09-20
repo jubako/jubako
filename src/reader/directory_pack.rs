@@ -6,7 +6,7 @@ mod key;
 mod key_def;
 mod key_storage;
 mod key_store;
-mod value;
+mod raw_value;
 
 use self::index::IndexHeader;
 use self::index_store::IndexStore;
@@ -22,7 +22,7 @@ pub use self::index::Index;
 pub use self::key_storage::KeyStorage;
 pub use entry::Entry;
 pub use key_def::{KeyDef, KeyDefKind};
-pub use value::{Array, Content, Extend, Value};
+pub use raw_value::{Array, Content, Extend, RawValue};
 
 pub struct DirectoryPack {
     header: DirectoryPackHeader,
@@ -143,7 +143,7 @@ impl Pack for DirectoryPack {
 
 #[cfg(test)]
 mod tests {
-    use super::value::*;
+    use super::raw_value::*;
     use super::*;
     use crate::common::{ContentAddress, PackHeader};
 
@@ -287,7 +287,7 @@ mod tests {
         {
             let entry = index.get_entry(Idx(0)).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
-            let value0 = if let Value::Array(a) = entry.get_value(Idx(0)).unwrap() {
+            let value0 = if let RawValue::Array(a) = entry.get_value(Idx(0)).unwrap() {
                 a
             } else {
                 panic!("Must be a array");
@@ -300,7 +300,7 @@ mod tests {
                 value0.resolve_to_vec(&key_storage).unwrap(),
                 b"J\xc5\xabbako" // Jūbako
             );
-            let value1 = if let Value::Array(a) = entry.get_value(Idx(1)).unwrap() {
+            let value1 = if let RawValue::Array(a) = entry.get_value(Idx(1)).unwrap() {
                 a
             } else {
                 panic!("Must be a array");
@@ -310,10 +310,10 @@ mod tests {
                 &Array::new(vec![b'a', b'B'], Some(Extend::new(Idx(0), 0)))
             );
             assert_eq!(value1.resolve_to_vec(&key_storage).unwrap(), b"aBHello");
-            assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x212223));
+            assert_eq!(entry.get_value(Idx(2)).unwrap(), &RawValue::U32(0x212223));
             assert_eq!(
                 entry.get_value(Idx(3)).unwrap(),
-                &Value::Content(Content::new(
+                &RawValue::Content(Content::new(
                     ContentAddress {
                         pack_id: Id(1),
                         content_id: Idx(0)
@@ -325,7 +325,7 @@ mod tests {
         {
             let entry = index.get_entry(Idx(1)).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
-            let value0 = if let Value::Array(a) = entry.get_value(Idx(0)).unwrap() {
+            let value0 = if let RawValue::Array(a) = entry.get_value(Idx(0)).unwrap() {
                 a
             } else {
                 panic!("Must be a array");
@@ -335,7 +335,7 @@ mod tests {
                 &Array::new(Vec::new(), Some(Extend::new(Idx(0), 1)))
             );
             assert_eq!(value0.resolve_to_vec(&key_storage).unwrap(), b"Foo");
-            let value1 = if let Value::Array(a) = entry.get_value(Idx(1)).unwrap() {
+            let value1 = if let RawValue::Array(a) = entry.get_value(Idx(1)).unwrap() {
                 a
             } else {
                 panic!("Must be a array");
@@ -348,10 +348,10 @@ mod tests {
                 value1.resolve_to_vec(&key_storage).unwrap(),
                 b"ABJ\xc5\xabbako"
             );
-            assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x313233));
+            assert_eq!(entry.get_value(Idx(2)).unwrap(), &RawValue::U32(0x313233));
             assert_eq!(
                 entry.get_value(Idx(3)).unwrap(),
-                &Value::Content(Content::new(
+                &RawValue::Content(Content::new(
                     ContentAddress {
                         pack_id: Id(0),
                         content_id: Idx(1)
@@ -363,7 +363,7 @@ mod tests {
         {
             let entry = index.get_entry(Idx(2)).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
-            let value0 = if let Value::Array(a) = entry.get_value(Idx(0)).unwrap() {
+            let value0 = if let RawValue::Array(a) = entry.get_value(Idx(0)).unwrap() {
                 a
             } else {
                 panic!("Must be a array");
@@ -376,7 +376,7 @@ mod tests {
                 value0.resolve_to_vec(&key_storage).unwrap(),
                 b"J\xc5\xabbako"
             );
-            let value1 = if let Value::Array(a) = entry.get_value(Idx(1)).unwrap() {
+            let value1 = if let RawValue::Array(a) = entry.get_value(Idx(1)).unwrap() {
                 a
             } else {
                 panic!("Must be a array");
@@ -386,10 +386,10 @@ mod tests {
                 &Array::new(vec![b'A', b'B'], Some(Extend::new(Idx(0), 1)))
             );
             assert_eq!(value1.resolve_to_vec(&key_storage).unwrap(), b"ABFoo");
-            assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x414243));
+            assert_eq!(entry.get_value(Idx(2)).unwrap(), &RawValue::U32(0x414243));
             assert_eq!(
                 entry.get_value(Idx(3)).unwrap(),
-                &Value::Content(Content::new(
+                &RawValue::Content(Content::new(
                     ContentAddress {
                         pack_id: Id(0),
                         content_id: Idx(2)
@@ -401,7 +401,7 @@ mod tests {
         {
             let entry = index.get_entry(Idx(3)).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
-            let value0 = if let Value::Array(a) = entry.get_value(Idx(0)).unwrap() {
+            let value0 = if let RawValue::Array(a) = entry.get_value(Idx(0)).unwrap() {
                 a
             } else {
                 panic!("Must be a array");
@@ -411,7 +411,7 @@ mod tests {
                 &Array::new(Vec::new(), Some(Extend::new(Idx(0), 0)))
             );
             assert_eq!(value0.resolve_to_vec(&key_storage).unwrap(), b"Hello");
-            let value1 = if let Value::Array(a) = entry.get_value(Idx(1)).unwrap() {
+            let value1 = if let RawValue::Array(a) = entry.get_value(Idx(1)).unwrap() {
                 a
             } else {
                 panic!("Must be a array");
@@ -421,10 +421,10 @@ mod tests {
                 &Array::new(vec![0, 0], Some(Extend::new(Idx(0), 1)))
             );
             assert_eq!(value1.resolve_to_vec(&key_storage).unwrap(), b"\0\0Foo");
-            assert_eq!(entry.get_value(Idx(2)).unwrap(), &Value::U32(0x515253));
+            assert_eq!(entry.get_value(Idx(2)).unwrap(), &RawValue::U32(0x515253));
             assert_eq!(
                 entry.get_value(Idx(3)).unwrap(),
-                &Value::Content(Content::new(
+                &RawValue::Content(Content::new(
                     ContentAddress {
                         pack_id: Id(0),
                         content_id: Idx(0xaaaaaa)

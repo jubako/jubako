@@ -147,7 +147,7 @@ test_suite! {
             assert_eq!(entry.get_variant_id(), 0);
             println!("Check value 0");
             let value_0 = entry.get_value(jubako::Idx(0)).unwrap();
-            if let jubako::reader::Value::Array(array) = value_0 {
+            if let jubako::reader::RawValue::Array(array) = value_0 {
                 let vec = array.resolve_to_vec(&directory_pack.get_key_storage()).unwrap();
                 assert_eq!(vec, articles.val[i as usize].path.as_bytes());
             } else {
@@ -155,7 +155,7 @@ test_suite! {
             }
             println!("Check value 1");
             let value_1 = entry.get_value(jubako::Idx(1)).unwrap();
-            if let jubako::reader::Value::Content(content) = value_1 {
+            if let jubako::reader::RawValue::Content(content) = value_1 {
                 println!("Get reader");
                 let reader = container.get_reader(content).unwrap();
                 println!("Readir is {:?}", reader);
@@ -170,8 +170,8 @@ test_suite! {
             }
             println!("Check value 2");
             let value_2= entry.get_value(jubako::Idx(2)).unwrap();
-            if let jubako::reader::Value::U16(v) = value_2 {
-                assert_eq!(*v, articles.val[i as usize].word_count);
+            if let jubako::reader::RawValue::U16(v) = value_2 {
+              assert_eq!(*v, articles.val[i as usize].word_count);
             } else {
               panic!();
             }
