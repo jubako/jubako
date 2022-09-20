@@ -1,5 +1,4 @@
-use super::index_store::IndexStore;
-use super::lazy_entry::LazyEntry;
+use super::{Finder, IndexStore, Resolver};
 use crate::bases::*;
 use crate::common::ContentAddress;
 use std::rc::Rc;
@@ -45,7 +44,7 @@ impl Index {
         Self { header, store }
     }
 
-    pub fn entry_offset(&self) -> Idx<u32> {
+    fn entry_offset(&self) -> Idx<u32> {
         self.header.entry_offset
     }
 
@@ -53,13 +52,17 @@ impl Index {
         self.header.entry_count
     }
 
-    pub fn get_entry(&self, id: Idx<u32>) -> Result<LazyEntry> {
-        if id.is_valid(self.entry_count()) {
-            let id = self.header.entry_offset + id;
-            self.store.get_entry(id)
-        } else {
-            Err("Invalid id".to_string().into())
-        }
+    pub fn get_finder(&self, resolver: Rc<Resolver>) -> Finder {
+        Finder::new(
+            Rc::clone(&self.store),
+            self.entry_offset(),
+            self.entry_count(),
+            resolver,
+        )
+    }
+
+    pub fn get_store(&self) -> Rc<IndexStore> {
+        Rc::clone(&self.store)
     }
 }
 

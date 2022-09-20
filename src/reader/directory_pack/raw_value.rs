@@ -1,8 +1,7 @@
-use super::KeyStorage;
 use crate::bases::*;
 use crate::common::ContentAddress;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Content {
     content_address: ContentAddress,
     base: Option<Box<Content>>,
@@ -39,23 +38,13 @@ impl Extend {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Array {
-    base: Vec<u8>,
-    extend: Option<Extend>,
+    pub(super) base: Vec<u8>,
+    pub(super) extend: Option<Extend>,
 }
 
 impl Array {
     pub fn new(base: Vec<u8>, extend: Option<Extend>) -> Self {
         Self { base, extend }
-    }
-
-    pub fn resolve_to_vec(&self, key_storage: &KeyStorage) -> Result<Vec<u8>> {
-        Ok(match &self.extend {
-            None => self.base.clone(),
-            Some(e) => {
-                let data = key_storage.get_data(e)?;
-                [self.base.as_slice(), data.as_slice()].concat()
-            }
-        })
     }
 }
 

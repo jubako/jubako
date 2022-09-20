@@ -12,6 +12,7 @@ test_suite! {
     use jubako::creator;
     use jubako::Result;
     use std::io::Read;
+    use std::rc::Rc;
     use crate::Entry;
     use typenum::{U31, U40, U63};
 
@@ -139,42 +140,34 @@ test_suite! {
         println!("Read directory pack");
         let directory_pack = container.get_directory_pack().unwrap();
         let index = directory_pack.get_index(jubako::Idx(0)).unwrap();
+        let resolver = directory_pack.get_resolver();
+        let finder = index.get_finder(Rc::clone(&resolver));
         println!("Read index");
         assert_eq!(index.entry_count().0, articles.val.len() as u32);
         for i in 0..index.entry_count().0 {
             println!("Check entry count {}", i);
-            let entry = index.get_entry(jubako::Idx(i)).unwrap();
+            let entry = finder.get_entry(jubako::Idx(i)).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
             println!("Check value 0");
             let value_0 = entry.get_value(jubako::Idx(0)).unwrap();
-            if let jubako::reader::RawValue::Array(array) = value_0 {
-                let vec = array.resolve_to_vec(&directory_pack.get_key_storage()).unwrap();
-                assert_eq!(vec, articles.val[i as usize].path.as_bytes());
-            } else {
-              panic!();
-            }
+            let value_0 = resolver.resolve_to_vec(value_0).unwrap();
+            assert_eq!(value_0, articles.val[i as usize].path.as_bytes());
             println!("Check value 1");
             let value_1 = entry.get_value(jubako::Idx(1)).unwrap();
-            if let jubako::reader::RawValue::Content(content) = value_1 {
-                println!("Get reader");
-                let reader = container.get_reader(content).unwrap();
-                println!("Readir is {:?}", reader);
-                let mut stream = reader.create_stream_all();
-                println!("Stream is {:?}", stream);
-                let mut read_content: String = "".to_string();
-                println!("Read from stream");
-                stream.read_to_string(&mut read_content).unwrap();
-                assert_eq!(read_content, articles.val[i as usize].content);
-            } else {
-              panic!();
-            }
+            let value_1 = resolver.resolve_to_content(value_1);
+            println!("Get reader");
+            let reader = container.get_reader(value_1).unwrap();
+            println!("Readir is {:?}", reader);
+            let mut stream = reader.create_stream_all();
+            println!("Stream is {:?}", stream);
+            let mut read_content: String = "".to_string();
+            println!("Read from stream");
+            stream.read_to_string(&mut read_content).unwrap();
+            assert_eq!(read_content, articles.val[i as usize].content);
             println!("Check value 2");
-            let value_2= entry.get_value(jubako::Idx(2)).unwrap();
-            if let jubako::reader::RawValue::U16(v) = value_2 {
-              assert_eq!(*v, articles.val[i as usize].word_count);
-            } else {
-              panic!();
-            }
+            let value_2 = entry.get_value(jubako::Idx(2)).unwrap();
+            let value_2 = resolver.resolve_to_unsigned(value_2);
+            assert_eq!(value_2, articles.val[i as usize].word_count as u64);
         }
     }
 }

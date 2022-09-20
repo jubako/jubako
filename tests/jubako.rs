@@ -255,6 +255,7 @@ test_suite! {
     use std::fs::OpenOptions;
     use std::io::{Write, Seek, SeekFrom, Result, Read};
     use std::io;
+    use std::rc::Rc;
     use crate::{Entry, Cluster, KeyStore, IndexStore, Index, PackInfo, CheckInfo};
     use uuid::Uuid;
 
@@ -483,9 +484,11 @@ test_suite! {
 
         let directory_pack = container.get_directory_pack().unwrap();
         let index = directory_pack.get_index(jubako::Idx(0)).unwrap();
+        let resolver = directory_pack.get_resolver();
+        let finder = index.get_finder(Rc::clone(&resolver));
         assert_eq!(index.entry_count().0, articles.val.len() as u32);
         for i in 0..index.entry_count().0 {
-            let entry = index.get_entry(jubako::Idx(i)).unwrap();
+            let entry = finder.get_entry(jubako::Idx(i)).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
             let value_0 = entry.get_value(jubako::Idx(0)).unwrap();
             if let reader::RawValue::Array(array) = value_0 {
@@ -495,7 +498,7 @@ test_suite! {
                         vec!(),
                         Some(reader::testing::Extend::new(jubako::Idx(0), i.into()))
                     ));
-                let vec = array.resolve_to_vec(&directory_pack.get_key_storage()).unwrap();
+                let vec = resolver.resolve_to_vec(value_0).unwrap();
                 assert_eq!(vec, articles.val[i as usize].path.as_bytes());
             } else {
               panic!();
