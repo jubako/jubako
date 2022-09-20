@@ -1,4 +1,3 @@
-mod entry;
 mod entry_def;
 mod index;
 mod index_store;
@@ -6,6 +5,7 @@ mod key;
 mod key_def;
 mod key_storage;
 mod key_store;
+mod lazy_entry;
 mod raw_value;
 
 use self::index::IndexHeader;
@@ -20,8 +20,8 @@ use uuid::Uuid;
 
 pub use self::index::Index;
 pub use self::key_storage::KeyStorage;
-pub use entry::Entry;
 pub use key_def::{KeyDef, KeyDefKind};
+pub use lazy_entry::LazyEntry;
 pub use raw_value::{Array, Content, Extend, RawValue};
 
 pub struct DirectoryPack {

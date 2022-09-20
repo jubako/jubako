@@ -5,14 +5,14 @@ use std::cell::OnceCell;
 use std::rc::Rc;
 
 /// A lazy entry
-pub struct Entry {
+pub struct LazyEntry {
     variant_id: u8,
     variant_def: Rc<VariantDef>,
     values: Vec<OnceCell<RawValue>>,
     reader: Box<dyn Reader>,
 }
 
-impl Entry {
+impl LazyEntry {
     pub fn new(variant_id: u8, variant_def: Rc<VariantDef>, reader: Box<dyn Reader>) -> Self {
         let mut values = Vec::new();
         values.resize_with(variant_def.keys.len(), Default::default);

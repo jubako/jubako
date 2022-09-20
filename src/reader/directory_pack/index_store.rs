@@ -1,5 +1,5 @@
-use super::entry::Entry;
 use super::entry_def::EntryDef;
+use super::lazy_entry::LazyEntry;
 use crate::bases::*;
 
 #[repr(u8)]
@@ -41,7 +41,7 @@ impl IndexStore {
         })
     }
 
-    pub fn get_entry(&self, idx: Idx<u32>) -> Result<Entry> {
+    pub fn get_entry(&self, idx: Idx<u32>) -> Result<LazyEntry> {
         match self {
             IndexStore::Plain(store) => store.get_entry(idx),
             /*            _ => todo!()*/
@@ -74,7 +74,8 @@ impl PlainStore {
         })
     }
 
-    pub fn get_entry(&self, idx: Idx<u32>) -> Result<Entry> {
+    pub fn get_entry(&self, idx: Idx<u32>) -> Result<LazyEntry> {
+        // [TODO] Create a buffer reader ?
         let reader = self.entry_reader.create_sub_reader(
             Offset(idx.0 as u64 * self.entry_def.size.0),
             End::Size(self.entry_def.size),

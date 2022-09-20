@@ -1,6 +1,6 @@
-use super::entry::Entry;
 use super::key::{Key, KeyKind};
 use super::key_def::{KeyDef, KeyDefKind};
+use super::lazy_entry::LazyEntry;
 use crate::bases::*;
 use std::cmp::Ordering;
 use std::rc::Rc;
@@ -158,14 +158,14 @@ impl Producable for EntryDef {
 }
 
 impl EntryDef {
-    pub fn create_entry(&self, reader: &dyn Reader) -> Result<Entry> {
+    pub fn create_entry(&self, reader: &dyn Reader) -> Result<LazyEntry> {
         let variant_id = if self.variants.len() > 1 {
             reader.read_u8(Offset(0))?
         } else {
             0
         };
         let variant_def = &self.variants[variant_id as usize];
-        Ok(Entry::new(
+        Ok(LazyEntry::new(
             variant_id,
             Rc::clone(variant_def),
             reader.create_sub_reader(Offset(0), End::None),

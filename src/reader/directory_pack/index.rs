@@ -1,5 +1,5 @@
-use super::entry::Entry;
 use super::index_store::IndexStore;
+use super::lazy_entry::LazyEntry;
 use crate::bases::*;
 use crate::common::ContentAddress;
 use std::rc::Rc;
@@ -53,7 +53,7 @@ impl Index {
         self.header.entry_count
     }
 
-    pub fn get_entry(&self, id: Idx<u32>) -> Result<Entry> {
+    pub fn get_entry(&self, id: Idx<u32>) -> Result<LazyEntry> {
         if id.is_valid(self.entry_count()) {
             let id = self.header.entry_offset + id;
             self.store.get_entry(id)
