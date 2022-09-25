@@ -258,6 +258,7 @@ impl EntryStore {
                 }
             }
         }
+        self.entry_def.finalize();
     }
 }
 
