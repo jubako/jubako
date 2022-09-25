@@ -28,6 +28,18 @@ impl Finder {
         self.store.get_entry(self.offset + id)
     }
 
+    pub fn count(&self) -> Count<u32> {
+        self.count
+    }
+
+    pub fn get_resolver(&self) -> &Rc<Resolver> {
+        &self.resolver
+    }
+
+    pub fn get_store(&self) -> &Rc<IndexStore> {
+        &self.store
+    }
+
     pub fn get_entry(&self, id: Idx<u32>) -> Result<LazyEntry> {
         if id.is_valid(self.count) {
             self._get_entry(id)
