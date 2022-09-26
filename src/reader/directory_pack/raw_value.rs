@@ -1,28 +1,5 @@
 use crate::bases::*;
-use crate::common::ContentAddress;
-
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Content {
-    content_address: ContentAddress,
-    base: Option<Box<Content>>,
-}
-
-impl Content {
-    pub fn new(content_address: ContentAddress, base: Option<Content>) -> Self {
-        Self {
-            content_address,
-            base: base.map(Box::new),
-        }
-    }
-
-    pub fn pack_id(&self) -> Id<u8> {
-        self.content_address.pack_id
-    }
-
-    pub fn content_id(&self) -> Idx<u32> {
-        self.content_address.content_id
-    }
-}
+use crate::common::Content;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Extend {
@@ -48,7 +25,7 @@ impl Array {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum RawValue {
     Content(Content),
     U8(u8),

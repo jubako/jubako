@@ -1,6 +1,6 @@
-use super::raw_value::{Array, Content, Extend, RawValue};
+use super::raw_value::{Array, Extend, RawValue};
 use crate::bases::*;
-use crate::common::ContentAddress;
+use crate::common::{Content, ContentAddress};
 use std::io::BorrowedBuf;
 
 // The kind of the key. This will be the descriminant to how parse the value.

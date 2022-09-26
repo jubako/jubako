@@ -1,7 +1,6 @@
 use crate::bases::Writable;
 use crate::bases::*;
-use crate::creator::directory_pack::{Entry, KeyStore};
-use crate::creator::Value;
+use crate::creator::directory_pack::{Entry, KeyStore, Value};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -122,7 +121,8 @@ impl VariantDef {
                 KeyDef::ContentAddress => {
                     let value = value_iter.next().unwrap();
                     if let Value::Content(value) = value {
-                        written += value.write(stream)?;
+                        // [TODO] Write base
+                        written += value.content_address.write(stream)?;
                     } else {
                         return Err("Not a Content".to_string().into());
                     }
@@ -158,15 +158,12 @@ impl VariantDef {
 
     fn fill_to_size(&mut self, size: u16) {
         let current_size = self.entry_size();
-        println!("Padding variant from {} to {}", current_size, size);
         let mut padding_size = size - current_size;
         while padding_size >= 16 {
-            println!("Adding padding {}", 16);
             self.keys.push(KeyDef::Padding(16));
             padding_size -= 16;
         }
         if padding_size > 0 {
-            println!("Adding padding {}", padding_size);
             self.keys.push(KeyDef::Padding(padding_size as u8))
         }
     }
@@ -220,7 +217,6 @@ impl EntryDef {
     }
 
     pub fn entry_size(&self) -> u16 {
-        println!("Read entry size {}", self.entry_size);
         self.entry_size
     }
 

@@ -2,7 +2,8 @@ pub mod entry_def;
 
 use super::{CheckInfo, PackInfo};
 use crate::bases::*;
-use crate::common::{ContentAddress, DirectoryPackHeader, PackHeaderInfo};
+use crate::common;
+use crate::common::{Content, ContentAddress, DirectoryPackHeader, PackHeaderInfo};
 use std::cell::RefCell;
 use std::cmp;
 use std::fs::OpenOptions;
@@ -190,8 +191,8 @@ impl WritableTell for KeyStore {
     }
 }
 
-pub enum Value {
-    Content(ContentAddress),
+enum Value {
+    Content(Content),
     Unsigned(u64),
     Signed(i64),
     Array { data: Vec<u8>, key_id: Option<u64> },
@@ -203,7 +204,19 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn new(variant_id: u8, values: Vec<Value>) -> Self {
+    pub fn new(variant_id: u8, values: Vec<common::Value>) -> Self {
+        let values = values
+            .into_iter()
+            .map(|v| match v {
+                common::Value::Content(c) => Value::Content(c),
+                common::Value::Unsigned(u) => Value::Unsigned(u),
+                common::Value::Signed(s) => Value::Signed(s),
+                common::Value::Array(a) => Value::Array {
+                    data: a,
+                    key_id: None,
+                },
+            })
+            .collect();
         Self { variant_id, values }
     }
 }
@@ -223,7 +236,7 @@ impl EntryStore {
         }
     }
 
-    pub fn add_entry(&mut self, variant_id: u8, values: Vec<Value>) {
+    pub fn add_entry(&mut self, variant_id: u8, values: Vec<common::Value>) {
         self.entries.push(Entry::new(variant_id, values));
     }
 

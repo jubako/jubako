@@ -1,16 +1,9 @@
 use super::key_store::KeyStore;
 use super::{Array, Content, DirectoryPack, Extend, RawValue};
 use crate::bases::*;
+use crate::common::Value;
 use std::cell::OnceCell;
 use std::rc::Rc;
-
-#[derive(PartialEq, Eq)]
-pub enum Value<'a> {
-    Content(&'a Content),
-    Unsigned(u64),
-    Signed(i64),
-    Array(Vec<u8>),
-}
 
 pub struct Resolver {
     directory: Rc<DirectoryPack>,
@@ -47,9 +40,9 @@ impl Resolver {
         })
     }
 
-    pub fn resolve<'a>(&self, raw: &'a RawValue) -> Result<Value<'a>> {
+    pub fn resolve(&self, raw: &RawValue) -> Result<Value> {
         Ok(match raw {
-            RawValue::Content(c) => Value::Content(c),
+            RawValue::Content(c) => Value::Content(c.clone()),
             RawValue::U8(v) => Value::Unsigned(*v as u64),
             RawValue::U16(v) => Value::Unsigned(*v as u64),
             RawValue::U32(v) => Value::Unsigned(*v as u64),

@@ -5,9 +5,10 @@ mod manifest_pack;
 use crate::bases::*;
 pub use crate::bases::{BufStream, FileStream};
 use crate::common::{CheckKind, PackPos};
+pub use crate::common::{Content, Value};
 pub use content_pack::ContentPackCreator;
 pub use directory_pack::entry_def::{EntryDef as Entry, KeyDef as Key, VariantDef as Variant};
-pub use directory_pack::{DirectoryPackCreator, KeyStoreKind, Value};
+pub use directory_pack::{DirectoryPackCreator, KeyStoreKind};
 pub use manifest_pack::ManifestPackCreator;
 use typenum::U103;
 

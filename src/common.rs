@@ -5,6 +5,7 @@ mod entry_info;
 mod headers;
 mod pack_kind;
 mod pack_pos;
+mod value;
 use uuid::Uuid;
 
 use crate::bases::*;
@@ -15,6 +16,7 @@ pub use entry_info::EntryInfo;
 pub use headers::*;
 pub use pack_kind::PackKind;
 pub use pack_pos::PackPos;
+pub use value::{Content, Value};
 
 impl Producable for Uuid {
     type Output = Self;
