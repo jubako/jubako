@@ -450,12 +450,15 @@ impl DirectoryPackCreator {
         let header = DirectoryPackHeader::new(
             PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset),
             self.free_data,
-            indexes_ptr_offsets,
-            (indexes_offsets.len() as u32).into(),
-            key_stores_ptr_offsets,
-            (key_stores_offsets.len() as u8).into(),
-            entry_stores_ptr_offsets,
-            (entry_stores_offsets.len() as u32).into(),
+            ((indexes_offsets.len() as u32).into(), indexes_ptr_offsets),
+            (
+                (key_stores_offsets.len() as u8).into(),
+                key_stores_ptr_offsets,
+            ),
+            (
+                (entry_stores_offsets.len() as u32).into(),
+                entry_stores_ptr_offsets,
+            ),
         );
         header.write(&mut file)?;
         file.rewind()?;

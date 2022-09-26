@@ -20,21 +20,18 @@ impl DirectoryPackHeader {
     pub fn new(
         pack_info: PackHeaderInfo,
         free_data: FreeData<U31>,
-        index_ptr_pos: Offset,
-        index_count: Count<u32>,
-        key_store_ptr_pos: Offset,
-        key_store_count: Count<u8>,
-        entry_store_ptr_pos: Offset,
-        entry_store_count: Count<u32>,
+        indexes: (Count<u32>, Offset),
+        key_stores: (Count<u8>, Offset),
+        entry_stores: (Count<u32>, Offset),
     ) -> Self {
         DirectoryPackHeader {
             pack_header: PackHeader::new(PackKind::Directory, pack_info),
-            index_ptr_pos,
-            index_count,
-            key_store_ptr_pos,
-            key_store_count,
-            entry_store_ptr_pos,
-            entry_store_count,
+            index_ptr_pos: indexes.1,
+            index_count: indexes.0,
+            key_store_ptr_pos: key_stores.1,
+            key_store_count: key_stores.0,
+            entry_store_ptr_pos: entry_stores.1,
+            entry_store_count: entry_stores.0,
             free_data,
         }
     }
