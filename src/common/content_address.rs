@@ -1,7 +1,7 @@
 use crate::bases::*;
 use std::fmt::Debug;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub struct ContentAddress {
     pub pack_id: Id<u8>,
     pub content_id: Idx<u32>,
