@@ -11,7 +11,7 @@ mod resolver;
 
 use self::index::IndexHeader;
 use self::index_store::IndexStore;
-use self::key_store::KeyStore;
+use self::key_store::{KeyStore, KeyStoreTrait};
 use crate::bases::*;
 use crate::common::{CheckInfo, DirectoryPackHeader, Pack, PackKind};
 use std::cell::Cell;
@@ -26,6 +26,14 @@ pub use key_def::{KeyDef, KeyDefKind};
 pub use lazy_entry::LazyEntry;
 pub use raw_value::{Array, Extend, RawValue};
 pub use resolver::Resolver;
+
+mod private {
+    pub trait KeyStorageTrait {
+        type KeyStore: super::KeyStoreTrait;
+        fn get_key_store_count(&self) -> super::Count<u8>;
+        fn get_key_store(&self, id: super::Idx<u8>) -> super::Result<Self::KeyStore>;
+    }
+}
 
 pub struct DirectoryPack {
     header: DirectoryPackHeader,
@@ -93,17 +101,20 @@ impl DirectoryPack {
         IndexStore::new(self.reader.as_ref(), sized_offset)
     }
 
-    pub(self) fn get_key_store(&self, store_id: Idx<u8>) -> Result<KeyStore> {
-        let sized_offset = self.key_stores_ptrs.index(store_id);
-        KeyStore::new(self.reader.as_ref(), sized_offset)
+    pub fn get_resolver(self: &Rc<Self>) -> Rc<Resolver> {
+        Rc::new(Resolver::new(Rc::clone(self)))
     }
+}
 
-    pub(self) fn get_key_store_count(&self) -> Count<u8> {
+impl private::KeyStorageTrait for DirectoryPack {
+    type KeyStore = KeyStore;
+    fn get_key_store_count(&self) -> Count<u8> {
         self.header.key_store_count
     }
 
-    pub fn get_resolver(self: &Rc<Self>) -> Rc<Resolver> {
-        Rc::new(Resolver::new(Rc::clone(self)))
+    fn get_key_store(&self, store_id: Idx<u8>) -> Result<KeyStore> {
+        let sized_offset = self.key_stores_ptrs.index(store_id);
+        KeyStore::new(self.reader.as_ref(), sized_offset)
     }
 }
 

@@ -21,6 +21,10 @@ impl Producable for KeyStoreKind {
     }
 }
 
+pub trait KeyStoreTrait {
+    fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>>;
+}
+
 pub enum KeyStore {
     Plain(PlainKeyStore),
     Indexed(IndexedKeyStore),
@@ -44,7 +48,10 @@ impl KeyStore {
             )?),
         })
     }
-    pub fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>> {
+}
+
+impl KeyStoreTrait for KeyStore {
+    fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>> {
         match self {
             KeyStore::Plain(store) => store.get_data(id),
             KeyStore::Indexed(store) => store.get_data(id),

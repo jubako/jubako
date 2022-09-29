@@ -37,7 +37,7 @@ impl From<(Id<u8>, Idx<u32>)> for Content {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum Value {
     Content(Content),
     Unsigned(u64),
