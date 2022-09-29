@@ -23,7 +23,7 @@ pub use self::finder::Finder;
 pub use self::index::Index;
 pub use crate::common::{Content, Value};
 pub use key_def::{KeyDef, KeyDefKind};
-pub use lazy_entry::LazyEntry;
+pub use lazy_entry::{Entry, LazyEntry};
 pub use raw_value::{Array, Extend, RawValue};
 pub use resolver::Resolver;
 

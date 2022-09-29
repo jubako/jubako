@@ -4,6 +4,11 @@ use crate::bases::*;
 use std::cell::OnceCell;
 use std::rc::Rc;
 
+pub trait Entry {
+    fn get_variant_id(&self) -> u8;
+    fn get_value(&self, idx: Idx<u8>) -> Result<&RawValue>;
+}
+
 /// A lazy entry
 pub struct LazyEntry {
     variant_id: u8,
@@ -24,16 +29,18 @@ impl LazyEntry {
         }
     }
 
-    pub fn get_variant_id(&self) -> u8 {
-        self.variant_id
-    }
-
-    pub fn get_value(&self, idx: Idx<u8>) -> Result<&RawValue> {
-        self.values[idx.0 as usize].get_or_try_init(|| self._get_value(idx))
-    }
-
     fn _get_value(&self, idx: Idx<u8>) -> Result<RawValue> {
         let key = &self.variant_def.keys[idx.0 as usize];
         key.create_value(self.reader.as_ref())
+    }
+}
+
+impl Entry for LazyEntry {
+    fn get_variant_id(&self) -> u8 {
+        self.variant_id
+    }
+
+    fn get_value(&self, idx: Idx<u8>) -> Result<&RawValue> {
+        self.values[idx.0 as usize].get_or_try_init(|| self._get_value(idx))
     }
 }

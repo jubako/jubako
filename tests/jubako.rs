@@ -252,11 +252,12 @@ test_suite! {
     name basic_reading;
 
     use jubako::reader as reader;
+    use jubako::reader::Entry;
     use std::fs::OpenOptions;
     use std::io::{Write, Seek, SeekFrom, Result, Read};
     use std::io;
     use std::rc::Rc;
-    use crate::{Entry, Cluster, KeyStore, IndexStore, Index, PackInfo, CheckInfo};
+    use crate::{Entry as TestEntry, Cluster, KeyStore, IndexStore, Index, PackInfo, CheckInfo};
     use uuid::Uuid;
 
     fixture compression() -> jubako::CompressionType {
@@ -265,14 +266,14 @@ test_suite! {
         }
     }
 
-    fixture articles() -> Vec<Entry> {
+    fixture articles() -> Vec<TestEntry> {
         setup(&mut self) {
             vec![
-                Entry{
+                TestEntry{
                     path: "foo".to_string(),
                     content: "foo".to_string(),
                     word_count: 1},
-                Entry{
+                TestEntry{
                     path: "bar".to_string(),
                     content: "foo bar".to_string(),
                     word_count: 2
@@ -281,7 +282,7 @@ test_suite! {
         }
     }
 
-    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<Entry>) -> Result<PackInfo> {
+    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<TestEntry>) -> Result<PackInfo> {
         let mut file = OpenOptions::new()
                         .read(true)
                         .write(true)
@@ -338,7 +339,7 @@ test_suite! {
         })
     }
 
-    fn create_directory_pack(entries: &Vec<Entry>) -> Result<PackInfo> {
+    fn create_directory_pack(entries: &Vec<TestEntry>) -> Result<PackInfo> {
         let mut file = OpenOptions::new()
                         .read(true)
                         .write(true)

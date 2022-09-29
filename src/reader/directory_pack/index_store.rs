@@ -1,5 +1,5 @@
 use super::entry_def::EntryDef;
-use super::lazy_entry::LazyEntry;
+use super::lazy_entry::{Entry, LazyEntry};
 use crate::bases::*;
 
 #[repr(u8)]
@@ -25,6 +25,11 @@ impl Producable for StoreKind {
     }
 }
 
+pub trait IndexStoreTrait {
+    type Entry: Entry;
+    fn get_entry(&self, idx: Idx<u32>) -> Result<Self::Entry>;
+}
+
 #[derive(Debug)]
 pub enum IndexStore {
     Plain(PlainStore),
@@ -40,8 +45,11 @@ impl IndexStore {
             _ => todo!(),
         })
     }
+}
 
-    pub fn get_entry(&self, idx: Idx<u32>) -> Result<LazyEntry> {
+impl IndexStoreTrait for IndexStore {
+    type Entry = LazyEntry;
+    fn get_entry(&self, idx: Idx<u32>) -> Result<LazyEntry> {
         match self {
             IndexStore::Plain(store) => store.get_entry(idx),
             /*            _ => todo!()*/

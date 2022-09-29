@@ -11,9 +11,10 @@ test_suite! {
 
     use jubako::creator;
     use jubako::Result;
+    use jubako::reader::Entry;
     use std::io::Read;
     use std::rc::Rc;
-    use crate::Entry;
+    use crate::Entry as TestEntry;
     use typenum::{U31, U40, U63};
 
     fixture compression(c: jubako::CompressionType) -> jubako::CompressionType {
@@ -42,14 +43,14 @@ test_suite! {
         }
     }
 
-    fixture articles() -> Vec<Entry> {
+    fixture articles() -> Vec<TestEntry> {
         setup(&mut self) {
             vec![
-                Entry{
+                TestEntry{
                     path: "foo".to_string(),
                     content: "foo".to_string(),
                     word_count: 1},
-                Entry{
+                TestEntry{
                     path: "bar".to_string(),
                     content: "foo bar".to_string(),
                     word_count: 256
@@ -58,7 +59,7 @@ test_suite! {
         }
     }
 
-    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<Entry>) -> Result<creator::PackInfo> {
+    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<TestEntry>) -> Result<creator::PackInfo> {
         let mut creator = creator::ContentPackCreator::new(
             "/tmp/contentPack.jbkc",
             jubako::Id(1),
@@ -76,7 +77,7 @@ test_suite! {
         Ok(pack_info)
     }
 
-    fn create_directory_pack(key_store_kind: creator::KeyStoreKind, entries: &Vec<Entry>) -> Result<creator::PackInfo> {
+    fn create_directory_pack(key_store_kind: creator::KeyStoreKind, entries: &Vec<TestEntry>) -> Result<creator::PackInfo> {
         let mut creator = creator::DirectoryPackCreator::new(
             "/tmp/directoryPack.jbkd",
             jubako::Id(1),
