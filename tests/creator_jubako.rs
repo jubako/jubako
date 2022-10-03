@@ -11,7 +11,7 @@ test_suite! {
 
     use jubako::creator;
     use jubako::Result;
-    use jubako::reader::Entry;
+    use jubako::reader::EntryTrait;
     use std::io::Read;
     use std::rc::Rc;
     use crate::Entry as TestEntry;

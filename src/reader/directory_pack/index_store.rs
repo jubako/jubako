@@ -1,5 +1,6 @@
+use super::entry::EntryTrait;
 use super::entry_def::EntryDef;
-use super::lazy_entry::{Entry, LazyEntry};
+use super::lazy_entry::LazyEntry;
 use crate::bases::*;
 
 #[repr(u8)]
@@ -26,7 +27,7 @@ impl Producable for StoreKind {
 }
 
 pub trait IndexStoreTrait {
-    type Entry: Entry;
+    type Entry: EntryTrait;
     fn get_entry(&self, idx: Idx<u32>) -> Result<Self::Entry>;
 }
 

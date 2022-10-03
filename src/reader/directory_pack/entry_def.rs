@@ -177,7 +177,7 @@ impl EntryDef {
 mod tests {
     use super::*;
     use crate::common::ContentAddress;
-    use crate::reader::directory_pack::lazy_entry::Entry;
+    use crate::reader::directory_pack::entry::EntryTrait;
     use crate::reader::directory_pack::{Array, KeyDef, KeyDefKind};
     use crate::reader::{Content, RawValue};
 

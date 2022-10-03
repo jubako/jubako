@@ -1,13 +1,9 @@
+use super::entry::EntryTrait;
 use super::entry_def::VariantDef;
 use super::raw_value::RawValue;
 use crate::bases::*;
 use std::cell::OnceCell;
 use std::rc::Rc;
-
-pub trait Entry {
-    fn get_variant_id(&self) -> u8;
-    fn get_value(&self, idx: Idx<u8>) -> Result<&RawValue>;
-}
 
 /// A lazy entry
 pub struct LazyEntry {
@@ -35,7 +31,7 @@ impl LazyEntry {
     }
 }
 
-impl Entry for LazyEntry {
+impl EntryTrait for LazyEntry {
     fn get_variant_id(&self) -> u8 {
         self.variant_id
     }

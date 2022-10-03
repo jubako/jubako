@@ -252,7 +252,7 @@ test_suite! {
     name basic_reading;
 
     use jubako::reader as reader;
-    use jubako::reader::Entry;
+    use jubako::reader::EntryTrait;
     use std::fs::OpenOptions;
     use std::io::{Write, Seek, SeekFrom, Result, Read};
     use std::io;

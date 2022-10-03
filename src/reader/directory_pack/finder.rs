@@ -1,5 +1,5 @@
+use super::entry::EntryTrait;
 use super::index_store::IndexStoreTrait;
-use super::lazy_entry::Entry;
 use super::private::KeyStorageTrait;
 use super::resolver::private::Resolver;
 use super::{DirectoryPack, IndexStore, Value};
@@ -87,7 +87,7 @@ mod tests {
                 Self { v }
             }
         }
-        impl super::Entry for Entry {
+        impl EntryTrait for Entry {
             fn get_variant_id(&self) -> u8 {
                 0
             }
