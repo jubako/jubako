@@ -34,6 +34,10 @@ mod private {
             self.store.get_entry(self.offset + id)
         }
 
+        pub fn offset(&self) -> Idx<u32> {
+            self.offset
+        }
+
         pub fn count(&self) -> Count<u32> {
             self.count
         }
@@ -54,12 +58,12 @@ mod private {
             }
         }
 
-        pub fn find(&self, index_key: u8, value: Value) -> Result<Option<IS::Entry>> {
+        pub fn find(&self, index_key: u8, value: Value) -> Result<Option<Idx<u32>>> {
             for idx in 0..self.count.0 {
                 let entry = self._get_entry(Idx(idx))?;
                 let entry_value = self.resolver.resolve(entry.get_value(index_key.into())?)?;
                 if entry_value == value {
-                    return Ok(Some(entry));
+                    return Ok(Some(Idx(idx)));
                 }
             }
             Ok(None)
@@ -143,7 +147,8 @@ mod tests {
         }
 
         for i in 0..10 {
-            let entry = finder.find(0, Value::Unsigned(i)).unwrap().unwrap();
+            let idx = finder.find(0, Value::Unsigned(i)).unwrap().unwrap();
+            let entry = finder.get_entry(idx).unwrap();
             let value0 = entry.get_value(Idx(0)).unwrap();
             assert_eq!(resolver.resolve_to_unsigned(value0), i as u64);
         }
