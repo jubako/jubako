@@ -22,6 +22,7 @@ use uuid::Uuid;
 
 pub use self::finder::Finder;
 pub use self::index::Index;
+pub use self::index_store::IndexStoreTrait;
 pub use crate::common::{Content, Value};
 pub use entry::EntryTrait;
 pub use key_def::{KeyDef, KeyDefKind};

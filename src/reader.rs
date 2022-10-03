@@ -7,8 +7,8 @@ mod manifest_pack;
 pub use self::jubako::Container;
 pub use content_pack::ContentPack;
 pub use directory_pack::{
-    Content, DirectoryPack, EntryTrait, Finder, Index, LazyEntry as Entry, RawValue, Resolver,
-    Value,
+    Content, DirectoryPack, EntryTrait, Finder, Index, IndexStoreTrait, LazyEntry as Entry,
+    RawValue, Resolver, Value,
 };
 pub use manifest_pack::{ManifestPack, PackInfo};
 
