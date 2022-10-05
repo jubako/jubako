@@ -3,15 +3,54 @@ use crate::bases::*;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::rc::Rc;
 
-pub type FileReader = ReaderWrapper<RefCell<File>>;
-pub type FileStream = StreamWrapper<RefCell<File>>;
+pub struct BufferedFile {
+    source: BufReader<File>,
+    len: i64,
+    pos: i64,
+}
+
+impl BufferedFile {
+    pub fn new(source: File, len: u64) -> Self {
+        Self {
+            source: BufReader::with_capacity(512, source),
+            len: len as i64,
+            pos: 0,
+        }
+    }
+}
+
+impl Read for BufferedFile {
+    fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
+        let delta = self.source.read(buf)?;
+        self.pos += delta as i64;
+        Ok(delta)
+    }
+}
+
+impl Seek for BufferedFile {
+    fn seek(&mut self, pos: SeekFrom) -> std::result::Result<u64, std::io::Error> {
+        let delta = match pos {
+            SeekFrom::Current(o) => o,
+            SeekFrom::Start(s) => s as i64 - self.pos,
+            SeekFrom::End(e) => (self.len - e) - self.pos,
+        };
+        self.source.seek_relative(delta)?;
+        self.pos += delta;
+        Ok(self.pos as u64)
+    }
+}
+
+pub type FileReader = ReaderWrapper<RefCell<BufferedFile>>;
+pub type FileStream = StreamWrapper<RefCell<BufferedFile>>;
 
 impl FileReader {
     pub fn new(mut source: File, end: End) -> Self {
         let len = source.seek(SeekFrom::End(0)).unwrap();
+        source.seek(SeekFrom::Start(0)).unwrap();
+        let source = BufferedFile::new(source, len);
         let source = Rc::new(RefCell::new(source));
         let end = match end {
             End::None => Offset(len as u64),
@@ -130,6 +169,8 @@ impl Reader for FileReader {
 impl FileStream {
     pub fn new(mut source: File, end: End) -> Self {
         let len = source.seek(SeekFrom::End(0)).unwrap();
+        source.seek(SeekFrom::Start(0)).unwrap();
+        let source = BufferedFile::new(source, len);
         let source = Rc::new(RefCell::new(source));
         let end = match end {
             End::None => Offset(len as u64),
