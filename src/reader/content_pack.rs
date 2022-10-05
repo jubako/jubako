@@ -3,9 +3,10 @@ mod cluster;
 use crate::bases::*;
 use crate::common::{CheckInfo, ContentPackHeader, EntryInfo, Pack, PackKind};
 use cluster::Cluster;
+use lru::LruCache;
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
 use std::io::Read;
+use std::num::NonZeroUsize;
 use std::rc::Rc;
 use uuid::Uuid;
 
@@ -13,7 +14,7 @@ pub struct ContentPack {
     header: ContentPackHeader,
     entry_infos: ArrayReader<EntryInfo, u32>,
     cluster_ptrs: ArrayReader<SizedOffset, u32>,
-    cluster_cache: RefCell<HashMap<Idx<u32>, Rc<Cluster>>>,
+    cluster_cache: RefCell<LruCache<Idx<u32>, Rc<Cluster>>>,
     reader: Box<dyn Reader>,
     check_info: Cell<Option<CheckInfo>>,
 }
@@ -32,7 +33,7 @@ impl ContentPack {
             header,
             entry_infos,
             cluster_ptrs,
-            cluster_cache: RefCell::new(HashMap::new()),
+            cluster_cache: RefCell::new(LruCache::new(NonZeroUsize::new(20).unwrap())),
             reader,
             check_info: Cell::new(None),
         })
@@ -54,7 +55,7 @@ impl ContentPack {
             Some(c) => c.clone(),
             None => {
                 let cluster = self._get_cluster(cluster_index)?;
-                cache.insert(cluster_index, cluster.clone());
+                cache.put(cluster_index, cluster.clone());
                 cluster
             }
         })
