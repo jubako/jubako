@@ -108,6 +108,17 @@ impl<T: 'static + Read> Reader for ReaderWrapper<SeekableDecoder<T>> {
         })
     }
 
+    fn create_sub_memory_reader(&self, offset: Offset, end: End) -> Result<Box<dyn Reader>> {
+        let origin = self.origin + offset;
+        let decode_end = match end {
+            End::None => self.end,
+            End::Offset(o) => self.origin + o,
+            End::Size(s) => origin + s,
+        };
+        self.source.decode_to(decode_end)?;
+        Ok(self.create_sub_reader(offset, end))
+    }
+
     fn read_u8(&self, offset: Offset) -> Result<u8> {
         let mut d = [0_u8; 1];
         self.read_exact(offset, &mut d)?;

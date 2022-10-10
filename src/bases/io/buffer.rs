@@ -71,6 +71,10 @@ impl Reader for BufReader {
         })
     }
 
+    fn create_sub_memory_reader(&self, offset: Offset, end: End) -> Result<Box<dyn Reader>> {
+        Ok(self.create_sub_reader(offset, end))
+    }
+
     fn read_u8(&self, offset: Offset) -> Result<u8> {
         let o = offset.0 as usize;
         let slice = self.slice();

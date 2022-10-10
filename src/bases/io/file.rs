@@ -1,13 +1,19 @@
+use super::buffer;
+use super::mmap::MmapReader;
 use crate::bases::primitive::*;
 use crate::bases::*;
+use memmap2::MmapOptions;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::fs::File;
-use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::io;
+use std::io::{Read, Seek, SeekFrom};
+use std::ops::Deref;
+use std::os::unix::prelude::{AsRawFd, RawFd};
 use std::rc::Rc;
 
 pub struct BufferedFile {
-    source: BufReader<File>,
+    source: io::BufReader<File>,
     len: i64,
     pos: i64,
 }
@@ -15,10 +21,16 @@ pub struct BufferedFile {
 impl BufferedFile {
     pub fn new(source: File, len: u64) -> Self {
         Self {
-            source: BufReader::with_capacity(512, source),
+            source: io::BufReader::with_capacity(512, source),
             len: len as i64,
             pos: 0,
         }
+    }
+}
+
+impl AsRawFd for &BufferedFile {
+    fn as_raw_fd(&self) -> RawFd {
+        self.source.get_ref().as_raw_fd()
     }
 }
 
@@ -111,6 +123,31 @@ impl Reader for FileReader {
             origin,
             end,
         })
+    }
+
+    fn create_sub_memory_reader(&self, offset: Offset, end: End) -> Result<Box<dyn Reader>> {
+        let size = match end {
+            End::None => self.end - (self.origin + offset),
+            End::Offset(o) => o - offset,
+            End::Size(s) => s,
+        };
+        if size < Size(1024) {
+            let mut stream = self.create_stream(offset, end);
+            let buf = stream.read_vec(size.0 as usize)?;
+            Ok(Box::new(buffer::BufReader::new(buf, End::None)))
+        } else {
+            let mut mmap_options = MmapOptions::new();
+            mmap_options
+                .offset((self.origin + offset).0)
+                .len(size.0 as usize)
+                .populate();
+            let mmap = unsafe { mmap_options.map(&self.source.borrow().deref())? };
+            Ok(Box::new(MmapReader::new(
+                Rc::new(mmap),
+                Offset(0),
+                End::None,
+            )))
+        }
     }
 
     fn read_u8(&self, offset: Offset) -> Result<u8> {

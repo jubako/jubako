@@ -24,6 +24,7 @@ pub trait Reader {
         self.create_stream(Offset(0), End::None)
     }
     fn create_sub_reader(&self, offset: Offset, end: End) -> Box<dyn Reader>;
+    fn create_sub_memory_reader(&self, offset: Offset, end: End) -> Result<Box<dyn Reader>>;
 
     fn read_u8(&self, offset: Offset) -> Result<u8>;
     fn read_u16(&self, offset: Offset) -> Result<u16>;
