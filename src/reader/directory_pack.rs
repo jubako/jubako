@@ -51,18 +51,21 @@ impl DirectoryPack {
     pub fn new(reader: Box<dyn Reader>) -> Result<DirectoryPack> {
         let mut stream = reader.create_stream_all();
         let header = DirectoryPackHeader::produce(stream.as_mut())?;
-        let key_stores_ptrs = ArrayReader::new_from_reader(
+        let key_stores_ptrs = ArrayReader::new_memory_from_reader(
             reader.as_ref(),
             header.key_store_ptr_pos,
             header.key_store_count,
-        );
-        let entry_stores_ptrs = ArrayReader::new_from_reader(
+        )?;
+        let entry_stores_ptrs = ArrayReader::new_memory_from_reader(
             reader.as_ref(),
             header.entry_store_ptr_pos,
             header.entry_store_count,
-        );
-        let index_ptrs =
-            ArrayReader::new_from_reader(reader.as_ref(), header.index_ptr_pos, header.index_count);
+        )?;
+        let index_ptrs = ArrayReader::new_memory_from_reader(
+            reader.as_ref(),
+            header.index_ptr_pos,
+            header.index_count,
+        )?;
         Ok(DirectoryPack {
             header,
             key_stores_ptrs,

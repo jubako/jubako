@@ -32,8 +32,8 @@ pub enum KeyStore {
 
 impl KeyStore {
     pub fn new(reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
-        // copy all header in a buffer
-        let header_reader = BufReader::new_from_reader(reader, pos_info)?;
+        let header_reader =
+            reader.create_sub_memory_reader(pos_info.offset, End::Size(pos_info.size))?;
         let mut header_stream = header_reader.create_stream_all();
         Ok(match KeyStoreKind::produce(header_stream.as_mut())? {
             KeyStoreKind::Plain => KeyStore::Plain(PlainKeyStore::new(
@@ -66,10 +66,10 @@ pub struct PlainKeyStore {
 impl PlainKeyStore {
     fn new(stream: &mut dyn Stream, reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
         let data_size = Size::produce(stream)?;
-        let reader = reader.create_sub_reader(
+        let reader = reader.create_sub_memory_reader(
             Offset(pos_info.offset.0 - data_size.0),
             End::Size(data_size),
-        );
+        )?;
         Ok(PlainKeyStore { reader })
     }
 
@@ -107,10 +107,10 @@ impl IndexedKeyStore {
         unsafe { entry_offsets.set_len(entry_count) }
         entry_offsets.push(data_size.into());
         assert_eq!(stream.tell().0, pos_info.size.0);
-        let reader = reader.create_sub_reader(
+        let reader = reader.create_sub_memory_reader(
             Offset(pos_info.offset.0 - data_size.0),
             End::Size(data_size),
-        );
+        )?;
         Ok(IndexedKeyStore {
             entry_offsets,
             reader,

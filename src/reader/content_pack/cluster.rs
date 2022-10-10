@@ -9,7 +9,7 @@ pub struct Cluster {
 impl Cluster {
     pub fn new(reader: &dyn Reader, cluster_info: SizedOffset) -> Result<Self> {
         let header_reader =
-            reader.create_sub_reader(cluster_info.offset, End::Size(cluster_info.size));
+            reader.create_sub_memory_reader(cluster_info.offset, End::Size(cluster_info.size))?;
         let mut stream = header_reader.create_stream_all();
         let header = ClusterHeader::produce(stream.as_mut())?;
         let raw_data_size: Size = stream.read_sized(header.offset_size.into())?.into();

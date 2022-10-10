@@ -25,12 +25,6 @@ impl BufReader {
         BufReader::new_from_rc(source, end)
     }
 
-    pub fn new_from_reader(source: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
-        let mut stream = source.create_stream_for(pos_info);
-        let buffer = stream.read_vec(pos_info.size.0 as usize)?;
-        Ok(BufReader::new(buffer, End::None))
-    }
-
     fn slice(&self) -> &[u8] {
         let o = self.origin.0 as usize;
         let e = self.end.0 as usize;

@@ -45,6 +45,22 @@ where
             produced_type: PhantomData,
         }
     }
+
+    pub fn new_memory_from_reader(
+        reader: &dyn Reader,
+        at: Offset,
+        length: Count<IdxType>,
+    ) -> Result<Self> {
+        let elem_size = OutType::Size::to_u64();
+        let sub_reader = reader
+            .create_sub_memory_reader(at, End::Size(Size(elem_size * u64::from(length.0))))?;
+        Ok(Self {
+            reader: sub_reader,
+            length,
+            elem_size: elem_size as usize,
+            produced_type: PhantomData,
+        })
+    }
 }
 
 impl<OutType: Producable, IdxType> IndexTrait<Idx<IdxType>> for ArrayReader<OutType, IdxType>

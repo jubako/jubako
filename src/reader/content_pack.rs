@@ -22,13 +22,16 @@ pub struct ContentPack {
 impl ContentPack {
     pub fn new(reader: Box<dyn Reader>) -> Result<Self> {
         let header = ContentPackHeader::produce(reader.create_stream_all().as_mut())?;
-        let entry_infos =
-            ArrayReader::new_from_reader(reader.as_ref(), header.entry_ptr_pos, header.entry_count);
-        let cluster_ptrs = ArrayReader::new_from_reader(
+        let entry_infos = ArrayReader::new_memory_from_reader(
+            reader.as_ref(),
+            header.entry_ptr_pos,
+            header.entry_count,
+        )?;
+        let cluster_ptrs = ArrayReader::new_memory_from_reader(
             reader.as_ref(),
             header.cluster_ptr_pos,
             header.cluster_count,
-        );
+        )?;
         Ok(ContentPack {
             header,
             entry_infos,
