@@ -44,7 +44,7 @@ impl ContentPack {
     }
 
     fn _get_cluster(&self, cluster_index: Idx<u32>) -> Result<Rc<Cluster>> {
-        let cluster_info = self.cluster_ptrs.index(cluster_index);
+        let cluster_info = self.cluster_ptrs.index(cluster_index)?;
         Ok(Rc::new(Cluster::new(self.reader.as_ref(), cluster_info)?))
     }
 
@@ -65,7 +65,7 @@ impl ContentPack {
         if !index.is_valid(self.header.entry_count) {
             return Err(Error::new_arg());
         }
-        let entry_info = self.entry_infos.index(index);
+        let entry_info = self.entry_infos.index(index)?;
         if !entry_info.cluster_index.is_valid(self.header.cluster_count) {
             return Err(format_error!(&format!(
                 "Cluster index ({}) is not valid in regard of cluster count ({})",

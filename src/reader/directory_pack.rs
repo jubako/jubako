@@ -77,7 +77,7 @@ impl DirectoryPack {
     }
 
     pub fn get_index(&self, index_id: Idx<u32>) -> Result<Index> {
-        let sized_offset = self.index_ptrs.index(index_id);
+        let sized_offset = self.index_ptrs.index(index_id)?;
         let mut index_stream = self.reader.create_stream_for(sized_offset);
         let index_header = IndexHeader::produce(index_stream.as_mut())?;
         let store = self.get_store(index_header.store_id)?;
@@ -87,7 +87,7 @@ impl DirectoryPack {
 
     pub fn get_index_from_name(&self, index_name: &str) -> Result<Index> {
         for index_id in 0..self.header.index_count.0 {
-            let sized_offset = self.index_ptrs.index(Idx(index_id));
+            let sized_offset = self.index_ptrs.index(Idx(index_id))?;
             let mut index_stream = self.reader.create_stream_for(sized_offset);
             let index_header = IndexHeader::produce(index_stream.as_mut())?;
             if index_header.name == index_name {
@@ -100,7 +100,7 @@ impl DirectoryPack {
     }
 
     fn get_store(&self, store_id: Idx<u32>) -> Result<IndexStore> {
-        let sized_offset = self.entry_stores_ptrs.index(store_id);
+        let sized_offset = self.entry_stores_ptrs.index(store_id)?;
         IndexStore::new(self.reader.as_ref(), sized_offset)
     }
 
@@ -116,7 +116,7 @@ impl private::KeyStorageTrait for DirectoryPack {
     }
 
     fn get_key_store(&self, store_id: Idx<u8>) -> Result<KeyStore> {
-        let sized_offset = self.key_stores_ptrs.index(store_id);
+        let sized_offset = self.key_stores_ptrs.index(store_id)?;
         KeyStore::new(self.reader.as_ref(), sized_offset)
     }
 }

@@ -52,8 +52,8 @@ where
     u64: std::convert::From<IdxType>,
     IdxType: std::cmp::PartialOrd + Copy + std::fmt::Debug,
 {
-    type OutputType = OutType::Output;
-    fn index(&self, idx: Idx<IdxType>) -> OutType::Output {
+    type OutputType = Result<OutType::Output>;
+    fn index(&self, idx: Idx<IdxType>) -> Result<OutType::Output> {
         assert!(
             idx.is_valid(self.length),
             "idx = {:?}, length = {:?}",
@@ -64,7 +64,7 @@ where
         let mut stream = self
             .reader
             .create_stream(Offset::from(offset), End::Size(Size::from(self.elem_size)));
-        OutType::produce(stream.as_mut()).unwrap()
+        OutType::produce(stream.as_mut())
     }
 }
 
