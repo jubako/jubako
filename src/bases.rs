@@ -8,6 +8,7 @@ mod write;
 
 pub use io::*;
 pub use reader::*;
+use std::cmp;
 use std::marker::PhantomData;
 pub use stream::*;
 use typenum::Unsigned;
@@ -93,5 +94,5 @@ where
         val = val >> 8.into();
         nb_bytes += 1;
     }
-    nb_bytes
+    cmp::max(nb_bytes, 1)
 }
