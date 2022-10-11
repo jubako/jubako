@@ -151,11 +151,11 @@ test_suite! {
             assert_eq!(entry.get_variant_id(), 0);
             println!("Check value 0");
             let value_0 = entry.get_value(jubako::Idx(0)).unwrap();
-            let value_0 = resolver.resolve_to_vec(value_0).unwrap();
+            let value_0 = resolver.resolve_to_vec(&value_0).unwrap();
             assert_eq!(value_0, articles.val[i as usize].path.as_bytes());
             println!("Check value 1");
             let value_1 = entry.get_value(jubako::Idx(1)).unwrap();
-            let value_1 = resolver.resolve_to_content(value_1);
+            let value_1 = resolver.resolve_to_content(&value_1);
             println!("Get reader");
             let reader = container.get_reader(value_1).unwrap();
             println!("Readir is {:?}", reader);
@@ -167,7 +167,7 @@ test_suite! {
             assert_eq!(read_content, articles.val[i as usize].content);
             println!("Check value 2");
             let value_2 = entry.get_value(jubako::Idx(2)).unwrap();
-            let value_2 = resolver.resolve_to_unsigned(value_2);
+            let value_2 = resolver.resolve_to_unsigned(&value_2);
             assert_eq!(value_2, articles.val[i as usize].word_count as u64);
         }
     }

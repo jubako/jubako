@@ -492,14 +492,14 @@ test_suite! {
             let entry = finder.get_entry(jubako::Idx(i)).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
             let value_0 = entry.get_value(jubako::Idx(0)).unwrap();
-            if let reader::RawValue::Array(array) = value_0 {
+            if let reader::RawValue::Array(array) = &value_0 {
                 assert_eq!(
                     array,
                     &reader::testing::Array::new(
                         vec!(),
                         Some(reader::testing::Extend::new(jubako::Idx(0), i.into()))
                     ));
-                let vec = resolver.resolve_to_vec(value_0).unwrap();
+                let vec = resolver.resolve_to_vec(&value_0).unwrap();
                 assert_eq!(vec, articles.val[i as usize].path.as_bytes());
             } else {
               panic!();
@@ -508,7 +508,7 @@ test_suite! {
             if let reader::RawValue::Content(content) = value_1 {
                 assert_eq!(
                     content,
-                    &reader::testing::Content::new(
+                    reader::testing::Content::new(
                         jubako::ContentAddress{pack_id:0.into(), content_id:i.into()},
                         None
                     ));
@@ -523,7 +523,7 @@ test_suite! {
             }
             let value_2= entry.get_value(jubako::Idx(2)).unwrap();
             if let reader::RawValue::U16(v) = value_2 {
-                assert_eq!(*v, articles.val[i as usize].word_count);
+                assert_eq!(v, articles.val[i as usize].word_count);
             } else {
               panic!();
             }

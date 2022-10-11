@@ -4,6 +4,7 @@ use super::{Array, Content, DirectoryPack, Extend, RawValue};
 use crate::bases::*;
 use crate::common::Value;
 use std::cell::OnceCell;
+use std::cmp;
 use std::rc::Rc;
 
 pub(crate) mod private {
@@ -56,6 +57,43 @@ pub(crate) mod private {
                 RawValue::I64(v) => Value::Signed(*v as i64),
                 RawValue::Array(a) => Value::Array(self.resolve_array_to_vec(a)?),
             })
+        }
+
+        pub fn compare(&self, raw: &RawValue, value: &Value) -> Result<cmp::Ordering> {
+            match value {
+                Value::Content(_) => Err("Content cannot be compared.".to_string().into()),
+                Value::Unsigned(v) => match raw {
+                    RawValue::U8(r) => Ok((*r as u64).cmp(v)),
+                    RawValue::U16(r) => Ok((*r as u64).cmp(v)),
+                    RawValue::U32(r) => Ok((*r as u64).cmp(v)),
+                    RawValue::U64(r) => Ok((*r as u64).cmp(v)),
+                    _ => Err("Values kind cannot be compared.".to_string().into()),
+                },
+                Value::Signed(v) => match raw {
+                    RawValue::I8(r) => Ok((*r as i64).cmp(v)),
+                    RawValue::I16(r) => Ok((*r as i64).cmp(v)),
+                    RawValue::I32(r) => Ok((*r as i64).cmp(v)),
+                    RawValue::I64(r) => Ok((*r as i64).cmp(v)),
+                    _ => Err("Values kind cannot be compared.".to_string().into()),
+                },
+                Value::Array(v) => match raw {
+                    RawValue::Array(a) => {
+                        let cmp = a.base.as_slice().cmp(&v[..a.base.len()]);
+                        if cmp.is_ne() {
+                            Ok(cmp)
+                        } else {
+                            match &a.extend {
+                                None => Ok(cmp),
+                                Some(e) => {
+                                    let d = self.get_data(e)?;
+                                    Ok(d.as_slice().cmp(&v[a.base.len()..]))
+                                }
+                            }
+                        }
+                    }
+                    _ => Err("Values kind cannot be compared.".to_string().into()),
+                },
+            }
         }
 
         pub fn resolve_to_vec(&self, raw: &RawValue) -> Result<Vec<u8>> {

@@ -84,10 +84,10 @@ impl PlainStore {
     }
 
     pub fn get_entry(&self, idx: Idx<u32>) -> Result<LazyEntry> {
-        let reader = self.entry_reader.create_sub_memory_reader(
+        let reader = self.entry_reader.create_sub_reader(
             Offset(idx.0 as u64 * self.entry_def.size.0),
             End::Size(self.entry_def.size),
-        )?;
+        );
         self.entry_def.create_entry(reader.as_ref())
     }
 }

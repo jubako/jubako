@@ -61,8 +61,10 @@ mod private {
         pub fn find(&self, index_key: u8, value: Value) -> Result<Option<Idx<u32>>> {
             for idx in 0..self.count.0 {
                 let entry = self._get_entry(Idx(idx))?;
-                let entry_value = self.resolver.resolve(entry.get_value(index_key.into())?)?;
-                if entry_value == value {
+                let cmp = self
+                    .resolver
+                    .compare(&entry.get_value(index_key.into())?, &value)?;
+                if cmp.is_eq() {
                     return Ok(Some(Idx(idx)));
                 }
             }
@@ -95,9 +97,9 @@ mod tests {
             fn get_variant_id(&self) -> u8 {
                 0
             }
-            fn get_value(&self, idx: Idx<u8>) -> Result<&RawValue> {
+            fn get_value(&self, idx: Idx<u8>) -> Result<RawValue> {
                 Ok(match idx {
-                    Idx(0) => &self.v,
+                    Idx(0) => self.v.clone(),
                     _ => panic!(),
                 })
             }
@@ -143,14 +145,14 @@ mod tests {
         for i in 0..10 {
             let entry = finder.get_entry(Idx(i)).unwrap();
             let value0 = entry.get_value(Idx(0)).unwrap();
-            assert_eq!(resolver.resolve_to_unsigned(value0), i as u64);
+            assert_eq!(resolver.resolve_to_unsigned(&value0), i as u64);
         }
 
         for i in 0..10 {
             let idx = finder.find(0, Value::Unsigned(i)).unwrap().unwrap();
             let entry = finder.get_entry(idx).unwrap();
             let value0 = entry.get_value(Idx(0)).unwrap();
-            assert_eq!(resolver.resolve_to_unsigned(value0), i as u64);
+            assert_eq!(resolver.resolve_to_unsigned(&value0), i as u64);
         }
 
         let result = finder.find(0, Value::Unsigned(10)).unwrap();
