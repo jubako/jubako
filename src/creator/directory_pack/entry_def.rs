@@ -55,7 +55,8 @@ impl Writable for KeyDef {
         match self {
             KeyDef::VariantId => stream.write_u8(0b1000_0000),
             KeyDef::PString(flookup_size, store_handle) => {
-                let keytype = if *flookup_size > 0 {
+                let mut flookup_size = *flookup_size;
+                let keytype = if flookup_size > 0 {
                     0b0111_0000
                 } else {
                     0b0110_0000
@@ -64,6 +65,19 @@ impl Writable for KeyDef {
                 let mut written = 0;
                 written += stream.write_u8(keytype + key_size)?;
                 written += store_handle.borrow().get_idx().write(stream)?;
+                if flookup_size > 0 {
+                    let keytype: u8 = 0b0100_0000;
+                    if flookup_size <= 8 {
+                        written += stream.write_u8(keytype + (flookup_size - 1) as u8)?;
+                    } else if flookup_size <= 2056 {
+                        flookup_size -= 9;
+                        written += stream
+                            .write_u8(keytype + ((flookup_size >> 8) & 0x03) as u8 + 0b1000)?;
+                        written += stream.write_u8(flookup_size as u8)?;
+                    } else {
+                        panic!()
+                    }
+                }
                 Ok(written)
             }
             KeyDef::ContentAddress => stream.write_u8(0b0001_0000),

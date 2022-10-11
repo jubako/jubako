@@ -254,9 +254,8 @@ impl EntryStore {
                         let flookup_size = *flookup_size;
                         let value = value_iter.next().unwrap();
                         if let Value::Array { data, key_id } = value {
-                            *key_id =
-                                Some(store_handle.borrow_mut().add_key(&data[flookup_size..]));
-                            data.truncate(flookup_size);
+                            let to_store = data.split_off(cmp::min(flookup_size, data.len()));
+                            *key_id = Some(store_handle.borrow_mut().add_key(&to_store));
                         }
                     }
                     entry_def::KeyDef::UnsignedInt(max_value) => {
