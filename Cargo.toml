@@ -1,9 +1,9 @@
 [package]
+edition = "2021"
 name = "jubako"
 description = "The reference implementation of the Jubako container format"
 version = "0.1.0"
 authors = ["Matthieu Gautier <mgautier@kymeria.fr>"]
-edition = "2018"
 repository = "https://framagit.org/jubako/jubako"
 categories = ["database", "data-structures", "compression"]
 
