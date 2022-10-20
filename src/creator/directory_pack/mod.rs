@@ -1,7 +1,7 @@
 #[allow(clippy::module_inception)]
 mod directory_pack;
-pub mod entry_def;
 mod entry_store;
+pub mod layout;
 mod value_store;
 
 use super::{CheckInfo, PackInfo};
@@ -9,6 +9,7 @@ use crate::bases::*;
 use crate::common;
 use crate::common::{Content, ContentAddress};
 pub use directory_pack::DirectoryPackCreator;
+use value_store::ValueStore;
 pub use value_store::ValueStoreKind;
 
 trait WritableTell {

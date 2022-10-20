@@ -1,5 +1,5 @@
-use super::entry_def;
 use super::entry_store;
+use super::layout;
 use super::value_store;
 use super::{CheckInfo, PackInfo};
 use super::{Index, WritableTell};
@@ -54,9 +54,9 @@ impl DirectoryPackCreator {
         &self.value_stores[idx.0 as usize]
     }
 
-    pub fn create_entry_store(&mut self, entry_def: entry_def::EntryDef) -> Idx<u32> {
+    pub fn create_entry_store(&mut self, layout: layout::Entry) -> Idx<u32> {
         let idx = Idx::<u32>(self.entry_stores.len() as u32);
-        let entry_store = EntryStore::new(idx, entry_def);
+        let entry_store = EntryStore::new(idx, layout);
         self.entry_stores.push(entry_store);
         idx
     }

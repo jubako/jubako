@@ -10,6 +10,7 @@ test_suite! {
     name basic_creation;
 
     use jubako::creator;
+    use jubako::creator::layout;
     use jubako::Result;
     use jubako::reader::EntryTrait;
     use std::io::Read;
@@ -85,12 +86,12 @@ test_suite! {
             jubako::FreeData::<U31>::clone_from_slice(&[0xff; 31])
         );
         let key_store_handle = creator.create_value_store(key_store_kind);
-        let entry_def = creator::Entry::new(
+        let entry_def = layout::Entry::new(
             vec![
-                creator::Variant::new(vec![
-                    creator::Key::PString(0, key_store_handle),
-                    creator::Key::ContentAddress,
-                    creator::Key::new_int()
+                layout::Variant::new(vec![
+                    layout::Property::PString(0, key_store_handle),
+                    layout::Property::ContentAddress,
+                    layout::Property::new_int()
                 ])
             ]
         );
