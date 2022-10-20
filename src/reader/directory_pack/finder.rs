@@ -1,6 +1,6 @@
 use super::entry::EntryTrait;
 use super::entry_store::EntryStoreTrait;
-use super::private::KeyStorageTrait;
+use super::private::ValueStorageTrait;
 use super::resolver::private::Resolver;
 use super::{DirectoryPack, EntryStore, Value};
 use crate::bases::*;
@@ -8,14 +8,14 @@ use std::rc::Rc;
 
 mod private {
     use super::*;
-    pub struct Finder<K: KeyStorageTrait, IS: EntryStoreTrait> {
+    pub struct Finder<K: ValueStorageTrait, IS: EntryStoreTrait> {
         store: Rc<IS>,
         offset: Idx<u32>,
         count: Count<u32>,
         resolver: Rc<Resolver<K>>,
     }
 
-    impl<K: KeyStorageTrait, IS: EntryStoreTrait> Finder<K, IS> {
+    impl<K: ValueStorageTrait, IS: EntryStoreTrait> Finder<K, IS> {
         pub fn new(
             store: Rc<IS>,
             offset: Idx<u32>,
@@ -82,7 +82,7 @@ mod tests {
 
     mod mock {
         use super::*;
-        use crate::reader::directory_pack::key_store::KeyStoreTrait;
+        use crate::reader::directory_pack::value_store::ValueStoreTrait;
         #[derive(PartialEq, Eq, Debug)]
         pub struct Entry {
             v: RawValue,
@@ -115,21 +115,21 @@ mod tests {
             }
         }
 
-        pub struct KeyStore {}
-        impl KeyStoreTrait for KeyStore {
+        pub struct ValueStore {}
+        impl ValueStoreTrait for ValueStore {
             fn get_data(&self, _id: Idx<u64>) -> Result<Vec<u8>> {
                 unreachable!()
             }
         }
 
-        pub struct KeyStorage {}
-        impl KeyStorageTrait for KeyStorage {
-            type KeyStore = KeyStore;
-            fn get_key_store_count(&self) -> Count<u8> {
+        pub struct ValueStorage {}
+        impl ValueStorageTrait for ValueStorage {
+            type ValueStore = ValueStore;
+            fn get_value_store_count(&self) -> Count<u8> {
                 Count(0)
             }
 
-            fn get_key_store(&self, _id: Idx<u8>) -> Result<Self::KeyStore> {
+            fn get_value_store(&self, _id: Idx<u8>) -> Result<Self::ValueStore> {
                 unreachable!()
             }
         }
@@ -137,8 +137,8 @@ mod tests {
 
     #[test]
     fn test_finder() {
-        let key_storage = Rc::new(mock::KeyStorage {});
-        let resolver = Rc::new(Resolver::new(key_storage));
+        let value_storage = Rc::new(mock::ValueStorage {});
+        let resolver = Rc::new(Resolver::new(value_storage));
         let index_store = Rc::new(mock::EntryStore {});
         let finder = private::Finder::new(index_store, Idx(0), Count(10), Rc::clone(&resolver));
 

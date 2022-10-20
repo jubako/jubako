@@ -68,7 +68,7 @@ impl Variant {
                 current_idx + 1,
                 offset + raw_property.size,
             )),
-            RawPropertyKind::PString(flookup, keystoreid) => {
+            RawPropertyKind::PString(flookup, valuestoreid) => {
                 let (subproperty, new_idx, new_offset) = if flookup {
                     let subproperty = Self::build_property(
                         current_idx + 1,
@@ -89,7 +89,7 @@ impl Variant {
                 Ok((
                     Property::new(
                         offset,
-                        PropertyKind::PString(raw_property.size, keystoreid.into(), subproperty),
+                        PropertyKind::PString(raw_property.size, valuestoreid.into(), subproperty),
                     ),
                     new_idx,
                     new_offset,

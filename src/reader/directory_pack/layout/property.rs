@@ -81,7 +81,7 @@ impl Property {
                 None,
             )),
             PropertyKind::PString(size, store_id, base) => {
-                let key_id = reader.read_usized(self.offset, *size)?;
+                let value_id = reader.read_usized(self.offset, *size)?;
                 let base = match base {
                     None => Vec::new(),
                     Some(base_size) => Property::create_array(
@@ -90,7 +90,7 @@ impl Property {
                         reader,
                     )?,
                 };
-                RawValue::Array(Array::new(base, Some(Extend::new(*store_id, key_id))))
+                RawValue::Array(Array::new(base, Some(Extend::new(*store_id, value_id))))
             }
             PropertyKind::None => unreachable!(),
         })

@@ -4,12 +4,12 @@ use crate::common::Content;
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Extend {
     pub(crate) store_id: Idx<u8>,
-    pub(crate) key_id: u64,
+    pub(crate) value_id: u64,
 }
 
 impl Extend {
-    pub fn new(store_id: Idx<u8>, key_id: u64) -> Self {
-        Self { store_id, key_id }
+    pub fn new(store_id: Idx<u8>, value_id: u64) -> Self {
+        Self { store_id, value_id }
     }
 }
 

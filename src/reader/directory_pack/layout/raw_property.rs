@@ -63,8 +63,8 @@ impl Producable for RawProperty {
             0b0110 | 0b0111 => {
                 let flookup: bool = proptype & 0b1 != 0;
                 let size = propdata as u16 + 1;
-                let keystoreidx = stream.read_u8()?;
-                (size, RawPropertyKind::PString(flookup, keystoreidx))
+                let valuestoreidx = stream.read_u8()?;
+                (size, RawPropertyKind::PString(flookup, valuestoreidx))
             }
             0b1000 => (1, RawPropertyKind::VariantId),
             _ => {

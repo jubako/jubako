@@ -2,15 +2,15 @@ mod entry;
 mod entry_store;
 mod finder;
 mod index;
-mod key_store;
 mod layout;
 mod lazy_entry;
 mod raw_value;
 mod resolver;
+mod value_store;
 
 use self::entry_store::EntryStore;
 use self::index::IndexHeader;
-use self::key_store::{KeyStore, KeyStoreTrait};
+use self::value_store::{ValueStore, ValueStoreTrait};
 use crate::bases::*;
 use crate::common::{CheckInfo, DirectoryPackHeader, Pack, PackKind};
 use std::cell::Cell;
@@ -28,16 +28,16 @@ pub use raw_value::{Array, Extend, RawValue};
 pub use resolver::Resolver;
 
 mod private {
-    pub trait KeyStorageTrait {
-        type KeyStore: super::KeyStoreTrait;
-        fn get_key_store_count(&self) -> super::Count<u8>;
-        fn get_key_store(&self, id: super::Idx<u8>) -> super::Result<Self::KeyStore>;
+    pub trait ValueStorageTrait {
+        type ValueStore: super::ValueStoreTrait;
+        fn get_value_store_count(&self) -> super::Count<u8>;
+        fn get_value_store(&self, id: super::Idx<u8>) -> super::Result<Self::ValueStore>;
     }
 }
 
 pub struct DirectoryPack {
     header: DirectoryPackHeader,
-    key_stores_ptrs: ArrayReader<SizedOffset, u8>,
+    value_stores_ptrs: ArrayReader<SizedOffset, u8>,
     entry_stores_ptrs: ArrayReader<SizedOffset, u32>,
     index_ptrs: ArrayReader<SizedOffset, u32>,
     reader: Box<dyn Reader>,
@@ -48,10 +48,10 @@ impl DirectoryPack {
     pub fn new(reader: Box<dyn Reader>) -> Result<DirectoryPack> {
         let mut stream = reader.create_stream_all();
         let header = DirectoryPackHeader::produce(stream.as_mut())?;
-        let key_stores_ptrs = ArrayReader::new_memory_from_reader(
+        let value_stores_ptrs = ArrayReader::new_memory_from_reader(
             reader.as_ref(),
-            header.key_store_ptr_pos,
-            header.key_store_count,
+            header.value_store_ptr_pos,
+            header.value_store_count,
         )?;
         let entry_stores_ptrs = ArrayReader::new_memory_from_reader(
             reader.as_ref(),
@@ -65,7 +65,7 @@ impl DirectoryPack {
         )?;
         Ok(DirectoryPack {
             header,
-            key_stores_ptrs,
+            value_stores_ptrs,
             entry_stores_ptrs,
             index_ptrs,
             reader,
@@ -109,15 +109,15 @@ impl DirectoryPack {
     }
 }
 
-impl private::KeyStorageTrait for DirectoryPack {
-    type KeyStore = KeyStore;
-    fn get_key_store_count(&self) -> Count<u8> {
-        self.header.key_store_count
+impl private::ValueStorageTrait for DirectoryPack {
+    type ValueStore = ValueStore;
+    fn get_value_store_count(&self) -> Count<u8> {
+        self.header.value_store_count
     }
 
-    fn get_key_store(&self, store_id: Idx<u8>) -> Result<KeyStore> {
-        let sized_offset = self.key_stores_ptrs.index(store_id)?;
-        KeyStore::new(self.reader.as_ref(), sized_offset)
+    fn get_value_store(&self, store_id: Idx<u8>) -> Result<ValueStore> {
+        let sized_offset = self.value_stores_ptrs.index(store_id)?;
+        ValueStore::new(self.reader.as_ref(), sized_offset)
     }
 }
 
@@ -180,10 +180,10 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xee, 0xdd, // index_ptr_pos
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xee, 0x00, // entry_store_ptr_pos
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xee, 0xaa, // key_store_ptr_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xee, 0xaa, // value_store_ptr_pos
             0x00, 0x00, 0x00, 0x50, // index count
             0x00, 0x00, 0x00, 0x60, // entry_store count
-            0x05, //key_store count
+            0x05, //value_store count
         ];
         content.extend_from_slice(&[0xff; 31]);
         let reader = BufReader::new(content, End::None);
@@ -205,10 +205,10 @@ mod tests {
                 },
                 index_ptr_pos: Offset::from(0xeedd_u64),
                 entry_store_ptr_pos: Offset::from(0xee00_u64),
-                key_store_ptr_pos: Offset::from(0xeeaa_u64),
+                value_store_ptr_pos: Offset::from(0xeeaa_u64),
                 index_count: Count::from(0x50_u32),
                 entry_store_count: Count::from(0x60_u32),
-                key_store_count: Count::from(0x05_u8),
+                value_store_count: Count::from(0x05_u8),
                 free_data: FreeData::clone_from_slice(&[0xff; 31]),
             }
         );
@@ -230,25 +230,25 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x11, // index_ptr_pos
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xEF, // entry_store_ptr_pos
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x9C, // key_store_ptr_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x9C, // value_store_ptr_pos
             0x00, 0x00, 0x00, 0x01, // index count
             0x00, 0x00, 0x00, 0x01, // entry_store count
-            0x01, //key_store count
+            0x01, //value_store count
         ];
         content.extend_from_slice(&[0xff; 31]); // free data
-                                                // Add one key store offset 128/0x80
+                                                // Add one value store offset 128/0x80
         content.extend_from_slice(&[
-            b'H', b'e', b'l', b'l', b'o', // key 0
-            b'F', b'o', b'o', // key 1
-            b'J', 0xc5, 0xab, b'b', b'a', b'k', b'o', // key 2
+            b'H', b'e', b'l', b'l', b'o', // value 0
+            b'F', b'o', b'o', // value 1
+            b'J', 0xc5, 0xab, b'b', b'a', b'k', b'o', // value 2
             0x01, // kind
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // key count
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // value count
             0x01, // offset_size
             0x0f, // data_size
             0x05, // Offset of entry 1
             0x08, // Offset of entry 2
         ]);
-        // Add key_stores_ptr (offset 128+15+13=156/0x9C)
+        // Add value_stores_ptr (offset 128+15+13=156/0x9C)
         content.extend_from_slice(&[
             0x00, 13, //size
             0x00, 0x00, 0x00, 0x00, 0x00, 0x8F, // Offset the tailler (128+15=143/0x8F)
@@ -265,7 +265,7 @@ mod tests {
             0x00, // kind
             0x00, 0x0B, // entry size
             0x01, // variant count
-            0x05, // key count
+            0x05, // value count
             0b0110_0000, 0x00, // Pstring(1), idx 0x00
             0b0111_0000, 0x00,        // Psstringlookup(1), idx 0x00
             0b0100_0001, // char[2]

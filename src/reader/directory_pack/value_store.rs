@@ -2,46 +2,46 @@ use crate::bases::*;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum KeyStoreKind {
+enum ValueStoreKind {
     Plain = 0,
     Indexed = 1,
 }
 
-impl Producable for KeyStoreKind {
+impl Producable for ValueStoreKind {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         match stream.read_u8()? {
-            0 => Ok(KeyStoreKind::Plain),
-            1 => Ok(KeyStoreKind::Indexed),
+            0 => Ok(ValueStoreKind::Plain),
+            1 => Ok(ValueStoreKind::Indexed),
             v => Err(format_error!(
-                &format!("Invalid KeyStoreKind ({})", v),
+                &format!("Invalid ValueStoreKind ({})", v),
                 stream
             )),
         }
     }
 }
 
-pub trait KeyStoreTrait {
+pub trait ValueStoreTrait {
     fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>>;
 }
 
-pub enum KeyStore {
-    Plain(PlainKeyStore),
-    Indexed(IndexedKeyStore),
+pub enum ValueStore {
+    Plain(PlainValueStore),
+    Indexed(IndexedValueStore),
 }
 
-impl KeyStore {
+impl ValueStore {
     pub fn new(reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
         let header_reader =
             reader.create_sub_memory_reader(pos_info.offset, End::Size(pos_info.size))?;
         let mut header_stream = header_reader.create_stream_all();
-        Ok(match KeyStoreKind::produce(header_stream.as_mut())? {
-            KeyStoreKind::Plain => KeyStore::Plain(PlainKeyStore::new(
+        Ok(match ValueStoreKind::produce(header_stream.as_mut())? {
+            ValueStoreKind::Plain => ValueStore::Plain(PlainValueStore::new(
                 header_stream.as_mut(),
                 reader,
                 pos_info,
             )?),
-            KeyStoreKind::Indexed => KeyStore::Indexed(IndexedKeyStore::new(
+            ValueStoreKind::Indexed => ValueStore::Indexed(IndexedValueStore::new(
                 header_stream.as_mut(),
                 reader,
                 pos_info,
@@ -50,27 +50,27 @@ impl KeyStore {
     }
 }
 
-impl KeyStoreTrait for KeyStore {
+impl ValueStoreTrait for ValueStore {
     fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>> {
         match self {
-            KeyStore::Plain(store) => store.get_data(id),
-            KeyStore::Indexed(store) => store.get_data(id),
+            ValueStore::Plain(store) => store.get_data(id),
+            ValueStore::Indexed(store) => store.get_data(id),
         }
     }
 }
 
-pub struct PlainKeyStore {
+pub struct PlainValueStore {
     pub reader: Box<dyn Reader>,
 }
 
-impl PlainKeyStore {
+impl PlainValueStore {
     fn new(stream: &mut dyn Stream, reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
         let data_size = Size::produce(stream)?;
         let reader = reader.create_sub_memory_reader(
             Offset(pos_info.offset.0 - data_size.0),
             End::Size(data_size),
         )?;
-        Ok(PlainKeyStore { reader })
+        Ok(PlainValueStore { reader })
     }
 
     fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>> {
@@ -79,12 +79,12 @@ impl PlainKeyStore {
     }
 }
 
-pub struct IndexedKeyStore {
+pub struct IndexedValueStore {
     pub entry_offsets: Vec<Offset>,
     pub reader: Box<dyn Reader>,
 }
 
-impl IndexedKeyStore {
+impl IndexedValueStore {
     fn new(stream: &mut dyn Stream, reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
         let entry_count = Count::<u64>::produce(stream)?;
         let offset_size = stream.read_u8()?;
@@ -111,7 +111,7 @@ impl IndexedKeyStore {
             Offset(pos_info.offset.0 - data_size.0),
             End::Size(data_size),
         )?;
-        Ok(IndexedKeyStore {
+        Ok(IndexedValueStore {
             entry_offsets,
             reader,
         })
@@ -130,23 +130,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_keystorekind() {
+    fn test_valuestorekind() {
         let reader = BufReader::new(vec![0x00, 0x01, 0x02], End::None);
         let mut stream = reader.create_stream_all();
         assert_eq!(
-            KeyStoreKind::produce(stream.as_mut()).unwrap(),
-            KeyStoreKind::Plain
+            ValueStoreKind::produce(stream.as_mut()).unwrap(),
+            ValueStoreKind::Plain
         );
         assert_eq!(
-            KeyStoreKind::produce(stream.as_mut()).unwrap(),
-            KeyStoreKind::Indexed
+            ValueStoreKind::produce(stream.as_mut()).unwrap(),
+            ValueStoreKind::Indexed
         );
         assert_eq!(stream.tell(), Offset::from(2));
-        assert!(KeyStoreKind::produce(stream.as_mut()).is_err());
+        assert!(ValueStoreKind::produce(stream.as_mut()).is_err());
     }
 
     #[test]
-    fn test_plainkeystore() {
+    fn test_plainvaluestore() {
         #[rustfmt::skip]
         let reader = BufReader::new(
             vec![
@@ -158,16 +158,16 @@ mod tests {
             ],
             End::None,
         );
-        let key_store = KeyStore::new(&reader, SizedOffset::new(Size(9), Offset(18))).unwrap();
-        match &key_store {
-            KeyStore::Plain(plainkeystore) => {
-                assert_eq!(plainkeystore.reader.size(), Size::from(0x12_u64));
+        let value_store = ValueStore::new(&reader, SizedOffset::new(Size(9), Offset(18))).unwrap();
+        match &value_store {
+            ValueStore::Plain(plainvaluestore) => {
+                assert_eq!(plainvaluestore.reader.size(), Size::from(0x12_u64));
                 assert_eq!(
-                    plainkeystore.reader.read_u64(Offset(0)).unwrap(),
+                    plainvaluestore.reader.read_u64(Offset(0)).unwrap(),
                     0x0511121314150321_u64
                 );
                 assert_eq!(
-                    plainkeystore.reader.read_u64(Offset(8)).unwrap(),
+                    plainvaluestore.reader.read_u64(Offset(8)).unwrap(),
                     0x2223073132333435_u64
                 );
             }
@@ -175,21 +175,21 @@ mod tests {
         }
 
         assert_eq!(
-            key_store.get_data(0.into()).unwrap(),
+            value_store.get_data(0.into()).unwrap(),
             vec![0x11, 0x12, 0x13, 0x14, 0x15]
         );
         assert_eq!(
-            key_store.get_data(6.into()).unwrap(),
+            value_store.get_data(6.into()).unwrap(),
             vec![0x21, 0x22, 0x23]
         );
         assert_eq!(
-            key_store.get_data(10.into()).unwrap(),
+            value_store.get_data(10.into()).unwrap(),
             vec![0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]
         );
     }
 
     #[test]
-    fn test_indexedkeystore() {
+    fn test_indexedvaluestore() {
         #[rustfmt::skip]
         let reader = BufReader::new(
             vec![
@@ -197,7 +197,7 @@ mod tests {
                 0x21, 0x22, 0x23, // Data of entry 1
                 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of entry 2
                 0x01, // kind
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // key count
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // value count
                 0x01, // offset_size
                 0x0f, // data_size
                 0x05, // Offset of entry 1
@@ -205,20 +205,20 @@ mod tests {
             ],
             End::None,
         );
-        let key_store = KeyStore::new(&reader, SizedOffset::new(Size(13), Offset(15))).unwrap();
-        match &key_store {
-            KeyStore::Indexed(indexedkeystore) => {
+        let value_store = ValueStore::new(&reader, SizedOffset::new(Size(13), Offset(15))).unwrap();
+        match &value_store {
+            ValueStore::Indexed(indexedvaluestore) => {
                 assert_eq!(
-                    indexedkeystore.entry_offsets,
+                    indexedvaluestore.entry_offsets,
                     vec![0.into(), 5.into(), 8.into(), 15.into()]
                 );
-                assert_eq!(indexedkeystore.reader.size(), Size::from(0x0f_u64));
+                assert_eq!(indexedvaluestore.reader.size(), Size::from(0x0f_u64));
                 assert_eq!(
-                    indexedkeystore.reader.read_u64(Offset(0)).unwrap(),
+                    indexedvaluestore.reader.read_u64(Offset(0)).unwrap(),
                     0x1112131415212223_u64
                 );
                 assert_eq!(
-                    indexedkeystore.reader.read_usized(Offset(8), 7).unwrap(),
+                    indexedvaluestore.reader.read_usized(Offset(8), 7).unwrap(),
                     0x31323334353637_u64
                 );
             }
@@ -226,15 +226,15 @@ mod tests {
         }
 
         assert_eq!(
-            key_store.get_data(0.into()).unwrap(),
+            value_store.get_data(0.into()).unwrap(),
             vec![0x11, 0x12, 0x13, 0x14, 0x15]
         );
         assert_eq!(
-            key_store.get_data(1.into()).unwrap(),
+            value_store.get_data(1.into()).unwrap(),
             vec![0x21, 0x22, 0x23]
         );
         assert_eq!(
-            key_store.get_data(2.into()).unwrap(),
+            value_store.get_data(2.into()).unwrap(),
             vec![0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]
         );
     }

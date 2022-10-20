@@ -8,11 +8,11 @@ use uuid::Uuid;
 pub struct DirectoryPackHeader {
     pub pack_header: PackHeader,
     pub entry_store_ptr_pos: Offset,
-    pub key_store_ptr_pos: Offset,
+    pub value_store_ptr_pos: Offset,
     pub index_ptr_pos: Offset,
     pub entry_store_count: Count<u32>,
     pub index_count: Count<u32>,
-    pub key_store_count: Count<u8>,
+    pub value_store_count: Count<u8>,
     pub free_data: FreeData<U31>,
 }
 
@@ -21,15 +21,15 @@ impl DirectoryPackHeader {
         pack_info: PackHeaderInfo,
         free_data: FreeData<U31>,
         indexes: (Count<u32>, Offset),
-        key_stores: (Count<u8>, Offset),
+        value_stores: (Count<u8>, Offset),
         entry_stores: (Count<u32>, Offset),
     ) -> Self {
         DirectoryPackHeader {
             pack_header: PackHeader::new(PackKind::Directory, pack_info),
             index_ptr_pos: indexes.1,
             index_count: indexes.0,
-            key_store_ptr_pos: key_stores.1,
-            key_store_count: key_stores.0,
+            value_store_ptr_pos: value_stores.1,
+            value_store_count: value_stores.0,
             entry_store_ptr_pos: entry_stores.1,
             entry_store_count: entry_stores.0,
             free_data,
@@ -50,19 +50,19 @@ impl Producable for DirectoryPackHeader {
         }
         let index_ptr_pos = Offset::produce(stream)?;
         let entry_store_ptr_pos = Offset::produce(stream)?;
-        let key_store_ptr_pos = Offset::produce(stream)?;
+        let value_store_ptr_pos = Offset::produce(stream)?;
         let index_count = Count::<u32>::produce(stream)?;
         let entry_store_count = Count::<u32>::produce(stream)?;
-        let key_store_count = Count::<u8>::produce(stream)?;
+        let value_store_count = Count::<u8>::produce(stream)?;
         let free_data = FreeData::produce(stream)?;
         Ok(DirectoryPackHeader {
             pack_header,
             entry_store_ptr_pos,
-            key_store_ptr_pos,
+            value_store_ptr_pos,
             index_ptr_pos,
             entry_store_count,
             index_count,
-            key_store_count,
+            value_store_count,
             free_data,
         })
     }
@@ -74,10 +74,10 @@ impl Writable for DirectoryPackHeader {
         written += self.pack_header.write(stream)?;
         written += self.index_ptr_pos.write(stream)?;
         written += self.entry_store_ptr_pos.write(stream)?;
-        written += self.key_store_ptr_pos.write(stream)?;
+        written += self.value_store_ptr_pos.write(stream)?;
         written += self.index_count.write(stream)?;
         written += self.entry_store_count.write(stream)?;
-        written += self.key_store_count.write(stream)?;
+        written += self.value_store_count.write(stream)?;
         written += self.free_data.write(stream)?;
         Ok(written)
     }
@@ -103,10 +103,10 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xee, 0xdd, // index_ptr_pos
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xee, 0x00, // entry_store_ptr_pos
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xee, 0xaa, // key_store_ptr_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xee, 0xaa, // value_store_ptr_pos
             0x00, 0x00, 0x00, 0x50, // index count
             0x00, 0x00, 0x00, 0x60, // entry_store count
-            0x05, //key_store count
+            0x05, //value_store count
         ];
         content.extend_from_slice(&[0xff; 31]);
         let reader = BufReader::new(content, End::None);
@@ -128,10 +128,10 @@ mod tests {
                 },
                 index_ptr_pos: Offset::from(0xeedd_u64),
                 entry_store_ptr_pos: Offset::from(0xee00_u64),
-                key_store_ptr_pos: Offset::from(0xeeaa_u64),
+                value_store_ptr_pos: Offset::from(0xeeaa_u64),
                 index_count: Count::from(0x50_u32),
                 entry_store_count: Count::from(0x60_u32),
-                key_store_count: Count::from(0x05_u8),
+                value_store_count: Count::from(0x05_u8),
                 free_data: FreeData::clone_from_slice(&[0xff; 31]),
             }
         );
