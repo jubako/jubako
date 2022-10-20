@@ -1,7 +1,7 @@
-use super::entry::EntryTrait;
 use super::entry_store::EntryStoreTrait;
 use super::private::ValueStorageTrait;
 use super::resolver::private::Resolver;
+use super::EntryTrait;
 use super::{DirectoryPack, EntryStore, Value};
 use crate::bases::*;
 use std::rc::Rc;

@@ -91,8 +91,8 @@ impl Entry {
 mod tests {
     use super::*;
     use crate::common::ContentAddress;
-    use crate::reader::directory_pack::entry::EntryTrait;
     use crate::reader::directory_pack::Array;
+    use crate::reader::directory_pack::EntryTrait;
     use crate::reader::{Content, RawValue};
 
     #[test]

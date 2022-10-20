@@ -1,6 +1,6 @@
-use super::entry::EntryTrait;
 use super::layout;
 use super::raw_value::RawValue;
+use super::EntryTrait;
 use crate::bases::*;
 use std::rc::Rc;
 

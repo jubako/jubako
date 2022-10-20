@@ -1,4 +1,3 @@
-mod entry;
 mod entry_store;
 mod finder;
 mod index;
@@ -22,10 +21,14 @@ pub use self::entry_store::EntryStoreTrait;
 pub use self::finder::Finder;
 pub use self::index::Index;
 pub use crate::common::{Content, Value};
-pub use entry::EntryTrait;
 pub use lazy_entry::LazyEntry;
 pub use raw_value::{Array, Extend, RawValue};
 pub use resolver::Resolver;
+
+pub trait EntryTrait {
+    fn get_variant_id(&self) -> u8;
+    fn get_value(&self, idx: Idx<u8>) -> Result<RawValue>;
+}
 
 mod private {
     pub trait ValueStorageTrait {

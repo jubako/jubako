@@ -1,6 +1,6 @@
-use super::entry::EntryTrait;
 use super::layout;
 use super::lazy_entry::LazyEntry;
+use super::EntryTrait;
 use crate::bases::*;
 
 #[repr(u8)]
