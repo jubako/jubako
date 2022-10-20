@@ -1,15 +1,15 @@
 mod entry;
+mod entry_store;
 mod finder;
 mod index;
-mod index_store;
 mod key_store;
 mod layout;
 mod lazy_entry;
 mod raw_value;
 mod resolver;
 
+use self::entry_store::EntryStore;
 use self::index::IndexHeader;
-use self::index_store::IndexStore;
 use self::key_store::{KeyStore, KeyStoreTrait};
 use crate::bases::*;
 use crate::common::{CheckInfo, DirectoryPackHeader, Pack, PackKind};
@@ -18,9 +18,9 @@ use std::io::Read;
 use std::rc::Rc;
 use uuid::Uuid;
 
+pub use self::entry_store::EntryStoreTrait;
 pub use self::finder::Finder;
 pub use self::index::Index;
-pub use self::index_store::IndexStoreTrait;
 pub use crate::common::{Content, Value};
 pub use entry::EntryTrait;
 pub use lazy_entry::LazyEntry;
@@ -99,9 +99,9 @@ impl DirectoryPack {
         Err("Cannot find index".to_string().into())
     }
 
-    fn get_store(&self, store_id: Idx<u32>) -> Result<IndexStore> {
+    fn get_store(&self, store_id: Idx<u32>) -> Result<EntryStore> {
         let sized_offset = self.entry_stores_ptrs.index(store_id)?;
-        IndexStore::new(self.reader.as_ref(), sized_offset)
+        EntryStore::new(self.reader.as_ref(), sized_offset)
     }
 
     pub fn get_resolver(self: &Rc<Self>) -> Rc<Resolver> {
@@ -273,7 +273,7 @@ mod tests {
             0b0001_0000, // content address
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x37, // data size
         ]);
-        // Add a index_store_ptr (offset 164+55+20=239/0xEF)
+        // Add a entry_store_ptr (offset 164+55+20=239/0xEF)
         content.extend_from_slice(&[
             0x00, 20, // size
             0x00, 0x00, 0x00, 0x00, 0x00, 0xDB, // offset of the tailler (164+55=219/0xDB)

@@ -26,33 +26,33 @@ impl Producable for StoreKind {
     }
 }
 
-pub trait IndexStoreTrait {
+pub trait EntryStoreTrait {
     type Entry: EntryTrait;
     fn get_entry(&self, idx: Idx<u32>) -> Result<Self::Entry>;
 }
 
 #[derive(Debug)]
-pub enum IndexStore {
+pub enum EntryStore {
     Plain(PlainStore),
 }
 
-impl IndexStore {
+impl EntryStore {
     pub fn new(reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
         let mut header_stream = reader.create_stream_for(pos_info);
         Ok(match StoreKind::produce(header_stream.as_mut())? {
             StoreKind::Plain => {
-                IndexStore::Plain(PlainStore::new(header_stream.as_mut(), reader, pos_info)?)
+                EntryStore::Plain(PlainStore::new(header_stream.as_mut(), reader, pos_info)?)
             }
             _ => todo!(),
         })
     }
 }
 
-impl IndexStoreTrait for IndexStore {
+impl EntryStoreTrait for EntryStore {
     type Entry = LazyEntry;
     fn get_entry(&self, idx: Idx<u32>) -> Result<LazyEntry> {
         match self {
-            IndexStore::Plain(store) => store.get_entry(idx),
+            EntryStore::Plain(store) => store.get_entry(idx),
             /*            _ => todo!()*/
         }
     }
@@ -130,9 +130,9 @@ mod tests {
         ];
         let size = Size(content.len() as u64);
         let reader = Box::new(BufReader::new(content, End::None));
-        let store = IndexStore::new(reader.as_ref(), SizedOffset::new(size, Offset(0))).unwrap();
+        let store = EntryStore::new(reader.as_ref(), SizedOffset::new(size, Offset(0))).unwrap();
         let store = match store {
-            IndexStore::Plain(s) => s,
+            EntryStore::Plain(s) => s,
         };
         assert_eq!(store.entry_def.variants.len(), 1);
         let variant = &store.entry_def.variants[0];
@@ -180,9 +180,9 @@ mod tests {
         ];
         let size = Size(content.len() as u64);
         let reader = Box::new(BufReader::new(content, End::None));
-        let store = IndexStore::new(reader.as_ref(), SizedOffset::new(size, Offset(0))).unwrap();
+        let store = EntryStore::new(reader.as_ref(), SizedOffset::new(size, Offset(0))).unwrap();
         let store = match store {
-            IndexStore::Plain(s) => s,
+            EntryStore::Plain(s) => s,
         };
         assert_eq!(store.entry_def.variants.len(), 2);
         let variant = &store.entry_def.variants[0];

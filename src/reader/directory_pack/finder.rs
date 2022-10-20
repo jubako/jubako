@@ -1,21 +1,21 @@
 use super::entry::EntryTrait;
-use super::index_store::IndexStoreTrait;
+use super::entry_store::EntryStoreTrait;
 use super::private::KeyStorageTrait;
 use super::resolver::private::Resolver;
-use super::{DirectoryPack, IndexStore, Value};
+use super::{DirectoryPack, EntryStore, Value};
 use crate::bases::*;
 use std::rc::Rc;
 
 mod private {
     use super::*;
-    pub struct Finder<K: KeyStorageTrait, IS: IndexStoreTrait> {
+    pub struct Finder<K: KeyStorageTrait, IS: EntryStoreTrait> {
         store: Rc<IS>,
         offset: Idx<u32>,
         count: Count<u32>,
         resolver: Rc<Resolver<K>>,
     }
 
-    impl<K: KeyStorageTrait, IS: IndexStoreTrait> Finder<K, IS> {
+    impl<K: KeyStorageTrait, IS: EntryStoreTrait> Finder<K, IS> {
         pub fn new(
             store: Rc<IS>,
             offset: Idx<u32>,
@@ -73,7 +73,7 @@ mod private {
     }
 }
 
-pub type Finder = private::Finder<DirectoryPack, IndexStore>;
+pub type Finder = private::Finder<DirectoryPack, EntryStore>;
 
 #[cfg(test)]
 mod tests {
@@ -104,8 +104,8 @@ mod tests {
                 })
             }
         }
-        pub struct IndexStore {}
-        impl IndexStoreTrait for IndexStore {
+        pub struct EntryStore {}
+        impl EntryStoreTrait for EntryStore {
             type Entry = Entry;
             fn get_entry(&self, idx: Idx<u32>) -> Result<Entry> {
                 Ok(Entry::new(match idx {
@@ -139,7 +139,7 @@ mod tests {
     fn test_finder() {
         let key_storage = Rc::new(mock::KeyStorage {});
         let resolver = Rc::new(Resolver::new(key_storage));
-        let index_store = Rc::new(mock::IndexStore {});
+        let index_store = Rc::new(mock::EntryStore {});
         let finder = private::Finder::new(index_store, Idx(0), Count(10), Rc::clone(&resolver));
 
         for i in 0..10 {
