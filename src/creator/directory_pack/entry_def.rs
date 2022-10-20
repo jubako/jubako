@@ -1,6 +1,7 @@
+use super::key_store::KeyStore;
 use crate::bases::Writable;
 use crate::bases::*;
-use crate::creator::directory_pack::{Entry, KeyStore, Value};
+use crate::creator::directory_pack::{Entry, Value};
 use std::cell::RefCell;
 use std::rc::Rc;
 
