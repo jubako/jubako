@@ -7,3 +7,9 @@ test:
     - rustc --version && cargo --version  # Print version info for debugging
     - cargo build
     - cargo test --verbose
+
+examples:
+  script:
+    - cargo build --examples
+    - cargo run --example simple_create
+    - cargo run --example simple_read
