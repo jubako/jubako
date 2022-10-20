@@ -9,7 +9,7 @@ pub struct IndexHeader {
     pub entry_count: Count<u32>,
     pub entry_offset: Idx<u32>,
     pub extra_data: ContentAddress,
-    pub index_key: u8,
+    pub index_property: u8,
     pub name: String,
 }
 
@@ -20,14 +20,14 @@ impl Producable for IndexHeader {
         let entry_count = Count::<u32>::produce(stream)?;
         let entry_offset = Idx::<u32>::produce(stream)?;
         let extra_data = ContentAddress::produce(stream)?;
-        let index_key = stream.read_u8()?;
+        let index_property = stream.read_u8()?;
         let name = String::from_utf8(PString::produce(stream)?)?;
         Ok(Self {
             store_id,
             entry_count,
             entry_offset,
             extra_data,
-            index_key,
+            index_property,
             name,
         })
     }
@@ -77,7 +77,7 @@ mod tests {
             0x00, 0x00, 0xff, 0x00, // entry_count
             0x00, 0x00, 0x00, 0x02, // entry_offset
             0x05, 0x00, 0x00, 0x01, // extra_data
-            0x01, // index_key
+            0x01, // index_property
             0x05, 0x48, 0x65, 0x6C, 0x6C, 0x6F, // PString Hello
         ];
         let reader = Box::new(BufReader::new(content, End::None));
@@ -93,7 +93,7 @@ mod tests {
                     pack_id: Id(5),
                     content_id: Idx(1)
                 },
-                index_key: 1,
+                index_property: 1,
                 name: String::from("Hello")
             }
         );

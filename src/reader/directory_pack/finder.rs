@@ -58,12 +58,12 @@ mod private {
             }
         }
 
-        pub fn find(&self, index_key: u8, value: Value) -> Result<Option<Idx<u32>>> {
+        pub fn find(&self, property_index: u8, value: Value) -> Result<Option<Idx<u32>>> {
             for idx in 0..self.count.0 {
                 let entry = self._get_entry(Idx(idx))?;
                 let cmp = self
                     .resolver
-                    .compare(&entry.get_value(index_key.into())?, &value)?;
+                    .compare(&entry.get_value(property_index.into())?, &value)?;
                 if cmp.is_eq() {
                     return Ok(Some(Idx(idx)));
                 }

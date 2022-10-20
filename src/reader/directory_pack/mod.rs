@@ -1,11 +1,9 @@
 mod entry;
-mod entry_def;
 mod finder;
 mod index;
 mod index_store;
-mod key;
-mod key_def;
 mod key_store;
+mod layout;
 mod lazy_entry;
 mod raw_value;
 mod resolver;
@@ -25,7 +23,6 @@ pub use self::index::Index;
 pub use self::index_store::IndexStoreTrait;
 pub use crate::common::{Content, Value};
 pub use entry::EntryTrait;
-pub use key_def::{KeyDef, KeyDefKind};
 pub use lazy_entry::LazyEntry;
 pub use raw_value::{Array, Extend, RawValue};
 pub use resolver::Resolver;
@@ -287,7 +284,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x04, // entry_count (use only 4 from the 5 available)
             0x00, 0x00, 0x00, 0x01, // entry offset (skip the first one)
             0x00, 0x00, 0x00, 0x00, // extra_data
-            0x00, // index_key (use the first pstring a binary search key
+            0x00, // index_property (use the first pstring a binary search property
             0x08, b'm', b'y', b' ', b'i', b'n', b'd', b'e', b'x', // Pstring "my index"
         ]);
         // Add a index_ptr (offset 247+26=273/0x111)

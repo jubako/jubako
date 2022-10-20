@@ -1,5 +1,5 @@
 use super::entry::EntryTrait;
-use super::entry_def::EntryDef;
+use super::layout;
 use super::lazy_entry::LazyEntry;
 use crate::bases::*;
 
@@ -60,7 +60,7 @@ impl IndexStoreTrait for IndexStore {
 
 #[derive(Debug)]
 pub struct PlainStore {
-    pub entry_def: EntryDef,
+    pub entry_def: layout::Entry,
     pub entry_reader: Box<dyn Reader>,
 }
 
@@ -70,7 +70,7 @@ impl PlainStore {
         reader: &dyn Reader,
         pos_info: SizedOffset,
     ) -> Result<Self> {
-        let entry_def = EntryDef::produce(stream)?;
+        let entry_def = layout::Entry::produce(stream)?;
         let data_size = Size::produce(stream)?;
         // [TODO] use a array_reader here
         let entry_reader = reader.create_sub_reader(
@@ -94,19 +94,19 @@ impl PlainStore {
 
 #[cfg(test)]
 mod tests {
-    use super::super::key::{Key, KeyKind};
+    use super::layout::{Property, PropertyKind};
     use super::*;
 
     #[test]
-    fn test_1variant_allkeys() {
+    fn test_1variant_allproperties() {
         #[rustfmt::skip]
         let content = vec![
             0x00, // kind
             0x05, 0x67,        //entry_size (1383)
             0x01,        // variant count
-            0x15,        // key count (21)
+            0x15,        // property count (21)
             0b1000_0000, // Variant id
-            0b0000_0111, // padding key(8)
+            0b0000_0111, // padding (8)
             0b0001_0000, // classic content address
             0b0001_0001, // patch content address
             0b0010_0000, // u8
@@ -137,25 +137,25 @@ mod tests {
         assert_eq!(store.entry_def.variants.len(), 1);
         let variant = &store.entry_def.variants[0];
         let expected = vec![
-            Key::new(9, KeyKind::ContentAddress(0)),
-            Key::new(13, KeyKind::ContentAddress(1)),
-            Key::new(21, KeyKind::UnsignedInt(1)),
-            Key::new(22, KeyKind::UnsignedInt(3)),
-            Key::new(25, KeyKind::UnsignedInt(8)),
-            Key::new(33, KeyKind::SignedInt(1)),
-            Key::new(34, KeyKind::SignedInt(3)),
-            Key::new(37, KeyKind::SignedInt(8)),
-            Key::new(45, KeyKind::CharArray(1)),
-            Key::new(46, KeyKind::CharArray(8)),
-            Key::new(54, KeyKind::CharArray(9)),
-            Key::new(63, KeyKind::CharArray(264)),
-            Key::new(327, KeyKind::CharArray(1032)),
-            Key::new(1359, KeyKind::PString(1, 0x0F.into(), None)),
-            Key::new(1360, KeyKind::PString(8, 0x0F.into(), None)),
-            Key::new(1368, KeyKind::PString(1, 0x0F.into(), Some(2))),
-            Key::new(1371, KeyKind::PString(8, 0x0F.into(), Some(2))),
+            Property::new(9, PropertyKind::ContentAddress(0)),
+            Property::new(13, PropertyKind::ContentAddress(1)),
+            Property::new(21, PropertyKind::UnsignedInt(1)),
+            Property::new(22, PropertyKind::UnsignedInt(3)),
+            Property::new(25, PropertyKind::UnsignedInt(8)),
+            Property::new(33, PropertyKind::SignedInt(1)),
+            Property::new(34, PropertyKind::SignedInt(3)),
+            Property::new(37, PropertyKind::SignedInt(8)),
+            Property::new(45, PropertyKind::CharArray(1)),
+            Property::new(46, PropertyKind::CharArray(8)),
+            Property::new(54, PropertyKind::CharArray(9)),
+            Property::new(63, PropertyKind::CharArray(264)),
+            Property::new(327, PropertyKind::CharArray(1032)),
+            Property::new(1359, PropertyKind::PString(1, 0x0F.into(), None)),
+            Property::new(1360, PropertyKind::PString(8, 0x0F.into(), None)),
+            Property::new(1368, PropertyKind::PString(1, 0x0F.into(), Some(2))),
+            Property::new(1371, PropertyKind::PString(8, 0x0F.into(), Some(2))),
         ];
-        assert_eq!(&variant.keys, &expected);
+        assert_eq!(&variant.properties, &expected);
     }
 
     #[test]
@@ -165,11 +165,11 @@ mod tests {
             0x00, // kind
             0x00, 0x12,        //entry_size (18)
             0x02,        // variant count
-            0x0A,        // key count (10)
+            0x0A,        // property count (10)
             0b1000_0000, // Variant id
             0b0111_0100, 0x0F, // PstringLookup(5), idx 0x0F
             0b0100_0000,       // base char[1]
-            0b0000_0011, // padding key(4)
+            0b0000_0011, // padding(4)
             0b0001_0000, // classic content address
             0b0010_0010, // u24
             0b1000_0000, // Variant id
@@ -187,17 +187,17 @@ mod tests {
         assert_eq!(store.entry_def.variants.len(), 2);
         let variant = &store.entry_def.variants[0];
         let expected = vec![
-            Key::new(1, KeyKind::PString(5, 0x0F.into(), Some(1))),
-            Key::new(11, KeyKind::ContentAddress(0)),
-            Key::new(15, KeyKind::UnsignedInt(3)),
+            Property::new(1, PropertyKind::PString(5, 0x0F.into(), Some(1))),
+            Property::new(11, PropertyKind::ContentAddress(0)),
+            Property::new(15, PropertyKind::UnsignedInt(3)),
         ];
-        assert_eq!(&variant.keys, &expected);
+        assert_eq!(&variant.properties, &expected);
         let variant = &store.entry_def.variants[1];
         let expected = vec![
-            Key::new(1, KeyKind::CharArray(6)),
-            Key::new(7, KeyKind::ContentAddress(1)),
-            Key::new(15, KeyKind::UnsignedInt(3)),
+            Property::new(1, PropertyKind::CharArray(6)),
+            Property::new(7, PropertyKind::ContentAddress(1)),
+            Property::new(15, PropertyKind::UnsignedInt(3)),
         ];
-        assert_eq!(&variant.keys, &expected);
+        assert_eq!(&variant.properties, &expected);
     }
 }
