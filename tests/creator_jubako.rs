@@ -31,11 +31,11 @@ test_suite! {
         }
     }
 
-    fixture key_store_kind(k: creator::KeyStoreKind) -> creator::KeyStoreKind {
+    fixture key_store_kind(k: creator::ValueStoreKind) -> creator::ValueStoreKind {
         params {
             vec![
-                creator::KeyStoreKind::Plain,
-                creator::KeyStoreKind::Indexed,
+                creator::ValueStoreKind::Plain,
+                creator::ValueStoreKind::Indexed,
             ].into_iter()
         }
         setup(&mut self) {
@@ -77,14 +77,14 @@ test_suite! {
         Ok(pack_info)
     }
 
-    fn create_directory_pack(key_store_kind: creator::KeyStoreKind, entries: &Vec<TestEntry>) -> Result<creator::PackInfo> {
+    fn create_directory_pack(key_store_kind: creator::ValueStoreKind, entries: &Vec<TestEntry>) -> Result<creator::PackInfo> {
         let mut creator = creator::DirectoryPackCreator::new(
             "/tmp/directoryPack.jbkd",
             jubako::Id(1),
             1,
             jubako::FreeData::<U31>::clone_from_slice(&[0xff; 31])
         );
-        let key_store_handle = creator.create_key_store(key_store_kind);
+        let key_store_handle = creator.create_value_store(key_store_kind);
         let entry_def = creator::Entry::new(
             vec![
                 creator::Variant::new(vec![

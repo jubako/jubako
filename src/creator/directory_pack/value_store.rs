@@ -2,13 +2,13 @@ use super::WritableTell;
 use crate::bases::*;
 
 #[derive(Debug)]
-pub struct PlainKeyStore {
+pub struct PlainValueStore {
     idx: Idx<u8>,
     data: Vec<Vec<u8>>,
     size: usize,
 }
 
-impl PlainKeyStore {
+impl PlainValueStore {
     pub fn new(idx: Idx<u8>) -> Self {
         Self {
             idx,
@@ -17,7 +17,7 @@ impl PlainKeyStore {
         }
     }
 
-    pub fn add_key(&mut self, data: &[u8]) -> u64 {
+    pub fn add_value(&mut self, data: &[u8]) -> u64 {
         let offset = self.size as u64;
         self.data.push(data.to_vec());
         self.size += 1 + data.len();
@@ -33,7 +33,7 @@ impl PlainKeyStore {
     }
 }
 
-impl WritableTell for PlainKeyStore {
+impl WritableTell for PlainValueStore {
     fn write_data(&self, stream: &mut dyn OutStream) -> Result<()> {
         for data in &self.data {
             PString::write_string(data, stream)?;
@@ -49,13 +49,13 @@ impl WritableTell for PlainKeyStore {
 }
 
 #[derive(Debug)]
-pub struct IndexedKeyStore {
+pub struct IndexedValueStore {
     idx: Idx<u8>,
     data: Vec<Vec<u8>>,
     entries_offset: Vec<usize>,
 }
 
-impl IndexedKeyStore {
+impl IndexedValueStore {
     pub fn new(idx: Idx<u8>) -> Self {
         Self {
             idx,
@@ -68,7 +68,7 @@ impl IndexedKeyStore {
         self.entries_offset.last().copied().unwrap_or(0)
     }
 
-    pub fn add_key(&mut self, data: &[u8]) -> u64 {
+    pub fn add_value(&mut self, data: &[u8]) -> u64 {
         self.data.push(data.to_vec());
         self.entries_offset.push(self.current_offset() + data.len());
         (self.entries_offset.len() - 1) as u64
@@ -83,7 +83,7 @@ impl IndexedKeyStore {
     }
 }
 
-impl WritableTell for IndexedKeyStore {
+impl WritableTell for IndexedValueStore {
     fn write_data(&self, stream: &mut dyn OutStream) -> Result<()> {
         for d in &self.data {
             stream.write_data(d)?;
@@ -105,62 +105,62 @@ impl WritableTell for IndexedKeyStore {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum KeyStoreKind {
+pub enum ValueStoreKind {
     Plain,
     Indexed,
 }
 
 #[derive(Debug)]
-pub enum KeyStore {
-    PlainKeyStore(PlainKeyStore),
-    IndexedKeyStore(IndexedKeyStore),
+pub enum ValueStore {
+    PlainValueStore(PlainValueStore),
+    IndexedValueStore(IndexedValueStore),
 }
 
-impl KeyStore {
-    pub fn new(kind: KeyStoreKind, idx: Idx<u8>) -> KeyStore {
+impl ValueStore {
+    pub fn new(kind: ValueStoreKind, idx: Idx<u8>) -> ValueStore {
         match kind {
-            KeyStoreKind::Plain => KeyStore::PlainKeyStore(PlainKeyStore::new(idx)),
-            KeyStoreKind::Indexed => KeyStore::IndexedKeyStore(IndexedKeyStore::new(idx)),
+            ValueStoreKind::Plain => ValueStore::PlainValueStore(PlainValueStore::new(idx)),
+            ValueStoreKind::Indexed => ValueStore::IndexedValueStore(IndexedValueStore::new(idx)),
         }
     }
 
-    pub fn add_key(&mut self, data: &[u8]) -> u64 {
+    pub fn add_value(&mut self, data: &[u8]) -> u64 {
         match self {
-            KeyStore::PlainKeyStore(s) => s.add_key(data),
-            KeyStore::IndexedKeyStore(s) => s.add_key(data),
+            ValueStore::PlainValueStore(s) => s.add_value(data),
+            ValueStore::IndexedValueStore(s) => s.add_value(data),
         }
     }
 
     pub(crate) fn key_size(&self) -> u16 {
         match &self {
-            KeyStore::PlainKeyStore(s) => s.key_size(),
-            KeyStore::IndexedKeyStore(s) => s.key_size(),
+            ValueStore::PlainValueStore(s) => s.key_size(),
+            ValueStore::IndexedValueStore(s) => s.key_size(),
         }
     }
 
     pub(crate) fn get_idx(&self) -> Idx<u8> {
         match &self {
-            KeyStore::PlainKeyStore(s) => s.get_idx(),
-            KeyStore::IndexedKeyStore(s) => s.get_idx(),
+            ValueStore::PlainValueStore(s) => s.get_idx(),
+            ValueStore::IndexedValueStore(s) => s.get_idx(),
         }
     }
 }
 
-impl WritableTell for KeyStore {
+impl WritableTell for ValueStore {
     fn write_data(&self, stream: &mut dyn OutStream) -> Result<()> {
         match &self {
-            KeyStore::PlainKeyStore(s) => s.write_data(stream),
-            KeyStore::IndexedKeyStore(s) => s.write_data(stream),
+            ValueStore::PlainValueStore(s) => s.write_data(stream),
+            ValueStore::IndexedValueStore(s) => s.write_data(stream),
         }
     }
 
     fn write_tail(&self, stream: &mut dyn OutStream) -> Result<()> {
         match &self {
-            KeyStore::PlainKeyStore(s) => {
+            ValueStore::PlainValueStore(s) => {
                 stream.write_u8(0x00)?;
                 s.write_tail(stream)
             }
-            KeyStore::IndexedKeyStore(s) => {
+            ValueStore::IndexedValueStore(s) => {
                 stream.write_u8(0x01)?;
                 s.write_tail(stream)
             }

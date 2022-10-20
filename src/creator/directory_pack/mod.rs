@@ -2,14 +2,14 @@
 mod directory_pack;
 pub mod entry_def;
 mod entry_store;
-mod key_store;
+mod value_store;
 
 use super::{CheckInfo, PackInfo};
 use crate::bases::*;
 use crate::common;
 use crate::common::{Content, ContentAddress};
 pub use directory_pack::DirectoryPackCreator;
-pub use key_store::KeyStoreKind;
+pub use value_store::ValueStoreKind;
 
 trait WritableTell {
     fn write_data(&self, stream: &mut dyn OutStream) -> Result<()>;
@@ -27,7 +27,10 @@ enum Value {
     Content(Content),
     Unsigned(u64),
     Signed(i64),
-    Array { data: Vec<u8>, key_id: Option<u64> },
+    Array {
+        data: Vec<u8>,
+        value_id: Option<u64>,
+    },
 }
 
 pub struct Entry {
@@ -45,7 +48,7 @@ impl Entry {
                 common::Value::Signed(s) => Value::Signed(s),
                 common::Value::Array(a) => Value::Array {
                     data: a,
-                    key_id: None,
+                    value_id: None,
                 },
             })
             .collect();

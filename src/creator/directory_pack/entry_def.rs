@@ -1,4 +1,4 @@
-use super::key_store::KeyStore;
+use super::value_store::ValueStore;
 use crate::bases::Writable;
 use crate::bases::*;
 use crate::creator::directory_pack::{Entry, Value};
@@ -10,7 +10,7 @@ pub enum KeyDef {
     VariantId,
     PString(
         /*flookup_size:*/ usize,
-        /*store_handle:*/ Rc<RefCell<KeyStore>>,
+        /*store_handle:*/ Rc<RefCell<ValueStore>>,
     ),
     ContentAddress,
     UnsignedInt(/*max_value:*/ u64),
@@ -120,9 +120,9 @@ impl VariantDef {
                 KeyDef::PString(flookup_size, store_handle) => {
                     let flookup_size = *flookup_size as usize;
                     let value = value_iter.next().unwrap();
-                    if let Value::Array { data, key_id } = value {
+                    if let Value::Array { data, value_id } = value {
                         written += stream.write_sized(
-                            key_id.unwrap(),
+                            value_id.unwrap(),
                             store_handle.borrow().key_size() as usize,
                         )?;
                         written += stream.write_data(data)?;

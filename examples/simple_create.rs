@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     // Entries have fixed sizes. We need to store variable length values in an extra store.
-    let value_store = directory_pack.create_key_store(jbk::creator::KeyStoreKind::Plain);
+    let value_store = directory_pack.create_value_store(jbk::creator::ValueStoreKind::Plain);
 
     // Our entry kind will have two variants.
     let entry_def = jbk::creator::Entry::new(vec![

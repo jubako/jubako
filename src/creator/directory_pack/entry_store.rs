@@ -36,9 +36,9 @@ impl EntryStore {
                     entry_def::KeyDef::PString(flookup_size, store_handle) => {
                         let flookup_size = *flookup_size;
                         let value = value_iter.next().unwrap();
-                        if let Value::Array { data, key_id } = value {
+                        if let Value::Array { data, value_id } = value {
                             let to_store = data.split_off(cmp::min(flookup_size, data.len()));
-                            *key_id = Some(store_handle.borrow_mut().add_key(&to_store));
+                            *value_id = Some(store_handle.borrow_mut().add_value(&to_store));
                         }
                     }
                     entry_def::KeyDef::UnsignedInt(max_value) => {

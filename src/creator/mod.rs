@@ -8,7 +8,7 @@ use crate::common::{CheckKind, PackPos};
 pub use crate::common::{Content, Value};
 pub use content_pack::ContentPackCreator;
 pub use directory_pack::entry_def::{EntryDef as Entry, KeyDef as Key, VariantDef as Variant};
-pub use directory_pack::{DirectoryPackCreator, KeyStoreKind};
+pub use directory_pack::{DirectoryPackCreator, ValueStoreKind};
 pub use manifest_pack::ManifestPackCreator;
 use typenum::U103;
 
