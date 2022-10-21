@@ -1,5 +1,4 @@
-use std::mem::size_of;
-use std::mem::size_of_val;
+use std::mem::{size_of, size_of_val};
 use std::ptr::copy_nonoverlapping;
 
 macro_rules! write_num_bytes {

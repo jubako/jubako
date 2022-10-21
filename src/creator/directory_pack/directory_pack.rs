@@ -1,8 +1,4 @@
-use super::entry_store;
-use super::layout;
-use super::value_store;
-use super::{CheckInfo, PackInfo};
-use super::{Index, WritableTell};
+use super::{entry_store, layout, value_store, CheckInfo, Index, PackInfo, WritableTell};
 use crate::bases::*;
 use crate::common::{ContentAddress, DirectoryPackHeader, PackHeaderInfo};
 use entry_store::EntryStore;

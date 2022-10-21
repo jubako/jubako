@@ -1,5 +1,4 @@
-use super::layout;
-use super::{Entry, Value, WritableTell};
+use super::{layout, Entry, Value, WritableTell};
 use crate::bases::*;
 use crate::common;
 use std::cmp;
