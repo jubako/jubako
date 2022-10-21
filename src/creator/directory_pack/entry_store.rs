@@ -33,7 +33,7 @@ impl EntryStore {
             let variant = &mut self.layout.variants[entry.variant_id as usize];
             for key in &mut variant.keys {
                 match key {
-                    layout::Property::PString(flookup_size, store_handle) => {
+                    layout::Property::VLArray(flookup_size, store_handle) => {
                         let flookup_size = *flookup_size;
                         let value = value_iter.next().unwrap();
                         if let Value::Array { data, value_id } = value {

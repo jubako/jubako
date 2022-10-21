@@ -7,7 +7,7 @@ use std::rc::Rc;
 #[derive(Debug)]
 pub enum Property {
     VariantId,
-    PString(
+    VLArray(
         /*flookup_size:*/ usize,
         /*store_handle:*/ Rc<RefCell<ValueStore>>,
     ),
@@ -24,7 +24,7 @@ impl Property {
     pub(crate) fn size(&self) -> u16 {
         match self {
             Property::VariantId => 1,
-            Property::PString(flookup_size, store_handle) => {
+            Property::VLArray(flookup_size, store_handle) => {
                 (*flookup_size as u16) + store_handle.borrow().key_size()
             }
             Property::ContentAddress => 4,
@@ -35,7 +35,7 @@ impl Property {
 
     pub(crate) fn key_count(&self) -> u8 {
         match self {
-            Property::PString(flookup_size, _) => {
+            Property::VLArray(flookup_size, _) => {
                 if *flookup_size > 0 {
                     2
                 } else {
@@ -54,7 +54,7 @@ impl Writable for Property {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         match self {
             Property::VariantId => stream.write_u8(0b1000_0000),
-            Property::PString(flookup_size, store_handle) => {
+            Property::VLArray(flookup_size, store_handle) => {
                 let mut flookup_size = *flookup_size;
                 let keytype = if flookup_size > 0 {
                     0b0111_0000

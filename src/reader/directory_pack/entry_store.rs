@@ -150,10 +150,10 @@ mod tests {
             Property::new(54, PropertyKind::CharArray(9)),
             Property::new(63, PropertyKind::CharArray(264)),
             Property::new(327, PropertyKind::CharArray(1032)),
-            Property::new(1359, PropertyKind::PString(1, 0x0F.into(), None)),
-            Property::new(1360, PropertyKind::PString(8, 0x0F.into(), None)),
-            Property::new(1368, PropertyKind::PString(1, 0x0F.into(), Some(2))),
-            Property::new(1371, PropertyKind::PString(8, 0x0F.into(), Some(2))),
+            Property::new(1359, PropertyKind::VLArray(1, 0x0F.into(), None)),
+            Property::new(1360, PropertyKind::VLArray(8, 0x0F.into(), None)),
+            Property::new(1368, PropertyKind::VLArray(1, 0x0F.into(), Some(2))),
+            Property::new(1371, PropertyKind::VLArray(8, 0x0F.into(), Some(2))),
         ];
         assert_eq!(&variant.properties, &expected);
     }
@@ -187,7 +187,7 @@ mod tests {
         assert_eq!(store.entry_def.variants.len(), 2);
         let variant = &store.entry_def.variants[0];
         let expected = vec![
-            Property::new(1, PropertyKind::PString(5, 0x0F.into(), Some(1))),
+            Property::new(1, PropertyKind::VLArray(5, 0x0F.into(), Some(1))),
             Property::new(11, PropertyKind::ContentAddress(0)),
             Property::new(15, PropertyKind::UnsignedInt(3)),
         ];

@@ -30,12 +30,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Our entry kind will have two variants.
     let entry_def = layout::Entry::new(vec![
         layout::Variant::new(vec![
-            layout::Property::PString(0, Rc::clone(&value_store)), // One string, will be stored in value_store
+            layout::Property::VLArray(0, Rc::clone(&value_store)), // One string, will be stored in value_store
             layout::Property::new_int(),                           // A integer
             layout::Property::ContentAddress,                      // A "pointer" to a content.
         ]),
         layout::Variant::new(vec![
-            layout::Property::PString(0, Rc::clone(&value_store)),
+            layout::Property::VLArray(0, Rc::clone(&value_store)),
             layout::Property::new_int(), //
             layout::Property::new_int(), //
         ]),

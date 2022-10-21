@@ -10,7 +10,7 @@ pub enum PropertyKind {
     UnsignedInt(usize),
     SignedInt(usize),
     CharArray(usize),
-    PString(usize, Idx<u8>, Option<usize>),
+    VLArray(usize, Idx<u8>, Option<usize>),
     None,
 }
 
@@ -80,7 +80,7 @@ impl Property {
                 Property::create_array(self.offset, *size, reader)?,
                 None,
             )),
-            PropertyKind::PString(size, store_id, base) => {
+            PropertyKind::VLArray(size, store_id, base) => {
                 let value_id = reader.read_usized(self.offset, *size)?;
                 let base = match base {
                     None => Vec::new(),
@@ -305,10 +305,10 @@ mod tests {
     }
 
     #[test]
-    fn test_pstring() {
+    fn test_vlarray() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
         let reader = BufReader::new(content, End::None);
-        let prop = Property::new(0, PropertyKind::PString(1, Idx::from(255), None));
+        let prop = Property::new(0, PropertyKind::VLArray(1, Idx::from(255), None));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
@@ -316,7 +316,7 @@ mod tests {
                 Some(Extend::new(Idx::from(255), 0xFE))
             ))
         );
-        let prop = Property::new(2, PropertyKind::PString(1, Idx::from(255), None));
+        let prop = Property::new(2, PropertyKind::VLArray(1, Idx::from(255), None));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
@@ -325,7 +325,7 @@ mod tests {
             ))
         );
 
-        let prop = Property::new(0, PropertyKind::PString(2, Idx::from(255), None));
+        let prop = Property::new(0, PropertyKind::VLArray(2, Idx::from(255), None));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
@@ -333,7 +333,7 @@ mod tests {
                 Some(Extend::new(Idx::from(255), 0xFEDC))
             ))
         );
-        let prop = Property::new(2, PropertyKind::PString(2, Idx::from(255), None));
+        let prop = Property::new(2, PropertyKind::VLArray(2, Idx::from(255), None));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
@@ -342,7 +342,7 @@ mod tests {
             ))
         );
 
-        let prop = Property::new(0, PropertyKind::PString(1, Idx::from(255), Some(1)));
+        let prop = Property::new(0, PropertyKind::VLArray(1, Idx::from(255), Some(1)));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
@@ -350,7 +350,7 @@ mod tests {
                 Some(Extend::new(Idx::from(255), 0xFE))
             ))
         );
-        let prop = Property::new(2, PropertyKind::PString(1, Idx::from(255), Some(1)));
+        let prop = Property::new(2, PropertyKind::VLArray(1, Idx::from(255), Some(1)));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
@@ -359,7 +359,7 @@ mod tests {
             ))
         );
 
-        let prop = Property::new(0, PropertyKind::PString(1, Idx::from(255), Some(3)));
+        let prop = Property::new(0, PropertyKind::VLArray(1, Idx::from(255), Some(3)));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
@@ -367,7 +367,7 @@ mod tests {
                 Some(Extend::new(Idx::from(255), 0xFE))
             ))
         );
-        let prop = Property::new(2, PropertyKind::PString(1, Idx::from(255), Some(3)));
+        let prop = Property::new(2, PropertyKind::VLArray(1, Idx::from(255), Some(3)));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
@@ -376,7 +376,7 @@ mod tests {
             ))
         );
 
-        let prop = Property::new(0, PropertyKind::PString(3, Idx::from(255), Some(3)));
+        let prop = Property::new(0, PropertyKind::VLArray(3, Idx::from(255), Some(3)));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
@@ -384,7 +384,7 @@ mod tests {
                 Some(Extend::new(Idx::from(255), 0xFEDCBA))
             ))
         );
-        let prop = Property::new(2, PropertyKind::PString(3, Idx::from(255), Some(3)));
+        let prop = Property::new(2, PropertyKind::VLArray(3, Idx::from(255), Some(3)));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(

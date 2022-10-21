@@ -68,7 +68,7 @@ impl Variant {
                 current_idx + 1,
                 offset + raw_property.size,
             )),
-            RawPropertyKind::PString(flookup, valuestoreid) => {
+            RawPropertyKind::VLArray(flookup, valuestoreid) => {
                 let (subproperty, new_idx, new_offset) = if flookup {
                     let subproperty = Self::build_property(
                         current_idx + 1,
@@ -79,7 +79,7 @@ impl Variant {
                         s
                     } else {
                         return Err(format_error!(
-                            "Lookup PString property must be followed by a CharArray property."
+                            "Lookup VLArray property must be followed by a CharArray property."
                         ));
                     };
                     (Some(subproperty_size), subproperty.1, subproperty.2)
@@ -89,7 +89,7 @@ impl Variant {
                 Ok((
                     Property::new(
                         offset,
-                        PropertyKind::PString(raw_property.size, valuestoreid.into(), subproperty),
+                        PropertyKind::VLArray(raw_property.size, valuestoreid.into(), subproperty),
                     ),
                     new_idx,
                     new_offset,

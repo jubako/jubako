@@ -26,7 +26,7 @@ impl Variant {
         let mut value_iter = entry.values.iter();
         for key in &self.keys {
             match key {
-                Property::PString(flookup_size, store_handle) => {
+                Property::VLArray(flookup_size, store_handle) => {
                     let flookup_size = *flookup_size as usize;
                     let value = value_iter.next().unwrap();
                     if let Value::Array { data, value_id } = value {

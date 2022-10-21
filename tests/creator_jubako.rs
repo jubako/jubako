@@ -89,7 +89,7 @@ test_suite! {
         let entry_def = layout::Entry::new(
             vec![
                 layout::Variant::new(vec![
-                    layout::Property::PString(0, key_store_handle),
+                    layout::Property::VLArray(0, key_store_handle),
                     layout::Property::ContentAddress,
                     layout::Property::new_int()
                 ])

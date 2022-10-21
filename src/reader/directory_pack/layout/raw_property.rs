@@ -8,7 +8,7 @@ pub enum RawPropertyKind {
     UnsignedInt,
     SignedInt,
     CharArray,
-    PString(bool /*flookup*/, u8 /*idx*/),
+    VLArray(bool /*flookup*/, u8 /*idx*/),
     VariantId,
 }
 
@@ -64,7 +64,7 @@ impl Producable for RawProperty {
                 let flookup: bool = proptype & 0b1 != 0;
                 let size = propdata as u16 + 1;
                 let valuestoreidx = stream.read_u8()?;
-                (size, RawPropertyKind::PString(flookup, valuestoreidx))
+                (size, RawPropertyKind::VLArray(flookup, valuestoreidx))
             }
             0b1000 => (1, RawPropertyKind::VariantId),
             _ => {
@@ -103,10 +103,10 @@ mod tests {
     #[test_case(&[0b0100_1000, 0x00]=> RawProperty{size:9, kind:RawPropertyKind::CharArray })]
     #[test_case(&[0b0100_1000, 0xFF]=> RawProperty{size:264, kind:RawPropertyKind::CharArray })]
     #[test_case(&[0b0100_1011, 0xFF]=> RawProperty{size:1032, kind:RawPropertyKind::CharArray })]
-    #[test_case(&[0b0110_0000, 0x0F]=> RawProperty{size:1, kind:RawPropertyKind::PString(false, 0x0F) })]
-    #[test_case(&[0b0110_0111, 0x0F]=> RawProperty{size:8, kind:RawPropertyKind::PString(false, 0x0F) })]
-    #[test_case(&[0b0111_0000, 0x0F]=> RawProperty{size:1, kind:RawPropertyKind::PString(true, 0x0F) })]
-    #[test_case(&[0b0111_0111, 0x0F]=> RawProperty{size:8, kind:RawPropertyKind::PString(true, 0x0F) })]
+    #[test_case(&[0b0110_0000, 0x0F]=> RawProperty{size:1, kind:RawPropertyKind::VLArray(false, 0x0F) })]
+    #[test_case(&[0b0110_0111, 0x0F]=> RawProperty{size:8, kind:RawPropertyKind::VLArray(false, 0x0F) })]
+    #[test_case(&[0b0111_0000, 0x0F]=> RawProperty{size:1, kind:RawPropertyKind::VLArray(true, 0x0F) })]
+    #[test_case(&[0b0111_0111, 0x0F]=> RawProperty{size:8, kind:RawPropertyKind::VLArray(true, 0x0F) })]
     fn test_rawproperty(source: &[u8]) -> RawProperty {
         let mut content = Vec::new();
         content.extend_from_slice(source);
