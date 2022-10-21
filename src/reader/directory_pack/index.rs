@@ -1,4 +1,4 @@
-use super::{EntryStorage, Finder, Resolver};
+use super::{EntryStorage, Finder};
 use crate::bases::*;
 use crate::common::ContentAddress;
 use std::rc::Rc;
@@ -51,13 +51,12 @@ impl Index {
         self.header.entry_count
     }
 
-    pub fn get_finder(&self, entry_storage: &EntryStorage, resolver: Resolver) -> Result<Finder> {
+    pub fn get_finder(&self, entry_storage: &EntryStorage) -> Result<Finder> {
         let store = entry_storage.get_entry_store(self.header.store_id)?;
         Ok(Finder::new(
             Rc::clone(store),
             self.entry_offset(),
             self.entry_count(),
-            resolver,
         ))
     }
 

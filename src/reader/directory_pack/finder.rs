@@ -1,35 +1,28 @@
 use super::entry_store::EntryStoreTrait;
-use super::private::ValueStorageTrait;
-use super::resolver::private::Resolver;
-use super::{EntryStore, EntryTrait, Value, ValueStorage};
+use super::property_compare::CompareTrait;
+use super::EntryStore;
 use crate::bases::*;
 use std::rc::Rc;
 
 mod private {
     use super::*;
-    pub struct Finder<K: ValueStorageTrait, IS: EntryStoreTrait> {
-        store: Rc<IS>,
+
+    pub struct Finder<EntryStore: EntryStoreTrait> {
+        store: Rc<EntryStore>,
         offset: EntryIdx,
         count: EntryCount,
-        resolver: Resolver<K>,
     }
 
-    impl<K: ValueStorageTrait, IS: EntryStoreTrait> Finder<K, IS> {
-        pub fn new(
-            store: Rc<IS>,
-            offset: EntryIdx,
-            count: EntryCount,
-            resolver: Resolver<K>,
-        ) -> Self {
+    impl<EntryStore: EntryStoreTrait> Finder<EntryStore> {
+        pub fn new(store: Rc<EntryStore>, offset: EntryIdx, count: EntryCount) -> Self {
             Self {
                 store,
                 offset,
                 count,
-                resolver,
             }
         }
 
-        fn _get_entry(&self, id: EntryIdx) -> Result<IS::Entry> {
+        fn _get_entry(&self, id: EntryIdx) -> Result<EntryStore::Entry> {
             self.store.get_entry(self.offset + id)
         }
 
@@ -41,15 +34,11 @@ mod private {
             self.count
         }
 
-        pub fn get_resolver(&self) -> &Resolver<K> {
-            &self.resolver
-        }
-
-        pub fn get_store(&self) -> &Rc<IS> {
+        pub fn get_store(&self) -> &Rc<EntryStore> {
             &self.store
         }
 
-        pub fn get_entry(&self, id: EntryIdx) -> Result<IS::Entry> {
+        pub fn get_entry(&self, id: EntryIdx) -> Result<EntryStore::Entry> {
             if id.is_valid(self.count) {
                 self._get_entry(id)
             } else {
@@ -57,12 +46,13 @@ mod private {
             }
         }
 
-        pub fn find(&self, property_index: PropertyIdx, value: Value) -> Result<Option<EntryIdx>> {
-            for idx in self.count.into_iter() {
+        pub fn find<F>(&self, comparator: &F) -> Result<Option<EntryIdx>>
+        where
+            F: CompareTrait<EntryStore::Entry>,
+        {
+            for idx in self.count {
                 let entry = self._get_entry(idx)?;
-                let cmp = self
-                    .resolver
-                    .compare(&entry.get_value(property_index)?, &value)?;
+                let cmp = comparator.compare(&entry)?;
                 if cmp.is_eq() {
                     return Ok(Some(idx));
                 }
@@ -72,16 +62,20 @@ mod private {
     }
 }
 
-pub type Finder = private::Finder<ValueStorage, EntryStore>;
+pub type Finder = private::Finder<EntryStore>;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::reader::directory_pack::resolver::private::Resolver;
+    use crate::reader::directory_pack::EntryTrait;
     use crate::reader::RawValue;
+    use crate::reader::Value;
     use std::rc::Rc;
 
     mod mock {
         use super::*;
+        use crate::reader::directory_pack::private::ValueStorageTrait;
         use crate::reader::directory_pack::value_store::ValueStoreTrait;
         #[derive(PartialEq, Eq, Debug)]
         pub struct Entry {
@@ -129,6 +123,12 @@ mod tests {
                 unreachable!()
             }
         }
+
+        pub type PropertyCompare =
+            crate::reader::directory_pack::property_compare::private::PropertyCompare<
+                ValueStorage,
+                EntryStore,
+            >;
     }
 
     #[test]
@@ -136,7 +136,7 @@ mod tests {
         let value_storage = Rc::new(mock::ValueStorage {});
         let resolver = Resolver::new(Rc::clone(&value_storage));
         let index_store = Rc::new(mock::EntryStore {});
-        let finder = private::Finder::new(index_store, 0.into(), 10.into(), resolver.clone());
+        let finder = private::Finder::new(index_store, 0.into(), 10.into());
         for i in 0..10 {
             let entry = finder.get_entry(i.into()).unwrap();
             let value0 = entry.get_value(0.into()).unwrap();
@@ -144,13 +144,17 @@ mod tests {
         }
 
         for i in 0..10 {
-            let idx = finder.find(0.into(), Value::Unsigned(i)).unwrap().unwrap();
+            let comparator =
+                mock::PropertyCompare::new(resolver.clone(), 0.into(), Value::Unsigned(i));
+            let idx = finder.find(&comparator).unwrap().unwrap();
             let entry = finder.get_entry(idx).unwrap();
             let value0 = entry.get_value(0.into()).unwrap();
             assert_eq!(resolver.resolve_to_unsigned(&value0), i as u64);
         }
 
-        let result = finder.find(0.into(), Value::Unsigned(10)).unwrap();
+        let comparator =
+            mock::PropertyCompare::new(resolver.clone(), 0.into(), Value::Unsigned(10));
+        let result = finder.find(&comparator).unwrap();
         assert_eq!(result, None);
     }
 }
