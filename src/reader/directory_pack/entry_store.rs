@@ -145,11 +145,11 @@ mod tests {
             Property::new(33, PropertyKind::SignedInt(1)),
             Property::new(34, PropertyKind::SignedInt(3)),
             Property::new(37, PropertyKind::SignedInt(8)),
-            Property::new(45, PropertyKind::CharArray(1)),
-            Property::new(46, PropertyKind::CharArray(8)),
-            Property::new(54, PropertyKind::CharArray(9)),
-            Property::new(63, PropertyKind::CharArray(264)),
-            Property::new(327, PropertyKind::CharArray(1032)),
+            Property::new(45, PropertyKind::Array(1)),
+            Property::new(46, PropertyKind::Array(8)),
+            Property::new(54, PropertyKind::Array(9)),
+            Property::new(63, PropertyKind::Array(264)),
+            Property::new(327, PropertyKind::Array(1032)),
             Property::new(1359, PropertyKind::VLArray(1, 0x0F.into(), None)),
             Property::new(1360, PropertyKind::VLArray(8, 0x0F.into(), None)),
             Property::new(1368, PropertyKind::VLArray(1, 0x0F.into(), Some(2))),
@@ -194,7 +194,7 @@ mod tests {
         assert_eq!(&variant.properties, &expected);
         let variant = &store.entry_def.variants[1];
         let expected = vec![
-            Property::new(1, PropertyKind::CharArray(6)),
+            Property::new(1, PropertyKind::Array(6)),
             Property::new(7, PropertyKind::ContentAddress(1)),
             Property::new(15, PropertyKind::UnsignedInt(3)),
         ];

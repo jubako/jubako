@@ -9,7 +9,7 @@ pub enum PropertyKind {
     ContentAddress(u8),
     UnsignedInt(usize),
     SignedInt(usize),
-    CharArray(usize),
+    Array(usize),
     VLArray(usize, Idx<u8>, Option<usize>),
     None,
 }
@@ -76,7 +76,7 @@ impl Property {
                 5 | 6 | 7 | 8 => RawValue::I64(reader.read_isized(self.offset, *size)?),
                 _ => unreachable!(),
             },
-            PropertyKind::CharArray(size) => RawValue::Array(Array::new(
+            PropertyKind::Array(size) => RawValue::Array(Array::new(
                 Property::create_array(self.offset, *size, reader)?,
                 None,
             )),
@@ -258,43 +258,43 @@ mod tests {
     }
 
     #[test]
-    fn test_chararray() {
+    fn test_array() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
         let reader = BufReader::new(content, End::None);
-        let prop = Property::new(0, PropertyKind::CharArray(1));
+        let prop = Property::new(0, PropertyKind::Array(1));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(vec!(0xFE), None))
         );
-        let prop = Property::new(2, PropertyKind::CharArray(1));
+        let prop = Property::new(2, PropertyKind::Array(1));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(vec!(0xBA), None))
         );
 
-        let prop = Property::new(0, PropertyKind::CharArray(2));
+        let prop = Property::new(0, PropertyKind::Array(2));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(vec!(0xFE, 0xDC), None))
         );
-        let prop = Property::new(2, PropertyKind::CharArray(2));
+        let prop = Property::new(2, PropertyKind::Array(2));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(vec!(0xBA, 0x98), None))
         );
 
-        let prop = Property::new(0, PropertyKind::CharArray(3));
+        let prop = Property::new(0, PropertyKind::Array(3));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(vec!(0xFE, 0xDC, 0xBA), None))
         );
-        let prop = Property::new(2, PropertyKind::CharArray(3));
+        let prop = Property::new(2, PropertyKind::Array(3));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(vec!(0xBA, 0x98, 0x76), None))
         );
 
-        let prop = Property::new(0, PropertyKind::CharArray(8));
+        let prop = Property::new(0, PropertyKind::Array(8));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(

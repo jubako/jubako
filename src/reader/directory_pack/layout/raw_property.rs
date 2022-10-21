@@ -7,7 +7,7 @@ pub enum RawPropertyKind {
     ContentAddress(u8),
     UnsignedInt,
     SignedInt,
-    CharArray,
+    Array,
     VLArray(bool /*flookup*/, u8 /*idx*/),
     VariantId,
 }
@@ -57,7 +57,7 @@ impl Producable for RawProperty {
                         let complement = stream.read_u8()?;
                         (((propdata & 0x03) as u16) << 8) + complement as u16 + 9
                     },
-                    RawPropertyKind::CharArray,
+                    RawPropertyKind::Array,
                 )
             }
             0b0110 | 0b0111 => {
@@ -98,11 +98,11 @@ mod tests {
     #[test_case(&[0b0010_1000] => RawProperty{size:1, kind:RawPropertyKind::SignedInt })]
     #[test_case(&[0b0010_1010] => RawProperty{size:3, kind:RawPropertyKind::SignedInt })]
     #[test_case(&[0b0010_1111] => RawProperty{size:8, kind:RawPropertyKind::SignedInt })]
-    #[test_case(&[0b0100_0000] => RawProperty{size:1, kind:RawPropertyKind::CharArray })]
-    #[test_case(&[0b0100_0111] => RawProperty{size:8, kind:RawPropertyKind::CharArray })]
-    #[test_case(&[0b0100_1000, 0x00]=> RawProperty{size:9, kind:RawPropertyKind::CharArray })]
-    #[test_case(&[0b0100_1000, 0xFF]=> RawProperty{size:264, kind:RawPropertyKind::CharArray })]
-    #[test_case(&[0b0100_1011, 0xFF]=> RawProperty{size:1032, kind:RawPropertyKind::CharArray })]
+    #[test_case(&[0b0100_0000] => RawProperty{size:1, kind:RawPropertyKind::Array })]
+    #[test_case(&[0b0100_0111] => RawProperty{size:8, kind:RawPropertyKind::Array })]
+    #[test_case(&[0b0100_1000, 0x00]=> RawProperty{size:9, kind:RawPropertyKind::Array })]
+    #[test_case(&[0b0100_1000, 0xFF]=> RawProperty{size:264, kind:RawPropertyKind::Array })]
+    #[test_case(&[0b0100_1011, 0xFF]=> RawProperty{size:1032, kind:RawPropertyKind::Array })]
     #[test_case(&[0b0110_0000, 0x0F]=> RawProperty{size:1, kind:RawPropertyKind::VLArray(false, 0x0F) })]
     #[test_case(&[0b0110_0111, 0x0F]=> RawProperty{size:8, kind:RawPropertyKind::VLArray(false, 0x0F) })]
     #[test_case(&[0b0111_0000, 0x0F]=> RawProperty{size:1, kind:RawPropertyKind::VLArray(true, 0x0F) })]

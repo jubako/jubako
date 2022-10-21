@@ -63,8 +63,8 @@ impl Variant {
                 current_idx + 1,
                 offset + raw_property.size,
             )),
-            RawPropertyKind::CharArray => Ok((
-                Property::new(offset, PropertyKind::CharArray(raw_property.size)),
+            RawPropertyKind::Array => Ok((
+                Property::new(offset, PropertyKind::Array(raw_property.size)),
                 current_idx + 1,
                 offset + raw_property.size,
             )),
@@ -75,11 +75,11 @@ impl Variant {
                         offset + raw_property.size,
                         raw_properties,
                     )?;
-                    let subproperty_size = if let PropertyKind::CharArray(s) = subproperty.0.kind {
+                    let subproperty_size = if let PropertyKind::Array(s) = subproperty.0.kind {
                         s
                     } else {
                         return Err(format_error!(
-                            "Lookup VLArray property must be followed by a CharArray property."
+                            "Lookup VLArray property must be followed by a Array property."
                         ));
                     };
                     (Some(subproperty_size), subproperty.1, subproperty.2)

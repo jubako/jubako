@@ -150,7 +150,7 @@ mod tests {
                 Rc::new(
                     Variant::new(vec![
                         RawProperty::new(RawPropertyKind::VariantId, 1),
-                        RawProperty::new(RawPropertyKind::CharArray, 4),
+                        RawProperty::new(RawPropertyKind::Array, 4),
                         RawProperty::new(RawPropertyKind::UnsignedInt, 2),
                     ])
                     .unwrap(),
@@ -158,7 +158,7 @@ mod tests {
                 Rc::new(
                     Variant::new(vec![
                         RawProperty::new(RawPropertyKind::VariantId, 1),
-                        RawProperty::new(RawPropertyKind::CharArray, 2),
+                        RawProperty::new(RawPropertyKind::Array, 2),
                         RawProperty::new(RawPropertyKind::Padding, 1),
                         RawProperty::new(RawPropertyKind::SignedInt, 1),
                         RawProperty::new(RawPropertyKind::UnsignedInt, 2),
