@@ -1,11 +1,13 @@
 #[macro_use]
 mod types;
+mod cache;
 mod io;
 pub mod primitive;
 mod reader;
 mod stream;
 mod write;
 
+pub use cache::*;
 pub use io::*;
 pub use reader::*;
 use std::cmp;
