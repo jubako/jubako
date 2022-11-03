@@ -54,6 +54,14 @@ impl private::ValueStorageTrait for ValueStorage {
     }
 }
 
+pub struct EntryStorage(VecCache<EntryStore, DirectoryPack>);
+
+impl EntryStorage {
+    pub fn new(source: Rc<DirectoryPack>) -> Self {
+        Self(VecCache::new(source))
+    }
+}
+
 pub struct DirectoryPack {
     header: DirectoryPackHeader,
     value_stores_ptrs: ArrayReader<SizedOffset, u8>,
@@ -126,6 +134,10 @@ impl DirectoryPack {
     pub fn create_value_storage(self: &Rc<Self>) -> Rc<ValueStorage> {
         Rc::new(ValueStorage::new(Rc::clone(self)))
     }
+
+    pub fn create_entry_storage(self: &Rc<Self>) -> Rc<EntryStorage> {
+        Rc::new(EntryStorage::new(Rc::clone(self)))
+    }
 }
 
 impl CachableSource<ValueStore> for DirectoryPack {
@@ -137,6 +149,18 @@ impl CachableSource<ValueStore> for DirectoryPack {
     fn get_value(&self, id: Self::Idx) -> Result<Rc<ValueStore>> {
         let sized_offset = self.value_stores_ptrs.index(*id)?;
         Ok(Rc::new(ValueStore::new(&self.reader, sized_offset)?))
+    }
+}
+
+impl CachableSource<EntryStore> for DirectoryPack {
+    type Idx = EntryStoreIdx;
+    fn get_len(&self) -> usize {
+        self.header.entry_store_count.into_usize()
+    }
+
+    fn get_value(&self, id: Self::Idx) -> Result<Rc<EntryStore>> {
+        let sized_offset = self.entry_stores_ptrs.index(*id)?;
+        Ok(Rc::new(EntryStore::new(&self.reader, sized_offset)?))
     }
 }
 

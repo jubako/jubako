@@ -263,3 +263,10 @@ impl From<ValueStoreIdx> for usize {
         v.into_usize()
     }
 }
+
+#[cfg(target_pointer_width = "64")]
+impl From<EntryStoreIdx> for usize {
+    fn from(v: EntryStoreIdx) -> usize {
+        v.into_usize()
+    }
+}
