@@ -60,6 +60,10 @@ impl EntryStorage {
     pub fn new(source: Rc<DirectoryPack>) -> Self {
         Self(VecCache::new(source))
     }
+
+    pub fn get_entry_store(&self, store_id: EntryStoreIdx) -> Result<&Rc<EntryStore>> {
+        self.0.get(store_id)
+    }
 }
 
 pub struct DirectoryPack {
@@ -107,8 +111,7 @@ impl DirectoryPack {
         let sized_offset = self.index_ptrs.index(*index_id)?;
         let mut index_stream = self.reader.create_stream_for(sized_offset);
         let index_header = IndexHeader::produce(&mut index_stream)?;
-        let store = self.get_store(index_header.store_id)?;
-        let index = Index::new(index_header, Rc::new(store));
+        let index = Index::new(index_header);
         Ok(index)
     }
 
@@ -118,17 +121,11 @@ impl DirectoryPack {
             let mut index_stream = self.reader.create_stream_for(sized_offset);
             let index_header = IndexHeader::produce(&mut index_stream)?;
             if index_header.name == index_name {
-                let store = self.get_store(index_header.store_id)?;
-                let index = Index::new(index_header, Rc::new(store));
+                let index = Index::new(index_header);
                 return Ok(index);
             }
         }
         Err("Cannot find index".to_string().into())
-    }
-
-    fn get_store(&self, store_id: EntryStoreIdx) -> Result<EntryStore> {
-        let sized_offset = self.entry_stores_ptrs.index(*store_id)?;
-        EntryStore::new(&self.reader, sized_offset)
     }
 
     pub fn create_value_storage(self: &Rc<Self>) -> Rc<ValueStorage> {
@@ -341,10 +338,11 @@ mod tests {
         content.extend(hash.as_bytes()); // end : 281+32 = 313/0x139
         let reader = Reader::new(content, End::None);
         let directory_pack = Rc::new(DirectoryPack::new(reader).unwrap());
-        let index = directory_pack.get_index(IndexIdx::from(0)).unwrap();
+        let index = directory_pack.get_index(0.into()).unwrap();
         let value_storage = directory_pack.create_value_storage();
-        let resolver = Resolver::new(Rc::clone(&value_storage));
-        let finder = index.get_finder(resolver.clone());
+        let entry_storage = directory_pack.create_entry_storage();
+        let resolver = Resolver::new(value_storage);
+        let finder = index.get_finder(&entry_storage, resolver.clone()).unwrap();
         assert_eq!(index.entry_count(), 4.into());
         {
             let entry = finder.get_entry(0.into()).unwrap();

@@ -258,7 +258,6 @@ test_suite! {
     use std::io;
     use crate::{Entry as TestEntry, Cluster, KeyStore, IndexStore, Index, PackInfo, CheckInfo};
     use uuid::Uuid;
-    use std::rc::Rc;
 
     fixture compression() -> jubako::CompressionType {
         setup(&mut self) {
@@ -485,9 +484,10 @@ test_suite! {
 
         let directory_pack = container.get_directory_pack().unwrap();
         let index = directory_pack.get_index(0.into()).unwrap();
+        let entry_storage = directory_pack.create_entry_storage();
         let value_storage = directory_pack.create_value_storage();
-        let resolver = reader::Resolver::new(Rc::clone(&value_storage));
-        let finder = index.get_finder(resolver.clone());
+        let resolver = reader::Resolver::new(value_storage);
+        let finder = index.get_finder(&entry_storage, resolver.clone()).unwrap();
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {
             let entry = finder.get_entry(i).unwrap();

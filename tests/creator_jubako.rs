@@ -14,7 +14,6 @@ test_suite! {
     use jubako::Result;
     use jubako::reader::EntryTrait;
     use std::io::Read;
-    use std::rc::Rc;
     use crate::Entry as TestEntry;
 
     fixture compression(c: jubako::CompressionType) -> jubako::CompressionType {
@@ -141,9 +140,10 @@ test_suite! {
         println!("Read directory pack");
         let directory_pack = container.get_directory_pack().unwrap();
         let index = directory_pack.get_index(0.into()).unwrap();
+        let entry_storage = directory_pack.create_entry_storage();
         let value_storage = directory_pack.create_value_storage();
-        let resolver = jubako::reader::Resolver::new(Rc::clone(&value_storage));
-        let finder = index.get_finder(resolver.clone());
+        let resolver = jubako::reader::Resolver::new(value_storage);
+        let finder = index.get_finder(&entry_storage, resolver.clone()).unwrap();
         println!("Read index");
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {
