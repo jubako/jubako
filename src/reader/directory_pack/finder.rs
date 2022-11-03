@@ -127,7 +127,7 @@ mod tests {
         pub type PropertyCompare =
             crate::reader::directory_pack::property_compare::private::PropertyCompare<
                 ValueStorage,
-                EntryStore,
+                Entry,
             >;
     }
 
