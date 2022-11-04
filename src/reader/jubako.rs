@@ -1,8 +1,9 @@
 use std::cell::OnceCell;
 
 use super::content_pack::ContentPack;
-use super::directory_pack::{Content, DirectoryPack};
+use super::directory_pack::{Content, DirectoryPack, EntryStorage};
 use super::manifest_pack::{ManifestPack, PackInfo};
+use super::ValueStorage;
 use crate::bases::*;
 use crate::common::{Pack, PackPos};
 use std::ffi::OsString;
@@ -16,6 +17,8 @@ pub struct Container {
     main_pack: ManifestPack,
     reader: Reader,
     directory_pack: Rc<DirectoryPack>,
+    value_storage: Rc<ValueStorage>,
+    entry_storage: Rc<EntryStorage>,
     packs: Vec<OnceCell<ContentPack>>,
 }
 
@@ -49,6 +52,8 @@ impl Container {
         let directory_pack = Rc::new(DirectoryPack::new(get_pack_reader(
             &reader, &path, pack_info,
         )?)?);
+        let value_storage = directory_pack.create_value_storage();
+        let entry_storage = directory_pack.create_entry_storage();
         let mut packs = Vec::new();
         packs.resize_with((main_pack.max_id() + 1) as usize, Default::default);
         Ok(Self {
@@ -56,6 +61,8 @@ impl Container {
             main_pack,
             reader,
             directory_pack,
+            value_storage,
+            entry_storage,
             packs,
         })
     }
@@ -83,6 +90,14 @@ impl Container {
 
     pub fn get_directory_pack(&self) -> &Rc<DirectoryPack> {
         &self.directory_pack
+    }
+
+    pub fn get_value_storage(&self) -> &Rc<ValueStorage> {
+        &self.value_storage
+    }
+
+    pub fn get_entry_storage(&self) -> &Rc<EntryStorage> {
+        &self.entry_storage
     }
 
     fn _get_pack_reader(&self, pack_info: &PackInfo) -> Result<Reader> {
