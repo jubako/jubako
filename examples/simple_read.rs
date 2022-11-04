@@ -5,7 +5,7 @@ use std::error::Error;
 fn main() -> Result<(), Box<dyn Error>> {
     // Let's read our container created in `simple_create.rs`
     let container = jbk::reader::Container::new("test.jbkm")?; // or "test.jbkm"
-    let directory = container.get_directory_pack()?;
+    let directory = container.get_directory_pack();
     let index = directory.get_index_from_name("My own index")?;
     let entry_storage = directory.create_entry_storage();
     let value_storage = directory.create_value_storage();

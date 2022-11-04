@@ -138,7 +138,7 @@ test_suite! {
         assert_eq!(container.pack_count(), 1.into());
         assert!(container.check().unwrap());
         println!("Read directory pack");
-        let directory_pack = container.get_directory_pack().unwrap();
+        let directory_pack = container.get_directory_pack();
         let index = directory_pack.get_index(0.into()).unwrap();
         let entry_storage = directory_pack.create_entry_storage();
         let value_storage = directory_pack.create_value_storage();
