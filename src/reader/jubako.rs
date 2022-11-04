@@ -3,7 +3,7 @@ use std::cell::OnceCell;
 use super::content_pack::ContentPack;
 use super::directory_pack::{Content, DirectoryPack, EntryStorage};
 use super::manifest_pack::{ManifestPack, PackInfo};
-use super::ValueStorage;
+use super::{Index, ValueStorage};
 use crate::bases::*;
 use crate::common::{Pack, PackPos};
 use std::ffi::OsString;
@@ -98,6 +98,10 @@ impl Container {
 
     pub fn get_entry_storage(&self) -> &Rc<EntryStorage> {
         &self.entry_storage
+    }
+
+    pub fn get_index_for_name(&self, name: &str) -> Result<Index> {
+        self.directory_pack.get_index_from_name(name)
     }
 
     fn _get_pack_reader(&self, pack_info: &PackInfo) -> Result<Reader> {

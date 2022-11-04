@@ -153,7 +153,9 @@ mod tests {
             pub struct ValueStore {}
             impl ValueStoreTrait for ValueStore {
                 fn get_data(&self, id: ValueIdx) -> Result<&[u8]> {
-                    Ok(match id.0 {
+                    Ok(match id.0
+
+                     {
                         Idx(0) => b"Hello",
                         Idx(1) => b"World",
                         Idx(2) => b"Jubako",
