@@ -19,7 +19,7 @@ pub enum PropertyKind {
 /// It describe how to parse te value of a entry.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Property {
-    offset: Offset,
+    pub offset: Offset,
     pub kind: PropertyKind,
 }
 

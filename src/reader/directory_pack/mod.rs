@@ -2,12 +2,13 @@ mod builder;
 mod entry_store;
 mod finder;
 mod index;
-mod layout;
+pub mod layout;
 mod lazy_entry;
 mod property_compare;
 mod raw_layout;
 mod raw_value;
 mod resolver;
+mod schema;
 mod value_store;
 
 use self::builder::BuilderTrait;
@@ -29,6 +30,7 @@ pub use crate::common::{Content, Value};
 pub use lazy_entry::LazyEntry;
 pub use raw_value::{Array, Extend, RawValue};
 pub use resolver::Resolver;
+pub use schema::AnySchema;
 
 pub trait EntryTrait {
     fn get_variant_id(&self) -> VariantIdx;
@@ -347,7 +349,7 @@ mod tests {
         let value_storage = directory_pack.create_value_storage();
         let entry_storage = directory_pack.create_entry_storage();
         let resolver = Resolver::new(value_storage);
-        let finder = index.get_finder(&entry_storage).unwrap();
+        let finder: Finder<schema::AnySchema> = index.get_finder(&entry_storage).unwrap();
         assert_eq!(index.entry_count(), 4.into());
         {
             let entry = finder.get_entry(0.into()).unwrap();

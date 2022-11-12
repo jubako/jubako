@@ -1,7 +1,8 @@
 use super::layout::Layout;
-use super::lazy_entry::LazyEntry;
-use super::{BuilderTrait, EntryTrait};
+use super::schema::SchemaTrait;
+use super::BuilderTrait;
 use crate::bases::*;
+use std::rc::Rc;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -27,8 +28,8 @@ impl Producable for StoreKind {
 }
 
 pub trait EntryStoreTrait {
-    type Entry: EntryTrait;
-    fn get_entry(&self, idx: EntryIdx) -> Result<Self::Entry>;
+    type Builder: BuilderTrait;
+    fn get_entry(&self, idx: EntryIdx) -> Result<<Self::Builder as BuilderTrait>::Entry>;
 }
 
 #[derive(Debug)]
@@ -46,13 +47,21 @@ impl EntryStore {
             _ => todo!(),
         })
     }
-}
 
-impl EntryStoreTrait for EntryStore {
-    type Entry = LazyEntry;
-    fn get_entry(&self, idx: EntryIdx) -> Result<LazyEntry> {
+    pub fn get_entry<Builder: BuilderTrait>(
+        &self,
+        builder: &Builder,
+        idx: EntryIdx,
+    ) -> Result<Builder::Entry> {
         match self {
-            EntryStore::Plain(store) => store.get_entry(idx),
+            EntryStore::Plain(store) => store.get_entry(builder, idx),
+            /*            _ => todo!()*/
+        }
+    }
+
+    fn layout(&self) -> &Layout {
+        match self {
+            EntryStore::Plain(store) => store.layout(),
             /*            _ => todo!()*/
         }
     }
@@ -60,36 +69,63 @@ impl EntryStoreTrait for EntryStore {
 
 #[derive(Debug)]
 pub struct PlainStore {
-    pub entry_def: Layout,
+    pub layout: Layout,
     pub entry_reader: Reader,
 }
 
 impl PlainStore {
     pub fn new(stream: &mut Stream, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let entry_def = Layout::produce(stream)?;
+        let layout = Layout::produce(stream)?;
         let data_size = Size::produce(stream)?;
         // [TODO] use a array_reader here
         let entry_reader =
             reader.create_sub_reader(pos_info.offset - data_size, End::Size(data_size));
         Ok(Self {
-            entry_def,
+            layout,
             entry_reader,
         })
     }
 
-    pub fn get_entry(&self, idx: EntryIdx) -> Result<LazyEntry> {
+    pub fn get_entry<Builder: BuilderTrait>(
+        &self,
+        builder: &Builder,
+        idx: EntryIdx,
+    ) -> Result<Builder::Entry> {
         let reader = self.entry_reader.create_sub_reader(
-            Offset::from(self.entry_def.size.into_u64() * idx.into_u64()),
-            End::Size(self.entry_def.size),
+            Offset::from(self.layout.size.into_u64() * idx.into_u64()),
+            End::Size(self.layout.size),
         );
-        self.entry_def.create_entry(idx, &reader)
+        builder.create_entry(idx, &reader)
+    }
+
+    pub fn layout(&self) -> &Layout {
+        &self.layout
+    }
+}
+
+pub struct EntryStoreFront<Schema: SchemaTrait> {
+    pub store: Rc<EntryStore>,
+    builder: Schema::Builder,
+}
+
+impl<Schema: SchemaTrait> EntryStoreFront<Schema> {
+    pub fn new(store: Rc<EntryStore>) -> Result<Self> {
+        let builder = Schema::check_layout(store.layout())?;
+        Ok(Self { store, builder })
+    }
+}
+
+impl<Schema: SchemaTrait> EntryStoreTrait for EntryStoreFront<Schema> {
+    type Builder = Schema::Builder;
+    fn get_entry(&self, idx: EntryIdx) -> Result<<Self::Builder as BuilderTrait>::Entry> {
+        self.store.get_entry(&self.builder, idx)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::layout::{Property, PropertyKind};
     use super::*;
+    use crate::reader::directory_pack::layout::{Property, PropertyKind};
 
     #[test]
     fn test_1variant_allproperties() {
@@ -128,8 +164,8 @@ mod tests {
         let store = match store {
             EntryStore::Plain(s) => s,
         };
-        assert_eq!(store.entry_def.variants.len(), 1);
-        let variant = &store.entry_def.variants[0];
+        assert_eq!(store.layout.variants.len(), 1);
+        let variant = &store.layout.variants[0];
         let expected = vec![
             Property::new(9, PropertyKind::ContentAddress(0)),
             Property::new(13, PropertyKind::ContentAddress(1)),
@@ -178,15 +214,15 @@ mod tests {
         let store = match store {
             EntryStore::Plain(s) => s,
         };
-        assert_eq!(store.entry_def.variants.len(), 2);
-        let variant = &store.entry_def.variants[0];
+        assert_eq!(store.layout.variants.len(), 2);
+        let variant = &store.layout.variants[0];
         let expected = vec![
             Property::new(1, PropertyKind::VLArray(5, 0x0F.into(), Some(1))),
             Property::new(11, PropertyKind::ContentAddress(0)),
             Property::new(15, PropertyKind::UnsignedInt(3)),
         ];
         assert_eq!(&variant.properties, &expected);
-        let variant = &store.entry_def.variants[1];
+        let variant = &store.layout.variants[1];
         let expected = vec![
             Property::new(1, PropertyKind::Array(6)),
             Property::new(7, PropertyKind::ContentAddress(1)),

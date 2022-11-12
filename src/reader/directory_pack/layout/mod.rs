@@ -2,15 +2,13 @@ mod property;
 mod variant;
 
 // Reuse from super to allow sub module to use it.
-use super::lazy_entry::LazyEntry;
-use super::raw_layout::{RawLayout, RawProperty, RawPropertyKind};
+use super::raw_layout::RawLayout;
 use super::raw_value::{Array, Extend, RawValue};
-use super::BuilderTrait;
+use crate::bases::*;
 
 pub use property::{Property, PropertyKind};
 pub use variant::Variant;
 
-use crate::bases::*;
 use std::cmp::Ordering;
 use std::rc::Rc;
 
@@ -76,137 +74,5 @@ impl Producable for Layout {
             variants,
             size: Size::from(entry_size),
         })
-    }
-}
-
-impl BuilderTrait for Layout {
-    type Entry = LazyEntry;
-
-    fn create_entry(&self, _idx: EntryIdx, reader: &Reader) -> Result<LazyEntry> {
-        let variant_id: VariantIdx = if self.variants.len() > 1 {
-            reader.read_u8(Offset::zero())?
-        } else {
-            0
-        }
-        .into();
-        let variant_def = &self.variants[variant_id.into_usize()];
-        Ok(LazyEntry::new(
-            variant_id,
-            Rc::clone(variant_def),
-            reader.create_sub_reader(Offset::zero(), End::None),
-        ))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::common::ContentAddress;
-    use crate::reader::directory_pack::raw_layout::{RawProperty, RawPropertyKind};
-    use crate::reader::directory_pack::{Array, EntryTrait};
-    use crate::reader::{Content, RawValue};
-
-    #[test]
-    fn create_entry() {
-        let layout = Layout {
-            variants: vec![Rc::new(
-                Variant::new(vec![
-                    RawProperty::new(RawPropertyKind::ContentAddress(0), 4),
-                    RawProperty::new(RawPropertyKind::UnsignedInt, 2),
-                ])
-                .unwrap(),
-            )],
-            size: Size::new(6),
-        };
-
-        {
-            let content = vec![0x00, 0x00, 0x00, 0x01, 0x88, 0x99];
-
-            let reader = Reader::new(content, End::None);
-            let entry = layout.create_entry(0.into(), &reader).unwrap();
-
-            assert!(entry.get_variant_id().into_u8() == 0);
-            assert!(
-                entry.get_value(0.into()).unwrap()
-                    == RawValue::Content(Content::new(
-                        ContentAddress::new(0.into(), 1.into()),
-                        None
-                    ))
-            );
-            assert!(entry.get_value(1.into()).unwrap() == RawValue::U16(0x8899));
-        }
-
-        {
-            let content = vec![0x01, 0x00, 0x00, 0x02, 0x66, 0x77];
-
-            let reader = Reader::new(content, End::None);
-            let entry = layout.create_entry(0.into(), &reader).unwrap();
-
-            assert!(entry.get_variant_id().into_u8() == 0);
-            assert!(
-                entry.get_value(0.into()).unwrap()
-                    == RawValue::Content(Content::new(
-                        ContentAddress::new(1.into(), 2.into()),
-                        None
-                    ))
-            );
-            assert!(entry.get_value(1.into()).unwrap() == RawValue::U16(0x6677));
-        }
-    }
-
-    #[test]
-    fn create_entry_with_variant() {
-        let layout = Layout {
-            variants: vec![
-                Rc::new(
-                    Variant::new(vec![
-                        RawProperty::new(RawPropertyKind::VariantId, 1),
-                        RawProperty::new(RawPropertyKind::Array, 4),
-                        RawProperty::new(RawPropertyKind::UnsignedInt, 2),
-                    ])
-                    .unwrap(),
-                ),
-                Rc::new(
-                    Variant::new(vec![
-                        RawProperty::new(RawPropertyKind::VariantId, 1),
-                        RawProperty::new(RawPropertyKind::Array, 2),
-                        RawProperty::new(RawPropertyKind::Padding, 1),
-                        RawProperty::new(RawPropertyKind::SignedInt, 1),
-                        RawProperty::new(RawPropertyKind::UnsignedInt, 2),
-                    ])
-                    .unwrap(),
-                ),
-            ],
-            size: Size::new(7),
-        };
-
-        {
-            let content = vec![0x00, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99];
-
-            let reader = Reader::new(content, End::None);
-            let entry = layout.create_entry(0.into(), &reader).unwrap();
-
-            assert!(entry.get_variant_id().into_u8() == 0);
-            assert!(
-                entry.get_value(0.into()).unwrap()
-                    == RawValue::Array(Array::new(vec![0xFF, 0xEE, 0xDD, 0xCC], None))
-            );
-            assert!(entry.get_value(1.into()).unwrap() == RawValue::U16(0x8899));
-        }
-
-        {
-            let content = vec![0x01, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99];
-
-            let reader = Reader::new(content, End::None);
-            let entry = layout.create_entry(0.into(), &reader).unwrap();
-
-            assert!(entry.get_variant_id().into_u8() == 1);
-            assert!(
-                entry.get_value(0.into()).unwrap()
-                    == RawValue::Array(Array::new(vec![0xFF, 0xEE], None))
-            );
-            assert!(entry.get_value(1.into()).unwrap() == RawValue::I8(-52));
-            assert!(entry.get_value(2.into()).unwrap() == RawValue::U16(0x8899));
-        }
     }
 }

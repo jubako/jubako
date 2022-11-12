@@ -1,28 +1,38 @@
-use super::entry_store::EntryStoreTrait;
+use super::builder::BuilderTrait;
+use super::entry_store::{EntryStoreFront, EntryStoreTrait};
 use super::property_compare::CompareTrait;
-use super::EntryStore;
+use super::schema::SchemaTrait;
 use crate::bases::*;
+use std::marker::PhantomData;
 use std::rc::Rc;
 
 mod private {
     use super::*;
 
-    pub struct Finder<EntryStore: EntryStoreTrait> {
+    pub struct Finder<Schema: SchemaTrait, EntryStore>
+    where
+        EntryStore: EntryStoreTrait<Builder = Schema::Builder>,
+    {
         store: Rc<EntryStore>,
         offset: EntryIdx,
         count: EntryCount,
+        phantom_schema: PhantomData<Schema>,
     }
 
-    impl<EntryStore: EntryStoreTrait> Finder<EntryStore> {
+    impl<Schema: SchemaTrait, EntryStore> Finder<Schema, EntryStore>
+    where
+        EntryStore: EntryStoreTrait<Builder = Schema::Builder>,
+    {
         pub fn new(store: Rc<EntryStore>, offset: EntryIdx, count: EntryCount) -> Self {
             Self {
                 store,
                 offset,
                 count,
+                phantom_schema: PhantomData,
             }
         }
 
-        fn _get_entry(&self, id: EntryIdx) -> Result<EntryStore::Entry> {
+        fn _get_entry(&self, id: EntryIdx) -> Result<<Schema::Builder as BuilderTrait>::Entry> {
             self.store.get_entry(self.offset + id)
         }
 
@@ -34,11 +44,11 @@ mod private {
             self.count
         }
 
-        pub fn get_store(&self) -> &Rc<EntryStore> {
-            &self.store
+        pub fn get_store(&self) -> Rc<EntryStore> {
+            Rc::clone(&self.store)
         }
 
-        pub fn get_entry(&self, id: EntryIdx) -> Result<EntryStore::Entry> {
+        pub fn get_entry(&self, id: EntryIdx) -> Result<<Schema::Builder as BuilderTrait>::Entry> {
             if id.is_valid(self.count) {
                 self._get_entry(id)
             } else {
@@ -48,7 +58,7 @@ mod private {
 
         pub fn find<F>(&self, comparator: &F) -> Result<Option<EntryIdx>>
         where
-            F: CompareTrait<EntryStore::Entry>,
+            F: CompareTrait<<Schema::Builder as BuilderTrait>::Entry>,
         {
             for idx in self.count {
                 let entry = self._get_entry(idx)?;
@@ -62,13 +72,14 @@ mod private {
     }
 }
 
-pub type Finder = private::Finder<EntryStore>;
+pub type Finder<Schema> = private::Finder<Schema, EntryStoreFront<Schema>>;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::reader::directory_pack::resolver::private::Resolver;
     use crate::reader::directory_pack::EntryTrait;
+    use crate::reader::directory_pack::{builder, layout, schema};
     use crate::reader::RawValue;
     use crate::reader::Value;
     use std::rc::Rc;
@@ -98,14 +109,37 @@ mod tests {
                 })
             }
         }
-        pub struct EntryStore {}
-        impl EntryStoreTrait for EntryStore {
+        pub struct Builder {}
+        impl builder::BuilderTrait for Builder {
             type Entry = Entry;
-            fn get_entry(&self, idx: EntryIdx) -> Result<Entry> {
-                Ok(Entry::new(match idx {
-                    EntryIdx(Idx(x)) if x < 10 => x as u16,
-                    _ => panic!(),
-                }))
+            fn create_entry(&self, idx: EntryIdx, _reader: &Reader) -> Result<Self::Entry> {
+                Ok(Entry::new(idx.into_u16()))
+            }
+        }
+
+        pub struct Schema {}
+
+        impl schema::SchemaTrait for Schema {
+            type Builder = Builder;
+            fn check_layout(_layout: &layout::Layout) -> Result<Self::Builder> {
+                Ok(Builder {})
+            }
+        }
+        pub struct EntryStore {
+            pub builder: Builder,
+        }
+
+        impl EntryStoreTrait for EntryStore {
+            type Builder = Builder;
+            fn get_entry(
+                &self,
+                idx: EntryIdx,
+            ) -> Result<<Builder as builder::BuilderTrait>::Entry> {
+                if idx.into_u32() >= 10 {
+                    panic!()
+                }
+                self.builder
+                    .create_entry(idx, &Reader::new(vec![], End::None))
             }
         }
 
@@ -135,8 +169,11 @@ mod tests {
     fn test_finder() {
         let value_storage = Rc::new(mock::ValueStorage {});
         let resolver = Resolver::new(Rc::clone(&value_storage));
-        let index_store = Rc::new(mock::EntryStore {});
-        let finder = private::Finder::new(index_store, 0.into(), 10.into());
+        let builder = mock::Builder {};
+        let entry_store = Rc::new(mock::EntryStore { builder });
+        let finder: private::Finder<mock::Schema, mock::EntryStore> =
+            private::Finder::new(entry_store, EntryIdx::from(0), EntryCount::from(10));
+
         for i in 0..10 {
             let entry = finder.get_entry(i.into()).unwrap();
             let value0 = entry.get_value(0.into()).unwrap();

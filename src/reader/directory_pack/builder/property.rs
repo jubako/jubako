@@ -1,5 +1,6 @@
 use crate::bases::*;
 use crate::common::{Content, ContentAddress};
+use crate::reader::directory_pack::layout;
 use crate::reader::directory_pack::raw_value::{Array, Extend, RawValue};
 use std::io::BorrowedBuf;
 use std::io::Read;
@@ -219,6 +220,32 @@ pub enum AnyProperty {
     UnsignedInt(IntProperty),
     SignedInt(SignedProperty),
     Array(ArrayProperty),
+}
+
+impl From<&layout::Property> for AnyProperty {
+    fn from(p: &layout::Property) -> Self {
+        match p.kind {
+            layout::PropertyKind::ContentAddress(base) => {
+                Self::ContentAddress(ContentProperty::new(p.offset, base))
+            }
+            layout::PropertyKind::UnsignedInt(size) => {
+                Self::UnsignedInt(IntProperty::new(p.offset, size.into()))
+            }
+            layout::PropertyKind::SignedInt(size) => {
+                Self::SignedInt(SignedProperty::new(p.offset, size.into()))
+            }
+            layout::PropertyKind::Array(size) => {
+                Self::Array(ArrayProperty::new_array(p.offset, size.into()))
+            }
+            layout::PropertyKind::VLArray(vl_size, store_id, base) => Self::Array(match base {
+                None => ArrayProperty::new_vlarray(p.offset, store_id, vl_size.into()),
+                Some(base_size) => {
+                    ArrayProperty::new(p.offset, store_id, vl_size.into(), base_size.into())
+                }
+            }),
+            layout::PropertyKind::None => unreachable!(),
+        }
+    }
 }
 
 impl PropertyBuilderTrait for AnyProperty {

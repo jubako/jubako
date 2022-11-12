@@ -486,11 +486,11 @@ test_suite! {
         let entry_storage = directory_pack.create_entry_storage();
         let value_storage = directory_pack.create_value_storage();
         let resolver = reader::Resolver::new(value_storage);
-        let finder = index.get_finder(&entry_storage).unwrap();
+        let finder: reader::Finder<reader::AnySchema> = index.get_finder(&entry_storage).unwrap();
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {
             let entry = finder.get_entry(i).unwrap();
-            assert_eq!(entry.get_variant_id(), 0);
+            assert_eq!(entry.get_variant_id(), 0.into());
             let value_0 = entry.get_value(0.into()).unwrap();
             if let reader::RawValue::Array(array) = &value_0 {
                 assert_eq!(
