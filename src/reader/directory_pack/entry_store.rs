@@ -1,6 +1,6 @@
 use super::layout::Layout;
 use super::lazy_entry::LazyEntry;
-use super::EntryTrait;
+use super::{BuilderTrait, EntryTrait};
 use crate::bases::*;
 
 #[repr(u8)]
@@ -82,7 +82,7 @@ impl PlainStore {
             Offset::from(self.entry_def.size.into_u64() * idx.into_u64()),
             End::Size(self.entry_def.size),
         );
-        self.entry_def.create_entry(&reader)
+        self.entry_def.create_entry(idx, &reader)
     }
 }
 

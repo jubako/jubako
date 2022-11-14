@@ -1,3 +1,4 @@
+mod builder;
 mod entry_store;
 mod finder;
 mod index;
@@ -9,6 +10,7 @@ mod raw_value;
 mod resolver;
 mod value_store;
 
+use self::builder::BuilderTrait;
 use self::entry_store::EntryStore;
 use self::index::IndexHeader;
 use self::value_store::{ValueStore, ValueStoreTrait};

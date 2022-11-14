@@ -5,6 +5,7 @@ mod variant;
 use super::lazy_entry::LazyEntry;
 use super::raw_layout::{RawLayout, RawProperty, RawPropertyKind};
 use super::raw_value::{Array, Extend, RawValue};
+use super::BuilderTrait;
 
 pub use property::{Property, PropertyKind};
 pub use variant::Variant;
@@ -78,8 +79,10 @@ impl Producable for Layout {
     }
 }
 
-impl Layout {
-    pub fn create_entry(&self, reader: &Reader) -> Result<LazyEntry> {
+impl BuilderTrait for Layout {
+    type Entry = LazyEntry;
+
+    fn create_entry(&self, _idx: EntryIdx, reader: &Reader) -> Result<LazyEntry> {
         let variant_id = if self.variants.len() > 1 {
             reader.read_u8(Offset::zero())?
         } else {
@@ -99,8 +102,7 @@ mod tests {
     use super::*;
     use crate::common::ContentAddress;
     use crate::reader::directory_pack::raw_layout::{RawProperty, RawPropertyKind};
-    use crate::reader::directory_pack::Array;
-    use crate::reader::directory_pack::EntryTrait;
+    use crate::reader::directory_pack::{Array, EntryTrait};
     use crate::reader::{Content, RawValue};
 
     #[test]
@@ -120,7 +122,7 @@ mod tests {
             let content = vec![0x00, 0x00, 0x00, 0x01, 0x88, 0x99];
 
             let reader = Reader::new(content, End::None);
-            let entry = layout.create_entry(&reader).unwrap();
+            let entry = layout.create_entry(0.into(), &reader).unwrap();
 
             assert!(entry.get_variant_id() == 0);
             assert!(
@@ -137,7 +139,7 @@ mod tests {
             let content = vec![0x01, 0x00, 0x00, 0x02, 0x66, 0x77];
 
             let reader = Reader::new(content, End::None);
-            let entry = layout.create_entry(&reader).unwrap();
+            let entry = layout.create_entry(0.into(), &reader).unwrap();
 
             assert!(entry.get_variant_id() == 0);
             assert!(
@@ -181,7 +183,7 @@ mod tests {
             let content = vec![0x00, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99];
 
             let reader = Reader::new(content, End::None);
-            let entry = layout.create_entry(&reader).unwrap();
+            let entry = layout.create_entry(0.into(), &reader).unwrap();
 
             assert!(entry.get_variant_id() == 0);
             assert!(
@@ -195,7 +197,7 @@ mod tests {
             let content = vec![0x01, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99];
 
             let reader = Reader::new(content, End::None);
-            let entry = layout.create_entry(&reader).unwrap();
+            let entry = layout.create_entry(0.into(), &reader).unwrap();
 
             assert!(entry.get_variant_id() == 1);
             assert!(
