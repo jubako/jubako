@@ -35,6 +35,7 @@ where
     u64: std::convert::From<IdxType>,
     IdxType: Copy,
 {
+    /*
     pub fn new_from_reader(reader: &dyn Reader, at: Offset, length: Count<IdxType>) -> Self {
         let elem_size = OutType::Size::to_u64();
         let sub_reader =
@@ -45,7 +46,7 @@ where
             elem_size: elem_size as usize,
             produced_type: PhantomData,
         }
-    }
+    }*/
 
     pub fn new_memory_from_reader(
         reader: &dyn Reader,
