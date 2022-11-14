@@ -1,6 +1,5 @@
-use super::raw_property::{RawProperty, RawPropertyKind};
 use super::variant::Variant;
-use super::LazyEntry;
+use super::{LazyEntry, RawLayout};
 use crate::bases::*;
 use std::cmp::Ordering;
 use std::rc::Rc;
@@ -16,20 +15,19 @@ impl Producable for Entry {
     fn produce(stream: &mut Stream) -> Result<Entry> {
         let entry_size = stream.read_u16()? as usize;
         let variant_count: VariantCount = Count::<u8>::produce(stream)?.into();
-        let raw_property_count: PropertyCount = Count::<u8>::produce(stream)?.into();
+        let raw_layout = RawLayout::produce(stream)?;
         let mut variants = Vec::new();
         let mut entry_def = Vec::new();
         let mut current_size = 0;
-        for _ in raw_property_count {
-            let raw_property = RawProperty::produce(stream)?;
-            if raw_property.kind == RawPropertyKind::VariantId && !entry_def.is_empty() {
+        for raw_property in raw_layout.iter() {
+            if raw_property.is_variant_id() && !entry_def.is_empty() {
                 return Err(format_error!(
                     "VariantId cannot appear in the middle of a entry.",
                     stream
                 ));
             }
             current_size += raw_property.size;
-            entry_def.push(raw_property);
+            entry_def.push(*raw_property);
             match current_size.cmp(&entry_size) {
                 Ordering::Greater => {
                     return Err(format_error!(
@@ -91,6 +89,7 @@ impl Entry {
 mod tests {
     use super::*;
     use crate::common::ContentAddress;
+    use crate::reader::directory_pack::raw_layout::{RawProperty, RawPropertyKind};
     use crate::reader::directory_pack::Array;
     use crate::reader::directory_pack::EntryTrait;
     use crate::reader::{Content, RawValue};

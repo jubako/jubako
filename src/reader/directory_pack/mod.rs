@@ -4,6 +4,7 @@ mod index;
 mod layout;
 mod lazy_entry;
 mod property_compare;
+mod raw_layout;
 mod raw_value;
 mod resolver;
 mod value_store;

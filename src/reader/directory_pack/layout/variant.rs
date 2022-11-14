@@ -1,5 +1,5 @@
 use super::property::{Property, PropertyKind};
-use super::raw_property::{RawProperty, RawPropertyKind};
+use super::{RawProperty, RawPropertyKind};
 use crate::bases::*;
 
 #[derive(Debug)]
