@@ -1,4 +1,4 @@
-use super::layout;
+use super::layout::Layout;
 use super::lazy_entry::LazyEntry;
 use super::EntryTrait;
 use crate::bases::*;
@@ -60,13 +60,13 @@ impl EntryStoreTrait for EntryStore {
 
 #[derive(Debug)]
 pub struct PlainStore {
-    pub entry_def: layout::Entry,
+    pub entry_def: Layout,
     pub entry_reader: Reader,
 }
 
 impl PlainStore {
     pub fn new(stream: &mut Stream, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let entry_def = layout::Entry::produce(stream)?;
+        let entry_def = Layout::produce(stream)?;
         let data_size = Size::produce(stream)?;
         // [TODO] use a array_reader here
         let entry_reader =
@@ -88,7 +88,7 @@ impl PlainStore {
 
 #[cfg(test)]
 mod tests {
-    use super::layout::{Property, PropertyKind};
+    use super::super::layout::{Property, PropertyKind};
     use super::*;
 
     #[test]
