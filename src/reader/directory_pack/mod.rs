@@ -31,7 +31,7 @@ pub use raw_value::{Array, Extend, RawValue};
 pub use resolver::Resolver;
 
 pub trait EntryTrait {
-    fn get_variant_id(&self) -> u8;
+    fn get_variant_id(&self) -> VariantIdx;
     fn get_value(&self, idx: PropertyIdx) -> Result<RawValue>;
 }
 
@@ -351,7 +351,7 @@ mod tests {
         assert_eq!(index.entry_count(), 4.into());
         {
             let entry = finder.get_entry(0.into()).unwrap();
-            assert_eq!(entry.get_variant_id(), 0);
+            assert_eq!(entry.get_variant_id().into_u8(), 0);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
@@ -392,7 +392,7 @@ mod tests {
         }
         {
             let entry = finder.get_entry(1.into()).unwrap();
-            assert_eq!(entry.get_variant_id(), 0);
+            assert_eq!(entry.get_variant_id().into_u8(), 0);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
@@ -433,7 +433,7 @@ mod tests {
         }
         {
             let entry = finder.get_entry(2.into()).unwrap();
-            assert_eq!(entry.get_variant_id(), 0);
+            assert_eq!(entry.get_variant_id().into_u8(), 0);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
@@ -471,7 +471,7 @@ mod tests {
         }
         {
             let entry = finder.get_entry(3.into()).unwrap();
-            assert_eq!(entry.get_variant_id(), 0);
+            assert_eq!(entry.get_variant_id().into_u8(), 0);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(

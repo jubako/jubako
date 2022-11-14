@@ -1,4 +1,4 @@
-use super::layout;
+use super::builder::AnyVariantBuilder;
 use super::raw_value::RawValue;
 use super::EntryTrait;
 use crate::bases::*;
@@ -6,28 +6,27 @@ use std::rc::Rc;
 
 /// A lazy entry
 pub struct LazyEntry {
-    variant_id: u8,
-    variant: Rc<layout::Variant>,
+    variant_id: VariantIdx,
+    builder: Rc<AnyVariantBuilder>,
     reader: Reader,
 }
 
 impl LazyEntry {
-    pub fn new(variant_id: u8, variant: Rc<layout::Variant>, reader: Reader) -> Self {
+    pub fn new(variant_id: VariantIdx, builder: Rc<AnyVariantBuilder>, reader: Reader) -> Self {
         Self {
             variant_id,
-            variant,
+            builder,
             reader,
         }
     }
 
     fn _get_value(&self, idx: PropertyIdx) -> Result<RawValue> {
-        let property = &self.variant.properties[idx.into_usize()];
-        property.create_value(&self.reader)
+        self.builder.create_value(idx, &self.reader)
     }
 }
 
 impl EntryTrait for LazyEntry {
-    fn get_variant_id(&self) -> u8 {
+    fn get_variant_id(&self) -> VariantIdx {
         self.variant_id
     }
 

@@ -88,8 +88,8 @@ mod tests {
             }
         }
         impl EntryTrait for Entry {
-            fn get_variant_id(&self) -> u8 {
-                0
+            fn get_variant_id(&self) -> VariantIdx {
+                0.into()
             }
             fn get_value(&self, idx: PropertyIdx) -> Result<RawValue> {
                 Ok(match idx {

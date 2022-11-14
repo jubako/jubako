@@ -83,12 +83,13 @@ impl BuilderTrait for Layout {
     type Entry = LazyEntry;
 
     fn create_entry(&self, _idx: EntryIdx, reader: &Reader) -> Result<LazyEntry> {
-        let variant_id = if self.variants.len() > 1 {
+        let variant_id: VariantIdx = if self.variants.len() > 1 {
             reader.read_u8(Offset::zero())?
         } else {
             0
-        };
-        let variant_def = &self.variants[variant_id as usize];
+        }
+        .into();
+        let variant_def = &self.variants[variant_id.into_usize()];
         Ok(LazyEntry::new(
             variant_id,
             Rc::clone(variant_def),
@@ -124,7 +125,7 @@ mod tests {
             let reader = Reader::new(content, End::None);
             let entry = layout.create_entry(0.into(), &reader).unwrap();
 
-            assert!(entry.get_variant_id() == 0);
+            assert!(entry.get_variant_id().into_u8() == 0);
             assert!(
                 entry.get_value(0.into()).unwrap()
                     == RawValue::Content(Content::new(
@@ -141,7 +142,7 @@ mod tests {
             let reader = Reader::new(content, End::None);
             let entry = layout.create_entry(0.into(), &reader).unwrap();
 
-            assert!(entry.get_variant_id() == 0);
+            assert!(entry.get_variant_id().into_u8() == 0);
             assert!(
                 entry.get_value(0.into()).unwrap()
                     == RawValue::Content(Content::new(
@@ -185,7 +186,7 @@ mod tests {
             let reader = Reader::new(content, End::None);
             let entry = layout.create_entry(0.into(), &reader).unwrap();
 
-            assert!(entry.get_variant_id() == 0);
+            assert!(entry.get_variant_id().into_u8() == 0);
             assert!(
                 entry.get_value(0.into()).unwrap()
                     == RawValue::Array(Array::new(vec![0xFF, 0xEE, 0xDD, 0xCC], None))
@@ -199,7 +200,7 @@ mod tests {
             let reader = Reader::new(content, End::None);
             let entry = layout.create_entry(0.into(), &reader).unwrap();
 
-            assert!(entry.get_variant_id() == 1);
+            assert!(entry.get_variant_id().into_u8() == 1);
             assert!(
                 entry.get_value(0.into()).unwrap()
                     == RawValue::Array(Array::new(vec![0xFF, 0xEE], None))
