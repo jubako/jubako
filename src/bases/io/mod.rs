@@ -3,64 +3,67 @@ mod compression;
 mod file;
 mod mmap;
 
-use crate::bases::stream::*;
 use crate::bases::types::*;
+use crate::bases::Stream;
 pub use buffer::*;
 pub use compression::*;
 pub use file::*;
+use std::fmt;
 use std::rc::Rc;
 
-// A wrapper arount someting to implement Reader trait
-pub struct ReaderWrapper<T> {
-    source: Rc<T>,
-    origin: Offset,
-    end: Offset,
+pub trait Source {
+    fn size(&self) -> Size;
+    fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()>;
+    fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize>;
+    fn into_memory(
+        self: Rc<Self>,
+        offset: Offset,
+        size: usize,
+    ) -> Result<(Rc<dyn Source>, Offset, End)>;
+
+    fn slice_1(&self, offset: Offset) -> Result<[u8; 1]> {
+        let mut buf = [0_u8; 1];
+        self.read_exact(offset, &mut buf)?;
+        Ok(buf)
+    }
+
+    fn slice_2(&self, offset: Offset) -> Result<[u8; 2]> {
+        let mut buf = [0_u8; 2];
+        self.read_exact(offset, &mut buf)?;
+        Ok(buf)
+    }
+
+    fn slice_4(&self, offset: Offset) -> Result<[u8; 4]> {
+        let mut buf = [0_u8; 4];
+        self.read_exact(offset, &mut buf)?;
+        Ok(buf)
+    }
+
+    fn slice_8(&self, offset: Offset) -> Result<[u8; 8]> {
+        let mut buf = [0_u8; 8];
+        self.read_exact(offset, &mut buf)?;
+        Ok(buf)
+    }
+
+    fn slice_sized(&self, offset: Offset, size: usize) -> Result<[u8; 8]> {
+        let mut buf = [0_u8; 8];
+        self.read_exact(offset, &mut buf[..size])?;
+        Ok(buf)
+    }
 }
 
-// A wrapper arount someting to implement Stream trait
-pub struct StreamWrapper<T> {
-    source: Rc<T>,
-    origin: Offset,
-    end: Offset,
-    offset: Offset,
-}
-
-impl<T> StreamWrapper<T> {
-    pub fn new_from_parts(source: Rc<T>, origin: Offset, end: Offset, offset: Offset) -> Self {
-        Self {
-            source,
-            origin,
-            end,
-            offset,
-        }
+impl fmt::Debug for dyn Source {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("Source{{Size:{}}}", self.size()))
     }
 }
 
-impl<T: 'static> Stream for StreamWrapper<T>
-where
-    StreamWrapper<T>: std::io::Read,
-{
-    fn tell(&self) -> Offset {
-        (self.offset - self.origin).into()
-    }
-    fn size(&self) -> Size {
-        self.end - self.origin
-    }
-    fn skip(&mut self, size: Size) -> Result<()> {
-        let new_offset = self.offset + size;
-        if new_offset <= self.end {
-            self.offset = new_offset;
-            Ok(())
-        } else {
-            Err(format_error!(&format!(
-                "Cannot skip at offset {} ({}+{}) after end of stream ({}).",
-                new_offset, self.offset, size, self.end
-            )))
-        }
-    }
-    fn global_offset(&self) -> Offset {
-        self.offset
-    }
+/// A Producable is a object that can be produce from a stream.
+pub trait Producable {
+    type Output;
+    fn produce(stream: &mut Stream) -> Result<Self::Output>
+    where
+        Self::Output: Sized;
 }
 
 #[cfg(test)]
@@ -71,17 +74,17 @@ mod tests {
     use tempfile::tempfile;
     use test_case::test_case;
 
-    fn create_buf_reader(data: &[u8]) -> Box<dyn Reader> {
-        Box::new(BufReader::new(data.to_vec(), End::None))
+    fn create_buf_reader(data: &[u8]) -> Reader {
+        Reader::new(data.to_vec(), End::None)
     }
 
-    fn create_file_reader(data: &[u8]) -> Box<dyn Reader> {
+    fn create_file_reader(data: &[u8]) -> Reader {
         let mut file = tempfile().unwrap();
         file.write_all(data).unwrap();
-        Box::new(FileReader::new(file, End::None))
+        Reader::new(FileSource::new(file), End::None)
     }
 
-    fn create_lz4_reader(data: &[u8]) -> Box<dyn Reader> {
+    fn create_lz4_reader(data: &[u8]) -> Reader {
         let compressed_content = {
             let compressed_content = Vec::new();
             let mut encoder = lz4::EncoderBuilder::new()
@@ -95,10 +98,13 @@ mod tests {
             compressed_content.into_inner()
         };
         let decoder = lz4::Decoder::new(Cursor::new(compressed_content)).unwrap();
-        Box::new(Lz4Reader::new(decoder, Size::from(data.len())))
+        Reader::new(
+            Lz4Source::new(decoder, Size::from(data.len())),
+            End::Size(Size::from(data.len())),
+        )
     }
 
-    fn create_lzma_reader(data: &[u8]) -> Box<dyn Reader> {
+    fn create_lzma_reader(data: &[u8]) -> Reader {
         let compressed_content = {
             let compressed_content = Vec::new();
             let mut encoder =
@@ -108,10 +114,13 @@ mod tests {
             encoder.finish().unwrap().into_inner()
         };
         let decoder = lzma::LzmaReader::new_decompressor(Cursor::new(compressed_content)).unwrap();
-        Box::new(LzmaReader::new(decoder, Size::from(data.len())))
+        Reader::new(
+            LzmaSource::new(decoder, Size::from(data.len())),
+            End::Size(Size::from(data.len())),
+        )
     }
 
-    fn create_zstd_reader(data: &[u8]) -> Box<dyn Reader> {
+    fn create_zstd_reader(data: &[u8]) -> Reader {
         let compressed_content = {
             let compressed_content = Vec::new();
             let mut encoder = zstd::Encoder::new(Cursor::new(compressed_content), 0).unwrap();
@@ -120,10 +129,13 @@ mod tests {
             encoder.finish().unwrap().into_inner()
         };
         let decoder = zstd::Decoder::new(Cursor::new(compressed_content)).unwrap();
-        Box::new(ZstdReader::new(decoder, Size::from(data.len())))
+        Reader::new(
+            ZstdSource::new(decoder, Size::from(data.len())),
+            End::Size(Size::from(data.len())),
+        )
     }
 
-    type ReaderCreator = fn(&[u8]) -> Box<dyn Reader>;
+    type ReaderCreator = fn(&[u8]) -> Reader;
 
     #[test_case(create_buf_reader)]
     #[test_case(create_file_reader)]

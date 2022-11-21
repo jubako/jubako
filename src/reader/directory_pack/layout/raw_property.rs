@@ -30,7 +30,7 @@ impl RawProperty {
 
 impl Producable for RawProperty {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         let propinfo = stream.read_u8()?;
         let proptype = propinfo >> 4;
         let propdata = propinfo & 0x0F;
@@ -110,8 +110,8 @@ mod tests {
     fn test_rawproperty(source: &[u8]) -> RawProperty {
         let mut content = Vec::new();
         content.extend_from_slice(source);
-        let reader = BufReader::new(content, End::None);
+        let reader = Reader::new(content, End::None);
         let mut stream = reader.create_stream_all();
-        RawProperty::produce(stream.as_mut()).unwrap()
+        RawProperty::produce(&mut stream).unwrap()
     }
 }

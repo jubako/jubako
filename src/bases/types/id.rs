@@ -8,7 +8,7 @@ pub struct Id<T>(pub T);
 
 impl Producable for Id<u8> {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         Ok(stream.read_u8()?.into())
     }
 }

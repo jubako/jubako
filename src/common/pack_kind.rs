@@ -10,7 +10,7 @@ pub enum PackKind {
 
 impl Producable for PackKind {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         match stream.read_u32()? {
             0x6a_62_6b_6d_u32 => Ok(PackKind::Manifest),  // jbkm
             0x6a_62_6b_64_u32 => Ok(PackKind::Directory), // jbkd

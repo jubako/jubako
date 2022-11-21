@@ -18,7 +18,7 @@ impl SizedProducable for SizedOffset {
 
 impl Producable for SizedOffset {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         let data = stream.read_u64()?;
         let offset = Offset::from(data & 0xFF_FF_FF_FF_FF_FF_u64);
         let size = Size::from(data >> 48);

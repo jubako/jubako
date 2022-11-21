@@ -9,7 +9,7 @@ enum ValueStoreKind {
 
 impl Producable for ValueStoreKind {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         match stream.read_u8()? {
             0 => Ok(ValueStoreKind::Plain),
             1 => Ok(ValueStoreKind::Indexed),
@@ -31,18 +31,16 @@ pub enum ValueStore {
 }
 
 impl ValueStore {
-    pub fn new(reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
+    pub fn new(reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
         let header_reader =
             reader.create_sub_memory_reader(pos_info.offset, End::Size(pos_info.size))?;
         let mut header_stream = header_reader.create_stream_all();
-        Ok(match ValueStoreKind::produce(header_stream.as_mut())? {
-            ValueStoreKind::Plain => ValueStore::Plain(PlainValueStore::new(
-                header_stream.as_mut(),
-                reader,
-                pos_info,
-            )?),
+        Ok(match ValueStoreKind::produce(&mut header_stream)? {
+            ValueStoreKind::Plain => {
+                ValueStore::Plain(PlainValueStore::new(&mut header_stream, reader, pos_info)?)
+            }
             ValueStoreKind::Indexed => ValueStore::Indexed(IndexedValueStore::new(
-                header_stream.as_mut(),
+                &mut header_stream,
                 reader,
                 pos_info,
             )?),
@@ -60,11 +58,11 @@ impl ValueStoreTrait for ValueStore {
 }
 
 pub struct PlainValueStore {
-    pub reader: Box<dyn Reader>,
+    pub reader: Reader,
 }
 
 impl PlainValueStore {
-    fn new(stream: &mut dyn Stream, reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
+    fn new(stream: &mut Stream, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
         let data_size = Size::produce(stream)?;
         let reader =
             reader.create_sub_memory_reader(pos_info.offset - data_size, End::Size(data_size))?;
@@ -73,17 +71,17 @@ impl PlainValueStore {
 
     fn get_data(&self, id: ValueIdx) -> Result<Vec<u8>> {
         let mut stream = self.reader.create_stream_from(Offset::from(id.into_u64()));
-        PString::produce(stream.as_mut())
+        PString::produce(&mut stream)
     }
 }
 
 pub struct IndexedValueStore {
     pub value_offsets: Vec<Offset>,
-    pub reader: Box<dyn Reader>,
+    pub reader: Reader,
 }
 
 impl IndexedValueStore {
-    fn new(stream: &mut dyn Stream, reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
+    fn new(stream: &mut Stream, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
         let value_count: ValueCount = Count::<u64>::produce(stream)?.into();
         let offset_size = stream.read_u8()?;
         let data_size: Size = stream.read_sized(offset_size.into())?.into();
@@ -127,24 +125,24 @@ mod tests {
 
     #[test]
     fn test_valuestorekind() {
-        let reader = BufReader::new(vec![0x00, 0x01, 0x02], End::None);
+        let reader = Reader::new(vec![0x00, 0x01, 0x02], End::None);
         let mut stream = reader.create_stream_all();
         assert_eq!(
-            ValueStoreKind::produce(stream.as_mut()).unwrap(),
+            ValueStoreKind::produce(&mut stream).unwrap(),
             ValueStoreKind::Plain
         );
         assert_eq!(
-            ValueStoreKind::produce(stream.as_mut()).unwrap(),
+            ValueStoreKind::produce(&mut stream).unwrap(),
             ValueStoreKind::Indexed
         );
         assert_eq!(stream.tell(), Offset::new(2));
-        assert!(ValueStoreKind::produce(stream.as_mut()).is_err());
+        assert!(ValueStoreKind::produce(&mut stream).is_err());
     }
 
     #[test]
     fn test_plainvaluestore() {
         #[rustfmt::skip]
-        let reader = BufReader::new(
+        let reader = Reader::new(
             vec![
                 0x05, 0x11, 0x12, 0x13, 0x14, 0x15, // Data of entry 0
                 0x03, 0x21, 0x22, 0x23, // Data of entry 1
@@ -188,7 +186,7 @@ mod tests {
     #[test]
     fn test_indexedvaluestore() {
         #[rustfmt::skip]
-        let reader = BufReader::new(
+        let reader = Reader::new(
             vec![
                 0x11, 0x12, 0x13, 0x14, 0x15, // Data of entry 0
                 0x21, 0x22, 0x23, // Data of entry 1

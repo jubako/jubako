@@ -26,7 +26,7 @@ impl SizedProducable for ManifestPackHeader {
 
 impl Producable for ManifestPackHeader {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         let pack_header = PackHeader::produce(stream)?;
         if pack_header.magic != PackKind::Manifest {
             return Err(format_error!("Pack Magic is not ManifestPack"));
@@ -73,10 +73,10 @@ mod tests {
             0x02, // pack_count
         ];
         content.extend_from_slice(&[0xff; 63]);
-        let reader = BufReader::new(content, End::None);
+        let reader = Reader::new(content, End::None);
         let mut stream = reader.create_stream_all();
         assert_eq!(
-            ManifestPackHeader::produce(stream.as_mut()).unwrap(),
+            ManifestPackHeader::produce(&mut stream).unwrap(),
             ManifestPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::Manifest,

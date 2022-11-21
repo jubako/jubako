@@ -94,7 +94,7 @@ impl ContentPackCreator {
         Ok(())
     }
 
-    pub fn add_content(&mut self, content: &mut dyn Stream) -> Result<ContentIdx> {
+    pub fn add_content(&mut self, content: &mut Stream) -> Result<ContentIdx> {
         let cluster = self.get_open_cluster(content.size())?;
         let content_info = cluster.add_content(content)?;
         self.content_infos.push(content_info);

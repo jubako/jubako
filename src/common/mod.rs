@@ -20,7 +20,7 @@ pub use value::{Content, Value};
 
 impl Producable for Uuid {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         let mut v = [0_u8; 16];
         stream.read_exact(&mut v)?;
         Ok(Uuid::from_bytes(v))

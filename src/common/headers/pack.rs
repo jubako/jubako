@@ -46,7 +46,7 @@ impl PackHeader {
 
 impl Producable for PackHeader {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         let magic = PackKind::produce(stream)?;
         let app_vendor_id = stream.read_u32()?;
         let major_version = stream.read_u8()?;
@@ -103,10 +103,10 @@ mod tests {
             0x00, // No check
         ];
         content.extend_from_slice(&[0xff; 56]);
-        let reader = BufReader::new(content, End::None);
+        let reader = Reader::new(content, End::None);
         let mut stream = reader.create_stream_all();
         assert_eq!(
-            PackHeader::produce(stream.as_mut()).unwrap(),
+            PackHeader::produce(&mut stream).unwrap(),
             PackHeader {
                 magic: PackKind::Content,
                 app_vendor_id: 0x01000000_u32,

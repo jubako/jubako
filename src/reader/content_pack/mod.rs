@@ -15,20 +15,20 @@ pub struct ContentPack {
     content_infos: ArrayReader<ContentInfo, u32>,
     cluster_ptrs: ArrayReader<SizedOffset, u32>,
     cluster_cache: RefCell<LruCache<ClusterIdx, Rc<Cluster>>>,
-    reader: Box<dyn Reader>,
+    reader: Reader,
     check_info: Cell<Option<CheckInfo>>,
 }
 
 impl ContentPack {
-    pub fn new(reader: Box<dyn Reader>) -> Result<Self> {
-        let header = ContentPackHeader::produce(reader.create_stream_all().as_mut())?;
+    pub fn new(reader: Reader) -> Result<Self> {
+        let header = ContentPackHeader::produce(&mut reader.create_stream_all())?;
         let content_infos = ArrayReader::new_memory_from_reader(
-            reader.as_ref(),
+            &reader,
             header.content_ptr_pos,
             *header.content_count,
         )?;
         let cluster_ptrs = ArrayReader::new_memory_from_reader(
-            reader.as_ref(),
+            &reader,
             header.cluster_ptr_pos,
             *header.cluster_count,
         )?;
@@ -48,7 +48,7 @@ impl ContentPack {
 
     fn _get_cluster(&self, cluster_index: ClusterIdx) -> Result<Rc<Cluster>> {
         let cluster_info = self.cluster_ptrs.index(*cluster_index)?;
-        Ok(Rc::new(Cluster::new(self.reader.as_ref(), cluster_info)?))
+        Ok(Rc::new(Cluster::new(&self.reader, cluster_info)?))
     }
 
     fn get_cluster(&self, cluster_index: ClusterIdx) -> Result<Rc<Cluster>> {
@@ -64,7 +64,7 @@ impl ContentPack {
         })
     }
 
-    pub fn get_content(&self, index: ContentIdx) -> Result<Box<dyn Reader>> {
+    pub fn get_content(&self, index: ContentIdx) -> Result<Reader> {
         if !index.is_valid(self.header.content_count) {
             return Err(Error::new_arg());
         }
@@ -111,7 +111,7 @@ impl Pack for ContentPack {
             let mut checkinfo_stream = self
                 .reader
                 .create_stream_from(self.header.pack_header.check_info_pos);
-            let check_info = CheckInfo::produce(checkinfo_stream.as_mut())?;
+            let check_info = CheckInfo::produce(&mut checkinfo_stream)?;
             self.check_info.set(Some(check_info));
         }
         let mut check_stream = self
@@ -120,7 +120,7 @@ impl Pack for ContentPack {
         self.check_info
             .get()
             .unwrap()
-            .check(&mut check_stream.as_mut() as &mut dyn Read)
+            .check(&mut check_stream as &mut dyn Read)
     }
 }
 
@@ -169,7 +169,7 @@ mod tests {
         let hash = blake3::hash(&content);
         content.push(0x01); // check info off: 171
         content.extend(hash.as_bytes()); // end : 171+32 = 203
-        let reader = Box::new(BufReader::new(content, End::None));
+        let reader = Reader::new(content, End::None);
         let content_pack = ContentPack::new(reader).unwrap();
         assert_eq!(content_pack.get_content_count(), ContentCount::from(3));
         assert_eq!(content_pack.app_vendor_id(), 0x01000000_u32);

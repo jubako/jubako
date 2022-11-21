@@ -18,7 +18,7 @@ impl ContentInfo {
 
 impl Producable for ContentInfo {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         let v = stream.read_u32()?;
         let blob_index = (v & 0xFFF) as u16;
         let cluster_index = v >> 12;

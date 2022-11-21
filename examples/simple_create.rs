@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Now we have "configured" our container, let's add some content:
     let content: Vec<u8> = "A super content prime quality for our test container".into();
-    let mut reader = jbk::creator::BufStream::new(content, jbk::End::None);
+    let mut reader = jbk::creator::Stream::new(content, jbk::End::None);
     let content_id = content_pack.add_content(&mut reader)?;
     entry_store.add_entry(
         0, // Variant 0

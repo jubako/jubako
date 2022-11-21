@@ -28,7 +28,7 @@ impl Size {
 
 impl Producable for Size {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         Ok(stream.read_u64()?.into())
     }
 }

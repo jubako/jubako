@@ -32,7 +32,7 @@ impl PString {
 
 impl Producable for PString {
     type Output = Vec<u8>;
-    fn produce(stream: &mut dyn Stream) -> Result<Vec<u8>> {
+    fn produce(stream: &mut Stream) -> Result<Vec<u8>> {
         let size = stream.read_u8()?;
         stream.read_vec(size as usize)
     }
@@ -50,8 +50,8 @@ mod tests {
     fn test_pstring(source: &[u8]) -> String {
         let mut content = Vec::new();
         content.extend_from_slice(source);
-        let reader = BufReader::new(content, End::None);
+        let reader = Reader::new(content, End::None);
         let mut stream = reader.create_stream_all();
-        String::from_utf8(PString::produce(stream.as_mut()).unwrap()).unwrap()
+        String::from_utf8(PString::produce(&mut stream).unwrap()).unwrap()
     }
 }

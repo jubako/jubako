@@ -1,45 +1,94 @@
 ///! All base traits use to produce structure from raw data.
 use crate::bases::*;
 use primitive::*;
-use std::fmt;
 use std::io::{BorrowedBuf, Read};
+use std::rc::Rc;
 
-/// A stream is a object streaming a reader and producing data.
-/// A stream may have a size, and is positionned.
-/// A stream can produce raw value, "consuming" the data and the cursor is moved.
-/// Each stream is independant.
-pub trait Stream: Read {
-    fn tell(&self) -> Offset;
-    fn global_offset(&self) -> Offset;
-    fn size(&self) -> Size;
-    fn skip(&mut self, size: Size) -> Result<()>;
+// A wrapper arount someting to implement Stream trait
+#[derive(Debug)]
+pub struct Stream {
+    source: Rc<dyn Source>,
+    origin: Offset,
+    end: Offset,
+    offset: Offset,
+}
 
-    fn read_u8(&mut self) -> Result<u8> {
-        let mut d = [0_u8; 1];
-        self.read_exact(&mut d)?;
-        Ok(read_u8(&d))
+impl Stream {
+    pub fn new<T: Source + 'static>(source: T, end: End) -> Self {
+        let end = match end {
+            End::None => source.size().into(),
+            End::Offset(o) => o,
+            End::Size(s) => s.into(),
+        };
+        Self {
+            source: Rc::new(source),
+            origin: Offset::zero(),
+            offset: Offset::zero(),
+            end,
+        }
     }
-    fn read_u16(&mut self) -> Result<u16> {
-        let mut d = [0_u8; 2];
-        self.read_exact(&mut d)?;
-        Ok(read_u16(&d))
+
+    pub fn new_from_parts(
+        source: Rc<dyn Source>,
+        origin: Offset,
+        end: Offset,
+        offset: Offset,
+    ) -> Self {
+        Self {
+            source,
+            origin,
+            end,
+            offset,
+        }
     }
-    fn read_u32(&mut self) -> Result<u32> {
-        let mut d = [0_u8; 4];
-        self.read_exact(&mut d)?;
-        Ok(read_u32(&d))
+
+    pub fn tell(&self) -> Offset {
+        (self.offset - self.origin).into()
     }
-    fn read_u64(&mut self) -> Result<u64> {
-        let mut d = [0_u8; 8];
-        self.read_exact(&mut d)?;
-        Ok(read_u64(&d))
+    pub fn size(&self) -> Size {
+        self.end - self.origin
     }
-    fn read_sized(&mut self, size: usize) -> Result<u64> {
-        let mut d = [0_u8; 8];
-        self.read_exact(&mut d[0..size])?;
-        Ok(read_to_u64(size, &d))
+    pub fn skip(&mut self, size: Size) -> Result<()> {
+        let new_offset = self.offset + size;
+        if new_offset <= self.end {
+            self.offset = new_offset;
+            Ok(())
+        } else {
+            Err(format_error!(&format!(
+                "Cannot skip at offset {} ({}+{}) after end of stream ({}).",
+                new_offset, self.offset, size, self.end
+            )))
+        }
     }
-    fn read_vec(&mut self, size: usize) -> Result<Vec<u8>> {
+    pub fn global_offset(&self) -> Offset {
+        self.offset
+    }
+    pub fn read_u8(&mut self) -> Result<u8> {
+        let slice = self.source.slice_1(self.offset)?;
+        self.offset += 1;
+        Ok(read_u8(&slice))
+    }
+    pub fn read_u16(&mut self) -> Result<u16> {
+        let slice = self.source.slice_2(self.offset)?;
+        self.offset += 2;
+        Ok(read_u16(&slice))
+    }
+    pub fn read_u32(&mut self) -> Result<u32> {
+        let slice = self.source.slice_4(self.offset)?;
+        self.offset += 4;
+        Ok(read_u32(&slice))
+    }
+    pub fn read_u64(&mut self) -> Result<u64> {
+        let slice = self.source.slice_8(self.offset)?;
+        self.offset += 8;
+        Ok(read_u64(&slice))
+    }
+    pub fn read_sized(&mut self, size: usize) -> Result<u64> {
+        let slice = self.source.slice_sized(self.offset, size)?;
+        self.offset += size;
+        Ok(read_to_u64(size, &slice[..size]))
+    }
+    pub fn read_vec(&mut self, size: usize) -> Result<Vec<u8>> {
         let mut v = Vec::with_capacity(size);
         let mut uninit: BorrowedBuf = v.spare_capacity_mut().into();
         self.read_buf_exact(uninit.unfilled())?;
@@ -48,23 +97,23 @@ pub trait Stream: Read {
         }
         Ok(v)
     }
+    pub fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
+        self.source.read_exact(self.offset, buf)?;
+        self.offset += buf.len();
+        Ok(())
+    }
 }
 
-/// A Producable is a object that can be produce from a stream.
-pub trait Producable {
-    type Output;
-    fn produce(stream: &mut dyn Stream) -> Result<Self::Output>
-    where
-        Self::Output: Sized;
-}
-
-impl fmt::Debug for Box<dyn Stream> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!(
-            "Stream{{Size:{}, Pos:{}, GlobalPos:{} }}",
-            self.size(),
-            self.tell(),
-            self.global_offset()
-        ))
+impl Read for Stream {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let max_len = std::cmp::min(buf.len(), (self.end - self.offset).into_usize());
+        let buf = &mut buf[..max_len];
+        match self.source.read(self.offset, buf) {
+            Ok(s) => {
+                self.offset += s;
+                Ok(s)
+            }
+            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
+        }
     }
 }

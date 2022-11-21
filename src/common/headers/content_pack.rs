@@ -34,7 +34,7 @@ impl ContentPackHeader {
 
 impl Producable for ContentPackHeader {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         let pack_header = PackHeader::produce(stream)?;
         if pack_header.magic != PackKind::Content {
             return Err(format_error!("Pack Magic is not ContentPack"));
@@ -93,10 +93,10 @@ mod tests {
             0x00, 0x00, 0x00, 0x60, // cluster ccount
         ];
         content.extend_from_slice(&[0xff; 40]);
-        let reader = BufReader::new(content, End::None);
+        let reader = Reader::new(content, End::None);
         let mut stream = reader.create_stream_all();
         assert_eq!(
-            ContentPackHeader::produce(stream.as_mut()).unwrap(),
+            ContentPackHeader::produce(&mut stream).unwrap(),
             ContentPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::Content,

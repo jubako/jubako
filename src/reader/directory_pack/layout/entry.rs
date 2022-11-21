@@ -13,7 +13,7 @@ pub struct Entry {
 
 impl Producable for Entry {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Entry> {
+    fn produce(stream: &mut Stream) -> Result<Entry> {
         let entry_size = stream.read_u16()? as usize;
         let variant_count: VariantCount = Count::<u8>::produce(stream)?.into();
         let raw_property_count: PropertyCount = Count::<u8>::produce(stream)?.into();
@@ -72,7 +72,7 @@ impl Producable for Entry {
 }
 
 impl Entry {
-    pub fn create_entry(&self, reader: &dyn Reader) -> Result<LazyEntry> {
+    pub fn create_entry(&self, reader: &Reader) -> Result<LazyEntry> {
         let variant_id = if self.variants.len() > 1 {
             reader.read_u8(Offset::zero())?
         } else {
@@ -111,7 +111,7 @@ mod tests {
         {
             let content = vec![0x00, 0x00, 0x00, 0x01, 0x88, 0x99];
 
-            let reader = BufReader::new(content, End::None);
+            let reader = Reader::new(content, End::None);
             let entry = entry_def.create_entry(&reader).unwrap();
 
             assert!(entry.get_variant_id() == 0);
@@ -128,7 +128,7 @@ mod tests {
         {
             let content = vec![0x01, 0x00, 0x00, 0x02, 0x66, 0x77];
 
-            let reader = BufReader::new(content, End::None);
+            let reader = Reader::new(content, End::None);
             let entry = entry_def.create_entry(&reader).unwrap();
 
             assert!(entry.get_variant_id() == 0);
@@ -172,7 +172,7 @@ mod tests {
         {
             let content = vec![0x00, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99];
 
-            let reader = BufReader::new(content, End::None);
+            let reader = Reader::new(content, End::None);
             let entry = entry_def.create_entry(&reader).unwrap();
 
             assert!(entry.get_variant_id() == 0);
@@ -186,7 +186,7 @@ mod tests {
         {
             let content = vec![0x01, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99];
 
-            let reader = BufReader::new(content, End::None);
+            let reader = Reader::new(content, End::None);
             let entry = entry_def.create_entry(&reader).unwrap();
 
             assert!(entry.get_variant_id() == 1);
