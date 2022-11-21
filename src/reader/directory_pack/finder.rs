@@ -117,7 +117,7 @@ mod tests {
 
         pub struct ValueStore {}
         impl ValueStoreTrait for ValueStore {
-            fn get_data(&self, _id: ValueIdx) -> Result<Vec<u8>> {
+            fn get_data(&self, _id: ValueIdx) -> Result<&[u8]> {
                 unreachable!()
             }
         }

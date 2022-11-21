@@ -22,7 +22,7 @@ impl Producable for ValueStoreKind {
 }
 
 pub trait ValueStoreTrait {
-    fn get_data(&self, id: ValueIdx) -> Result<Vec<u8>>;
+    fn get_data(&self, id: ValueIdx) -> Result<&[u8]>;
 }
 
 pub enum ValueStore {
@@ -49,7 +49,7 @@ impl ValueStore {
 }
 
 impl ValueStoreTrait for ValueStore {
-    fn get_data(&self, id: ValueIdx) -> Result<Vec<u8>> {
+    fn get_data(&self, id: ValueIdx) -> Result<&[u8]> {
         match self {
             ValueStore::Plain(store) => store.get_data(id),
             ValueStore::Indexed(store) => store.get_data(id),
@@ -69,9 +69,11 @@ impl PlainValueStore {
         Ok(PlainValueStore { reader })
     }
 
-    fn get_data(&self, id: ValueIdx) -> Result<Vec<u8>> {
-        let mut stream = self.reader.create_stream_from(Offset::from(id.into_u64()));
-        PString::produce(&mut stream)
+    fn get_data(&self, id: ValueIdx) -> Result<&[u8]> {
+        let offset = id.into_u64().into();
+        let data_size = self.reader.read_u8(offset)?;
+        self.reader
+            .get_slice(offset + 1, End::new_size(data_size as u64))
     }
 }
 
@@ -111,11 +113,10 @@ impl IndexedValueStore {
         })
     }
 
-    fn get_data(&self, id: ValueIdx) -> Result<Vec<u8>> {
+    fn get_data(&self, id: ValueIdx) -> Result<&[u8]> {
         let start = self.value_offsets[id.into_usize()];
         let end = self.value_offsets[id.into_usize() + 1];
-        let mut stream = self.reader.create_stream(start, End::Offset(end));
-        stream.read_vec((end - start).into_usize())
+        self.reader.get_slice(start, End::Offset(end))
     }
 }
 

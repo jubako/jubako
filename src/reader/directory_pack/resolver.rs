@@ -26,19 +26,17 @@ pub(crate) mod private {
             Self { value_storage }
         }
 
-        fn get_data(&self, extend: &Extend) -> Result<Vec<u8>> {
+        fn get_data(&self, extend: &Extend) -> Result<&[u8]> {
             let value_store = self.value_storage.get_value_store(extend.store_id)?;
             value_store.get_data(extend.value_id)
         }
 
-        fn resolve_array_to_vec(&self, array: &Array) -> Result<Vec<u8>> {
-            Ok(match &array.extend {
-                None => array.base.clone(),
-                Some(e) => {
-                    let data = self.get_data(e)?;
-                    [array.base.as_slice(), data.as_slice()].concat()
-                }
-            })
+        pub fn resolve_array_to_vec(&self, array: &Array, vec: &mut Vec<u8>) -> Result<()> {
+            vec.extend_from_slice(array.base.as_slice());
+            if let Some(e) = &array.extend {
+                vec.extend_from_slice(self.get_data(e)?);
+            }
+            Ok(())
         }
 
         pub fn resolve(&self, raw: &RawValue) -> Result<Value> {
@@ -52,8 +50,27 @@ pub(crate) mod private {
                 RawValue::I16(v) => Value::Signed(*v as i64),
                 RawValue::I32(v) => Value::Signed(*v as i64),
                 RawValue::I64(v) => Value::Signed(*v as i64),
-                RawValue::Array(a) => Value::Array(self.resolve_array_to_vec(a)?),
+                RawValue::Array(a) => {
+                    let mut vec = vec![];
+                    self.resolve_array_to_vec(a, &mut vec)?;
+                    Value::Array(vec)
+                }
             })
+        }
+
+        pub fn compare_array(&self, raw: &Array, value: &[u8]) -> Result<cmp::Ordering> {
+            let cmp = raw.base.as_slice().cmp(&value[..raw.base.len()]);
+            if cmp.is_ne() {
+                Ok(cmp)
+            } else {
+                match &raw.extend {
+                    None => Ok(cmp),
+                    Some(e) => {
+                        let d = self.get_data(e)?;
+                        Ok(d.cmp(&value[raw.base.len()..]))
+                    }
+                }
+            }
         }
 
         pub fn compare(&self, raw: &RawValue, value: &Value) -> Result<cmp::Ordering> {
@@ -74,20 +91,7 @@ pub(crate) mod private {
                     _ => Err("Values kind cannot be compared.".to_string().into()),
                 },
                 Value::Array(v) => match raw {
-                    RawValue::Array(a) => {
-                        let cmp = a.base.as_slice().cmp(&v[..a.base.len()]);
-                        if cmp.is_ne() {
-                            Ok(cmp)
-                        } else {
-                            match &a.extend {
-                                None => Ok(cmp),
-                                Some(e) => {
-                                    let d = self.get_data(e)?;
-                                    Ok(d.as_slice().cmp(&v[a.base.len()..]))
-                                }
-                            }
-                        }
-                    }
+                    RawValue::Array(a) => self.compare_array(a, v),
                     _ => Err("Values kind cannot be compared.".to_string().into()),
                 },
             }
@@ -95,7 +99,9 @@ pub(crate) mod private {
 
         pub fn resolve_to_vec(&self, raw: &RawValue) -> Result<Vec<u8>> {
             if let RawValue::Array(a) = raw {
-                self.resolve_array_to_vec(a)
+                let mut vec = vec![];
+                self.resolve_array_to_vec(a, &mut vec)?;
+                Ok(vec)
             } else {
                 panic!();
             }
@@ -146,17 +152,15 @@ mod tests {
             use super::*;
             pub struct ValueStore {}
             impl ValueStoreTrait for ValueStore {
-                fn get_data(&self, id: ValueIdx) -> Result<Vec<u8>> {
-                    Ok(match *id {
-                        Idx(0) => "Hello",
-                        Idx(1) => "World",
-                        Idx(2) => "Jubako",
-                        Idx(3) => "is",
-                        Idx(4) => "awsome",
+                fn get_data(&self, id: ValueIdx) -> Result<&[u8]> {
+                    Ok(match id.0 {
+                        Idx(0) => b"Hello",
+                        Idx(1) => b"World",
+                        Idx(2) => b"Jubako",
+                        Idx(3) => b"is",
+                        Idx(4) => b"awsome",
                         _ => panic!(),
-                    }
-                    .as_bytes()
-                    .to_vec())
+                    })
                 }
             }
 
