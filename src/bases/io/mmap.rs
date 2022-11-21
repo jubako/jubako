@@ -34,4 +34,10 @@ impl Source for Mmap {
         assert!(offset.into_usize() + size <= self.len());
         Ok((self, offset, End::new_size(size as u64)))
     }
+
+    fn get_slice(&self, offset: Offset, end: Offset) -> Result<&[u8]> {
+        assert!(offset <= end);
+        assert!(end.into_usize() <= self.len());
+        Ok(&self[offset.into_usize()..end.into_usize()])
+    }
 }

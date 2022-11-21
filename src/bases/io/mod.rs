@@ -21,6 +21,8 @@ pub trait Source {
         size: usize,
     ) -> Result<(Rc<dyn Source>, Offset, End)>;
 
+    fn get_slice(&self, offset: Offset, end: Offset) -> Result<&[u8]>;
+
     fn slice_1(&self, offset: Offset) -> Result<[u8; 1]> {
         let mut buf = [0_u8; 1];
         self.read_exact(offset, &mut buf)?;

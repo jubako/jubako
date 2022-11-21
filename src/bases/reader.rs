@@ -93,6 +93,19 @@ impl Reader {
         })
     }
 
+    /// Get a slice from the reader.
+    /// This is usefull only if this is a memory reader, panic if not
+    /// [TODO] Use a new trait/type for this.
+    pub fn get_slice(&self, offset: Offset, end: End) -> Result<&[u8]> {
+        let origin = self.origin + offset;
+        let end = match end {
+            End::None => self.end,
+            End::Offset(o) => self.origin + o,
+            End::Size(s) => origin + s,
+        };
+        self.source.get_slice(origin, end)
+    }
+
     pub fn read_u8(&self, offset: Offset) -> Result<u8> {
         let slice = self.source.slice_1(self.origin + offset)?;
         Ok(read_u8(&slice))

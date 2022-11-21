@@ -113,4 +113,8 @@ impl Source for FileSource {
             Ok((Rc::new(mmap), Offset::zero(), End::None))
         }
     }
+
+    fn get_slice(&self, _offset: Offset, _end: Offset) -> Result<&[u8]> {
+        panic!("Cannot get a slice from a file reader");
+    }
 }

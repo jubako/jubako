@@ -79,6 +79,13 @@ impl<T: Read + 'static> Source for SeekableDecoder<T> {
         self.decode_to(offset + size)?;
         Ok((self, offset, End::new_size(size as u64)))
     }
+
+    fn get_slice(&self, offset: Offset, end: Offset) -> Result<&[u8]> {
+        assert!(offset <= end);
+        assert!(end.is_valid(self.size()));
+        self.decode_to(end)?;
+        Ok(&self.decoded_slice()[offset.into_usize()..end.into_usize()])
+    }
 }
 
 pub type Lz4Source<T> = SeekableDecoder<lz4::Decoder<T>>;
