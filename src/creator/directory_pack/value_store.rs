@@ -5,7 +5,7 @@ use crate::bases::*;
 pub struct PlainValueStore {
     idx: ValueStoreIdx,
     data: Vec<Vec<u8>>,
-    size: usize,
+    size: Size,
 }
 
 impl PlainValueStore {
@@ -13,19 +13,19 @@ impl PlainValueStore {
         Self {
             idx,
             data: vec![],
-            size: 0,
+            size: Size::zero(),
         }
     }
 
     pub fn add_value(&mut self, data: &[u8]) -> u64 {
-        let offset = self.size as u64;
+        let offset = self.size.into_u64();
         self.data.push(data.to_vec());
         self.size += 1 + data.len();
         offset
     }
 
     pub fn key_size(&self) -> u16 {
-        needed_bytes(self.size) as u16
+        needed_bytes(self.size.into_usize()) as u16
     }
 
     pub fn get_idx(&self) -> ValueStoreIdx {
@@ -42,8 +42,7 @@ impl WritableTell for PlainValueStore {
     }
 
     fn write_tail(&self, stream: &mut dyn OutStream) -> Result<()> {
-        let size = Size(self.size as u64);
-        size.write(stream)?;
+        self.size.write(stream)?;
         Ok(())
     }
 }
@@ -71,7 +70,7 @@ impl IndexedValueStore {
     pub fn add_value(&mut self, data: &[u8]) -> u64 {
         self.data.push(data.to_vec());
         self.entries_offset.push(self.current_offset() + data.len());
-        (self.entries_offset.len() - 1) as u64
+        self.entries_offset.len() as u64 - 1
     }
 
     pub fn key_size(&self) -> u16 {

@@ -24,8 +24,8 @@ impl CheckInfo {
     }
     pub fn size(&self) -> Size {
         match self.kind {
-            CheckKind::None => Size(1),
-            CheckKind::Blake3 => Size(33),
+            CheckKind::None => Size::new(1),
+            CheckKind::Blake3 => Size::new(33),
         }
     }
 }

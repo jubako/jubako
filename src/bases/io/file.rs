@@ -131,15 +131,15 @@ impl Reader for FileReader {
             End::Offset(o) => o - offset,
             End::Size(s) => s,
         };
-        if size < Size(1024) {
+        if size < Size::new(1024) {
             let mut stream = self.create_stream(offset, end);
-            let buf = stream.read_vec(size.0 as usize)?;
+            let buf = stream.read_vec(size.into_usize())?;
             Ok(Box::new(buffer::BufReader::new(buf, End::None)))
         } else {
             let mut mmap_options = MmapOptions::new();
             mmap_options
                 .offset((self.origin + offset).0)
-                .len(size.0 as usize)
+                .len(size.into_usize())
                 .populate();
             let mmap = unsafe { mmap_options.map(&self.source.borrow().deref())? };
             Ok(Box::new(MmapReader::new(

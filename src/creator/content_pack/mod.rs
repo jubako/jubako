@@ -56,7 +56,7 @@ impl ContentPackCreator {
             self.cluster_addresses.resize(
                 cluster.index() + 1,
                 SizedOffset {
-                    size: Size(0),
+                    size: Size::zero(),
                     offset: Offset(0),
                 },
             );

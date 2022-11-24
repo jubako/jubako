@@ -73,10 +73,8 @@ impl PlainStore {
         let entry_def = layout::Entry::produce(stream)?;
         let data_size = Size::produce(stream)?;
         // [TODO] use a array_reader here
-        let entry_reader = reader.create_sub_reader(
-            Offset(pos_info.offset.0 - data_size.0),
-            End::Size(data_size),
-        );
+        let entry_reader =
+            reader.create_sub_reader(pos_info.offset - data_size, End::Size(data_size));
         Ok(Self {
             entry_def,
             entry_reader,
@@ -85,7 +83,7 @@ impl PlainStore {
 
     pub fn get_entry(&self, idx: EntryIdx) -> Result<LazyEntry> {
         let reader = self.entry_reader.create_sub_reader(
-            Offset(idx.into_u64() * self.entry_def.size.0),
+            Offset(self.entry_def.size.into_u64() * idx.into_u64()),
             End::Size(self.entry_def.size),
         );
         self.entry_def.create_entry(reader.as_ref())
@@ -128,7 +126,7 @@ mod tests {
             0b0100_0001, // base char[2]
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
-        let size = Size(content.len() as u64);
+        let size = Size::from(content.len());
         let reader = Box::new(BufReader::new(content, End::None));
         let store = EntryStore::new(reader.as_ref(), SizedOffset::new(size, Offset(0))).unwrap();
         let store = match store {
@@ -178,7 +176,7 @@ mod tests {
             0b0010_0010, // u24
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
-        let size = Size(content.len() as u64);
+        let size = Size::from(content.len());
         let reader = Box::new(BufReader::new(content, End::None));
         let store = EntryStore::new(reader.as_ref(), SizedOffset::new(size, Offset(0))).unwrap();
         let store = match store {

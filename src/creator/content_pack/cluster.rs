@@ -9,7 +9,7 @@ pub struct ClusterCreator {
     offsets: Vec<usize>,
 }
 
-const CLUSTER_SIZE: Size = Size(1024 * 1024 * 4);
+const CLUSTER_SIZE: Size = Size::new(1024 * 1024 * 4);
 const MAX_BLOBS_PER_CLUSTER: usize = 0xFFF;
 
 impl ClusterCreator {
@@ -17,7 +17,7 @@ impl ClusterCreator {
         ClusterCreator {
             index,
             compression,
-            data: Vec::with_capacity(CLUSTER_SIZE.0 as usize),
+            data: Vec::with_capacity(CLUSTER_SIZE.into_usize()),
             offsets: vec![],
         }
     }
@@ -65,7 +65,7 @@ impl ClusterCreator {
             BlobCount::from(self.offsets.len() as u16),
         );
         cluster_header.write(stream)?;
-        stream.write_sized(data_size.0, offset_size)?; // raw data size
+        stream.write_sized(data_size.into_u64(), offset_size)?; // raw data size
         stream.write_sized(self.data.len() as u64, offset_size)?; // datasize
         for offset in &self.offsets[..self.offsets.len() - 1] {
             stream.write_sized(*offset as u64, offset_size)?;

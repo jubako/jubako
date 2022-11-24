@@ -32,7 +32,7 @@ impl Property {
     }
 
     fn create_content(offset: Offset, base: u8, reader: &dyn Reader) -> Result<Content> {
-        let mut stream = reader.create_stream(offset, End::Size(Size(4)));
+        let mut stream = reader.create_stream(offset, End::new_size(4));
         let contentaddress = ContentAddress::produce(stream.as_mut())?;
         let base_content = if base == 0 {
             None
@@ -47,7 +47,7 @@ impl Property {
     }
 
     fn create_array(offset: Offset, size: usize, reader: &dyn Reader) -> Result<Vec<u8>> {
-        let mut stream = reader.create_stream(offset, End::Size(size.into()));
+        let mut stream = reader.create_stream(offset, End::new_size(size as u64));
         let mut ret = Vec::with_capacity(size);
         let mut uninit: BorrowedBuf = ret.spare_capacity_mut().into();
         stream.read_buf_exact(uninit.unfilled())?;

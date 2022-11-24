@@ -66,7 +66,7 @@ impl Producable for Entry {
         }
         Ok(Entry {
             variants,
-            size: Size(entry_size as u64),
+            size: Size::from(entry_size),
         })
     }
 }
@@ -105,7 +105,7 @@ mod tests {
                 ])
                 .unwrap(),
             )],
-            size: Size(6),
+            size: Size::new(6),
         };
 
         {
@@ -166,7 +166,7 @@ mod tests {
                     .unwrap(),
                 ),
             ],
-            size: Size(7),
+            size: Size::new(7),
         };
 
         {

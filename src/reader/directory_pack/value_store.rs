@@ -66,10 +66,8 @@ pub struct PlainValueStore {
 impl PlainValueStore {
     fn new(stream: &mut dyn Stream, reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
         let data_size = Size::produce(stream)?;
-        let reader = reader.create_sub_memory_reader(
-            Offset(pos_info.offset.0 - data_size.0),
-            End::Size(data_size),
-        )?;
+        let reader =
+            reader.create_sub_memory_reader(pos_info.offset - data_size, End::Size(data_size))?;
         Ok(PlainValueStore { reader })
     }
 
@@ -106,11 +104,9 @@ impl IndexedValueStore {
         }
         unsafe { value_offsets.set_len(value_count) }
         value_offsets.push(data_size.into());
-        assert_eq!(stream.tell().0, pos_info.size.0);
-        let reader = reader.create_sub_memory_reader(
-            Offset(pos_info.offset.0 - data_size.0),
-            End::Size(data_size),
-        )?;
+        assert_eq!(stream.tell().0, pos_info.size.into_u64());
+        let reader =
+            reader.create_sub_memory_reader(pos_info.offset - data_size, End::Size(data_size))?;
         Ok(IndexedValueStore {
             value_offsets,
             reader,
@@ -121,7 +117,7 @@ impl IndexedValueStore {
         let start = self.value_offsets[id.into_usize()];
         let end = self.value_offsets[id.into_usize() + 1];
         let mut stream = self.reader.create_stream(start, End::Offset(end));
-        stream.read_vec((end - start).0 as usize)
+        stream.read_vec((end - start).into_usize())
     }
 }
 
@@ -158,7 +154,8 @@ mod tests {
             ],
             End::None,
         );
-        let value_store = ValueStore::new(&reader, SizedOffset::new(Size(9), Offset(18))).unwrap();
+        let value_store =
+            ValueStore::new(&reader, SizedOffset::new(Size::new(9), Offset(18))).unwrap();
         match &value_store {
             ValueStore::Plain(plainvaluestore) => {
                 assert_eq!(plainvaluestore.reader.size(), Size::from(0x12_u64));
@@ -205,7 +202,8 @@ mod tests {
             ],
             End::None,
         );
-        let value_store = ValueStore::new(&reader, SizedOffset::new(Size(13), Offset(15))).unwrap();
+        let value_store =
+            ValueStore::new(&reader, SizedOffset::new(Size::new(13), Offset(15))).unwrap();
         match &value_store {
             ValueStore::Indexed(indexedvaluestore) => {
                 assert_eq!(

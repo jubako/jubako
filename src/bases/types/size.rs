@@ -1,13 +1,30 @@
 use crate::bases::*;
 use std::fmt;
-use std::ops::Add;
+use std::ops::{Add, AddAssign};
 
 /// A size used in Jubako.
 /// We handling content in 64 bits space.
 /// We cannot use a usize as it is arch dependent.
 /// Let's define our own type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
-pub struct Size(pub u64);
+pub struct Size(u64);
+
+impl Size {
+    pub const fn new(s: u64) -> Self {
+        Self(s)
+    }
+    pub const fn zero() -> Self {
+        Self(0)
+    }
+    pub fn into_u64(self) -> u64 {
+        self.0
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    pub fn into_usize(self) -> usize {
+        self.0 as usize
+    }
+}
 
 impl Producable for Size {
     type Output = Self;
@@ -53,5 +70,24 @@ impl Add<Size> for Size {
     type Output = Self;
     fn add(self, other: Size) -> Size {
         Size(self.0.checked_add(other.0).unwrap())
+    }
+}
+
+impl AddAssign<u64> for Size {
+    fn add_assign(&mut self, other: u64) {
+        self.0 += other;
+    }
+}
+
+impl AddAssign<usize> for Size {
+    fn add_assign(&mut self, other: usize) {
+        self.0 += other as u64;
+    }
+}
+
+impl std::ops::Mul<u64> for Size {
+    type Output = Self;
+    fn mul(self, other: u64) -> Size {
+        Size(self.0.checked_mul(other).unwrap())
     }
 }

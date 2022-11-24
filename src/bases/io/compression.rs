@@ -15,7 +15,7 @@ pub struct SeekableDecoder<T> {
 
 impl<T: Read> SeekableDecoder<T> {
     pub fn new(decoder: T, size: Size) -> Self {
-        let buffer = Vec::with_capacity(size.0 as usize);
+        let buffer = Vec::with_capacity(size.into_usize());
         Self {
             decoder: RefCell::new(decoder),
             buffer: RefCell::new(buffer),

@@ -52,12 +52,12 @@ impl Cluster {
                 ));
             }
             ClusterReader::Plain(reader.create_sub_reader(
-                Offset(cluster_info.offset.0 - raw_data_size.0),
+                cluster_info.offset - raw_data_size,
                 End::Size(raw_data_size),
             ))
         } else {
             ClusterReader::Raw(reader.create_sub_reader(
-                Offset(cluster_info.offset.0 - raw_data_size.0),
+                cluster_info.offset - raw_data_size,
                 End::Size(raw_data_size),
             ))
         };

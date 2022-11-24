@@ -53,13 +53,13 @@ where
         at: Offset,
         length: Count<IdxType>,
     ) -> Result<Self> {
-        let elem_size = OutType::Size::to_u64();
-        let sub_reader = reader
-            .create_sub_memory_reader(at, End::Size(Size(elem_size * u64::from(length.0))))?;
+        let elem_size = Size::from(OutType::Size::to_u64());
+        let sub_reader =
+            reader.create_sub_memory_reader(at, End::Size(elem_size * u64::from(length.0)))?;
         Ok(Self {
             reader: sub_reader,
             length,
-            elem_size: elem_size as usize,
+            elem_size: elem_size.into_usize(),
             produced_type: PhantomData,
         })
     }
@@ -81,7 +81,7 @@ where
         let offset = u64::from(idx.0) * self.elem_size as u64;
         let mut stream = self
             .reader
-            .create_stream(Offset::from(offset), End::Size(Size::from(self.elem_size)));
+            .create_stream(Offset::from(offset), End::new_size(self.elem_size as u64));
         OutType::produce(stream.as_mut())
     }
 }

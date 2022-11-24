@@ -52,10 +52,10 @@ impl Producable for PackHeader {
         let major_version = stream.read_u8()?;
         let minor_version = stream.read_u8()?;
         let uuid = Uuid::produce(stream)?;
-        stream.skip(Size(6))?;
+        stream.skip(Size::new(6))?;
         let file_size = Size::produce(stream)?;
         let check_info_pos = Offset::produce(stream)?;
-        stream.skip(Size(16))?;
+        stream.skip(Size::new(16))?;
         Ok(PackHeader {
             magic,
             app_vendor_id,

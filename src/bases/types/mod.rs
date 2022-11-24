@@ -27,3 +27,17 @@ pub enum End {
     Size(Size),
     None,
 }
+
+impl End {
+    pub fn new_size(s: u64) -> Self {
+        Self::Size(Size::from(s))
+    }
+
+    pub fn new_offset(o: u64) -> Self {
+        Self::Offset(Offset::from(o))
+    }
+
+    pub fn none() -> Self {
+        End::None
+    }
+}

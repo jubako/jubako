@@ -32,11 +32,11 @@ impl Producable for PackInfo {
         let pack_check_info = Offset::produce(stream)?;
         let pack_offset = Offset::produce(stream)?;
         let pack_pos = if pack_offset.0 != 0 {
-            stream.skip(Size(112))?;
+            stream.skip(Size::new(112))?;
             PackPos::Offset(pack_offset)
         } else {
             let v = PString::produce(stream)?;
-            stream.skip(Size((111 - v.len()) as u64))?;
+            stream.skip(Size::from(111 - v.len()))?;
             PackPos::Path(v)
         };
         Ok(Self {
@@ -292,7 +292,7 @@ mod tests {
                 0x0e, 0x0f
             ])
         );
-        assert_eq!(main_pack.size(), Size::from(881_usize));
+        assert_eq!(main_pack.size(), Size::new(881));
         assert!(main_pack.check().unwrap());
         assert_eq!(
             main_pack.get_directory_pack_info(),
@@ -303,7 +303,7 @@ mod tests {
                 ]),
                 pack_id: PackId::from(0),
                 free_data: FreeData103::clone_from_slice(&[0xf0; 103]),
-                pack_size: Size(0xffff),
+                pack_size: Size::new(0xffff),
                 pack_check_info: Offset(0xff),
                 pack_pos: PackPos::Offset(Offset(0xff00))
             }
@@ -317,7 +317,7 @@ mod tests {
                 ]),
                 pack_id: PackId::from(1),
                 free_data: FreeData103::clone_from_slice(&[0xf1; 103]),
-                pack_size: Size(0xffffff),
+                pack_size: Size::new(0xffffff),
                 pack_check_info: Offset(0xff00ff),
                 pack_pos: PackPos::Offset(Offset(0xff00))
             }
@@ -331,7 +331,7 @@ mod tests {
                 ]),
                 pack_id: PackId::from(2),
                 free_data: FreeData103::clone_from_slice(&[0xf2; 103]),
-                pack_size: Size(0xffffff),
+                pack_size: Size::new(0xffffff),
                 pack_check_info: Offset(0xffffff),
                 pack_pos: PackPos::Path("packpath".into())
             }
