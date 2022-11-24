@@ -65,7 +65,7 @@ impl FileReader {
         let source = BufferedFile::new(source, len);
         let source = Rc::new(RefCell::new(source));
         let end = match end {
-            End::None => Offset(len as u64),
+            End::None => Offset::from(len),
             End::Offset(o) => o,
             End::Size(s) => s.into(),
         };
@@ -73,13 +73,13 @@ impl FileReader {
         Self {
             source,
             end,
-            origin: Offset(0),
+            origin: Offset::zero(),
         }
     }
 
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()> {
         let mut f = self.source.borrow_mut();
-        f.seek(SeekFrom::Start((self.origin + offset).0))?;
+        f.seek(SeekFrom::Start((self.origin + offset).into_u64()))?;
         match f.read_exact(buf) {
             Err(e) => Err(e.into()),
             Ok(v) => Ok(v),
@@ -138,13 +138,13 @@ impl Reader for FileReader {
         } else {
             let mut mmap_options = MmapOptions::new();
             mmap_options
-                .offset((self.origin + offset).0)
+                .offset((self.origin + offset).into_u64())
                 .len(size.into_usize())
                 .populate();
             let mmap = unsafe { mmap_options.map(&self.source.borrow().deref())? };
             Ok(Box::new(MmapReader::new(
                 Rc::new(mmap),
-                Offset(0),
+                Offset::zero(),
                 End::None,
             )))
         }
@@ -210,16 +210,16 @@ impl FileStream {
         let source = BufferedFile::new(source, len);
         let source = Rc::new(RefCell::new(source));
         let end = match end {
-            End::None => Offset(len as u64),
+            End::None => Offset::from(len),
             End::Offset(o) => o,
             End::Size(s) => s.into(),
         };
         assert!(end.is_valid(len.into()));
         Self {
             source,
-            origin: Offset(0),
+            origin: Offset::zero(),
             end,
-            offset: Offset(0),
+            offset: Offset::zero(),
         }
     }
 }
@@ -227,8 +227,8 @@ impl FileStream {
 impl Read for FileStream {
     fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
         let mut file = self.source.as_ref().borrow_mut();
-        file.seek(SeekFrom::Start(self.offset.0))?;
-        let max_read_size = min(buf.len(), (self.end.0 - self.offset.0) as usize);
+        file.seek(SeekFrom::Start(self.offset.into_u64()))?;
+        let max_read_size = min(buf.len(), (self.end - self.offset).into_usize());
         match file.read(&mut buf[..max_read_size]) {
             Ok(s) => {
                 self.offset += s;

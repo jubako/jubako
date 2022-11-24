@@ -83,7 +83,7 @@ impl PlainStore {
 
     pub fn get_entry(&self, idx: EntryIdx) -> Result<LazyEntry> {
         let reader = self.entry_reader.create_sub_reader(
-            Offset(self.entry_def.size.into_u64() * idx.into_u64()),
+            Offset::from(self.entry_def.size.into_u64() * idx.into_u64()),
             End::Size(self.entry_def.size),
         );
         self.entry_def.create_entry(reader.as_ref())
@@ -128,7 +128,8 @@ mod tests {
         ];
         let size = Size::from(content.len());
         let reader = Box::new(BufReader::new(content, End::None));
-        let store = EntryStore::new(reader.as_ref(), SizedOffset::new(size, Offset(0))).unwrap();
+        let store =
+            EntryStore::new(reader.as_ref(), SizedOffset::new(size, Offset::zero())).unwrap();
         let store = match store {
             EntryStore::Plain(s) => s,
         };
@@ -178,7 +179,8 @@ mod tests {
         ];
         let size = Size::from(content.len());
         let reader = Box::new(BufReader::new(content, End::None));
-        let store = EntryStore::new(reader.as_ref(), SizedOffset::new(size, Offset(0))).unwrap();
+        let store =
+            EntryStore::new(reader.as_ref(), SizedOffset::new(size, Offset::zero())).unwrap();
         let store = match store {
             EntryStore::Plain(s) => s,
         };

@@ -18,10 +18,10 @@ pub trait Reader {
         self.create_stream(offset, End::None)
     }
     fn create_stream_to(&self, end: End) -> Box<dyn Stream> {
-        self.create_stream(Offset(0), end)
+        self.create_stream(Offset::zero(), end)
     }
     fn create_stream_all(&self) -> Box<dyn Stream> {
-        self.create_stream(Offset(0), End::None)
+        self.create_stream(Offset::zero(), End::None)
     }
     fn create_sub_reader(&self, offset: Offset, end: End) -> Box<dyn Reader>;
     fn create_sub_memory_reader(&self, offset: Offset, end: End) -> Result<Box<dyn Reader>>;

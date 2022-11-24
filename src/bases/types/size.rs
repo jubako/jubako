@@ -43,7 +43,7 @@ impl Writable for Size {
 
 impl From<Offset> for Size {
     fn from(v: Offset) -> Size {
-        v.0.into()
+        v.into_u64().into()
     }
 }
 

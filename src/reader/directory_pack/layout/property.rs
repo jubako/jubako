@@ -26,7 +26,7 @@ pub struct Property {
 impl Property {
     pub fn new(offset: usize, kind: PropertyKind) -> Self {
         Self {
-            offset: Offset(offset as u64),
+            offset: Offset::from(offset),
             kind,
         }
     }
@@ -37,11 +37,7 @@ impl Property {
         let base_content = if base == 0 {
             None
         } else {
-            Some(Property::create_content(
-                Offset(offset.0 + 4),
-                base - 1,
-                reader,
-            )?)
+            Some(Property::create_content(offset + 4, base - 1, reader)?)
         };
         Ok(Content::new(contentaddress, base_content))
     }
@@ -84,11 +80,9 @@ impl Property {
                 let value_id = reader.read_usized(self.offset, *size)?;
                 let base = match base {
                     None => Vec::new(),
-                    Some(base_size) => Property::create_array(
-                        Offset(self.offset.0 + (*size as u64)),
-                        *base_size,
-                        reader,
-                    )?,
+                    Some(base_size) => {
+                        Property::create_array(self.offset + (*size), *base_size, reader)?
+                    }
                 };
                 RawValue::Array(Array::new(
                     base,

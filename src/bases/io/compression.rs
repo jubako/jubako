@@ -24,8 +24,8 @@ impl<T: Read> SeekableDecoder<T> {
 
     pub fn decode_to(&self, end: Offset) -> std::result::Result<(), std::io::Error> {
         let mut buffer = self.buffer.borrow_mut();
-        if end.0 >= buffer.len() as u64 {
-            let e = std::cmp::min(end.0 as usize, buffer.capacity());
+        if end.into_usize() >= buffer.len() {
+            let e = std::cmp::min(end.into_usize(), buffer.capacity());
             let s = e - buffer.len();
             let uninit = buffer.spare_capacity_mut();
             let mut uninit = BorrowedBuf::from(&mut uninit[0..s]);
@@ -57,14 +57,14 @@ impl<T: Read> ReaderWrapper<SeekableDecoder<T>> {
         Self {
             source,
             end,
-            origin: Offset(0),
+            origin: Offset::zero(),
         }
     }
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()> {
         let o = self.origin + offset;
         let end = o + buf.len();
-        let o = o.0 as usize;
-        let e = end.0 as usize;
+        let o = o.into_usize();
+        let e = end.into_usize();
         self.source.decode_to(end)?;
         let slice = self.source.decoded_slice();
         if e > slice.len() {
@@ -174,9 +174,9 @@ impl<T: 'static + Read> Reader for ReaderWrapper<SeekableDecoder<T>> {
 
 impl<T: Read> StreamWrapper<SeekableDecoder<T>> {
     fn decoded_slice(&self) -> &[u8] {
-        let o = self.offset.0 as usize;
+        let o = self.offset.into_usize();
         let slice = self.source.decoded_slice();
-        let e = cmp::min(self.end.0 as usize, slice.len());
+        let e = cmp::min(self.end.into_usize(), slice.len());
         &self.source.decoded_slice()[o..e]
     }
 }

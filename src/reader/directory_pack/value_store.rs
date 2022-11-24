@@ -72,7 +72,7 @@ impl PlainValueStore {
     }
 
     fn get_data(&self, id: ValueIdx) -> Result<Vec<u8>> {
-        let mut stream = self.reader.create_stream_from(Offset(id.into_u64()));
+        let mut stream = self.reader.create_stream_from(Offset::from(id.into_u64()));
         PString::produce(stream.as_mut())
     }
 }
@@ -95,7 +95,7 @@ impl IndexedValueStore {
         for elem in &mut uninit[0..value_count] {
             let value: Offset = if first {
                 first = false;
-                0.into()
+                Offset::zero()
             } else {
                 stream.read_sized(offset_size.into())?.into()
             };
@@ -104,7 +104,7 @@ impl IndexedValueStore {
         }
         unsafe { value_offsets.set_len(value_count) }
         value_offsets.push(data_size.into());
-        assert_eq!(stream.tell().0, pos_info.size.into_u64());
+        assert_eq!(stream.tell().into_u64(), pos_info.size.into_u64());
         let reader =
             reader.create_sub_memory_reader(pos_info.offset - data_size, End::Size(data_size))?;
         Ok(IndexedValueStore {
@@ -137,7 +137,7 @@ mod tests {
             ValueStoreKind::produce(stream.as_mut()).unwrap(),
             ValueStoreKind::Indexed
         );
-        assert_eq!(stream.tell(), Offset::from(2));
+        assert_eq!(stream.tell(), Offset::new(2));
         assert!(ValueStoreKind::produce(stream.as_mut()).is_err());
     }
 
@@ -155,16 +155,16 @@ mod tests {
             End::None,
         );
         let value_store =
-            ValueStore::new(&reader, SizedOffset::new(Size::new(9), Offset(18))).unwrap();
+            ValueStore::new(&reader, SizedOffset::new(Size::new(9), Offset::new(18))).unwrap();
         match &value_store {
             ValueStore::Plain(plainvaluestore) => {
                 assert_eq!(plainvaluestore.reader.size(), Size::from(0x12_u64));
                 assert_eq!(
-                    plainvaluestore.reader.read_u64(Offset(0)).unwrap(),
+                    plainvaluestore.reader.read_u64(Offset::zero()).unwrap(),
                     0x0511121314150321_u64
                 );
                 assert_eq!(
-                    plainvaluestore.reader.read_u64(Offset(8)).unwrap(),
+                    plainvaluestore.reader.read_u64(Offset::new(8)).unwrap(),
                     0x2223073132333435_u64
                 );
             }
@@ -203,20 +203,23 @@ mod tests {
             End::None,
         );
         let value_store =
-            ValueStore::new(&reader, SizedOffset::new(Size::new(13), Offset(15))).unwrap();
+            ValueStore::new(&reader, SizedOffset::new(Size::new(13), Offset::new(15))).unwrap();
         match &value_store {
             ValueStore::Indexed(indexedvaluestore) => {
                 assert_eq!(
                     indexedvaluestore.value_offsets,
-                    vec![0.into(), 5.into(), 8.into(), 15.into()]
+                    vec![0_u64.into(), 5_u64.into(), 8_u64.into(), 15_u64.into()]
                 );
                 assert_eq!(indexedvaluestore.reader.size(), Size::from(0x0f_u64));
                 assert_eq!(
-                    indexedvaluestore.reader.read_u64(Offset(0)).unwrap(),
+                    indexedvaluestore.reader.read_u64(Offset::zero()).unwrap(),
                     0x1112131415212223_u64
                 );
                 assert_eq!(
-                    indexedvaluestore.reader.read_usized(Offset(8), 7).unwrap(),
+                    indexedvaluestore
+                        .reader
+                        .read_usized(Offset::new(8), 7)
+                        .unwrap(),
                     0x31323334353637_u64
                 );
             }

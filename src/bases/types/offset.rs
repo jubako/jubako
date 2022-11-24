@@ -6,11 +6,32 @@ use std::ops::{Add, AddAssign, Sub};
 /// We handling content in 64 bits space.
 /// We cannot use a usize as it is arch dependent.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
-pub struct Offset(pub u64);
+pub struct Offset(u64);
 
 impl Offset {
     pub fn is_valid(self, s: Size) -> bool {
         self.0 <= s.into_u64()
+    }
+
+    pub fn into_u64(self) -> u64 {
+        self.0
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    pub fn into_usize(self) -> usize {
+        self.0 as usize
+    }
+
+    pub fn is_zero(self) -> bool {
+        self.0 == 0
+    }
+
+    pub const fn zero() -> Self {
+        Self(0)
+    }
+
+    pub const fn new(s: u64) -> Self {
+        Self(s)
     }
 }
 
@@ -39,6 +60,12 @@ impl From<Size> for Offset {
 impl From<u64> for Offset {
     fn from(v: u64) -> Offset {
         Offset(v)
+    }
+}
+
+impl From<usize> for Offset {
+    fn from(v: usize) -> Offset {
+        Offset(v as u64)
     }
 }
 

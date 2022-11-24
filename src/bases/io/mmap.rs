@@ -10,7 +10,7 @@ pub type MmapStream = StreamWrapper<Mmap>;
 impl MmapReader {
     pub fn new(source: Rc<Mmap>, origin: Offset, end: End) -> Self {
         let end = match end {
-            End::None => Offset(source.len() as u64),
+            End::None => Offset::from(source.len()),
             End::Offset(o) => o,
             End::Size(s) => origin + s,
         };
@@ -23,8 +23,8 @@ impl MmapReader {
     }
 
     fn slice(&self) -> &[u8] {
-        let o = self.origin.0 as usize;
-        let e = self.end.0 as usize;
+        let o = self.origin.into_usize();
+        let e = self.end.into_usize();
         &self.source[o..e]
     }
 }
@@ -67,7 +67,7 @@ impl Reader for MmapReader {
     }
 
     fn read_u8(&self, offset: Offset) -> Result<u8> {
-        let o = offset.0 as usize;
+        let o = offset.into_usize();
         let slice = self.slice();
         if o + 1 > slice.len() {
             return Err(String::from("Out of slice").into());
@@ -75,7 +75,7 @@ impl Reader for MmapReader {
         Ok(read_u8(&slice[o..]))
     }
     fn read_u16(&self, offset: Offset) -> Result<u16> {
-        let o = offset.0 as usize;
+        let o = offset.into_usize();
         let slice = self.slice();
         if o + 2 > slice.len() {
             return Err(String::from("Out of slice").into());
@@ -83,7 +83,7 @@ impl Reader for MmapReader {
         Ok(read_u16(&slice[o..]))
     }
     fn read_u32(&self, offset: Offset) -> Result<u32> {
-        let o = offset.0 as usize;
+        let o = offset.into_usize();
         let slice = self.slice();
         if o + 4 > slice.len() {
             return Err(String::from("Out of slice").into());
@@ -91,7 +91,7 @@ impl Reader for MmapReader {
         Ok(read_u32(&slice[o..]))
     }
     fn read_u64(&self, offset: Offset) -> Result<u64> {
-        let o = offset.0 as usize;
+        let o = offset.into_usize();
         let slice = self.slice();
         if o + 8 > slice.len() {
             return Err(String::from("Out of slice").into());
@@ -99,7 +99,7 @@ impl Reader for MmapReader {
         Ok(read_u64(&slice[o..]))
     }
     fn read_usized(&self, offset: Offset, size: usize) -> Result<u64> {
-        let o = offset.0 as usize;
+        let o = offset.into_usize();
         let slice = self.slice();
         if o + size > slice.len() {
             return Err(String::from("Out of slice").into());
@@ -108,7 +108,7 @@ impl Reader for MmapReader {
     }
 
     fn read_i8(&self, offset: Offset) -> Result<i8> {
-        let o = offset.0 as usize;
+        let o = offset.into_usize();
         let slice = self.slice();
         if o + 1 > slice.len() {
             return Err(String::from("Out of slice").into());
@@ -116,7 +116,7 @@ impl Reader for MmapReader {
         Ok(read_i8(&slice[o..]))
     }
     fn read_i16(&self, offset: Offset) -> Result<i16> {
-        let o = offset.0 as usize;
+        let o = offset.into_usize();
         let slice = self.slice();
         if o + 2 > slice.len() {
             return Err(String::from("Out of slice").into());
@@ -124,7 +124,7 @@ impl Reader for MmapReader {
         Ok(read_i16(&slice[o..]))
     }
     fn read_i32(&self, offset: Offset) -> Result<i32> {
-        let o = offset.0 as usize;
+        let o = offset.into_usize();
         let slice = self.slice();
         if o + 4 > slice.len() {
             return Err(String::from("Out of slice").into());
@@ -132,7 +132,7 @@ impl Reader for MmapReader {
         Ok(read_i32(&slice[o..]))
     }
     fn read_i64(&self, offset: Offset) -> Result<i64> {
-        let o = offset.0 as usize;
+        let o = offset.into_usize();
         let slice = self.slice();
         if o + 8 > slice.len() {
             return Err(String::from("Out of slice").into());
@@ -140,7 +140,7 @@ impl Reader for MmapReader {
         Ok(read_i64(&slice[o..]))
     }
     fn read_isized(&self, offset: Offset, size: usize) -> Result<i64> {
-        let o = offset.0 as usize;
+        let o = offset.into_usize();
         let slice = self.slice();
         if o + size > slice.len() {
             return Err(String::from("Out of slice").into());
@@ -151,8 +151,8 @@ impl Reader for MmapReader {
 
 impl MmapStream {
     fn slice(&self) -> &[u8] {
-        let offset = self.offset.0 as usize;
-        let end = self.end.0 as usize;
+        let offset = self.offset.into_usize();
+        let end = self.end.into_usize();
         &self.source[offset..end]
     }
 }

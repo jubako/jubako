@@ -74,7 +74,7 @@ impl Producable for Entry {
 impl Entry {
     pub fn create_entry(&self, reader: &dyn Reader) -> Result<LazyEntry> {
         let variant_id = if self.variants.len() > 1 {
-            reader.read_u8(Offset(0))?
+            reader.read_u8(Offset::zero())?
         } else {
             0
         };
@@ -82,7 +82,7 @@ impl Entry {
         Ok(LazyEntry::new(
             variant_id,
             Rc::clone(variant_def),
-            reader.create_sub_reader(Offset(0), End::None),
+            reader.create_sub_reader(Offset::zero(), End::None),
         ))
     }
 }

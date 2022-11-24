@@ -57,7 +57,7 @@ impl ContentPackCreator {
                 cluster.index() + 1,
                 SizedOffset {
                     size: Size::zero(),
-                    offset: Offset(0),
+                    offset: Offset::zero(),
                 },
             );
         }

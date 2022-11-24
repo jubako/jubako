@@ -35,7 +35,7 @@ impl ManifestPackCreator {
             .open(&self.path)?;
         file.seek(SeekFrom::Start(128))?;
 
-        let mut check_pos = Offset(128 + 256 * (self.packs.len() as u64));
+        let mut check_pos = Offset::from(128 + 256 * self.packs.len());
 
         for pack_info in &self.packs {
             pack_info.write(check_pos, &mut file)?;

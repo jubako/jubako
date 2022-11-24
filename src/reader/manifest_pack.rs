@@ -31,13 +31,13 @@ impl Producable for PackInfo {
         let pack_size = Size::produce(stream)?;
         let pack_check_info = Offset::produce(stream)?;
         let pack_offset = Offset::produce(stream)?;
-        let pack_pos = if pack_offset.0 != 0 {
-            stream.skip(Size::new(112))?;
-            PackPos::Offset(pack_offset)
-        } else {
+        let pack_pos = if pack_offset.is_zero() {
             let v = PString::produce(stream)?;
             stream.skip(Size::from(111 - v.len()))?;
             PackPos::Path(v)
+        } else {
+            stream.skip(Size::new(112))?;
+            PackPos::Offset(pack_offset)
         };
         Ok(Self {
             id,
@@ -141,7 +141,7 @@ impl Read for CheckStream<'_> {
         // 128 + k*256 + 144  and 128 + k*256 + 144 + 112
         // => between  (208 + k*256) and (320+ k*256)
         // for k < pack_count
-        let offset = self.source.tell().0;
+        let offset = self.source.tell().into_u64();
         if offset < HEADER_SIZE {
             let size = cmp::min(buf.len(), (HEADER_SIZE - offset) as usize);
             self.source.read(&mut buf[..size])
@@ -304,8 +304,8 @@ mod tests {
                 pack_id: PackId::from(0),
                 free_data: FreeData103::clone_from_slice(&[0xf0; 103]),
                 pack_size: Size::new(0xffff),
-                pack_check_info: Offset(0xff),
-                pack_pos: PackPos::Offset(Offset(0xff00))
+                pack_check_info: Offset::new(0xff),
+                pack_pos: PackPos::Offset(Offset::new(0xff00))
             }
         );
         assert_eq!(
@@ -318,8 +318,8 @@ mod tests {
                 pack_id: PackId::from(1),
                 free_data: FreeData103::clone_from_slice(&[0xf1; 103]),
                 pack_size: Size::new(0xffffff),
-                pack_check_info: Offset(0xff00ff),
-                pack_pos: PackPos::Offset(Offset(0xff00))
+                pack_check_info: Offset::new(0xff00ff),
+                pack_pos: PackPos::Offset(Offset::new(0xff00))
             }
         );
         assert_eq!(
@@ -332,7 +332,7 @@ mod tests {
                 pack_id: PackId::from(2),
                 free_data: FreeData103::clone_from_slice(&[0xf2; 103]),
                 pack_size: Size::new(0xffffff),
-                pack_check_info: Offset(0xffffff),
+                pack_check_info: Offset::new(0xffffff),
                 pack_pos: PackPos::Path("packpath".into())
             }
         );

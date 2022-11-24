@@ -24,7 +24,8 @@ impl Container {
         let path: PathBuf = path.as_ref().into();
         let file = File::open(path.clone())?;
         let reader = FileReader::new(file, End::None);
-        let main_pack = ManifestPack::new(reader.create_sub_memory_reader(Offset(0), End::None)?)?;
+        let main_pack =
+            ManifestPack::new(reader.create_sub_memory_reader(Offset::from(0_u64), End::None)?)?;
         let mut packs = Vec::new();
         packs.resize_with((main_pack.max_id() + 1) as usize, Default::default);
         Ok(Self {

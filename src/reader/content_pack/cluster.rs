@@ -32,7 +32,7 @@ impl Cluster {
         for elem in &mut uninit[0..blob_count] {
             let value: Offset = if first {
                 first = false;
-                0.into()
+                Offset::zero()
             } else {
                 stream.read_sized(header.offset_size.into())?.into()
             };
@@ -76,7 +76,7 @@ impl Cluster {
         };
 
         let raw_reader = if let ClusterReader::Raw(r) = &*cluster_reader {
-            r.create_sub_reader(Offset(0), End::None)
+            r.create_sub_reader(Offset::zero(), End::None)
         } else {
             unreachable!()
         };
@@ -140,7 +140,7 @@ mod tests {
         (
             SizedOffset::new(
                 Size::from(cluster_data.len() - data.len()),
-                Offset(data.len() as u64),
+                Offset::from(data.len()),
             ),
             cluster_data,
         )

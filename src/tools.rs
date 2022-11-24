@@ -34,7 +34,7 @@ pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
                 let pos = outfile.seek(SeekFrom::End(0))?;
                 std::io::copy(&mut file, &mut outfile)?;
                 outfile.seek(SeekFrom::Start(128 + 256 * pack_nb.into_u64() + 128))?;
-                Offset(pos).write(&mut outfile)?;
+                Offset::from(pos).write(&mut outfile)?;
             }
         };
     }
