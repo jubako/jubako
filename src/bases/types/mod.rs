@@ -12,7 +12,7 @@ mod specific_types;
 
 pub use count::Count;
 pub use error::{Error, FormatError, Result};
-pub use free_data::FreeData;
+pub use free_data::{FreeData103, FreeData31, FreeData40, FreeData63};
 pub use id::Id;
 pub use idx::{Idx, IndexTrait};
 pub use offset::Offset;

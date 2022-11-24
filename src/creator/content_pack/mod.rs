@@ -7,12 +7,11 @@ use cluster::ClusterCreator;
 use std::fs::{File, OpenOptions};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use typenum::U40;
 
 pub struct ContentPackCreator {
     app_vendor_id: u32,
     pack_id: PackId,
-    free_data: FreeData<U40>,
+    free_data: FreeData40,
     content_infos: Vec<ContentInfo>,
     open_cluster: Option<ClusterCreator>,
     cluster_addresses: Vec<SizedOffset>,
@@ -26,7 +25,7 @@ impl ContentPackCreator {
         path: P,
         pack_id: PackId,
         app_vendor_id: u32,
-        free_data: FreeData<U40>,
+        free_data: FreeData40,
         compression: CompressionType,
     ) -> Self {
         ContentPackCreator {
@@ -139,7 +138,7 @@ impl ContentPackCreator {
         Ok(PackInfo {
             uuid: header.pack_header.uuid,
             pack_id: self.pack_id,
-            free_data: FreeData::clone_from_slice(&[0; 103]),
+            free_data: FreeData103::clone_from_slice(&[0; 103]),
             pack_size,
             check_info: CheckInfo::new_blake3(hash.as_bytes()),
             pack_pos: PackPos::Path(self.path.to_str().unwrap().into()),

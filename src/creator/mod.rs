@@ -9,7 +9,6 @@ pub use crate::common::{Content, Value};
 pub use content_pack::ContentPackCreator;
 pub use directory_pack::{layout, DirectoryPackCreator, ValueStoreKind};
 pub use manifest_pack::ManifestPackCreator;
-use typenum::U103;
 
 pub struct CheckInfo {
     kind: CheckKind,
@@ -43,7 +42,7 @@ impl Writable for CheckInfo {
 pub struct PackInfo {
     pub uuid: uuid::Uuid,
     pub pack_id: PackId,
-    pub free_data: FreeData<U103>,
+    pub free_data: FreeData103,
     pub pack_size: Size,
     pub pack_pos: PackPos,
     pub check_info: CheckInfo,

@@ -16,7 +16,6 @@ test_suite! {
     use std::io::Read;
     use std::rc::Rc;
     use crate::Entry as TestEntry;
-    use typenum::{U31, U40, U63};
 
     fixture compression(c: jubako::CompressionType) -> jubako::CompressionType {
         params {
@@ -65,7 +64,7 @@ test_suite! {
             "/tmp/contentPack.jbkc",
             jubako::PackId::from(1),
             1,
-            jubako::FreeData::<U40>::clone_from_slice(&[0xff; 40]),
+            jubako::FreeData40::clone_from_slice(&[0xff; 40]),
             compression
         );
         creator.start()?;
@@ -83,7 +82,7 @@ test_suite! {
             "/tmp/directoryPack.jbkd",
             jubako::PackId::from(1),
             1,
-            jubako::FreeData::<U31>::clone_from_slice(&[0xff; 31])
+            jubako::FreeData31::clone_from_slice(&[0xff; 31])
         );
         let key_store_handle = creator.create_value_store(key_store_kind);
         let entry_def = layout::Entry::new(
@@ -120,7 +119,7 @@ test_suite! {
         let mut creator = creator::ManifestPackCreator::new(
             "/tmp/mainPack.jbkm",
             1,
-            jubako::FreeData::<U63>::clone_from_slice(&[0xff; 63])
+            jubako::FreeData63::clone_from_slice(&[0xff; 63])
         );
 
         creator.add_pack(directory_pack);

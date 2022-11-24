@@ -2,7 +2,6 @@ use jubako as jbk;
 use jubako::creator::layout;
 use std::error::Error;
 use std::rc::Rc;
-use typenum::{U31, U40, U63};
 
 // This is what will allow Jubako to differenciate your format from others.
 const VENDOR_ID: u32 = 0x01_02_03_04;
@@ -12,8 +11,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         "test.jbkc",
         jbk::PackId::from(1), // The pack id as referenced in the container
         VENDOR_ID,
-        jbk::FreeData::<U40>::clone_from_slice(&[0x00; 40]), // Put whatever you what, this is for you
-        jbk::CompressionType::Zstd,                          // How to compress
+        jbk::FreeData40::clone_from_slice(&[0x00; 40]), // Put whatever you what, this is for you
+        jbk::CompressionType::Zstd,                     // How to compress
     );
     content_pack.start()?;
 
@@ -21,7 +20,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "test.jbkd",
         jbk::PackId::from(0),
         VENDOR_ID,
-        jbk::FreeData::<U31>::clone_from_slice(&[0x00; 31]),
+        jbk::FreeData31::clone_from_slice(&[0x00; 31]),
     );
 
     // Entries have fixed sizes. We need to store variable length values in an extra store.
@@ -94,7 +93,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut manifest_creator = jbk::creator::ManifestPackCreator::new(
         "test.jbkm",
         VENDOR_ID,
-        jbk::FreeData::<U63>::clone_from_slice(&[0x00; 63]),
+        jbk::FreeData63::clone_from_slice(&[0x00; 63]),
     );
 
     manifest_creator.add_pack(directory_pack_info);

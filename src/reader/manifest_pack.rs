@@ -5,14 +5,14 @@ use crate::common::{CheckInfo, ManifestPackHeader, Pack, PackKind, PackPos};
 use generic_array::typenum;
 use std::cmp;
 use std::io::{repeat, Read};
-use typenum::{Unsigned, U103};
+use typenum::Unsigned;
 use uuid::Uuid;
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct PackInfo {
     pub id: Uuid,
     pub pack_id: PackId,
-    pub free_data: FreeData<U103>,
+    pub free_data: FreeData103,
     pub pack_size: Size,
     pub pack_check_info: Offset,
     pub pack_pos: PackPos,
@@ -27,7 +27,7 @@ impl Producable for PackInfo {
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let id = Uuid::produce(stream)?;
         let pack_id = Id::produce(stream)?.into();
-        let free_data = FreeData::produce(stream)?;
+        let free_data = FreeData103::produce(stream)?;
         let pack_size = Size::produce(stream)?;
         let pack_check_info = Offset::produce(stream)?;
         let pack_offset = Offset::produce(stream)?;
@@ -302,7 +302,7 @@ mod tests {
                     0x1d, 0x1e, 0x1f
                 ]),
                 pack_id: PackId::from(0),
-                free_data: FreeData::clone_from_slice(&[0xf0; 103]),
+                free_data: FreeData103::clone_from_slice(&[0xf0; 103]),
                 pack_size: Size(0xffff),
                 pack_check_info: Offset(0xff),
                 pack_pos: PackPos::Offset(Offset(0xff00))
@@ -316,7 +316,7 @@ mod tests {
                     0x2d, 0x2e, 0x2f
                 ]),
                 pack_id: PackId::from(1),
-                free_data: FreeData::clone_from_slice(&[0xf1; 103]),
+                free_data: FreeData103::clone_from_slice(&[0xf1; 103]),
                 pack_size: Size(0xffffff),
                 pack_check_info: Offset(0xff00ff),
                 pack_pos: PackPos::Offset(Offset(0xff00))
@@ -330,7 +330,7 @@ mod tests {
                     0x3d, 0x3e, 0x3f
                 ]),
                 pack_id: PackId::from(2),
-                free_data: FreeData::clone_from_slice(&[0xf2; 103]),
+                free_data: FreeData103::clone_from_slice(&[0xf2; 103]),
                 pack_size: Size(0xffffff),
                 pack_check_info: Offset(0xffffff),
                 pack_pos: PackPos::Path("packpath".into())

@@ -7,14 +7,13 @@ use std::fs::OpenOptions;
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use typenum::U31;
 use value_store::ValueStore;
 pub use value_store::ValueStoreKind;
 
 pub struct DirectoryPackCreator {
     app_vendor_id: u32,
     pack_id: PackId,
-    free_data: FreeData<U31>,
+    free_data: FreeData31,
     value_stores: Vec<Rc<RefCell<ValueStore>>>,
     entry_stores: Vec<EntryStore>,
     indexes: Vec<Index>,
@@ -26,7 +25,7 @@ impl DirectoryPackCreator {
         path: P,
         pack_id: PackId,
         app_vendor_id: u32,
-        free_data: FreeData<U31>,
+        free_data: FreeData31,
     ) -> Self {
         DirectoryPackCreator {
             app_vendor_id,
@@ -145,7 +144,7 @@ impl DirectoryPackCreator {
         Ok(PackInfo {
             uuid: header.uuid(),
             pack_id: self.pack_id,
-            free_data: FreeData::clone_from_slice(&[0; 103]),
+            free_data: FreeData103::clone_from_slice(&[0; 103]),
             pack_size,
             check_info: CheckInfo::new_blake3(hash.as_bytes()),
             pack_pos: self.path.clone().into(),

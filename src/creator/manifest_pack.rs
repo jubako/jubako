@@ -4,17 +4,16 @@ use crate::common::{ManifestPackHeader, PackHeaderInfo};
 use std::fs::OpenOptions;
 use std::io::{copy, repeat, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use typenum::U63;
 
 pub struct ManifestPackCreator {
     app_vendor_id: u32,
-    free_data: FreeData<U63>,
+    free_data: FreeData63,
     packs: Vec<PackInfo>,
     path: PathBuf,
 }
 
 impl ManifestPackCreator {
-    pub fn new<P: AsRef<Path>>(path: P, app_vendor_id: u32, free_data: FreeData<U63>) -> Self {
+    pub fn new<P: AsRef<Path>>(path: P, app_vendor_id: u32, free_data: FreeData63) -> Self {
         ManifestPackCreator {
             app_vendor_id,
             free_data,

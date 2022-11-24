@@ -1,6 +1,5 @@
 use crate::bases::*;
 use crate::common::{PackHeader, PackHeaderInfo, PackKind};
-use generic_array::typenum::U40;
 use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -10,13 +9,13 @@ pub struct ContentPackHeader {
     pub cluster_ptr_pos: Offset,
     pub content_count: ContentCount,
     pub cluster_count: ClusterCount,
-    pub free_data: FreeData<U40>,
+    pub free_data: FreeData40,
 }
 
 impl ContentPackHeader {
     pub fn new(
         pack_info: PackHeaderInfo,
-        free_data: FreeData<U40>,
+        free_data: FreeData40,
         cluster_ptr_pos: Offset,
         cluster_count: ClusterCount,
         content_ptr_pos: Offset,
@@ -44,7 +43,7 @@ impl Producable for ContentPackHeader {
         let cluster_ptr_pos = Offset::produce(stream)?;
         let content_count = Count::<u32>::produce(stream)?.into();
         let cluster_count = Count::<u32>::produce(stream)?.into();
-        let free_data = FreeData::produce(stream)?;
+        let free_data = FreeData40::produce(stream)?;
         Ok(ContentPackHeader {
             pack_header,
             content_ptr_pos,
@@ -115,7 +114,7 @@ mod tests {
                 cluster_ptr_pos: Offset::from(0xeedd_u64),
                 content_count: ContentCount::from(0x50_u32),
                 cluster_count: ClusterCount::from(0x60_u32),
-                free_data: FreeData::clone_from_slice(&[0xff; 40]),
+                free_data: FreeData40::clone_from_slice(&[0xff; 40]),
             }
         );
     }
