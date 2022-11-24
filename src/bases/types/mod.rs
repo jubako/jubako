@@ -8,6 +8,7 @@ mod offset;
 mod pstring;
 mod size;
 mod sized_offset;
+mod specific_types;
 
 pub use count::Count;
 pub use error::{Error, FormatError, Result};
@@ -18,6 +19,7 @@ pub use offset::Offset;
 pub use pstring::PString;
 pub use size::Size;
 pub use sized_offset::SizedOffset;
+pub use specific_types::*;
 
 /// The end of a buffer.
 pub enum End {
