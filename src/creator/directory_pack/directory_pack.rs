@@ -13,7 +13,7 @@ pub use value_store::ValueStoreKind;
 
 pub struct DirectoryPackCreator {
     app_vendor_id: u32,
-    pack_id: Id<u8>,
+    pack_id: PackId,
     free_data: FreeData<U31>,
     value_stores: Vec<Rc<RefCell<ValueStore>>>,
     entry_stores: Vec<EntryStore>,
@@ -24,7 +24,7 @@ pub struct DirectoryPackCreator {
 impl DirectoryPackCreator {
     pub fn new<P: AsRef<Path>>(
         path: P,
-        pack_id: Id<u8>,
+        pack_id: PackId,
         app_vendor_id: u32,
         free_data: FreeData<U31>,
     ) -> Self {
@@ -40,35 +40,35 @@ impl DirectoryPackCreator {
     }
 
     pub fn create_value_store(&mut self, kind: ValueStoreKind) -> Rc<RefCell<ValueStore>> {
-        let idx = Idx::<u8>(self.value_stores.len() as u8);
+        let idx = ValueStoreIdx::from(self.value_stores.len() as u8);
         let value_store = Rc::new(RefCell::new(ValueStore::new(kind, idx)));
         self.value_stores.push(Rc::clone(&value_store));
         value_store
     }
 
-    pub fn get_value_store(&mut self, idx: Idx<u8>) -> &RefCell<ValueStore> {
-        &self.value_stores[idx.0 as usize]
+    pub fn get_value_store(&mut self, idx: ValueStoreIdx) -> &RefCell<ValueStore> {
+        &self.value_stores[idx.into_usize()]
     }
 
-    pub fn create_entry_store(&mut self, layout: layout::Entry) -> Idx<u32> {
-        let idx = Idx::<u32>(self.entry_stores.len() as u32);
+    pub fn create_entry_store(&mut self, layout: layout::Entry) -> EntryStoreIdx {
+        let idx = (self.entry_stores.len() as u32).into();
         let entry_store = EntryStore::new(idx, layout);
         self.entry_stores.push(entry_store);
         idx
     }
 
-    pub fn get_entry_store(&mut self, idx: Idx<u32>) -> &mut EntryStore {
-        &mut self.entry_stores[idx.0 as usize]
+    pub fn get_entry_store(&mut self, idx: EntryStoreIdx) -> &mut EntryStore {
+        &mut self.entry_stores[idx.into_usize()]
     }
 
     pub fn create_index(
         &mut self,
         name: &str,
         extra_data: ContentAddress,
-        index_key: Idx<u8>,
-        store_id: Idx<u32>,
-        count: Count<u32>,
-        offset: Idx<u32>,
+        index_key: PropertyIdx,
+        store_id: EntryStoreIdx,
+        count: EntryCount,
+        offset: EntryIdx,
     ) {
         let index = Index::new(name, extra_data, index_key, store_id, count, offset);
         self.indexes.push(index);
@@ -146,7 +146,7 @@ impl DirectoryPackCreator {
             uuid: header.uuid(),
             pack_id: self.pack_id,
             free_data: FreeData::clone_from_slice(&[0; 103]),
-            pack_size: pack_size.0,
+            pack_size,
             check_info: CheckInfo::new_blake3(hash.as_bytes()),
             pack_pos: self.path.clone().into(),
         })

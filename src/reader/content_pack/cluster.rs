@@ -25,7 +25,7 @@ impl Cluster {
         let header = ClusterHeader::produce(stream.as_mut())?;
         let raw_data_size: Size = stream.read_sized(header.offset_size.into())?.into();
         let data_size: Size = stream.read_sized(header.offset_size.into())?.into();
-        let blob_count = header.blob_count.0 as usize;
+        let blob_count = header.blob_count.into_usize();
         let mut blob_offsets: Vec<Offset> = Vec::with_capacity(blob_count + 1);
         let uninit = blob_offsets.spare_capacity_mut();
         let mut first = true;
@@ -102,14 +102,14 @@ impl Cluster {
     }
 
     #[cfg(test)]
-    fn blob_count(&self) -> Count<u16> {
-        Count::from((self.blob_offsets.len() - 1) as u16)
+    fn blob_count(&self) -> BlobCount {
+        BlobCount::from((self.blob_offsets.len() - 1) as u16)
     }
 
-    pub fn get_reader(&self, index: Idx<u16>) -> Result<Box<dyn Reader>> {
+    pub fn get_reader(&self, index: BlobIdx) -> Result<Box<dyn Reader>> {
         self.build_plain_reader()?;
-        let offset = self.blob_offsets[index.0 as usize];
-        let end_offset = self.blob_offsets[(index.0 + 1) as usize];
+        let offset = self.blob_offsets[index.into_usize()];
+        let end_offset = self.blob_offsets[index.into_usize() + 1];
         if let ClusterReader::Plain(r) = &*self.reader.borrow() {
             Ok(r.create_sub_reader(offset, End::Offset(end_offset)))
         } else {
@@ -222,12 +222,12 @@ mod tests {
         let header = ClusterHeader::produce(stream.as_mut()).unwrap();
         assert_eq!(header.compression, comp);
         assert_eq!(header.offset_size, 1);
-        assert_eq!(header.blob_count, Count(3));
+        assert_eq!(header.blob_count, 3.into());
         let cluster = Cluster::new(&reader, ptr_info).unwrap();
-        assert_eq!(cluster.blob_count(), Count(3_u16));
+        assert_eq!(cluster.blob_count(), 3.into());
 
         {
-            let sub_reader = cluster.get_reader(Idx(0_u16)).unwrap();
+            let sub_reader = cluster.get_reader(BlobIdx::from(0)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
             let mut stream = sub_reader.create_stream_all();
@@ -235,7 +235,7 @@ mod tests {
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
         {
-            let sub_reader = cluster.get_reader(Idx(1_u16)).unwrap();
+            let sub_reader = cluster.get_reader(BlobIdx::from(1)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
             let mut stream = sub_reader.create_stream_all();
@@ -243,7 +243,7 @@ mod tests {
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
         {
-            let sub_reader = cluster.get_reader(Idx(2_u16)).unwrap();
+            let sub_reader = cluster.get_reader(BlobIdx::from(2)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
             let mut stream = sub_reader.create_stream_all();

@@ -18,23 +18,23 @@ pub(crate) mod private {
         pub fn new(directory: Rc<K>) -> Self {
             let mut stores = Vec::new();
             stores.resize_with(
-                directory.get_value_store_count().0 as usize,
+                directory.get_value_store_count().into_usize(),
                 Default::default,
             );
             Self { directory, stores }
         }
 
-        fn get_value_store(&self, id: Idx<u8>) -> Result<&K::ValueStore> {
-            self.stores[id.0 as usize].get_or_try_init(|| self._get_value_store(id))
+        fn get_value_store(&self, id: ValueStoreIdx) -> Result<&K::ValueStore> {
+            self.stores[id.into_usize()].get_or_try_init(|| self._get_value_store(id))
         }
 
-        fn _get_value_store(&self, id: Idx<u8>) -> Result<K::ValueStore> {
+        fn _get_value_store(&self, id: ValueStoreIdx) -> Result<K::ValueStore> {
             self.directory.get_value_store(id)
         }
 
         fn get_data(&self, extend: &Extend) -> Result<Vec<u8>> {
             let value_store = self.get_value_store(extend.store_id)?;
-            value_store.get_data(extend.value_id.into())
+            value_store.get_data(extend.value_id)
         }
 
         fn resolve_array_to_vec(&self, array: &Array) -> Result<Vec<u8>> {
@@ -152,8 +152,8 @@ mod tests {
             use super::*;
             pub struct ValueStore {}
             impl ValueStoreTrait for ValueStore {
-                fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>> {
-                    Ok(match id {
+                fn get_data(&self, id: ValueIdx) -> Result<Vec<u8>> {
+                    Ok(match *id {
                         Idx(0) => "Hello",
                         Idx(1) => "World",
                         Idx(2) => "Jubako",
@@ -169,12 +169,12 @@ mod tests {
             pub struct ValueStorage {}
             impl ValueStorageTrait for ValueStorage {
                 type ValueStore = ValueStore;
-                fn get_value_store_count(&self) -> Count<u8> {
-                    Count(1)
+                fn get_value_store_count(&self) -> ValueStoreCount {
+                    1.into()
                 }
-                fn get_value_store(&self, id: Idx<u8>) -> Result<Self::ValueStore> {
+                fn get_value_store(&self, id: ValueStoreIdx) -> Result<Self::ValueStore> {
                     Ok(match id {
-                        Idx(0) => ValueStore {},
+                        ValueStoreIdx(Idx(0)) => ValueStore {},
                         _ => panic!(),
                     })
                 }
@@ -199,10 +199,10 @@ mod tests {
                     (RawValue::I16(5),   Value::Signed(5)),
                     (RawValue::I32(5),   Value::Signed(5)),
                     (RawValue::I64(5),   Value::Signed(5)),
-                    (RawValue::Array(Array{base:"Bye ".into(), extend:Some(Extend{store_id:Idx(0), value_id:2})}),
+                    (RawValue::Array(Array{base:"Bye ".into(), extend:Some(Extend{store_id:0.into(), value_id:ValueIdx::from(2)})}),
                        Value::Array("Bye Jubako".into())),
-                    (RawValue::Content(Content::new(ContentAddress::new(Id(0), Idx(50)), None)),
-                       Value::Content(Content::new(ContentAddress::new(Id(0), Idx(50)), None))),
+                    (RawValue::Content(Content::new(ContentAddress::new(PackId::from(0), ContentIdx::from(50)), None)),
+                       Value::Content(Content::new(ContentAddress::new(PackId::from(0), ContentIdx::from(50)), None))),
                 ].into_iter()
             }
             setup(&mut self) {}
@@ -250,9 +250,9 @@ mod tests {
                 vec![
                     (vec![], None, vec![]),
                     ("Hello".into(), None, "Hello".into()),
-                    ("Hello".into(), Some(Extend{store_id:Idx(0), value_id:0}), "HelloHello".into()),
-                    ("Hello ".into(), Some(Extend{store_id:Idx(0), value_id:2}), "Hello Jubako".into()),
-                    (vec![], Some(Extend{store_id:Idx(0), value_id:4}), "awsome".into()),
+                    ("Hello".into(), Some(Extend{store_id:0.into(), value_id:ValueIdx::from(0)}), "HelloHello".into()),
+                    ("Hello ".into(), Some(Extend{store_id:0.into(), value_id:ValueIdx::from(2)}), "Hello Jubako".into()),
+                    (vec![], Some(Extend{store_id:0.into(), value_id:ValueIdx::from(4)}), "awsome".into()),
                 ].into_iter()
             }
             setup(&mut self) {

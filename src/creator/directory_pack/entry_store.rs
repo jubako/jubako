@@ -4,13 +4,13 @@ use crate::common;
 use std::cmp;
 
 pub struct EntryStore {
-    idx: Idx<u32>,
+    idx: EntryStoreIdx,
     entries: Vec<Entry>,
     layout: layout::Entry,
 }
 
 impl EntryStore {
-    pub fn new(idx: Idx<u32>, layout: layout::Entry) -> Self {
+    pub fn new(idx: EntryStoreIdx, layout: layout::Entry) -> Self {
         Self {
             idx,
             entries: vec![],
@@ -22,7 +22,7 @@ impl EntryStore {
         self.entries.push(Entry::new(variant_id, values));
     }
 
-    pub fn get_idx(&self) -> Idx<u32> {
+    pub fn get_idx(&self) -> EntryStoreIdx {
         self.idx
     }
 

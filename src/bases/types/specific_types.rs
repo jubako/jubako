@@ -244,3 +244,15 @@ macro_rules! specific {
         }
     };
 }
+
+specific! {u32, EntryIdx(Idx), EntryCount}
+specific! {u32, EntryStoreIdx(Idx), EntryStoreCount}
+specific! {u32, ClusterIdx(Idx), ClusterCount}
+specific! {u32, ContentIdx(Idx), ContentCount}
+specific! {u32, IndexIdx(Idx), IndexCount}
+specific! {u8,  PackId(Id), PackCount}
+specific! {u8,  ValueStoreIdx(Idx), ValueStoreCount}
+specific! {u16,  BlobIdx(Idx), BlobCount}
+specific! {u8,  PropertyIdx(Idx), PropertyCount}
+specific! {u64,  ValueIdx(Idx), ValueCount}
+specific! {u8, VariantIdx(Idx), VariantCount}

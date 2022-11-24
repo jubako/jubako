@@ -1,5 +1,5 @@
 use crate::bases::*;
-use crate::common::{ClusterHeader, CompressionType, EntryInfo};
+use crate::common::{ClusterHeader, CompressionType, ContentInfo};
 use std::io::Cursor;
 
 pub struct ClusterCreator {
@@ -62,7 +62,7 @@ impl ClusterCreator {
         let cluster_header = ClusterHeader::new(
             self.compression,
             offset_size as u8,
-            Count(self.offsets.len() as u16),
+            BlobCount::from(self.offsets.len() as u16),
         );
         cluster_header.write(stream)?;
         stream.write_sized(data_size.0, offset_size)?; // raw data size
@@ -99,11 +99,14 @@ impl ClusterCreator {
         self.data.is_empty()
     }
 
-    pub fn add_content(&mut self, content: &mut dyn Stream) -> IoResult<EntryInfo> {
+    pub fn add_content(&mut self, content: &mut dyn Stream) -> IoResult<ContentInfo> {
         assert!(self.offsets.len() < MAX_BLOBS_PER_CLUSTER);
         let idx = self.offsets.len() as u16;
         content.read_to_end(&mut self.data)?;
         self.offsets.push(self.data.len());
-        Ok(EntryInfo::new((self.index as u32).into(), Idx(idx)))
+        Ok(ContentInfo::new(
+            ClusterIdx::from(self.index as u32),
+            BlobIdx::from(idx),
+        ))
     }
 }

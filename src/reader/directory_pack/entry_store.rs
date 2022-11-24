@@ -28,7 +28,7 @@ impl Producable for StoreKind {
 
 pub trait EntryStoreTrait {
     type Entry: EntryTrait;
-    fn get_entry(&self, idx: Idx<u32>) -> Result<Self::Entry>;
+    fn get_entry(&self, idx: EntryIdx) -> Result<Self::Entry>;
 }
 
 #[derive(Debug)]
@@ -50,7 +50,7 @@ impl EntryStore {
 
 impl EntryStoreTrait for EntryStore {
     type Entry = LazyEntry;
-    fn get_entry(&self, idx: Idx<u32>) -> Result<LazyEntry> {
+    fn get_entry(&self, idx: EntryIdx) -> Result<LazyEntry> {
         match self {
             EntryStore::Plain(store) => store.get_entry(idx),
             /*            _ => todo!()*/
@@ -83,9 +83,9 @@ impl PlainStore {
         })
     }
 
-    pub fn get_entry(&self, idx: Idx<u32>) -> Result<LazyEntry> {
+    pub fn get_entry(&self, idx: EntryIdx) -> Result<LazyEntry> {
         let reader = self.entry_reader.create_sub_reader(
-            Offset(idx.0 as u64 * self.entry_def.size.0),
+            Offset(idx.into_u64() * self.entry_def.size.0),
             End::Size(self.entry_def.size),
         );
         self.entry_def.create_entry(reader.as_ref())

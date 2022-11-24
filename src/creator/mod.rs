@@ -42,9 +42,9 @@ impl Writable for CheckInfo {
 
 pub struct PackInfo {
     pub uuid: uuid::Uuid,
-    pub pack_id: Id<u8>,
+    pub pack_id: PackId,
     pub free_data: FreeData<U103>,
-    pub pack_size: u64,
+    pub pack_size: Size,
     pub pack_pos: PackPos,
     pub check_info: CheckInfo,
 }
@@ -54,7 +54,7 @@ impl PackInfo {
         self.uuid.write(stream)?;
         self.pack_id.write(stream)?;
         self.free_data.write(stream)?;
-        stream.write_u64(self.pack_size)?;
+        self.pack_size.write(stream)?;
         check_info_pos.write(stream)?;
         match &self.pack_pos {
             PackPos::Offset(offset) => {

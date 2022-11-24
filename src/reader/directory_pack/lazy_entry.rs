@@ -20,8 +20,8 @@ impl LazyEntry {
         }
     }
 
-    fn _get_value(&self, idx: Idx<u8>) -> Result<RawValue> {
-        let property = &self.variant.properties[idx.0 as usize];
+    fn _get_value(&self, idx: PropertyIdx) -> Result<RawValue> {
+        let property = &self.variant.properties[idx.into_usize()];
         property.create_value(self.reader.as_ref())
     }
 }
@@ -31,7 +31,7 @@ impl EntryTrait for LazyEntry {
         self.variant_id
     }
 
-    fn get_value(&self, idx: Idx<u8>) -> Result<RawValue> {
+    fn get_value(&self, idx: PropertyIdx) -> Result<RawValue> {
         self._get_value(idx)
     }
 }

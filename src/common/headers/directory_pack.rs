@@ -10,9 +10,9 @@ pub struct DirectoryPackHeader {
     pub entry_store_ptr_pos: Offset,
     pub value_store_ptr_pos: Offset,
     pub index_ptr_pos: Offset,
-    pub entry_store_count: Count<u32>,
-    pub index_count: Count<u32>,
-    pub value_store_count: Count<u8>,
+    pub entry_store_count: EntryStoreCount,
+    pub index_count: IndexCount,
+    pub value_store_count: ValueStoreCount,
     pub free_data: FreeData<U31>,
 }
 
@@ -20,9 +20,9 @@ impl DirectoryPackHeader {
     pub fn new(
         pack_info: PackHeaderInfo,
         free_data: FreeData<U31>,
-        indexes: (Count<u32>, Offset),
-        value_stores: (Count<u8>, Offset),
-        entry_stores: (Count<u32>, Offset),
+        indexes: (IndexCount, Offset),
+        value_stores: (ValueStoreCount, Offset),
+        entry_stores: (EntryStoreCount, Offset),
     ) -> Self {
         DirectoryPackHeader {
             pack_header: PackHeader::new(PackKind::Directory, pack_info),
@@ -51,9 +51,9 @@ impl Producable for DirectoryPackHeader {
         let index_ptr_pos = Offset::produce(stream)?;
         let entry_store_ptr_pos = Offset::produce(stream)?;
         let value_store_ptr_pos = Offset::produce(stream)?;
-        let index_count = Count::<u32>::produce(stream)?;
-        let entry_store_count = Count::<u32>::produce(stream)?;
-        let value_store_count = Count::<u8>::produce(stream)?;
+        let index_count = Count::<u32>::produce(stream)?.into();
+        let entry_store_count = Count::<u32>::produce(stream)?.into();
+        let value_store_count = Count::<u8>::produce(stream)?.into();
         let free_data = FreeData::produce(stream)?;
         Ok(DirectoryPackHeader {
             pack_header,
@@ -129,9 +129,9 @@ mod tests {
                 index_ptr_pos: Offset::from(0xeedd_u64),
                 entry_store_ptr_pos: Offset::from(0xee00_u64),
                 value_store_ptr_pos: Offset::from(0xeeaa_u64),
-                index_count: Count::from(0x50_u32),
-                entry_store_count: Count::from(0x60_u32),
-                value_store_count: Count::from(0x05_u8),
+                index_count: IndexCount::from(0x50_u32),
+                entry_store_count: EntryStoreCount::from(0x60_u32),
+                value_store_count: ValueStoreCount::from(0x05_u8),
                 free_data: FreeData::clone_from_slice(&[0xff; 31]),
             }
         );

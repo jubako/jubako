@@ -10,7 +10,7 @@ pub enum PropertyKind {
     UnsignedInt(usize),
     SignedInt(usize),
     Array(usize),
-    VLArray(usize, Idx<u8>, Option<usize>),
+    VLArray(usize, ValueStoreIdx, Option<usize>),
     None,
 }
 
@@ -90,7 +90,10 @@ impl Property {
                         reader,
                     )?,
                 };
-                RawValue::Array(Array::new(base, Some(Extend::new(*store_id, value_id))))
+                RawValue::Array(Array::new(
+                    base,
+                    Some(Extend::new(*store_id, ValueIdx::from(value_id))),
+                ))
             }
             PropertyKind::None => unreachable!(),
         })
@@ -308,88 +311,118 @@ mod tests {
     fn test_vlarray() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
         let reader = BufReader::new(content, End::None);
-        let prop = Property::new(0, PropertyKind::VLArray(1, Idx::from(255), None));
+        let prop = Property::new(0, PropertyKind::VLArray(1, ValueStoreIdx::from(255), None));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
                 Vec::new(),
-                Some(Extend::new(Idx::from(255), 0xFE))
+                Some(Extend::new(ValueStoreIdx::from(255), ValueIdx::from(0xFE)))
             ))
         );
-        let prop = Property::new(2, PropertyKind::VLArray(1, Idx::from(255), None));
+        let prop = Property::new(2, PropertyKind::VLArray(1, ValueStoreIdx::from(255), None));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
                 Vec::new(),
-                Some(Extend::new(Idx::from(255), 0xBA))
-            ))
-        );
-
-        let prop = Property::new(0, PropertyKind::VLArray(2, Idx::from(255), None));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(
-                Vec::new(),
-                Some(Extend::new(Idx::from(255), 0xFEDC))
-            ))
-        );
-        let prop = Property::new(2, PropertyKind::VLArray(2, Idx::from(255), None));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(
-                Vec::new(),
-                Some(Extend::new(Idx::from(255), 0xBA98))
+                Some(Extend::new(ValueStoreIdx::from(255), ValueIdx::from(0xBA)))
             ))
         );
 
-        let prop = Property::new(0, PropertyKind::VLArray(1, Idx::from(255), Some(1)));
+        let prop = Property::new(0, PropertyKind::VLArray(2, ValueStoreIdx::from(255), None));
+        assert_eq!(
+            prop.create_value(&reader).unwrap(),
+            RawValue::Array(Array::new(
+                Vec::new(),
+                Some(Extend::new(
+                    ValueStoreIdx::from(255),
+                    ValueIdx::from(0xFEDC)
+                ))
+            ))
+        );
+        let prop = Property::new(2, PropertyKind::VLArray(2, ValueStoreIdx::from(255), None));
+        assert_eq!(
+            prop.create_value(&reader).unwrap(),
+            RawValue::Array(Array::new(
+                Vec::new(),
+                Some(Extend::new(
+                    ValueStoreIdx::from(255),
+                    ValueIdx::from(0xBA98)
+                ))
+            ))
+        );
+
+        let prop = Property::new(
+            0,
+            PropertyKind::VLArray(1, ValueStoreIdx::from(255), Some(1)),
+        );
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
                 vec!(0xDC),
-                Some(Extend::new(Idx::from(255), 0xFE))
+                Some(Extend::new(ValueStoreIdx::from(255), ValueIdx::from(0xFE)))
             ))
         );
-        let prop = Property::new(2, PropertyKind::VLArray(1, Idx::from(255), Some(1)));
+        let prop = Property::new(
+            2,
+            PropertyKind::VLArray(1, ValueStoreIdx::from(255), Some(1)),
+        );
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
                 vec!(0x98),
-                Some(Extend::new(Idx::from(255), 0xBA))
+                Some(Extend::new(ValueStoreIdx::from(255), ValueIdx::from(0xBA)))
             ))
         );
 
-        let prop = Property::new(0, PropertyKind::VLArray(1, Idx::from(255), Some(3)));
+        let prop = Property::new(
+            0,
+            PropertyKind::VLArray(1, ValueStoreIdx::from(255), Some(3)),
+        );
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
                 vec!(0xDC, 0xBA, 0x98),
-                Some(Extend::new(Idx::from(255), 0xFE))
+                Some(Extend::new(ValueStoreIdx::from(255), ValueIdx::from(0xFE)))
             ))
         );
-        let prop = Property::new(2, PropertyKind::VLArray(1, Idx::from(255), Some(3)));
+        let prop = Property::new(
+            2,
+            PropertyKind::VLArray(1, ValueStoreIdx::from(255), Some(3)),
+        );
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
                 vec!(0x98, 0x76, 0x54),
-                Some(Extend::new(Idx::from(255), 0xBA))
+                Some(Extend::new(ValueStoreIdx::from(255), ValueIdx::from(0xBA)))
             ))
         );
 
-        let prop = Property::new(0, PropertyKind::VLArray(3, Idx::from(255), Some(3)));
+        let prop = Property::new(
+            0,
+            PropertyKind::VLArray(3, ValueStoreIdx::from(255), Some(3)),
+        );
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
                 vec!(0x98, 0x76, 0x54),
-                Some(Extend::new(Idx::from(255), 0xFEDCBA))
+                Some(Extend::new(
+                    ValueStoreIdx::from(255),
+                    ValueIdx::from(0xFEDCBA)
+                ))
             ))
         );
-        let prop = Property::new(2, PropertyKind::VLArray(3, Idx::from(255), Some(3)));
+        let prop = Property::new(
+            2,
+            PropertyKind::VLArray(3, ValueStoreIdx::from(255), Some(3)),
+        );
         assert_eq!(
             prop.create_value(&reader).unwrap(),
             RawValue::Array(Array::new(
                 vec!(0x54, 0x32, 0x10),
-                Some(Extend::new(Idx::from(255), 0xBA9876))
+                Some(Extend::new(
+                    ValueStoreIdx::from(255),
+                    ValueIdx::from(0xBA9876)
+                ))
             ))
         );
     }
@@ -403,8 +436,8 @@ mod tests {
             prop.create_value(&reader).unwrap(),
             RawValue::Content(Content::new(
                 ContentAddress {
-                    pack_id: Id(0xFE),
-                    content_id: Idx(0xDCBA98)
+                    pack_id: PackId::from(0xFE),
+                    content_id: ContentIdx::from(0xDCBA98)
                 },
                 None
             ))
@@ -414,8 +447,8 @@ mod tests {
             prop.create_value(&reader).unwrap(),
             RawValue::Content(Content::new(
                 ContentAddress {
-                    pack_id: Id(0xBA),
-                    content_id: Idx(0x987654)
+                    pack_id: PackId::from(0xBA),
+                    content_id: ContentIdx::from(0x987654)
                 },
                 None
             ))

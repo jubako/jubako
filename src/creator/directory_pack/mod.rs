@@ -58,22 +58,22 @@ impl Entry {
 }
 
 struct Index {
-    store_id: Idx<u32>,
+    store_id: EntryStoreIdx,
     extra_data: ContentAddress,
-    index_key: Idx<u8>,
+    index_key: PropertyIdx,
     name: String,
-    count: Count<u32>,
-    offset: Idx<u32>,
+    count: EntryCount,
+    offset: EntryIdx,
 }
 
 impl Index {
     pub fn new(
         name: &str,
         extra_data: ContentAddress,
-        index_key: Idx<u8>,
-        store_id: Idx<u32>,
-        count: Count<u32>,
-        offset: Idx<u32>,
+        index_key: PropertyIdx,
+        store_id: EntryStoreIdx,
+        count: EntryCount,
+        offset: EntryIdx,
     ) -> Self {
         Index {
             store_id,

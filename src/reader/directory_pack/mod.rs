@@ -27,14 +27,14 @@ pub use resolver::Resolver;
 
 pub trait EntryTrait {
     fn get_variant_id(&self) -> u8;
-    fn get_value(&self, idx: Idx<u8>) -> Result<RawValue>;
+    fn get_value(&self, idx: PropertyIdx) -> Result<RawValue>;
 }
 
 mod private {
     pub trait ValueStorageTrait {
         type ValueStore: super::ValueStoreTrait;
-        fn get_value_store_count(&self) -> super::Count<u8>;
-        fn get_value_store(&self, id: super::Idx<u8>) -> super::Result<Self::ValueStore>;
+        fn get_value_store_count(&self) -> super::ValueStoreCount;
+        fn get_value_store(&self, id: super::ValueStoreIdx) -> super::Result<Self::ValueStore>;
     }
 }
 
@@ -54,17 +54,17 @@ impl DirectoryPack {
         let value_stores_ptrs = ArrayReader::new_memory_from_reader(
             reader.as_ref(),
             header.value_store_ptr_pos,
-            header.value_store_count,
+            *header.value_store_count,
         )?;
         let entry_stores_ptrs = ArrayReader::new_memory_from_reader(
             reader.as_ref(),
             header.entry_store_ptr_pos,
-            header.entry_store_count,
+            *header.entry_store_count,
         )?;
         let index_ptrs = ArrayReader::new_memory_from_reader(
             reader.as_ref(),
             header.index_ptr_pos,
-            header.index_count,
+            *header.index_count,
         )?;
         Ok(DirectoryPack {
             header,
@@ -79,8 +79,8 @@ impl DirectoryPack {
         self.header.free_data.as_ref()
     }
 
-    pub fn get_index(&self, index_id: Idx<u32>) -> Result<Index> {
-        let sized_offset = self.index_ptrs.index(index_id)?;
+    pub fn get_index(&self, index_id: IndexIdx) -> Result<Index> {
+        let sized_offset = self.index_ptrs.index(*index_id)?;
         let mut index_stream = self.reader.create_stream_for(sized_offset);
         let index_header = IndexHeader::produce(index_stream.as_mut())?;
         let store = self.get_store(index_header.store_id)?;
@@ -89,8 +89,8 @@ impl DirectoryPack {
     }
 
     pub fn get_index_from_name(&self, index_name: &str) -> Result<Index> {
-        for index_id in 0..self.header.index_count.0 {
-            let sized_offset = self.index_ptrs.index(Idx(index_id))?;
+        for index_id in self.header.index_count {
+            let sized_offset = self.index_ptrs.index(*index_id)?;
             let mut index_stream = self.reader.create_stream_for(sized_offset);
             let index_header = IndexHeader::produce(index_stream.as_mut())?;
             if index_header.name == index_name {
@@ -102,8 +102,8 @@ impl DirectoryPack {
         Err("Cannot find index".to_string().into())
     }
 
-    fn get_store(&self, store_id: Idx<u32>) -> Result<EntryStore> {
-        let sized_offset = self.entry_stores_ptrs.index(store_id)?;
+    fn get_store(&self, store_id: EntryStoreIdx) -> Result<EntryStore> {
+        let sized_offset = self.entry_stores_ptrs.index(*store_id)?;
         EntryStore::new(self.reader.as_ref(), sized_offset)
     }
 
@@ -114,12 +114,12 @@ impl DirectoryPack {
 
 impl private::ValueStorageTrait for DirectoryPack {
     type ValueStore = ValueStore;
-    fn get_value_store_count(&self) -> Count<u8> {
+    fn get_value_store_count(&self) -> ValueStoreCount {
         self.header.value_store_count
     }
 
-    fn get_value_store(&self, store_id: Idx<u8>) -> Result<ValueStore> {
-        let sized_offset = self.value_stores_ptrs.index(store_id)?;
+    fn get_value_store(&self, store_id: ValueStoreIdx) -> Result<ValueStore> {
+        let sized_offset = self.value_stores_ptrs.index(*store_id)?;
         ValueStore::new(self.reader.as_ref(), sized_offset)
     }
 }
@@ -209,9 +209,9 @@ mod tests {
                 index_ptr_pos: Offset::from(0xeedd_u64),
                 entry_store_ptr_pos: Offset::from(0xee00_u64),
                 value_store_ptr_pos: Offset::from(0xeeaa_u64),
-                index_count: Count::from(0x50_u32),
-                entry_store_count: Count::from(0x60_u32),
-                value_store_count: Count::from(0x05_u8),
+                index_count: IndexCount::from(0x50_u32),
+                entry_store_count: EntryStoreCount::from(0x60_u32),
+                value_store_count: ValueStoreCount::from(0x05_u8),
                 free_data: FreeData::clone_from_slice(&[0xff; 31]),
             }
         );
@@ -301,16 +301,19 @@ mod tests {
         content.extend(hash.as_bytes()); // end : 281+32 = 313/0x139
         let reader = Box::new(BufReader::new(content, End::None));
         let directory_pack = Rc::new(DirectoryPack::new(reader).unwrap());
-        let index = directory_pack.get_index(Idx(0)).unwrap();
+        let index = directory_pack.get_index(IndexIdx::from(0)).unwrap();
         let resolver = directory_pack.get_resolver();
         let finder = index.get_finder(Rc::clone(&resolver));
-        assert_eq!(index.entry_count().0, 4);
+        assert_eq!(index.entry_count(), 4.into());
         {
-            let entry = finder.get_entry(Idx(0)).unwrap();
+            let entry = finder.get_entry(0.into()).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
-            let value0 = entry.get_value(Idx(0)).unwrap();
+            let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
-                assert_eq!(a, &Array::new(Vec::new(), Some(Extend::new(Idx(0), 2))));
+                assert_eq!(
+                    a,
+                    &Array::new(Vec::new(), Some(Extend::new(0.into(), ValueIdx::from(2))))
+                );
             } else {
                 panic!("Must be a array");
             };
@@ -318,43 +321,52 @@ mod tests {
                 resolver.resolve_to_vec(&value0).unwrap(),
                 b"J\xc5\xabbako" // Jūbako
             );
-            let value1 = entry.get_value(Idx(1)).unwrap();
+            let value1 = entry.get_value(1.into()).unwrap();
             if let RawValue::Array(a) = &value1 {
                 assert_eq!(
                     a,
-                    &Array::new(vec![b'a', b'B'], Some(Extend::new(Idx(0), 0)))
+                    &Array::new(
+                        vec![b'a', b'B'],
+                        Some(Extend::new(0.into(), ValueIdx::from(0)))
+                    )
                 );
             } else {
                 panic!("Must be a array");
             };
             assert_eq!(resolver.resolve_to_vec(&value1).unwrap(), b"aBHello");
-            assert_eq!(entry.get_value(Idx(2)).unwrap(), RawValue::U32(0x212223));
+            assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U32(0x212223));
             assert_eq!(
-                entry.get_value(Idx(3)).unwrap(),
+                entry.get_value(3.into()).unwrap(),
                 RawValue::Content(Content::new(
                     ContentAddress {
-                        pack_id: Id(1),
-                        content_id: Idx(0)
+                        pack_id: PackId::from(1),
+                        content_id: ContentIdx::from(0)
                     },
                     None
                 ))
             );
         }
         {
-            let entry = finder.get_entry(Idx(1)).unwrap();
+            let entry = finder.get_entry(1.into()).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
-            let value0 = entry.get_value(Idx(0)).unwrap();
+            let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
-                assert_eq!(a, &Array::new(Vec::new(), Some(Extend::new(Idx(0), 1))));
+                assert_eq!(
+                    a,
+                    &Array::new(Vec::new(), Some(Extend::new(0.into(), ValueIdx::from(1))))
+                );
             } else {
                 panic!("Must be a array");
             };
             assert_eq!(resolver.resolve_to_vec(&value0).unwrap(), b"Foo");
-            let value1 = entry.get_value(Idx(1)).unwrap();
+            let value1 = entry.get_value(1.into()).unwrap();
             if let RawValue::Array(a) = &value1 {
                 assert_eq!(
                     a,
-                    &Array::new(vec![b'A', b'B'], Some(Extend::new(Idx(0), 2)))
+                    &Array::new(
+                        vec![b'A', b'B'],
+                        Some(Extend::new(0.into(), ValueIdx::from(2)))
+                    )
                 );
             } else {
                 panic!("Must be a array");
@@ -363,74 +375,86 @@ mod tests {
                 resolver.resolve_to_vec(&value1).unwrap(),
                 b"ABJ\xc5\xabbako"
             );
-            assert_eq!(entry.get_value(Idx(2)).unwrap(), RawValue::U32(0x313233));
+            assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U32(0x313233));
             assert_eq!(
-                entry.get_value(Idx(3)).unwrap(),
+                entry.get_value(3.into()).unwrap(),
                 RawValue::Content(Content::new(
                     ContentAddress {
-                        pack_id: Id(0),
-                        content_id: Idx(1)
+                        pack_id: PackId::from(0),
+                        content_id: ContentIdx::from(1)
                     },
                     None
                 ))
             );
         }
         {
-            let entry = finder.get_entry(Idx(2)).unwrap();
+            let entry = finder.get_entry(2.into()).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
-            let value0 = entry.get_value(Idx(0)).unwrap();
+            let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
-                assert_eq!(a, &Array::new(Vec::new(), Some(Extend::new(Idx(0), 2))));
+                assert_eq!(
+                    a,
+                    &Array::new(Vec::new(), Some(Extend::new(0.into(), ValueIdx::from(2))))
+                );
             } else {
                 panic!("Must be a array");
             };
             assert_eq!(resolver.resolve_to_vec(&value0).unwrap(), b"J\xc5\xabbako");
-            let value1 = entry.get_value(Idx(1)).unwrap();
+            let value1 = entry.get_value(1.into()).unwrap();
             if let RawValue::Array(a) = &value1 {
                 assert_eq!(
                     a,
-                    &Array::new(vec![b'A', b'B'], Some(Extend::new(Idx(0), 1)))
+                    &Array::new(
+                        vec![b'A', b'B'],
+                        Some(Extend::new(0.into(), ValueIdx::from(1)))
+                    )
                 );
             } else {
                 panic!("Must be a array");
             };
             assert_eq!(resolver.resolve_to_vec(&value1).unwrap(), b"ABFoo");
-            assert_eq!(entry.get_value(Idx(2)).unwrap(), RawValue::U32(0x414243));
+            assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U32(0x414243));
             assert_eq!(
-                entry.get_value(Idx(3)).unwrap(),
+                entry.get_value(3.into()).unwrap(),
                 RawValue::Content(Content::new(
                     ContentAddress {
-                        pack_id: Id(0),
-                        content_id: Idx(2)
+                        pack_id: PackId::from(0),
+                        content_id: ContentIdx::from(2)
                     },
                     None
                 ))
             );
         }
         {
-            let entry = finder.get_entry(Idx(3)).unwrap();
+            let entry = finder.get_entry(3.into()).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
-            let value0 = entry.get_value(Idx(0)).unwrap();
+            let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
-                assert_eq!(a, &Array::new(Vec::new(), Some(Extend::new(Idx(0), 0))));
+                assert_eq!(
+                    a,
+                    &Array::new(Vec::new(), Some(Extend::new(0.into(), ValueIdx::from(0))))
+                );
             } else {
                 panic!("Must be a array");
             };
             assert_eq!(resolver.resolve_to_vec(&value0).unwrap(), b"Hello");
-            let value1 = entry.get_value(Idx(1)).unwrap();
+            let value1 = entry.get_value(1.into()).unwrap();
             if let RawValue::Array(a) = &value1 {
-                assert_eq!(a, &Array::new(vec![0, 0], Some(Extend::new(Idx(0), 1))));
+                assert_eq!(
+                    a,
+                    &Array::new(vec![0, 0], Some(Extend::new(0.into(), ValueIdx::from(1))))
+                );
             } else {
                 panic!("Must be a array");
             };
             assert_eq!(resolver.resolve_to_vec(&value1).unwrap(), b"\0\0Foo");
-            assert_eq!(entry.get_value(Idx(2)).unwrap(), RawValue::U32(0x515253));
+            assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U32(0x515253));
             assert_eq!(
-                entry.get_value(Idx(3)).unwrap(),
+                entry.get_value(3.into()).unwrap(),
                 RawValue::Content(Content::new(
                     ContentAddress {
-                        pack_id: Id(0),
-                        content_id: Idx(0xaaaaaa)
+                        pack_id: PackId::from(0),
+                        content_id: ContentIdx::from(0xaaaaaa)
                     },
                     None
                 ))

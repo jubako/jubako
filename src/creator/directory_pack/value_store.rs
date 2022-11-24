@@ -3,13 +3,13 @@ use crate::bases::*;
 
 #[derive(Debug)]
 pub struct PlainValueStore {
-    idx: Idx<u8>,
+    idx: ValueStoreIdx,
     data: Vec<Vec<u8>>,
     size: usize,
 }
 
 impl PlainValueStore {
-    pub fn new(idx: Idx<u8>) -> Self {
+    pub fn new(idx: ValueStoreIdx) -> Self {
         Self {
             idx,
             data: vec![],
@@ -28,7 +28,7 @@ impl PlainValueStore {
         needed_bytes(self.size) as u16
     }
 
-    pub fn get_idx(&self) -> Idx<u8> {
+    pub fn get_idx(&self) -> ValueStoreIdx {
         self.idx
     }
 }
@@ -50,13 +50,13 @@ impl WritableTell for PlainValueStore {
 
 #[derive(Debug)]
 pub struct IndexedValueStore {
-    idx: Idx<u8>,
+    idx: ValueStoreIdx,
     data: Vec<Vec<u8>>,
     entries_offset: Vec<usize>,
 }
 
 impl IndexedValueStore {
-    pub fn new(idx: Idx<u8>) -> Self {
+    pub fn new(idx: ValueStoreIdx) -> Self {
         Self {
             idx,
             data: vec![],
@@ -78,7 +78,7 @@ impl IndexedValueStore {
         needed_bytes(self.entries_offset.len()) as u16
     }
 
-    pub fn get_idx(&self) -> Idx<u8> {
+    pub fn get_idx(&self) -> ValueStoreIdx {
         self.idx
     }
 }
@@ -117,7 +117,7 @@ pub enum ValueStore {
 }
 
 impl ValueStore {
-    pub fn new(kind: ValueStoreKind, idx: Idx<u8>) -> ValueStore {
+    pub fn new(kind: ValueStoreKind, idx: ValueStoreIdx) -> ValueStore {
         match kind {
             ValueStoreKind::Plain => ValueStore::PlainValueStore(PlainValueStore::new(idx)),
             ValueStoreKind::Indexed => ValueStore::IndexedValueStore(IndexedValueStore::new(idx)),
@@ -138,7 +138,7 @@ impl ValueStore {
         }
     }
 
-    pub(crate) fn get_idx(&self) -> Idx<u8> {
+    pub(crate) fn get_idx(&self) -> ValueStoreIdx {
         match &self {
             ValueStore::PlainValueStore(s) => s.get_idx(),
             ValueStore::IndexedValueStore(s) => s.get_idx(),

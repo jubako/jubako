@@ -22,7 +22,7 @@ impl Producable for ValueStoreKind {
 }
 
 pub trait ValueStoreTrait {
-    fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>>;
+    fn get_data(&self, id: ValueIdx) -> Result<Vec<u8>>;
 }
 
 pub enum ValueStore {
@@ -51,7 +51,7 @@ impl ValueStore {
 }
 
 impl ValueStoreTrait for ValueStore {
-    fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>> {
+    fn get_data(&self, id: ValueIdx) -> Result<Vec<u8>> {
         match self {
             ValueStore::Plain(store) => store.get_data(id),
             ValueStore::Indexed(store) => store.get_data(id),
@@ -73,28 +73,28 @@ impl PlainValueStore {
         Ok(PlainValueStore { reader })
     }
 
-    fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>> {
-        let mut stream = self.reader.create_stream_from(Offset(id.0));
+    fn get_data(&self, id: ValueIdx) -> Result<Vec<u8>> {
+        let mut stream = self.reader.create_stream_from(Offset(id.into_u64()));
         PString::produce(stream.as_mut())
     }
 }
 
 pub struct IndexedValueStore {
-    pub entry_offsets: Vec<Offset>,
+    pub value_offsets: Vec<Offset>,
     pub reader: Box<dyn Reader>,
 }
 
 impl IndexedValueStore {
     fn new(stream: &mut dyn Stream, reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
-        let entry_count = Count::<u64>::produce(stream)?;
+        let value_count: ValueCount = Count::<u64>::produce(stream)?.into();
         let offset_size = stream.read_u8()?;
         let data_size: Size = stream.read_sized(offset_size.into())?.into();
-        let entry_count = entry_count.0 as usize;
-        let mut entry_offsets: Vec<Offset> = Vec::with_capacity(entry_count + 1);
+        let value_count = value_count.into_usize();
+        let mut value_offsets: Vec<Offset> = Vec::with_capacity(value_count + 1);
         // [TODO] Handle 32 and 16 bits
-        let uninit = entry_offsets.spare_capacity_mut();
+        let uninit = value_offsets.spare_capacity_mut();
         let mut first = true;
-        for elem in &mut uninit[0..entry_count] {
+        for elem in &mut uninit[0..value_count] {
             let value: Offset = if first {
                 first = false;
                 0.into()
@@ -104,22 +104,22 @@ impl IndexedValueStore {
             assert!(value.is_valid(data_size));
             elem.write(value);
         }
-        unsafe { entry_offsets.set_len(entry_count) }
-        entry_offsets.push(data_size.into());
+        unsafe { value_offsets.set_len(value_count) }
+        value_offsets.push(data_size.into());
         assert_eq!(stream.tell().0, pos_info.size.0);
         let reader = reader.create_sub_memory_reader(
             Offset(pos_info.offset.0 - data_size.0),
             End::Size(data_size),
         )?;
         Ok(IndexedValueStore {
-            entry_offsets,
+            value_offsets,
             reader,
         })
     }
 
-    fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>> {
-        let start = self.entry_offsets[id.0 as usize];
-        let end = self.entry_offsets[(id.0 + 1) as usize];
+    fn get_data(&self, id: ValueIdx) -> Result<Vec<u8>> {
+        let start = self.value_offsets[id.into_usize()];
+        let end = self.value_offsets[id.into_usize() + 1];
         let mut stream = self.reader.create_stream(start, End::Offset(end));
         stream.read_vec((end - start).0 as usize)
     }
@@ -209,7 +209,7 @@ mod tests {
         match &value_store {
             ValueStore::Indexed(indexedvaluestore) => {
                 assert_eq!(
-                    indexedvaluestore.entry_offsets,
+                    indexedvaluestore.value_offsets,
                     vec![0.into(), 5.into(), 8.into(), 15.into()]
                 );
                 assert_eq!(indexedvaluestore.reader.size(), Size::from(0x0f_u64));

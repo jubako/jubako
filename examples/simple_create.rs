@@ -10,7 +10,7 @@ const VENDOR_ID: u32 = 0x01_02_03_04;
 fn main() -> Result<(), Box<dyn Error>> {
     let mut content_pack = jbk::creator::ContentPackCreator::new(
         "test.jbkc",
-        jbk::Id(1), // The pack id as referenced in the container
+        jbk::PackId::from(1), // The pack id as referenced in the container
         VENDOR_ID,
         jbk::FreeData::<U40>::clone_from_slice(&[0x00; 40]), // Put whatever you what, this is for you
         jbk::CompressionType::Zstd,                          // How to compress
@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut directory_pack = jbk::creator::DirectoryPackCreator::new(
         "test.jbkd",
-        jbk::Id(0),
+        jbk::PackId::from(0),
         VENDOR_ID,
         jbk::FreeData::<U31>::clone_from_slice(&[0x00; 31]),
     );
@@ -55,8 +55,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             jbk::creator::Value::Array("Super".into()),
             jbk::creator::Value::Unsigned(50),
             jbk::creator::Value::Content(jbk::creator::Content::from((
-                jbk::Id(1), // Pack id
-                content_id, // Content id in the pack
+                jbk::PackId::from(1), // Pack id
+                content_id,           // Content id in the pack
             ))),
         ],
     );
@@ -85,8 +85,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         jubako::ContentAddress::new(0.into(), 0.into()), // A pointer to a content which can be used to store whatever you what (nothing here)
         0.into(),                                        // The index is not sorted
         entry_store_id,
-        jubako::Count(3), // 3 entries
-        jubako::Idx(0),   // Offset 0
+        3.into(), // 3 entries
+        0.into(), // Offset 0
     );
 
     let directory_pack_info = directory_pack.finalize()?;

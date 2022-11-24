@@ -5,9 +5,9 @@ use std::rc::Rc;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct IndexHeader {
-    pub store_id: Idx<u32>,
-    pub entry_count: Count<u32>,
-    pub entry_offset: Idx<u32>,
+    pub store_id: EntryStoreIdx,
+    pub entry_count: EntryCount,
+    pub entry_offset: EntryIdx,
     pub extra_data: ContentAddress,
     pub index_property: u8,
     pub name: String,
@@ -16,9 +16,9 @@ pub struct IndexHeader {
 impl Producable for IndexHeader {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
-        let store_id = Idx::<u32>::produce(stream)?;
-        let entry_count = Count::<u32>::produce(stream)?;
-        let entry_offset = Idx::<u32>::produce(stream)?;
+        let store_id = Idx::<u32>::produce(stream)?.into();
+        let entry_count = Count::<u32>::produce(stream)?.into();
+        let entry_offset = Idx::<u32>::produce(stream)?.into();
         let extra_data = ContentAddress::produce(stream)?;
         let index_property = stream.read_u8()?;
         let name = String::from_utf8(PString::produce(stream)?)?;
@@ -44,11 +44,11 @@ impl Index {
         Self { header, store }
     }
 
-    fn entry_offset(&self) -> Idx<u32> {
+    fn entry_offset(&self) -> EntryIdx {
         self.header.entry_offset
     }
 
-    pub fn entry_count(&self) -> Count<u32> {
+    pub fn entry_count(&self) -> EntryCount {
         self.header.entry_count
     }
 
@@ -86,12 +86,12 @@ mod tests {
         assert_eq!(
             header,
             IndexHeader {
-                store_id: Idx(1),
-                entry_count: Count(0xff00),
-                entry_offset: Idx(2),
+                store_id: EntryStoreIdx::from(1),
+                entry_count: EntryCount::from(0xff00),
+                entry_offset: EntryIdx::from(2),
                 extra_data: ContentAddress {
-                    pack_id: Id(5),
-                    content_id: Idx(1)
+                    pack_id: PackId::from(5),
+                    content_id: ContentIdx::from(1)
                 },
                 index_property: 1,
                 name: String::from("Hello")

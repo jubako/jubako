@@ -15,12 +15,12 @@ impl Producable for Entry {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Entry> {
         let entry_size = stream.read_u16()? as usize;
-        let variant_count = Count::<u8>::produce(stream)?;
-        let raw_property_count = Count::<u8>::produce(stream)?;
+        let variant_count: VariantCount = Count::<u8>::produce(stream)?.into();
+        let raw_property_count: PropertyCount = Count::<u8>::produce(stream)?.into();
         let mut variants = Vec::new();
         let mut entry_def = Vec::new();
         let mut current_size = 0;
-        for _ in 0..raw_property_count.0 {
+        for _ in raw_property_count {
             let raw_property = RawProperty::produce(stream)?;
             if raw_property.kind == RawPropertyKind::VariantId && !entry_def.is_empty() {
                 return Err(format_error!(
@@ -54,11 +54,11 @@ impl Producable for Entry {
         if !entry_def.is_empty() {
             variants.push(Rc::new(Variant::new(entry_def)?));
         }
-        if variants.len() != variant_count.0 as usize {
+        if variants.len() != variant_count.into_usize() {
             return Err(format_error!(
                 &format!(
                     "Entry declare ({}) variants but properties define ({})",
-                    variant_count.0,
+                    variant_count,
                     variants.len()
                 ),
                 stream

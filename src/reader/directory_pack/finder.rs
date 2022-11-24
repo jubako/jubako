@@ -9,16 +9,16 @@ mod private {
     use super::*;
     pub struct Finder<K: ValueStorageTrait, IS: EntryStoreTrait> {
         store: Rc<IS>,
-        offset: Idx<u32>,
-        count: Count<u32>,
+        offset: EntryIdx,
+        count: EntryCount,
         resolver: Rc<Resolver<K>>,
     }
 
     impl<K: ValueStorageTrait, IS: EntryStoreTrait> Finder<K, IS> {
         pub fn new(
             store: Rc<IS>,
-            offset: Idx<u32>,
-            count: Count<u32>,
+            offset: EntryIdx,
+            count: EntryCount,
             resolver: Rc<Resolver<K>>,
         ) -> Self {
             Self {
@@ -29,15 +29,15 @@ mod private {
             }
         }
 
-        fn _get_entry(&self, id: Idx<u32>) -> Result<IS::Entry> {
+        fn _get_entry(&self, id: EntryIdx) -> Result<IS::Entry> {
             self.store.get_entry(self.offset + id)
         }
 
-        pub fn offset(&self) -> Idx<u32> {
+        pub fn offset(&self) -> EntryIdx {
             self.offset
         }
 
-        pub fn count(&self) -> Count<u32> {
+        pub fn count(&self) -> EntryCount {
             self.count
         }
 
@@ -49,7 +49,7 @@ mod private {
             &self.store
         }
 
-        pub fn get_entry(&self, id: Idx<u32>) -> Result<IS::Entry> {
+        pub fn get_entry(&self, id: EntryIdx) -> Result<IS::Entry> {
             if id.is_valid(self.count) {
                 self._get_entry(id)
             } else {
@@ -57,14 +57,14 @@ mod private {
             }
         }
 
-        pub fn find(&self, property_index: u8, value: Value) -> Result<Option<Idx<u32>>> {
-            for idx in 0..self.count.0 {
-                let entry = self._get_entry(Idx(idx))?;
+        pub fn find(&self, property_index: PropertyIdx, value: Value) -> Result<Option<EntryIdx>> {
+            for idx in self.count.into_iter() {
+                let entry = self._get_entry(idx)?;
                 let cmp = self
                     .resolver
-                    .compare(&entry.get_value(property_index.into())?, &value)?;
+                    .compare(&entry.get_value(property_index)?, &value)?;
                 if cmp.is_eq() {
-                    return Ok(Some(Idx(idx)));
+                    return Ok(Some(idx));
                 }
             }
             Ok(None)
@@ -96,9 +96,9 @@ mod tests {
             fn get_variant_id(&self) -> u8 {
                 0
             }
-            fn get_value(&self, idx: Idx<u8>) -> Result<RawValue> {
+            fn get_value(&self, idx: PropertyIdx) -> Result<RawValue> {
                 Ok(match idx {
-                    Idx(0) => self.v.clone(),
+                    PropertyIdx(Idx(0)) => self.v.clone(),
                     _ => panic!(),
                 })
             }
@@ -106,9 +106,9 @@ mod tests {
         pub struct EntryStore {}
         impl EntryStoreTrait for EntryStore {
             type Entry = Entry;
-            fn get_entry(&self, idx: Idx<u32>) -> Result<Entry> {
+            fn get_entry(&self, idx: EntryIdx) -> Result<Entry> {
                 Ok(Entry::new(match idx {
-                    Idx(x) if x < 10 => x as u16,
+                    EntryIdx(Idx(x)) if x < 10 => x as u16,
                     _ => panic!(),
                 }))
             }
@@ -116,7 +116,7 @@ mod tests {
 
         pub struct ValueStore {}
         impl ValueStoreTrait for ValueStore {
-            fn get_data(&self, _id: Idx<u64>) -> Result<Vec<u8>> {
+            fn get_data(&self, _id: ValueIdx) -> Result<Vec<u8>> {
                 unreachable!()
             }
         }
@@ -124,11 +124,11 @@ mod tests {
         pub struct ValueStorage {}
         impl ValueStorageTrait for ValueStorage {
             type ValueStore = ValueStore;
-            fn get_value_store_count(&self) -> Count<u8> {
-                Count(0)
+            fn get_value_store_count(&self) -> ValueStoreCount {
+                0.into()
             }
 
-            fn get_value_store(&self, _id: Idx<u8>) -> Result<Self::ValueStore> {
+            fn get_value_store(&self, _id: ValueStoreIdx) -> Result<Self::ValueStore> {
                 unreachable!()
             }
         }
@@ -139,22 +139,22 @@ mod tests {
         let value_storage = Rc::new(mock::ValueStorage {});
         let resolver = Rc::new(Resolver::new(value_storage));
         let index_store = Rc::new(mock::EntryStore {});
-        let finder = private::Finder::new(index_store, Idx(0), Count(10), Rc::clone(&resolver));
+        let finder = private::Finder::new(index_store, 0.into(), 10.into(), Rc::clone(&resolver));
 
         for i in 0..10 {
-            let entry = finder.get_entry(Idx(i)).unwrap();
-            let value0 = entry.get_value(Idx(0)).unwrap();
+            let entry = finder.get_entry(i.into()).unwrap();
+            let value0 = entry.get_value(0.into()).unwrap();
             assert_eq!(resolver.resolve_to_unsigned(&value0), i as u64);
         }
 
         for i in 0..10 {
-            let idx = finder.find(0, Value::Unsigned(i)).unwrap().unwrap();
+            let idx = finder.find(0.into(), Value::Unsigned(i)).unwrap().unwrap();
             let entry = finder.get_entry(idx).unwrap();
-            let value0 = entry.get_value(Idx(0)).unwrap();
+            let value0 = entry.get_value(0.into()).unwrap();
             assert_eq!(resolver.resolve_to_unsigned(&value0), i as u64);
         }
 
-        let result = finder.find(0, Value::Unsigned(10)).unwrap();
+        let result = finder.find(0.into(), Value::Unsigned(10)).unwrap();
         assert_eq!(result, None);
     }
 }
