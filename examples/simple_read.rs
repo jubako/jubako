@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let finder = index.get_finder(Rc::clone(&resolver)); // To found our entries.
 
     {
-        let entry = finder.get_entry(jbk::Idx(0))?;
+        let entry = finder.get_entry(0.into())?;
         assert_eq!(entry.get_variant_id(), 0); // We correctly have variant 0
         assert_eq!(
             resolver.resolve_to_vec(&entry.get_value(0.into())?)?,
@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     {
-        let entry = finder.get_entry(jbk::Idx(1))?;
+        let entry = finder.get_entry(1.into())?;
         assert_eq!(entry.get_variant_id(), 1);
         assert_eq!(
             resolver.resolve_to_vec(&entry.get_value(0.into())?)?,
@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     {
-        let entry = finder.get_entry(jbk::Idx(2))?;
+        let entry = finder.get_entry(2.into())?;
         assert_eq!(entry.get_variant_id(), 1);
         assert_eq!(
             resolver.resolve_to_vec(&entry.get_value(0.into())?)?,

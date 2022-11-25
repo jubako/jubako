@@ -1,5 +1,5 @@
-use super::key_store::KeyStoreTrait;
-use super::private::KeyStorageTrait;
+use super::private::ValueStorageTrait;
+use super::value_store::ValueStoreTrait;
 use super::{Array, Content, DirectoryPack, Extend, RawValue};
 use crate::bases::*;
 use crate::common::Value;
@@ -9,29 +9,32 @@ use std::rc::Rc;
 
 pub(crate) mod private {
     use super::*;
-    pub struct Resolver<K: KeyStorageTrait> {
+    pub struct Resolver<K: ValueStorageTrait> {
         directory: Rc<K>,
-        stores: Vec<OnceCell<K::KeyStore>>,
+        stores: Vec<OnceCell<K::ValueStore>>,
     }
 
-    impl<K: KeyStorageTrait> Resolver<K> {
+    impl<K: ValueStorageTrait> Resolver<K> {
         pub fn new(directory: Rc<K>) -> Self {
             let mut stores = Vec::new();
-            stores.resize_with(directory.get_key_store_count().0 as usize, Default::default);
+            stores.resize_with(
+                directory.get_value_store_count().into_usize(),
+                Default::default,
+            );
             Self { directory, stores }
         }
 
-        fn get_key_store(&self, id: Idx<u8>) -> Result<&K::KeyStore> {
-            self.stores[id.0 as usize].get_or_try_init(|| self._get_key_store(id))
+        fn get_value_store(&self, id: ValueStoreIdx) -> Result<&K::ValueStore> {
+            self.stores[id.into_usize()].get_or_try_init(|| self._get_value_store(id))
         }
 
-        fn _get_key_store(&self, id: Idx<u8>) -> Result<K::KeyStore> {
-            self.directory.get_key_store(id)
+        fn _get_value_store(&self, id: ValueStoreIdx) -> Result<K::ValueStore> {
+            self.directory.get_value_store(id)
         }
 
         fn get_data(&self, extend: &Extend) -> Result<Vec<u8>> {
-            let key_store = self.get_key_store(extend.store_id)?;
-            key_store.get_data(extend.key_id.into())
+            let value_store = self.get_value_store(extend.store_id)?;
+            value_store.get_data(extend.value_id)
         }
 
         fn resolve_array_to_vec(&self, array: &Array) -> Result<Vec<u8>> {
@@ -147,10 +150,10 @@ mod tests {
 
         mod mock {
             use super::*;
-            pub struct KeyStore {}
-            impl KeyStoreTrait for KeyStore {
-                fn get_data(&self, id: Idx<u64>) -> Result<Vec<u8>> {
-                    Ok(match id {
+            pub struct ValueStore {}
+            impl ValueStoreTrait for ValueStore {
+                fn get_data(&self, id: ValueIdx) -> Result<Vec<u8>> {
+                    Ok(match *id {
                         Idx(0) => "Hello",
                         Idx(1) => "World",
                         Idx(2) => "Jubako",
@@ -163,25 +166,25 @@ mod tests {
                 }
             }
 
-            pub struct KeyStorage {}
-            impl KeyStorageTrait for KeyStorage {
-                type KeyStore = KeyStore;
-                fn get_key_store_count(&self) -> Count<u8> {
-                    Count(1)
+            pub struct ValueStorage {}
+            impl ValueStorageTrait for ValueStorage {
+                type ValueStore = ValueStore;
+                fn get_value_store_count(&self) -> ValueStoreCount {
+                    1.into()
                 }
-                fn get_key_store(&self, id: Idx<u8>) -> Result<Self::KeyStore> {
+                fn get_value_store(&self, id: ValueStoreIdx) -> Result<Self::ValueStore> {
                     Ok(match id {
-                        Idx(0) => KeyStore {},
+                        ValueStoreIdx(Idx(0)) => ValueStore {},
                         _ => panic!(),
                     })
                 }
             }
         }
 
-        fixture resolver() -> private::Resolver<mock::KeyStorage> {
+        fixture resolver() -> private::Resolver<mock::ValueStorage> {
             setup(&mut self) {
-                let key_storage = Rc::new(mock::KeyStorage {});
-                private::Resolver::new(key_storage)
+                let value_storage = Rc::new(mock::ValueStorage {});
+                private::Resolver::new(value_storage)
             }
         }
 
@@ -196,10 +199,10 @@ mod tests {
                     (RawValue::I16(5),   Value::Signed(5)),
                     (RawValue::I32(5),   Value::Signed(5)),
                     (RawValue::I64(5),   Value::Signed(5)),
-                    (RawValue::Array(Array{base:"Bye ".into(), extend:Some(Extend{store_id:Idx(0), key_id:2})}),
+                    (RawValue::Array(Array{base:"Bye ".into(), extend:Some(Extend{store_id:0.into(), value_id:ValueIdx::from(2)})}),
                        Value::Array("Bye Jubako".into())),
-                    (RawValue::Content(Content::new(ContentAddress::new(Id(0), Idx(50)), None)),
-                       Value::Content(Content::new(ContentAddress::new(Id(0), Idx(50)), None))),
+                    (RawValue::Content(Content::new(ContentAddress::new(PackId::from(0), ContentIdx::from(50)), None)),
+                       Value::Content(Content::new(ContentAddress::new(PackId::from(0), ContentIdx::from(50)), None))),
                 ].into_iter()
             }
             setup(&mut self) {}
@@ -247,9 +250,9 @@ mod tests {
                 vec![
                     (vec![], None, vec![]),
                     ("Hello".into(), None, "Hello".into()),
-                    ("Hello".into(), Some(Extend{store_id:Idx(0), key_id:0}), "HelloHello".into()),
-                    ("Hello ".into(), Some(Extend{store_id:Idx(0), key_id:2}), "Hello Jubako".into()),
-                    (vec![], Some(Extend{store_id:Idx(0), key_id:4}), "awsome".into()),
+                    ("Hello".into(), Some(Extend{store_id:0.into(), value_id:ValueIdx::from(0)}), "HelloHello".into()),
+                    ("Hello ".into(), Some(Extend{store_id:0.into(), value_id:ValueIdx::from(2)}), "Hello Jubako".into()),
+                    (vec![], Some(Extend{store_id:0.into(), value_id:ValueIdx::from(4)}), "awsome".into()),
                 ].into_iter()
             }
             setup(&mut self) {

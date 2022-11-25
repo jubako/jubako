@@ -10,12 +10,12 @@ test_suite! {
     name basic_creation;
 
     use jubako::creator;
+    use jubako::creator::layout;
     use jubako::Result;
     use jubako::reader::EntryTrait;
     use std::io::Read;
     use std::rc::Rc;
     use crate::Entry as TestEntry;
-    use typenum::{U31, U40, U63};
 
     fixture compression(c: jubako::CompressionType) -> jubako::CompressionType {
         params {
@@ -31,11 +31,11 @@ test_suite! {
         }
     }
 
-    fixture key_store_kind(k: creator::KeyStoreKind) -> creator::KeyStoreKind {
+    fixture key_store_kind(k: creator::ValueStoreKind) -> creator::ValueStoreKind {
         params {
             vec![
-                creator::KeyStoreKind::Plain,
-                creator::KeyStoreKind::Indexed,
+                creator::ValueStoreKind::Plain,
+                creator::ValueStoreKind::Indexed,
             ].into_iter()
         }
         setup(&mut self) {
@@ -62,9 +62,9 @@ test_suite! {
     fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<TestEntry>) -> Result<creator::PackInfo> {
         let mut creator = creator::ContentPackCreator::new(
             "/tmp/contentPack.jbkc",
-            jubako::Id(1),
+            jubako::PackId::from(1),
             1,
-            jubako::FreeData::<U40>::clone_from_slice(&[0xff; 40]),
+            jubako::FreeData40::clone_from_slice(&[0xff; 40]),
             compression
         );
         creator.start()?;
@@ -77,20 +77,20 @@ test_suite! {
         Ok(pack_info)
     }
 
-    fn create_directory_pack(key_store_kind: creator::KeyStoreKind, entries: &Vec<TestEntry>) -> Result<creator::PackInfo> {
+    fn create_directory_pack(key_store_kind: creator::ValueStoreKind, entries: &Vec<TestEntry>) -> Result<creator::PackInfo> {
         let mut creator = creator::DirectoryPackCreator::new(
             "/tmp/directoryPack.jbkd",
-            jubako::Id(1),
+            jubako::PackId::from(1),
             1,
-            jubako::FreeData::<U31>::clone_from_slice(&[0xff; 31])
+            jubako::FreeData31::clone_from_slice(&[0xff; 31])
         );
-        let key_store_handle = creator.create_key_store(key_store_kind);
-        let entry_def = creator::Entry::new(
+        let key_store_handle = creator.create_value_store(key_store_kind);
+        let entry_def = layout::Entry::new(
             vec![
-                creator::Variant::new(vec![
-                    creator::Key::PString(0, key_store_handle),
-                    creator::Key::ContentAddress,
-                    creator::Key::new_int()
+                layout::Variant::new(vec![
+                    layout::Property::VLArray(0, key_store_handle),
+                    layout::Property::ContentAddress,
+                    layout::Property::new_int()
                 ])
             ]
         );
@@ -109,8 +109,8 @@ test_suite! {
             jubako::ContentAddress::new(0.into(), 0.into()),
             0.into(),
             entry_store_idx,
-            jubako::Count(entries.len() as u32),
-            jubako::Idx(0));
+            (entries.len() as u32).into(),
+            0.into());
         let pack_info = creator.finalize().unwrap();
         Ok(pack_info)
     }
@@ -119,7 +119,7 @@ test_suite! {
         let mut creator = creator::ManifestPackCreator::new(
             "/tmp/mainPack.jbkm",
             1,
-            jubako::FreeData::<U63>::clone_from_slice(&[0xff; 63])
+            jubako::FreeData63::clone_from_slice(&[0xff; 63])
         );
 
         creator.add_pack(directory_pack);
@@ -136,25 +136,25 @@ test_suite! {
         let main_path = create_main_pack(directory_info, content_info).unwrap();
 
         let container = jubako::reader::Container::new(main_path).unwrap();
-        assert_eq!(container.pack_count(), jubako::Count(1));
+        assert_eq!(container.pack_count(), 1.into());
         assert!(container.check().unwrap());
         println!("Read directory pack");
         let directory_pack = container.get_directory_pack().unwrap();
-        let index = directory_pack.get_index(jubako::Idx(0)).unwrap();
+        let index = directory_pack.get_index(0.into()).unwrap();
         let resolver = directory_pack.get_resolver();
         let finder = index.get_finder(Rc::clone(&resolver));
         println!("Read index");
-        assert_eq!(index.entry_count().0, articles.val.len() as u32);
-        for i in 0..index.entry_count().0 {
-            println!("Check entry count {}", i);
-            let entry = finder.get_entry(jubako::Idx(i)).unwrap();
+        assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
+        for i in index.entry_count() {
+            println!("Check entry count {:?}", i);
+            let entry = finder.get_entry(i.into()).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
             println!("Check value 0");
-            let value_0 = entry.get_value(jubako::Idx(0)).unwrap();
+            let value_0 = entry.get_value(0.into()).unwrap();
             let value_0 = resolver.resolve_to_vec(&value_0).unwrap();
-            assert_eq!(value_0, articles.val[i as usize].path.as_bytes());
+            assert_eq!(value_0, articles.val[i.into_usize()].path.as_bytes());
             println!("Check value 1");
-            let value_1 = entry.get_value(jubako::Idx(1)).unwrap();
+            let value_1 = entry.get_value(1.into()).unwrap();
             let value_1 = resolver.resolve_to_content(&value_1);
             println!("Get reader");
             let reader = container.get_reader(value_1).unwrap();
@@ -164,11 +164,11 @@ test_suite! {
             let mut read_content: String = "".to_string();
             println!("Read from stream");
             stream.read_to_string(&mut read_content).unwrap();
-            assert_eq!(read_content, articles.val[i as usize].content);
+            assert_eq!(read_content, articles.val[i.into_usize()].content);
             println!("Check value 2");
-            let value_2 = entry.get_value(jubako::Idx(2)).unwrap();
+            let value_2 = entry.get_value(2.into()).unwrap();
             let value_2 = resolver.resolve_to_unsigned(&value_2);
-            assert_eq!(value_2, articles.val[i as usize].word_count as u64);
+            assert_eq!(value_2, articles.val[i.into_usize()].word_count as u64);
         }
     }
 }

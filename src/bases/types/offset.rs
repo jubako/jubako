@@ -6,11 +6,32 @@ use std::ops::{Add, AddAssign, Sub};
 /// We handling content in 64 bits space.
 /// We cannot use a usize as it is arch dependent.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
-pub struct Offset(pub u64);
+pub struct Offset(u64);
 
 impl Offset {
     pub fn is_valid(self, s: Size) -> bool {
-        self.0 <= s.0
+        self.0 <= s.into_u64()
+    }
+
+    pub fn into_u64(self) -> u64 {
+        self.0
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    pub fn into_usize(self) -> usize {
+        self.0 as usize
+    }
+
+    pub fn is_zero(self) -> bool {
+        self.0 == 0
+    }
+
+    pub const fn zero() -> Self {
+        Self(0)
+    }
+
+    pub const fn new(s: u64) -> Self {
+        Self(s)
     }
 }
 
@@ -32,13 +53,19 @@ impl Writable for Offset {
 
 impl From<Size> for Offset {
     fn from(v: Size) -> Offset {
-        v.0.into()
+        v.into_u64().into()
     }
 }
 
 impl From<u64> for Offset {
     fn from(v: u64) -> Offset {
         Offset(v)
+    }
+}
+
+impl From<usize> for Offset {
+    fn from(v: usize) -> Offset {
+        Offset(v as u64)
     }
 }
 
@@ -52,7 +79,7 @@ impl Add<usize> for Offset {
 impl Add<Size> for Offset {
     type Output = Self;
     fn add(self, other: Size) -> Offset {
-        Offset(self.0.checked_add(other.0).unwrap())
+        Offset(self.0.checked_add(other.into_u64()).unwrap())
     }
 }
 
@@ -71,7 +98,7 @@ impl AddAssign<usize> for Offset {
 
 impl AddAssign<Size> for Offset {
     fn add_assign(&mut self, other: Size) {
-        self.0 = self.0.checked_add(other.0).unwrap();
+        self.0 = self.0.checked_add(other.into_u64()).unwrap();
     }
 }
 
@@ -84,7 +111,14 @@ impl AddAssign for Offset {
 impl Sub for Offset {
     type Output = Size;
     fn sub(self, other: Offset) -> Size {
-        Size(self.0.checked_sub(other.0).unwrap())
+        Size::from(self.0.checked_sub(other.0).unwrap())
+    }
+}
+
+impl Sub<Size> for Offset {
+    type Output = Offset;
+    fn sub(self, other: Size) -> Offset {
+        Offset::from(self.0.checked_sub(other.into_u64()).unwrap())
     }
 }
 

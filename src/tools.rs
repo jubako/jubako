@@ -24,7 +24,7 @@ pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
 
     let manifest_header = jbk::common::ManifestPackHeader::produce(stream.as_mut())?;
 
-    for pack_nb in 0..(manifest_header.pack_count.0 + 1) {
+    for pack_nb in manifest_header.pack_count + 1 {
         let pack_info = jbk::reader::PackInfo::produce(stream.as_mut())?;
         match pack_info.pack_pos {
             jbk::common::PackPos::Offset(_) => {} // Nothing to do, it is already in the file,
@@ -33,8 +33,8 @@ pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
                 let mut file = File::open(&pack_path)?;
                 let pos = outfile.seek(SeekFrom::End(0))?;
                 std::io::copy(&mut file, &mut outfile)?;
-                outfile.seek(SeekFrom::Start(128 + 256 * pack_nb as u64 + 128))?;
-                Offset(pos).write(&mut outfile)?;
+                outfile.seek(SeekFrom::Start(128 + 256 * pack_nb.into_u64() + 128))?;
+                Offset::from(pos).write(&mut outfile)?;
             }
         };
     }

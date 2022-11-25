@@ -1,6 +1,6 @@
 use crate::bases::*;
 use std::fmt;
-use std::ops::Add;
+use std::ops::{Add, AddAssign};
 
 /// A count of object.
 /// All count object can be stored in a u32.
@@ -15,11 +15,20 @@ impl<T> From<T> for Count<T> {
 
 impl<T> Add<T> for Count<T>
 where
-    T: std::ops::Add<Output = T>,
+    T: Add<Output = T>,
 {
     type Output = Self;
     fn add(self, other: T) -> Self {
         Count(self.0 + other)
+    }
+}
+
+impl<T> AddAssign<T> for Count<T>
+where
+    T: AddAssign,
+{
+    fn add_assign(&mut self, rhs: T) {
+        self.0 += rhs;
     }
 }
 

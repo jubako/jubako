@@ -74,6 +74,13 @@ where
     }
 }
 
+impl<T> std::ops::Deref for Idx<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl<T> From<T> for Idx<T> {
     fn from(v: T) -> Idx<T> {
         Idx(v)

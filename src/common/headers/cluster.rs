@@ -5,11 +5,11 @@ use crate::common::CompressionType;
 pub struct ClusterHeader {
     pub compression: CompressionType,
     pub offset_size: u8,
-    pub blob_count: Count<u16>,
+    pub blob_count: BlobCount,
 }
 
 impl ClusterHeader {
-    pub fn new(compression: CompressionType, offset_size: u8, blob_count: Count<u16>) -> Self {
+    pub fn new(compression: CompressionType, offset_size: u8, blob_count: BlobCount) -> Self {
         Self {
             compression,
             offset_size,
@@ -23,7 +23,7 @@ impl Producable for ClusterHeader {
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let compression = CompressionType::produce(stream)?;
         let offset_size = stream.read_u8()?;
-        let blob_count = Count::<u16>::produce(stream)?;
+        let blob_count = Count::<u16>::produce(stream)?.into();
         Ok(ClusterHeader {
             compression,
             offset_size,
@@ -62,7 +62,7 @@ mod tests {
             ClusterHeader {
                 compression: CompressionType::None,
                 offset_size: 1,
-                blob_count: Count(2),
+                blob_count: BlobCount::from(2),
             }
         );
     }

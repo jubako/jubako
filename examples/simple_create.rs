@@ -1,7 +1,7 @@
 use jubako as jbk;
+use jubako::creator::layout;
 use std::error::Error;
 use std::rc::Rc;
-use typenum::{U31, U40, U63};
 
 // This is what will allow Jubako to differenciate your format from others.
 const VENDOR_ID: u32 = 0x01_02_03_04;
@@ -9,34 +9,34 @@ const VENDOR_ID: u32 = 0x01_02_03_04;
 fn main() -> Result<(), Box<dyn Error>> {
     let mut content_pack = jbk::creator::ContentPackCreator::new(
         "test.jbkc",
-        jbk::Id(1), // The pack id as referenced in the container
+        jbk::PackId::from(1), // The pack id as referenced in the container
         VENDOR_ID,
-        jbk::FreeData::<U40>::clone_from_slice(&[0x00; 40]), // Put whatever you what, this is for you
-        jbk::CompressionType::Zstd,                          // How to compress
+        jbk::FreeData40::clone_from_slice(&[0x00; 40]), // Put whatever you what, this is for you
+        jbk::CompressionType::Zstd,                     // How to compress
     );
     content_pack.start()?;
 
     let mut directory_pack = jbk::creator::DirectoryPackCreator::new(
         "test.jbkd",
-        jbk::Id(0),
+        jbk::PackId::from(0),
         VENDOR_ID,
-        jbk::FreeData::<U31>::clone_from_slice(&[0x00; 31]),
+        jbk::FreeData31::clone_from_slice(&[0x00; 31]),
     );
 
     // Entries have fixed sizes. We need to store variable length values in an extra store.
-    let value_store = directory_pack.create_key_store(jbk::creator::KeyStoreKind::Plain);
+    let value_store = directory_pack.create_value_store(jbk::creator::ValueStoreKind::Plain);
 
     // Our entry kind will have two variants.
-    let entry_def = jbk::creator::Entry::new(vec![
-        jbk::creator::Variant::new(vec![
-            jbk::creator::Key::PString(0, Rc::clone(&value_store)), // One string, will be stored in value_store
-            jbk::creator::Key::new_int(),                           // A integer
-            jbk::creator::Key::ContentAddress,                      // A "pointer" to a content.
+    let entry_def = layout::Entry::new(vec![
+        layout::Variant::new(vec![
+            layout::Property::VLArray(0, Rc::clone(&value_store)), // One string, will be stored in value_store
+            layout::Property::new_int(),                           // A integer
+            layout::Property::ContentAddress,                      // A "pointer" to a content.
         ]),
-        jbk::creator::Variant::new(vec![
-            jbk::creator::Key::PString(0, Rc::clone(&value_store)),
-            jbk::creator::Key::new_int(), //
-            jbk::creator::Key::new_int(), //
+        layout::Variant::new(vec![
+            layout::Property::VLArray(0, Rc::clone(&value_store)),
+            layout::Property::new_int(), //
+            layout::Property::new_int(), //
         ]),
     ]);
 
@@ -54,8 +54,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             jbk::creator::Value::Array("Super".into()),
             jbk::creator::Value::Unsigned(50),
             jbk::creator::Value::Content(jbk::creator::Content::from((
-                jbk::Id(1), // Pack id
-                content_id, // Content id in the pack
+                jbk::PackId::from(1), // Pack id
+                content_id,           // Content id in the pack
             ))),
         ],
     );
@@ -84,8 +84,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         jubako::ContentAddress::new(0.into(), 0.into()), // A pointer to a content which can be used to store whatever you what (nothing here)
         0.into(),                                        // The index is not sorted
         entry_store_id,
-        jubako::Count(3), // 3 entries
-        jubako::Idx(0),   // Offset 0
+        3.into(), // 3 entries
+        0.into(), // Offset 0
     );
 
     let directory_pack_info = directory_pack.finalize()?;
@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut manifest_creator = jbk::creator::ManifestPackCreator::new(
         "test.jbkm",
         VENDOR_ID,
-        jbk::FreeData::<U63>::clone_from_slice(&[0x00; 63]),
+        jbk::FreeData63::clone_from_slice(&[0x00; 63]),
     );
 
     manifest_creator.add_pack(directory_pack_info);

@@ -24,7 +24,8 @@ impl Container {
         let path: PathBuf = path.as_ref().into();
         let file = File::open(path.clone())?;
         let reader = FileReader::new(file, End::None);
-        let main_pack = ManifestPack::new(reader.create_sub_memory_reader(Offset(0), End::None)?)?;
+        let main_pack =
+            ManifestPack::new(reader.create_sub_memory_reader(Offset::from(0_u64), End::None)?)?;
         let mut packs = Vec::new();
         packs.resize_with((main_pack.max_id() + 1) as usize, Default::default);
         Ok(Self {
@@ -38,12 +39,12 @@ impl Container {
 }
 
 impl Container {
-    pub fn pack_count(&self) -> Count<u8> {
+    pub fn pack_count(&self) -> PackCount {
         self.main_pack.pack_count()
     }
 
-    pub fn get_pack(&self, pack_id: Id<u8>) -> Result<&ContentPack> {
-        self.packs[pack_id.0 as usize].get_or_try_init(|| self._get_pack(pack_id))
+    pub fn get_pack(&self, pack_id: PackId) -> Result<&ContentPack> {
+        self.packs[pack_id.into_usize()].get_or_try_init(|| self._get_pack(pack_id))
     }
 
     pub fn get_reader(&self, content: &Content) -> Result<Box<dyn Reader>> {
@@ -51,7 +52,7 @@ impl Container {
         pack.get_content(content.content_id())
     }
 
-    fn _get_pack(&self, pack_id: Id<u8>) -> Result<ContentPack> {
+    fn _get_pack(&self, pack_id: PackId) -> Result<ContentPack> {
         let pack_info = self.main_pack.get_content_pack_info(pack_id)?;
         let pack_reader = self._get_pack_reader(pack_info)?;
         ContentPack::new(pack_reader)

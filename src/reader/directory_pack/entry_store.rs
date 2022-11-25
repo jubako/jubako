@@ -1,6 +1,6 @@
-use super::entry::EntryTrait;
-use super::entry_def::EntryDef;
+use super::layout;
 use super::lazy_entry::LazyEntry;
+use super::EntryTrait;
 use crate::bases::*;
 
 #[repr(u8)]
@@ -26,33 +26,33 @@ impl Producable for StoreKind {
     }
 }
 
-pub trait IndexStoreTrait {
+pub trait EntryStoreTrait {
     type Entry: EntryTrait;
-    fn get_entry(&self, idx: Idx<u32>) -> Result<Self::Entry>;
+    fn get_entry(&self, idx: EntryIdx) -> Result<Self::Entry>;
 }
 
 #[derive(Debug)]
-pub enum IndexStore {
+pub enum EntryStore {
     Plain(PlainStore),
 }
 
-impl IndexStore {
+impl EntryStore {
     pub fn new(reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
         let mut header_stream = reader.create_stream_for(pos_info);
         Ok(match StoreKind::produce(header_stream.as_mut())? {
             StoreKind::Plain => {
-                IndexStore::Plain(PlainStore::new(header_stream.as_mut(), reader, pos_info)?)
+                EntryStore::Plain(PlainStore::new(header_stream.as_mut(), reader, pos_info)?)
             }
             _ => todo!(),
         })
     }
 }
 
-impl IndexStoreTrait for IndexStore {
+impl EntryStoreTrait for EntryStore {
     type Entry = LazyEntry;
-    fn get_entry(&self, idx: Idx<u32>) -> Result<LazyEntry> {
+    fn get_entry(&self, idx: EntryIdx) -> Result<LazyEntry> {
         match self {
-            IndexStore::Plain(store) => store.get_entry(idx),
+            EntryStore::Plain(store) => store.get_entry(idx),
             /*            _ => todo!()*/
         }
     }
@@ -60,7 +60,7 @@ impl IndexStoreTrait for IndexStore {
 
 #[derive(Debug)]
 pub struct PlainStore {
-    pub entry_def: EntryDef,
+    pub entry_def: layout::Entry,
     pub entry_reader: Box<dyn Reader>,
 }
 
@@ -70,22 +70,20 @@ impl PlainStore {
         reader: &dyn Reader,
         pos_info: SizedOffset,
     ) -> Result<Self> {
-        let entry_def = EntryDef::produce(stream)?;
+        let entry_def = layout::Entry::produce(stream)?;
         let data_size = Size::produce(stream)?;
         // [TODO] use a array_reader here
-        let entry_reader = reader.create_sub_reader(
-            Offset(pos_info.offset.0 - data_size.0),
-            End::Size(data_size),
-        );
+        let entry_reader =
+            reader.create_sub_reader(pos_info.offset - data_size, End::Size(data_size));
         Ok(Self {
             entry_def,
             entry_reader,
         })
     }
 
-    pub fn get_entry(&self, idx: Idx<u32>) -> Result<LazyEntry> {
+    pub fn get_entry(&self, idx: EntryIdx) -> Result<LazyEntry> {
         let reader = self.entry_reader.create_sub_reader(
-            Offset(idx.0 as u64 * self.entry_def.size.0),
+            Offset::from(self.entry_def.size.into_u64() * idx.into_u64()),
             End::Size(self.entry_def.size),
         );
         self.entry_def.create_entry(reader.as_ref())
@@ -94,19 +92,19 @@ impl PlainStore {
 
 #[cfg(test)]
 mod tests {
-    use super::super::key::{Key, KeyKind};
+    use super::layout::{Property, PropertyKind};
     use super::*;
 
     #[test]
-    fn test_1variant_allkeys() {
+    fn test_1variant_allproperties() {
         #[rustfmt::skip]
         let content = vec![
             0x00, // kind
             0x05, 0x67,        //entry_size (1383)
             0x01,        // variant count
-            0x15,        // key count (21)
+            0x15,        // property count (21)
             0b1000_0000, // Variant id
-            0b0000_0111, // padding key(8)
+            0b0000_0111, // padding (8)
             0b0001_0000, // classic content address
             0b0001_0001, // patch content address
             0b0010_0000, // u8
@@ -128,34 +126,35 @@ mod tests {
             0b0100_0001, // base char[2]
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
-        let size = Size(content.len() as u64);
+        let size = Size::from(content.len());
         let reader = Box::new(BufReader::new(content, End::None));
-        let store = IndexStore::new(reader.as_ref(), SizedOffset::new(size, Offset(0))).unwrap();
+        let store =
+            EntryStore::new(reader.as_ref(), SizedOffset::new(size, Offset::zero())).unwrap();
         let store = match store {
-            IndexStore::Plain(s) => s,
+            EntryStore::Plain(s) => s,
         };
         assert_eq!(store.entry_def.variants.len(), 1);
         let variant = &store.entry_def.variants[0];
         let expected = vec![
-            Key::new(9, KeyKind::ContentAddress(0)),
-            Key::new(13, KeyKind::ContentAddress(1)),
-            Key::new(21, KeyKind::UnsignedInt(1)),
-            Key::new(22, KeyKind::UnsignedInt(3)),
-            Key::new(25, KeyKind::UnsignedInt(8)),
-            Key::new(33, KeyKind::SignedInt(1)),
-            Key::new(34, KeyKind::SignedInt(3)),
-            Key::new(37, KeyKind::SignedInt(8)),
-            Key::new(45, KeyKind::CharArray(1)),
-            Key::new(46, KeyKind::CharArray(8)),
-            Key::new(54, KeyKind::CharArray(9)),
-            Key::new(63, KeyKind::CharArray(264)),
-            Key::new(327, KeyKind::CharArray(1032)),
-            Key::new(1359, KeyKind::PString(1, 0x0F.into(), None)),
-            Key::new(1360, KeyKind::PString(8, 0x0F.into(), None)),
-            Key::new(1368, KeyKind::PString(1, 0x0F.into(), Some(2))),
-            Key::new(1371, KeyKind::PString(8, 0x0F.into(), Some(2))),
+            Property::new(9, PropertyKind::ContentAddress(0)),
+            Property::new(13, PropertyKind::ContentAddress(1)),
+            Property::new(21, PropertyKind::UnsignedInt(1)),
+            Property::new(22, PropertyKind::UnsignedInt(3)),
+            Property::new(25, PropertyKind::UnsignedInt(8)),
+            Property::new(33, PropertyKind::SignedInt(1)),
+            Property::new(34, PropertyKind::SignedInt(3)),
+            Property::new(37, PropertyKind::SignedInt(8)),
+            Property::new(45, PropertyKind::Array(1)),
+            Property::new(46, PropertyKind::Array(8)),
+            Property::new(54, PropertyKind::Array(9)),
+            Property::new(63, PropertyKind::Array(264)),
+            Property::new(327, PropertyKind::Array(1032)),
+            Property::new(1359, PropertyKind::VLArray(1, 0x0F.into(), None)),
+            Property::new(1360, PropertyKind::VLArray(8, 0x0F.into(), None)),
+            Property::new(1368, PropertyKind::VLArray(1, 0x0F.into(), Some(2))),
+            Property::new(1371, PropertyKind::VLArray(8, 0x0F.into(), Some(2))),
         ];
-        assert_eq!(&variant.keys, &expected);
+        assert_eq!(&variant.properties, &expected);
     }
 
     #[test]
@@ -165,11 +164,11 @@ mod tests {
             0x00, // kind
             0x00, 0x12,        //entry_size (18)
             0x02,        // variant count
-            0x0A,        // key count (10)
+            0x0A,        // property count (10)
             0b1000_0000, // Variant id
             0b0111_0100, 0x0F, // PstringLookup(5), idx 0x0F
             0b0100_0000,       // base char[1]
-            0b0000_0011, // padding key(4)
+            0b0000_0011, // padding(4)
             0b0001_0000, // classic content address
             0b0010_0010, // u24
             0b1000_0000, // Variant id
@@ -178,26 +177,27 @@ mod tests {
             0b0010_0010, // u24
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
-        let size = Size(content.len() as u64);
+        let size = Size::from(content.len());
         let reader = Box::new(BufReader::new(content, End::None));
-        let store = IndexStore::new(reader.as_ref(), SizedOffset::new(size, Offset(0))).unwrap();
+        let store =
+            EntryStore::new(reader.as_ref(), SizedOffset::new(size, Offset::zero())).unwrap();
         let store = match store {
-            IndexStore::Plain(s) => s,
+            EntryStore::Plain(s) => s,
         };
         assert_eq!(store.entry_def.variants.len(), 2);
         let variant = &store.entry_def.variants[0];
         let expected = vec![
-            Key::new(1, KeyKind::PString(5, 0x0F.into(), Some(1))),
-            Key::new(11, KeyKind::ContentAddress(0)),
-            Key::new(15, KeyKind::UnsignedInt(3)),
+            Property::new(1, PropertyKind::VLArray(5, 0x0F.into(), Some(1))),
+            Property::new(11, PropertyKind::ContentAddress(0)),
+            Property::new(15, PropertyKind::UnsignedInt(3)),
         ];
-        assert_eq!(&variant.keys, &expected);
+        assert_eq!(&variant.properties, &expected);
         let variant = &store.entry_def.variants[1];
         let expected = vec![
-            Key::new(1, KeyKind::CharArray(6)),
-            Key::new(7, KeyKind::ContentAddress(1)),
-            Key::new(15, KeyKind::UnsignedInt(3)),
+            Property::new(1, PropertyKind::Array(6)),
+            Property::new(7, PropertyKind::ContentAddress(1)),
+            Property::new(15, PropertyKind::UnsignedInt(3)),
         ];
-        assert_eq!(&variant.keys, &expected);
+        assert_eq!(&variant.properties, &expected);
     }
 }

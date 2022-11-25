@@ -56,7 +56,7 @@ mod tests {
             CompressionType::produce(stream.as_mut()).unwrap(),
             CompressionType::Zstd
         );
-        assert_eq!(stream.tell(), Offset::from(4));
+        assert_eq!(stream.tell(), Offset::from(4_u64));
         assert!(CompressionType::produce(stream.as_mut()).is_err());
     }
 }

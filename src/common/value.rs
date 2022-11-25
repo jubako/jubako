@@ -15,11 +15,11 @@ impl Content {
         }
     }
 
-    pub fn pack_id(&self) -> Id<u8> {
+    pub fn pack_id(&self) -> PackId {
         self.content_address.pack_id
     }
 
-    pub fn content_id(&self) -> Idx<u32> {
+    pub fn content_id(&self) -> ContentIdx {
         self.content_address.content_id
     }
 }
@@ -30,8 +30,8 @@ impl From<ContentAddress> for Content {
     }
 }
 
-impl From<(Id<u8>, Idx<u32>)> for Content {
-    fn from(other: (Id<u8>, Idx<u32>)) -> Self {
+impl From<(PackId, ContentIdx)> for Content {
+    fn from(other: (PackId, ContentIdx)) -> Self {
         let (pack_id, content_id) = other;
         Content::new(ContentAddress::new(pack_id, content_id), None)
     }

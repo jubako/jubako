@@ -1,7 +1,7 @@
 mod cluster;
 
 use crate::bases::*;
-use crate::common::{CheckInfo, ContentPackHeader, EntryInfo, Pack, PackKind};
+use crate::common::{CheckInfo, ContentInfo, ContentPackHeader, Pack, PackKind};
 use cluster::Cluster;
 use lru::LruCache;
 use std::cell::{Cell, RefCell};
@@ -12,9 +12,9 @@ use uuid::Uuid;
 
 pub struct ContentPack {
     header: ContentPackHeader,
-    entry_infos: ArrayReader<EntryInfo, u32>,
+    content_infos: ArrayReader<ContentInfo, u32>,
     cluster_ptrs: ArrayReader<SizedOffset, u32>,
-    cluster_cache: RefCell<LruCache<Idx<u32>, Rc<Cluster>>>,
+    cluster_cache: RefCell<LruCache<ClusterIdx, Rc<Cluster>>>,
     reader: Box<dyn Reader>,
     check_info: Cell<Option<CheckInfo>>,
 }
@@ -22,19 +22,19 @@ pub struct ContentPack {
 impl ContentPack {
     pub fn new(reader: Box<dyn Reader>) -> Result<Self> {
         let header = ContentPackHeader::produce(reader.create_stream_all().as_mut())?;
-        let entry_infos = ArrayReader::new_memory_from_reader(
+        let content_infos = ArrayReader::new_memory_from_reader(
             reader.as_ref(),
-            header.entry_ptr_pos,
-            header.entry_count,
+            header.content_ptr_pos,
+            *header.content_count,
         )?;
         let cluster_ptrs = ArrayReader::new_memory_from_reader(
             reader.as_ref(),
             header.cluster_ptr_pos,
-            header.cluster_count,
+            *header.cluster_count,
         )?;
         Ok(ContentPack {
             header,
-            entry_infos,
+            content_infos,
             cluster_ptrs,
             cluster_cache: RefCell::new(LruCache::new(NonZeroUsize::new(20).unwrap())),
             reader,
@@ -42,16 +42,16 @@ impl ContentPack {
         })
     }
 
-    pub fn get_entry_count(&self) -> Count<u32> {
-        self.header.entry_count
+    pub fn get_content_count(&self) -> ContentCount {
+        self.header.content_count
     }
 
-    fn _get_cluster(&self, cluster_index: Idx<u32>) -> Result<Rc<Cluster>> {
-        let cluster_info = self.cluster_ptrs.index(cluster_index)?;
+    fn _get_cluster(&self, cluster_index: ClusterIdx) -> Result<Rc<Cluster>> {
+        let cluster_info = self.cluster_ptrs.index(*cluster_index)?;
         Ok(Rc::new(Cluster::new(self.reader.as_ref(), cluster_info)?))
     }
 
-    fn get_cluster(&self, cluster_index: Idx<u32>) -> Result<Rc<Cluster>> {
+    fn get_cluster(&self, cluster_index: ClusterIdx) -> Result<Rc<Cluster>> {
         let mut cache = self.cluster_cache.borrow_mut();
         let cached = cache.get(&cluster_index);
         Ok(match cached {
@@ -64,19 +64,22 @@ impl ContentPack {
         })
     }
 
-    pub fn get_content(&self, index: Idx<u32>) -> Result<Box<dyn Reader>> {
-        if !index.is_valid(self.header.entry_count) {
+    pub fn get_content(&self, index: ContentIdx) -> Result<Box<dyn Reader>> {
+        if !index.is_valid(self.header.content_count) {
             return Err(Error::new_arg());
         }
-        let entry_info = self.entry_infos.index(index)?;
-        if !entry_info.cluster_index.is_valid(self.header.cluster_count) {
+        let content_info = self.content_infos.index(*index)?;
+        if !content_info
+            .cluster_index
+            .is_valid(self.header.cluster_count)
+        {
             return Err(format_error!(&format!(
                 "Cluster index ({}) is not valid in regard of cluster count ({})",
-                entry_info.cluster_index, self.header.cluster_count
+                content_info.cluster_index, self.header.cluster_count
             )));
         }
-        let cluster = self.get_cluster(entry_info.cluster_index)?;
-        cluster.get_reader(entry_info.blob_index)
+        let cluster = self.get_cluster(content_info.cluster_index)?;
+        cluster.get_reader(content_info.blob_index)
     }
 
     pub fn get_free_data(&self) -> &[u8] {
@@ -168,7 +171,7 @@ mod tests {
         content.extend(hash.as_bytes()); // end : 171+32 = 203
         let reader = Box::new(BufReader::new(content, End::None));
         let content_pack = ContentPack::new(reader).unwrap();
-        assert_eq!(content_pack.get_entry_count(), Count(3));
+        assert_eq!(content_pack.get_content_count(), ContentCount::from(3));
         assert_eq!(content_pack.app_vendor_id(), 0x01000000_u32);
         assert_eq!(content_pack.version(), (1, 2));
         assert_eq!(
@@ -182,7 +185,7 @@ mod tests {
         assert!(&content_pack.check().unwrap());
 
         {
-            let sub_reader = content_pack.get_content(Idx(0_u32)).unwrap();
+            let sub_reader = content_pack.get_content(ContentIdx::from(0)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
             let mut stream = sub_reader.create_stream_all();
@@ -190,7 +193,7 @@ mod tests {
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
         {
-            let sub_reader = content_pack.get_content(Idx(1_u32)).unwrap();
+            let sub_reader = content_pack.get_content(ContentIdx::from(1)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
             let mut stream = sub_reader.create_stream_all();
@@ -198,7 +201,7 @@ mod tests {
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
         {
-            let sub_reader = content_pack.get_content(Idx(2_u32)).unwrap();
+            let sub_reader = content_pack.get_content(ContentIdx::from(2)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
             let mut stream = sub_reader.create_stream_all();

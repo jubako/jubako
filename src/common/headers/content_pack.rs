@@ -1,32 +1,31 @@
 use crate::bases::*;
 use crate::common::{PackHeader, PackHeaderInfo, PackKind};
-use generic_array::typenum::U40;
 use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ContentPackHeader {
     pub pack_header: PackHeader,
-    pub entry_ptr_pos: Offset,
+    pub content_ptr_pos: Offset,
     pub cluster_ptr_pos: Offset,
-    pub entry_count: Count<u32>,
-    pub cluster_count: Count<u32>,
-    pub free_data: FreeData<U40>,
+    pub content_count: ContentCount,
+    pub cluster_count: ClusterCount,
+    pub free_data: FreeData40,
 }
 
 impl ContentPackHeader {
     pub fn new(
         pack_info: PackHeaderInfo,
-        free_data: FreeData<U40>,
+        free_data: FreeData40,
         cluster_ptr_pos: Offset,
-        cluster_count: Count<u32>,
-        entry_ptr_pos: Offset,
-        entry_count: Count<u32>,
+        cluster_count: ClusterCount,
+        content_ptr_pos: Offset,
+        content_count: ContentCount,
     ) -> Self {
         Self {
             pack_header: PackHeader::new(PackKind::Content, pack_info),
-            entry_ptr_pos,
+            content_ptr_pos,
             cluster_ptr_pos,
-            entry_count,
+            content_count,
             cluster_count,
             free_data,
         }
@@ -40,16 +39,16 @@ impl Producable for ContentPackHeader {
         if pack_header.magic != PackKind::Content {
             return Err(format_error!("Pack Magic is not ContentPack"));
         }
-        let entry_ptr_pos = Offset::produce(stream)?;
+        let content_ptr_pos = Offset::produce(stream)?;
         let cluster_ptr_pos = Offset::produce(stream)?;
-        let entry_count = Count::<u32>::produce(stream)?;
-        let cluster_count = Count::<u32>::produce(stream)?;
-        let free_data = FreeData::produce(stream)?;
+        let content_count = Count::<u32>::produce(stream)?.into();
+        let cluster_count = Count::<u32>::produce(stream)?.into();
+        let free_data = FreeData40::produce(stream)?;
         Ok(ContentPackHeader {
             pack_header,
-            entry_ptr_pos,
+            content_ptr_pos,
             cluster_ptr_pos,
-            entry_count,
+            content_count,
             cluster_count,
             free_data,
         })
@@ -60,9 +59,9 @@ impl Writable for ContentPackHeader {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         let mut written = 0;
         written += self.pack_header.write(stream)?;
-        written += self.entry_ptr_pos.write(stream)?;
+        written += self.content_ptr_pos.write(stream)?;
         written += self.cluster_ptr_pos.write(stream)?;
-        written += self.entry_count.write(stream)?;
+        written += self.content_count.write(stream)?;
         written += self.cluster_count.write(stream)?;
         written += self.free_data.write(stream)?;
         Ok(written)
@@ -111,11 +110,11 @@ mod tests {
                     file_size: Size::from(0xffff_u64),
                     check_info_pos: Offset::from(0xffee_u64),
                 },
-                entry_ptr_pos: Offset::from(0xee00_u64),
+                content_ptr_pos: Offset::from(0xee00_u64),
                 cluster_ptr_pos: Offset::from(0xeedd_u64),
-                entry_count: Count::from(0x50_u32),
-                cluster_count: Count::from(0x60_u32),
-                free_data: FreeData::clone_from_slice(&[0xff; 40]),
+                content_count: ContentCount::from(0x50_u32),
+                cluster_count: ClusterCount::from(0x60_u32),
+                free_data: FreeData40::clone_from_slice(&[0xff; 40]),
             }
         );
     }

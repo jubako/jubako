@@ -7,10 +7,8 @@ pub use crate::bases::{BufStream, FileStream};
 use crate::common::{CheckKind, PackPos};
 pub use crate::common::{Content, Value};
 pub use content_pack::ContentPackCreator;
-pub use directory_pack::entry_def::{EntryDef as Entry, KeyDef as Key, VariantDef as Variant};
-pub use directory_pack::{DirectoryPackCreator, KeyStoreKind};
+pub use directory_pack::{layout, DirectoryPackCreator, ValueStoreKind};
 pub use manifest_pack::ManifestPackCreator;
-use typenum::U103;
 
 pub struct CheckInfo {
     kind: CheckKind,
@@ -26,8 +24,8 @@ impl CheckInfo {
     }
     pub fn size(&self) -> Size {
         match self.kind {
-            CheckKind::None => Size(1),
-            CheckKind::Blake3 => Size(33),
+            CheckKind::None => Size::new(1),
+            CheckKind::Blake3 => Size::new(33),
         }
     }
 }
@@ -43,9 +41,9 @@ impl Writable for CheckInfo {
 
 pub struct PackInfo {
     pub uuid: uuid::Uuid,
-    pub pack_id: Id<u8>,
-    pub free_data: FreeData<U103>,
-    pub pack_size: u64,
+    pub pack_id: PackId,
+    pub free_data: FreeData103,
+    pub pack_size: Size,
     pub pack_pos: PackPos,
     pub check_info: CheckInfo,
 }
@@ -55,7 +53,7 @@ impl PackInfo {
         self.uuid.write(stream)?;
         self.pack_id.write(stream)?;
         self.free_data.write(stream)?;
-        stream.write_u64(self.pack_size)?;
+        self.pack_size.write(stream)?;
         check_info_pos.write(stream)?;
         match &self.pack_pos {
             PackPos::Offset(offset) => {

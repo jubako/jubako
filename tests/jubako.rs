@@ -480,50 +480,50 @@ test_suite! {
         let directory_info = create_directory_pack(&articles.val).unwrap();
         let main_path = create_main_pack(directory_info, content_info).unwrap();
         let container = reader::Container::new(main_path).unwrap();
-        assert_eq!(container.pack_count(), jubako::Count(1));
+        assert_eq!(container.pack_count(), 1.into());
         assert!(container.check().unwrap());
 
         let directory_pack = container.get_directory_pack().unwrap();
-        let index = directory_pack.get_index(jubako::Idx(0)).unwrap();
+        let index = directory_pack.get_index(0.into()).unwrap();
         let resolver = directory_pack.get_resolver();
         let finder = index.get_finder(Rc::clone(&resolver));
-        assert_eq!(index.entry_count().0, articles.val.len() as u32);
-        for i in 0..index.entry_count().0 {
-            let entry = finder.get_entry(jubako::Idx(i)).unwrap();
+        assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
+        for i in index.entry_count() {
+            let entry = finder.get_entry(i).unwrap();
             assert_eq!(entry.get_variant_id(), 0);
-            let value_0 = entry.get_value(jubako::Idx(0)).unwrap();
+            let value_0 = entry.get_value(0.into()).unwrap();
             if let reader::RawValue::Array(array) = &value_0 {
                 assert_eq!(
                     array,
                     &reader::testing::Array::new(
                         vec!(),
-                        Some(reader::testing::Extend::new(jubako::Idx(0), i.into()))
+                        Some(reader::testing::Extend::new(0.into(), jubako::ValueIdx::from(i.into_u64())))
                     ));
                 let vec = resolver.resolve_to_vec(&value_0).unwrap();
-                assert_eq!(vec, articles.val[i as usize].path.as_bytes());
+                assert_eq!(vec, articles.val[i.into_u32() as usize].path.as_bytes());
             } else {
               panic!();
             }
-            let value_1 = entry.get_value(jubako::Idx(1)).unwrap();
+            let value_1 = entry.get_value(1.into()).unwrap();
             if let reader::RawValue::Content(content) = value_1 {
                 assert_eq!(
                     content,
                     reader::testing::Content::new(
-                        jubako::ContentAddress{pack_id:0.into(), content_id:i.into()},
+                        jubako::ContentAddress{pack_id:0.into(), content_id:jubako::ContentIdx::from(i.into_u32())},
                         None
                     ));
                 let pack = container.get_pack(1.into()).unwrap();
-                let reader = pack.get_content(i.into()).unwrap();
+                let reader = pack.get_content(jubako::ContentIdx::from(i.into_u32())).unwrap();
                 let mut stream = reader.create_stream_all();
                 let mut read_content: String = "".to_string();
                 stream.read_to_string(&mut read_content).unwrap();
-                assert_eq!(read_content, articles.val[i as usize].content);
+                assert_eq!(read_content, articles.val[i.into_u32() as usize].content);
             } else {
               panic!();
             }
-            let value_2= entry.get_value(jubako::Idx(2)).unwrap();
+            let value_2= entry.get_value(2.into()).unwrap();
             if let reader::RawValue::U16(v) = value_2 {
-                assert_eq!(v, articles.val[i as usize].word_count);
+                assert_eq!(v, articles.val[i.into_u32() as usize].word_count);
             } else {
               panic!();
             }

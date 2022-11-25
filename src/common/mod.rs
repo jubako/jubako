@@ -1,7 +1,7 @@
 mod check;
 mod compression_type;
 mod content_address;
-mod entry_info;
+mod content_info;
 mod headers;
 mod pack_kind;
 mod pack_pos;
@@ -12,7 +12,7 @@ use crate::bases::*;
 pub use check::{CheckInfo, CheckKind};
 pub use compression_type::CompressionType;
 pub use content_address::ContentAddress;
-pub use entry_info::EntryInfo;
+pub use content_info::ContentInfo;
 pub use headers::*;
 pub use pack_kind::PackKind;
 pub use pack_pos::PackPos;

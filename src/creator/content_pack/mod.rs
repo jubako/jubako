@@ -2,18 +2,17 @@ mod cluster;
 
 use super::{CheckInfo, PackInfo};
 use crate::bases::*;
-use crate::common::{CompressionType, ContentPackHeader, EntryInfo, PackHeaderInfo, PackPos};
+use crate::common::{CompressionType, ContentInfo, ContentPackHeader, PackHeaderInfo, PackPos};
 use cluster::ClusterCreator;
 use std::fs::{File, OpenOptions};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use typenum::U40;
 
 pub struct ContentPackCreator {
     app_vendor_id: u32,
-    pack_id: Id<u8>,
-    free_data: FreeData<U40>,
-    blob_addresses: Vec<EntryInfo>,
+    pack_id: PackId,
+    free_data: FreeData40,
+    content_infos: Vec<ContentInfo>,
     open_cluster: Option<ClusterCreator>,
     cluster_addresses: Vec<SizedOffset>,
     path: PathBuf,
@@ -24,16 +23,16 @@ pub struct ContentPackCreator {
 impl ContentPackCreator {
     pub fn new<P: AsRef<Path>>(
         path: P,
-        pack_id: Id<u8>,
+        pack_id: PackId,
         app_vendor_id: u32,
-        free_data: FreeData<U40>,
+        free_data: FreeData40,
         compression: CompressionType,
     ) -> Self {
         ContentPackCreator {
             app_vendor_id,
             pack_id,
             free_data,
-            blob_addresses: vec![],
+            content_infos: vec![],
             open_cluster: None,
             cluster_addresses: vec![],
             path: path.as_ref().into(),
@@ -57,8 +56,8 @@ impl ContentPackCreator {
             self.cluster_addresses.resize(
                 cluster.index() + 1,
                 SizedOffset {
-                    size: Size(0),
-                    offset: Offset(0),
+                    size: Size::zero(),
+                    offset: Offset::zero(),
                 },
             );
         }
@@ -95,11 +94,11 @@ impl ContentPackCreator {
         Ok(())
     }
 
-    pub fn add_content(&mut self, content: &mut dyn Stream) -> Result<Idx<u32>> {
+    pub fn add_content(&mut self, content: &mut dyn Stream) -> Result<ContentIdx> {
         let cluster = self.get_open_cluster(content.size())?;
-        let entry_info = cluster.add_content(content)?;
-        self.blob_addresses.push(entry_info);
-        Ok(((self.blob_addresses.len() - 1) as u32).into())
+        let content_info = cluster.add_content(content)?;
+        self.content_infos.push(content_info);
+        Ok(((self.content_infos.len() - 1) as u32).into())
     }
 
     pub fn finalize(&mut self) -> Result<PackInfo> {
@@ -114,9 +113,9 @@ impl ContentPackCreator {
         for address in &self.cluster_addresses {
             address.write(file)?;
         }
-        let entries_offset = file.tell();
-        for address in &self.blob_addresses {
-            address.write(file)?;
+        let content_infos_offset = file.tell();
+        for content_info in &self.content_infos {
+            content_info.write(file)?;
         }
         let check_offset = file.tell();
         let pack_size: Size = (check_offset + 33).into();
@@ -126,8 +125,8 @@ impl ContentPackCreator {
             self.free_data,
             clusters_offset,
             (self.cluster_addresses.len() as u32).into(),
-            entries_offset,
-            (self.blob_addresses.len() as u32).into(),
+            content_infos_offset,
+            (self.content_infos.len() as u32).into(),
         );
         header.write(file)?;
         file.rewind()?;
@@ -139,8 +138,8 @@ impl ContentPackCreator {
         Ok(PackInfo {
             uuid: header.pack_header.uuid,
             pack_id: self.pack_id,
-            free_data: FreeData::clone_from_slice(&[0; 103]),
-            pack_size: pack_size.0,
+            free_data: FreeData103::clone_from_slice(&[0; 103]),
+            pack_size,
             check_info: CheckInfo::new_blake3(hash.as_bytes()),
             pack_pos: PackPos::Path(self.path.to_str().unwrap().into()),
         })

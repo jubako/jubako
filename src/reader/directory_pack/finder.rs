@@ -1,25 +1,24 @@
-use super::entry::EntryTrait;
-use super::index_store::IndexStoreTrait;
-use super::private::KeyStorageTrait;
+use super::entry_store::EntryStoreTrait;
+use super::private::ValueStorageTrait;
 use super::resolver::private::Resolver;
-use super::{DirectoryPack, IndexStore, Value};
+use super::{DirectoryPack, EntryStore, EntryTrait, Value};
 use crate::bases::*;
 use std::rc::Rc;
 
 mod private {
     use super::*;
-    pub struct Finder<K: KeyStorageTrait, IS: IndexStoreTrait> {
+    pub struct Finder<K: ValueStorageTrait, IS: EntryStoreTrait> {
         store: Rc<IS>,
-        offset: Idx<u32>,
-        count: Count<u32>,
+        offset: EntryIdx,
+        count: EntryCount,
         resolver: Rc<Resolver<K>>,
     }
 
-    impl<K: KeyStorageTrait, IS: IndexStoreTrait> Finder<K, IS> {
+    impl<K: ValueStorageTrait, IS: EntryStoreTrait> Finder<K, IS> {
         pub fn new(
             store: Rc<IS>,
-            offset: Idx<u32>,
-            count: Count<u32>,
+            offset: EntryIdx,
+            count: EntryCount,
             resolver: Rc<Resolver<K>>,
         ) -> Self {
             Self {
@@ -30,15 +29,15 @@ mod private {
             }
         }
 
-        fn _get_entry(&self, id: Idx<u32>) -> Result<IS::Entry> {
+        fn _get_entry(&self, id: EntryIdx) -> Result<IS::Entry> {
             self.store.get_entry(self.offset + id)
         }
 
-        pub fn offset(&self) -> Idx<u32> {
+        pub fn offset(&self) -> EntryIdx {
             self.offset
         }
 
-        pub fn count(&self) -> Count<u32> {
+        pub fn count(&self) -> EntryCount {
             self.count
         }
 
@@ -50,7 +49,7 @@ mod private {
             &self.store
         }
 
-        pub fn get_entry(&self, id: Idx<u32>) -> Result<IS::Entry> {
+        pub fn get_entry(&self, id: EntryIdx) -> Result<IS::Entry> {
             if id.is_valid(self.count) {
                 self._get_entry(id)
             } else {
@@ -58,14 +57,14 @@ mod private {
             }
         }
 
-        pub fn find(&self, index_key: u8, value: Value) -> Result<Option<Idx<u32>>> {
-            for idx in 0..self.count.0 {
-                let entry = self._get_entry(Idx(idx))?;
+        pub fn find(&self, property_index: PropertyIdx, value: Value) -> Result<Option<EntryIdx>> {
+            for idx in self.count.into_iter() {
+                let entry = self._get_entry(idx)?;
                 let cmp = self
                     .resolver
-                    .compare(&entry.get_value(index_key.into())?, &value)?;
+                    .compare(&entry.get_value(property_index)?, &value)?;
                 if cmp.is_eq() {
-                    return Ok(Some(Idx(idx)));
+                    return Ok(Some(idx));
                 }
             }
             Ok(None)
@@ -73,7 +72,7 @@ mod private {
     }
 }
 
-pub type Finder = private::Finder<DirectoryPack, IndexStore>;
+pub type Finder = private::Finder<DirectoryPack, EntryStore>;
 
 #[cfg(test)]
 mod tests {
@@ -82,7 +81,7 @@ mod tests {
 
     mod mock {
         use super::*;
-        use crate::reader::directory_pack::key_store::KeyStoreTrait;
+        use crate::reader::directory_pack::value_store::ValueStoreTrait;
         #[derive(PartialEq, Eq, Debug)]
         pub struct Entry {
             v: RawValue,
@@ -97,39 +96,39 @@ mod tests {
             fn get_variant_id(&self) -> u8 {
                 0
             }
-            fn get_value(&self, idx: Idx<u8>) -> Result<RawValue> {
+            fn get_value(&self, idx: PropertyIdx) -> Result<RawValue> {
                 Ok(match idx {
-                    Idx(0) => self.v.clone(),
+                    PropertyIdx(Idx(0)) => self.v.clone(),
                     _ => panic!(),
                 })
             }
         }
-        pub struct IndexStore {}
-        impl IndexStoreTrait for IndexStore {
+        pub struct EntryStore {}
+        impl EntryStoreTrait for EntryStore {
             type Entry = Entry;
-            fn get_entry(&self, idx: Idx<u32>) -> Result<Entry> {
+            fn get_entry(&self, idx: EntryIdx) -> Result<Entry> {
                 Ok(Entry::new(match idx {
-                    Idx(x) if x < 10 => x as u16,
+                    EntryIdx(Idx(x)) if x < 10 => x as u16,
                     _ => panic!(),
                 }))
             }
         }
 
-        pub struct KeyStore {}
-        impl KeyStoreTrait for KeyStore {
-            fn get_data(&self, _id: Idx<u64>) -> Result<Vec<u8>> {
+        pub struct ValueStore {}
+        impl ValueStoreTrait for ValueStore {
+            fn get_data(&self, _id: ValueIdx) -> Result<Vec<u8>> {
                 unreachable!()
             }
         }
 
-        pub struct KeyStorage {}
-        impl KeyStorageTrait for KeyStorage {
-            type KeyStore = KeyStore;
-            fn get_key_store_count(&self) -> Count<u8> {
-                Count(0)
+        pub struct ValueStorage {}
+        impl ValueStorageTrait for ValueStorage {
+            type ValueStore = ValueStore;
+            fn get_value_store_count(&self) -> ValueStoreCount {
+                0.into()
             }
 
-            fn get_key_store(&self, _id: Idx<u8>) -> Result<Self::KeyStore> {
+            fn get_value_store(&self, _id: ValueStoreIdx) -> Result<Self::ValueStore> {
                 unreachable!()
             }
         }
@@ -137,25 +136,25 @@ mod tests {
 
     #[test]
     fn test_finder() {
-        let key_storage = Rc::new(mock::KeyStorage {});
-        let resolver = Rc::new(Resolver::new(key_storage));
-        let index_store = Rc::new(mock::IndexStore {});
-        let finder = private::Finder::new(index_store, Idx(0), Count(10), Rc::clone(&resolver));
+        let value_storage = Rc::new(mock::ValueStorage {});
+        let resolver = Rc::new(Resolver::new(value_storage));
+        let index_store = Rc::new(mock::EntryStore {});
+        let finder = private::Finder::new(index_store, 0.into(), 10.into(), Rc::clone(&resolver));
 
         for i in 0..10 {
-            let entry = finder.get_entry(Idx(i)).unwrap();
-            let value0 = entry.get_value(Idx(0)).unwrap();
+            let entry = finder.get_entry(i.into()).unwrap();
+            let value0 = entry.get_value(0.into()).unwrap();
             assert_eq!(resolver.resolve_to_unsigned(&value0), i as u64);
         }
 
         for i in 0..10 {
-            let idx = finder.find(0, Value::Unsigned(i)).unwrap().unwrap();
+            let idx = finder.find(0.into(), Value::Unsigned(i)).unwrap().unwrap();
             let entry = finder.get_entry(idx).unwrap();
-            let value0 = entry.get_value(Idx(0)).unwrap();
+            let value0 = entry.get_value(0.into()).unwrap();
             assert_eq!(resolver.resolve_to_unsigned(&value0), i as u64);
         }
 
-        let result = finder.find(0, Value::Unsigned(10)).unwrap();
+        let result = finder.find(0.into(), Value::Unsigned(10)).unwrap();
         assert_eq!(result, None);
     }
 }

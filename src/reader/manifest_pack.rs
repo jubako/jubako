@@ -11,8 +11,8 @@ use uuid::Uuid;
 #[derive(PartialEq, Eq, Debug)]
 pub struct PackInfo {
     pub id: Uuid,
-    pub pack_id: Id<u8>,
-    pub free_data: FreeData<typenum::U103>,
+    pub pack_id: PackId,
+    pub free_data: FreeData103,
     pub pack_size: Size,
     pub pack_check_info: Offset,
     pub pack_pos: PackPos,
@@ -26,18 +26,18 @@ impl Producable for PackInfo {
     type Output = Self;
     fn produce(stream: &mut dyn Stream) -> Result<Self> {
         let id = Uuid::produce(stream)?;
-        let pack_id = Id::produce(stream)?;
-        let free_data = FreeData::produce(stream)?;
+        let pack_id = Id::produce(stream)?.into();
+        let free_data = FreeData103::produce(stream)?;
         let pack_size = Size::produce(stream)?;
         let pack_check_info = Offset::produce(stream)?;
         let pack_offset = Offset::produce(stream)?;
-        let pack_pos = if pack_offset.0 != 0 {
-            stream.skip(Size(112))?;
-            PackPos::Offset(pack_offset)
-        } else {
+        let pack_pos = if pack_offset.is_zero() {
             let v = PString::produce(stream)?;
-            stream.skip(Size((111 - v.len()) as u64))?;
+            stream.skip(Size::from(111 - v.len()))?;
             PackPos::Path(v)
+        } else {
+            stream.skip(Size::new(112))?;
+            PackPos::Offset(pack_offset)
         };
         Ok(Self {
             id,
@@ -64,11 +64,11 @@ impl ManifestPack {
         let mut stream = reader.create_stream_all();
         let header = ManifestPackHeader::produce(stream.as_mut())?;
         let directory_pack_info = PackInfo::produce(stream.as_mut())?;
-        let mut pack_infos: Vec<PackInfo> = Vec::with_capacity(header.pack_count.0 as usize);
+        let mut pack_infos: Vec<PackInfo> = Vec::with_capacity(header.pack_count.into_usize());
         let mut max_id = 0;
-        for _i in 0..(header.pack_count.0) {
+        for _i in header.pack_count {
             let pack_info = PackInfo::produce(stream.as_mut())?;
-            max_id = cmp::max(max_id, pack_info.pack_id.0);
+            max_id = cmp::max(max_id, pack_info.pack_id.into_u8());
             pack_infos.push(pack_info);
         }
         Ok(Self {
@@ -83,7 +83,7 @@ impl ManifestPack {
 }
 
 impl ManifestPack {
-    pub fn pack_count(&self) -> Count<u8> {
+    pub fn pack_count(&self) -> PackCount {
         self.header.pack_count
     }
     pub fn max_id(&self) -> u8 {
@@ -105,7 +105,7 @@ impl ManifestPack {
         &self.directory_pack_info
     }
 
-    pub fn get_content_pack_info(&self, pack_id: Id<u8>) -> Result<&PackInfo> {
+    pub fn get_content_pack_info(&self, pack_id: PackId) -> Result<&PackInfo> {
         for pack_info in &self.pack_infos {
             if pack_info.pack_id == pack_id {
                 return Ok(pack_info);
@@ -121,9 +121,9 @@ struct CheckStream<'a> {
 }
 
 impl<'a> CheckStream<'a> {
-    pub fn new(source: &'a mut dyn Stream, pack_count: Count<u8>) -> Self {
+    pub fn new(source: &'a mut dyn Stream, pack_count: PackCount) -> Self {
         let start_safe_zone =
-            <ManifestPackHeader as SizedProducable>::Size::U64 + 256 * (pack_count.0 as u64);
+            <ManifestPackHeader as SizedProducable>::Size::U64 + 256 * (pack_count.into_u64());
         Self {
             source,
             start_safe_zone,
@@ -141,7 +141,7 @@ impl Read for CheckStream<'_> {
         // 128 + k*256 + 144  and 128 + k*256 + 144 + 112
         // => between  (208 + k*256) and (320+ k*256)
         // for k < pack_count
-        let offset = self.source.tell().0;
+        let offset = self.source.tell().into_u64();
         if offset < HEADER_SIZE {
             let size = cmp::min(buf.len(), (HEADER_SIZE - offset) as usize);
             self.source.read(&mut buf[..size])
@@ -271,7 +271,7 @@ mod tests {
             let mut hasher = blake3::Hasher::new();
             let reader = BufReader::new_from_rc(Rc::clone(&rc_content), End::None);
             let mut stream = reader.create_stream_all();
-            let mut check_stream = CheckStream::new(stream.as_mut(), Count(3));
+            let mut check_stream = CheckStream::new(stream.as_mut(), PackCount::from(3));
             io::copy(&mut check_stream, &mut hasher).unwrap();
             hasher.finalize()
         };
@@ -292,7 +292,7 @@ mod tests {
                 0x0e, 0x0f
             ])
         );
-        assert_eq!(main_pack.size(), Size::from(881_usize));
+        assert_eq!(main_pack.size(), Size::new(881));
         assert!(main_pack.check().unwrap());
         assert_eq!(
             main_pack.get_directory_pack_info(),
@@ -301,41 +301,41 @@ mod tests {
                     0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c,
                     0x1d, 0x1e, 0x1f
                 ]),
-                pack_id: Id(0),
-                free_data: FreeData::clone_from_slice(&[0xf0; 103]),
-                pack_size: Size(0xffff),
-                pack_check_info: Offset(0xff),
-                pack_pos: PackPos::Offset(Offset(0xff00))
+                pack_id: PackId::from(0),
+                free_data: FreeData103::clone_from_slice(&[0xf0; 103]),
+                pack_size: Size::new(0xffff),
+                pack_check_info: Offset::new(0xff),
+                pack_pos: PackPos::Offset(Offset::new(0xff00))
             }
         );
         assert_eq!(
-            main_pack.get_content_pack_info(Id(1)).unwrap(),
+            main_pack.get_content_pack_info(PackId::from(1)).unwrap(),
             &PackInfo {
                 id: Uuid::from_bytes([
                     0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c,
                     0x2d, 0x2e, 0x2f
                 ]),
-                pack_id: Id(1),
-                free_data: FreeData::clone_from_slice(&[0xf1; 103]),
-                pack_size: Size(0xffffff),
-                pack_check_info: Offset(0xff00ff),
-                pack_pos: PackPos::Offset(Offset(0xff00))
+                pack_id: PackId::from(1),
+                free_data: FreeData103::clone_from_slice(&[0xf1; 103]),
+                pack_size: Size::new(0xffffff),
+                pack_check_info: Offset::new(0xff00ff),
+                pack_pos: PackPos::Offset(Offset::new(0xff00))
             }
         );
         assert_eq!(
-            main_pack.get_content_pack_info(Id(2)).unwrap(),
+            main_pack.get_content_pack_info(PackId::from(2)).unwrap(),
             &PackInfo {
                 id: Uuid::from_bytes([
                     0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c,
                     0x3d, 0x3e, 0x3f
                 ]),
-                pack_id: Id(2),
-                free_data: FreeData::clone_from_slice(&[0xf2; 103]),
-                pack_size: Size(0xffffff),
-                pack_check_info: Offset(0xffffff),
+                pack_id: PackId::from(2),
+                free_data: FreeData103::clone_from_slice(&[0xf2; 103]),
+                pack_size: Size::new(0xffffff),
+                pack_check_info: Offset::new(0xffffff),
                 pack_pos: PackPos::Path("packpath".into())
             }
         );
-        assert!(main_pack.get_content_pack_info(Id(3)).is_err());
+        assert!(main_pack.get_content_pack_info(PackId::from(3)).is_err());
     }
 }
