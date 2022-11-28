@@ -3,7 +3,7 @@ mod directory_pack;
 mod manifest_pack;
 
 use crate::bases::*;
-pub use crate::bases::{BufStream, FileStream};
+pub use crate::bases::{FileSource, Stream};
 use crate::common::{CheckKind, PackPos};
 pub use crate::common::{Content, Value};
 pub use content_pack::ContentPackCreator;

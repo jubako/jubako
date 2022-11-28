@@ -1,7 +1,7 @@
 use super::{Array, Extend, RawValue};
 use crate::bases::*;
 use crate::common::{Content, ContentAddress};
-use std::io::BorrowedBuf;
+use std::io::{BorrowedBuf, Read};
 
 // The kind of the property. This will be the descriminant to how parse the value.
 #[derive(Debug, PartialEq, Eq)]
@@ -31,9 +31,9 @@ impl Property {
         }
     }
 
-    fn create_content(offset: Offset, base: u8, reader: &dyn Reader) -> Result<Content> {
+    fn create_content(offset: Offset, base: u8, reader: &Reader) -> Result<Content> {
         let mut stream = reader.create_stream(offset, End::new_size(4));
-        let contentaddress = ContentAddress::produce(stream.as_mut())?;
+        let contentaddress = ContentAddress::produce(&mut stream)?;
         let base_content = if base == 0 {
             None
         } else {
@@ -42,7 +42,7 @@ impl Property {
         Ok(Content::new(contentaddress, base_content))
     }
 
-    fn create_array(offset: Offset, size: usize, reader: &dyn Reader) -> Result<Vec<u8>> {
+    fn create_array(offset: Offset, size: usize, reader: &Reader) -> Result<Vec<u8>> {
         let mut stream = reader.create_stream(offset, End::new_size(size as u64));
         let mut ret = Vec::with_capacity(size);
         let mut uninit: BorrowedBuf = ret.spare_capacity_mut().into();
@@ -53,7 +53,7 @@ impl Property {
         Ok(ret)
     }
 
-    pub fn create_value(&self, reader: &dyn Reader) -> Result<RawValue> {
+    pub fn create_value(&self, reader: &Reader) -> Result<RawValue> {
         Ok(match &self.kind {
             PropertyKind::ContentAddress(base) => {
                 RawValue::Content(Property::create_content(self.offset, *base, reader)?)
@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn test_uint() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = BufReader::new(content, End::None);
+        let reader = Reader::new(content, End::None);
         let prop = Property::new(0, PropertyKind::UnsignedInt(1));
         assert_eq!(prop.create_value(&reader).unwrap(), RawValue::U8(0xFE));
         let prop = Property::new(2, PropertyKind::UnsignedInt(1));
@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn test_sint() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = BufReader::new(content, End::None);
+        let reader = Reader::new(content, End::None);
         let prop = Property::new(0, PropertyKind::SignedInt(1));
         assert_eq!(prop.create_value(&reader).unwrap(), RawValue::I8(-0x02));
         let prop = Property::new(2, PropertyKind::SignedInt(1));
@@ -257,7 +257,7 @@ mod tests {
     #[test]
     fn test_array() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = BufReader::new(content, End::None);
+        let reader = Reader::new(content, End::None);
         let prop = Property::new(0, PropertyKind::Array(1));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
@@ -304,7 +304,7 @@ mod tests {
     #[test]
     fn test_vlarray() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = BufReader::new(content, End::None);
+        let reader = Reader::new(content, End::None);
         let prop = Property::new(0, PropertyKind::VLArray(1, ValueStoreIdx::from(255), None));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
@@ -424,7 +424,7 @@ mod tests {
     #[test]
     fn test_content() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = BufReader::new(content, End::None);
+        let reader = Reader::new(content, End::None);
         let prop = Property::new(0, PropertyKind::ContentAddress(0));
         assert_eq!(
             prop.create_value(&reader).unwrap(),

@@ -18,7 +18,7 @@ impl ContentAddress {
 
 impl Producable for ContentAddress {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         let pack_id = stream.read_u8()?;
         let content_id = stream.read_sized(3)? as u32;
         Ok(ContentAddress {

@@ -70,7 +70,7 @@ test_suite! {
         creator.start()?;
         for entry in entries {
             let content = entry.content.clone().into_bytes();
-            let mut stream = creator::BufStream::new(content, jubako::End::None);
+            let mut stream = creator::Stream::new(content, jubako::End::None);
             creator.add_content(&mut stream)?;
         }
         let pack_info = creator.finalize()?;

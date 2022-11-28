@@ -19,13 +19,13 @@ pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
 
     let mut pack_path = manifest_path.as_ref().to_path_buf();
 
-    let reader = jbk::bases::FileReader::new(manifest_file, jbk::End::None);
+    let reader = jbk::bases::Reader::new(FileSource::new(manifest_file), jbk::End::None);
     let mut stream = reader.create_stream_all();
 
-    let manifest_header = jbk::common::ManifestPackHeader::produce(stream.as_mut())?;
+    let manifest_header = jbk::common::ManifestPackHeader::produce(&mut stream)?;
 
     for pack_nb in manifest_header.pack_count + 1 {
-        let pack_info = jbk::reader::PackInfo::produce(stream.as_mut())?;
+        let pack_info = jbk::reader::PackInfo::produce(&mut stream)?;
         match pack_info.pack_pos {
             jbk::common::PackPos::Offset(_) => {} // Nothing to do, it is already in the file,
             jbk::common::PackPos::Path(p) => {

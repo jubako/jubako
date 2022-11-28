@@ -8,11 +8,11 @@ use std::rc::Rc;
 pub struct LazyEntry {
     variant_id: u8,
     variant: Rc<layout::Variant>,
-    reader: Box<dyn Reader>,
+    reader: Reader,
 }
 
 impl LazyEntry {
-    pub fn new(variant_id: u8, variant: Rc<layout::Variant>, reader: Box<dyn Reader>) -> Self {
+    pub fn new(variant_id: u8, variant: Rc<layout::Variant>, reader: Reader) -> Self {
         Self {
             variant_id,
             variant,
@@ -22,7 +22,7 @@ impl LazyEntry {
 
     fn _get_value(&self, idx: PropertyIdx) -> Result<RawValue> {
         let property = &self.variant.properties[idx.into_usize()];
-        property.create_value(self.reader.as_ref())
+        property.create_value(&self.reader)
     }
 }
 

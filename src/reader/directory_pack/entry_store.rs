@@ -13,7 +13,7 @@ enum StoreKind {
 
 impl Producable for StoreKind {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         match stream.read_u8()? {
             0 => Ok(StoreKind::Plain),
             1 => Ok(StoreKind::Ref),
@@ -37,11 +37,11 @@ pub enum EntryStore {
 }
 
 impl EntryStore {
-    pub fn new(reader: &dyn Reader, pos_info: SizedOffset) -> Result<Self> {
+    pub fn new(reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
         let mut header_stream = reader.create_stream_for(pos_info);
-        Ok(match StoreKind::produce(header_stream.as_mut())? {
+        Ok(match StoreKind::produce(&mut header_stream)? {
             StoreKind::Plain => {
-                EntryStore::Plain(PlainStore::new(header_stream.as_mut(), reader, pos_info)?)
+                EntryStore::Plain(PlainStore::new(&mut header_stream, reader, pos_info)?)
             }
             _ => todo!(),
         })
@@ -61,15 +61,11 @@ impl EntryStoreTrait for EntryStore {
 #[derive(Debug)]
 pub struct PlainStore {
     pub entry_def: layout::Entry,
-    pub entry_reader: Box<dyn Reader>,
+    pub entry_reader: Reader,
 }
 
 impl PlainStore {
-    pub fn new(
-        stream: &mut dyn Stream,
-        reader: &dyn Reader,
-        pos_info: SizedOffset,
-    ) -> Result<Self> {
+    pub fn new(stream: &mut Stream, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
         let entry_def = layout::Entry::produce(stream)?;
         let data_size = Size::produce(stream)?;
         // [TODO] use a array_reader here
@@ -86,7 +82,7 @@ impl PlainStore {
             Offset::from(self.entry_def.size.into_u64() * idx.into_u64()),
             End::Size(self.entry_def.size),
         );
-        self.entry_def.create_entry(reader.as_ref())
+        self.entry_def.create_entry(&reader)
     }
 }
 
@@ -127,9 +123,8 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
         let size = Size::from(content.len());
-        let reader = Box::new(BufReader::new(content, End::None));
-        let store =
-            EntryStore::new(reader.as_ref(), SizedOffset::new(size, Offset::zero())).unwrap();
+        let reader = Reader::new(content, End::None);
+        let store = EntryStore::new(&reader, SizedOffset::new(size, Offset::zero())).unwrap();
         let store = match store {
             EntryStore::Plain(s) => s,
         };
@@ -178,9 +173,8 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
         let size = Size::from(content.len());
-        let reader = Box::new(BufReader::new(content, End::None));
-        let store =
-            EntryStore::new(reader.as_ref(), SizedOffset::new(size, Offset::zero())).unwrap();
+        let reader = Reader::new(content, End::None);
+        let store = EntryStore::new(&reader, SizedOffset::new(size, Offset::zero())).unwrap();
         let store = match store {
             EntryStore::Plain(s) => s,
         };

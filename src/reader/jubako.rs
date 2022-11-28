@@ -14,7 +14,7 @@ use std::rc::Rc;
 pub struct Container {
     path: PathBuf,
     main_pack: ManifestPack,
-    reader: FileReader,
+    reader: Reader,
     directory_pack: OnceCell<Rc<DirectoryPack>>,
     packs: Vec<OnceCell<ContentPack>>,
 }
@@ -23,9 +23,9 @@ impl Container {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path: PathBuf = path.as_ref().into();
         let file = File::open(path.clone())?;
-        let reader = FileReader::new(file, End::None);
+        let reader = Reader::new(FileSource::new(file), End::None);
         let main_pack =
-            ManifestPack::new(reader.create_sub_memory_reader(Offset::from(0_u64), End::None)?)?;
+            ManifestPack::new(reader.create_sub_memory_reader(Offset::zero(), End::None)?)?;
         let mut packs = Vec::new();
         packs.resize_with((main_pack.max_id() + 1) as usize, Default::default);
         Ok(Self {
@@ -47,7 +47,7 @@ impl Container {
         self.packs[pack_id.into_usize()].get_or_try_init(|| self._get_pack(pack_id))
     }
 
-    pub fn get_reader(&self, content: &Content) -> Result<Box<dyn Reader>> {
+    pub fn get_reader(&self, content: &Content) -> Result<Reader> {
         let pack = self.get_pack(content.pack_id())?;
         pack.get_content(content.content_id())
     }
@@ -69,7 +69,7 @@ impl Container {
         Ok(Rc::new(DirectoryPack::new(pack_reader)?))
     }
 
-    fn _get_pack_reader(&self, pack_info: &PackInfo) -> Result<Box<dyn Reader>> {
+    fn _get_pack_reader(&self, pack_info: &PackInfo) -> Result<Reader> {
         match &pack_info.pack_pos {
             PackPos::Offset(offset) => Ok(self
                 .reader
@@ -81,10 +81,10 @@ impl Container {
                     .unwrap()
                     .join(OsString::from_vec(path.clone()));
                 let file = File::open(path)?;
-                Ok(Box::new(FileReader::new(
-                    file,
+                Ok(Reader::new(
+                    FileSource::new(file),
                     End::Size(pack_info.pack_size),
-                )))
+                ))
             }
         }
     }

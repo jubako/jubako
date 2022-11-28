@@ -15,7 +15,7 @@ pub struct IndexHeader {
 
 impl Producable for IndexHeader {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         let store_id = Idx::<u32>::produce(stream)?.into();
         let entry_count = Count::<u32>::produce(stream)?.into();
         let entry_offset = Idx::<u32>::produce(stream)?.into();
@@ -80,9 +80,9 @@ mod tests {
             0x01, // index_property
             0x05, 0x48, 0x65, 0x6C, 0x6C, 0x6F, // PString Hello
         ];
-        let reader = Box::new(BufReader::new(content, End::None));
+        let reader = Reader::new(content, End::None);
         let mut stream = reader.create_stream_all();
-        let header = IndexHeader::produce(stream.as_mut()).unwrap();
+        let header = IndexHeader::produce(&mut stream).unwrap();
         assert_eq!(
             header,
             IndexHeader {

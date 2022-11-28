@@ -43,26 +43,26 @@ pub struct DirectoryPack {
     value_stores_ptrs: ArrayReader<SizedOffset, u8>,
     entry_stores_ptrs: ArrayReader<SizedOffset, u32>,
     index_ptrs: ArrayReader<SizedOffset, u32>,
-    reader: Box<dyn Reader>,
+    reader: Reader,
     check_info: Cell<Option<CheckInfo>>,
 }
 
 impl DirectoryPack {
-    pub fn new(reader: Box<dyn Reader>) -> Result<DirectoryPack> {
+    pub fn new(reader: Reader) -> Result<DirectoryPack> {
         let mut stream = reader.create_stream_all();
-        let header = DirectoryPackHeader::produce(stream.as_mut())?;
+        let header = DirectoryPackHeader::produce(&mut stream)?;
         let value_stores_ptrs = ArrayReader::new_memory_from_reader(
-            reader.as_ref(),
+            &reader,
             header.value_store_ptr_pos,
             *header.value_store_count,
         )?;
         let entry_stores_ptrs = ArrayReader::new_memory_from_reader(
-            reader.as_ref(),
+            &reader,
             header.entry_store_ptr_pos,
             *header.entry_store_count,
         )?;
         let index_ptrs = ArrayReader::new_memory_from_reader(
-            reader.as_ref(),
+            &reader,
             header.index_ptr_pos,
             *header.index_count,
         )?;
@@ -82,7 +82,7 @@ impl DirectoryPack {
     pub fn get_index(&self, index_id: IndexIdx) -> Result<Index> {
         let sized_offset = self.index_ptrs.index(*index_id)?;
         let mut index_stream = self.reader.create_stream_for(sized_offset);
-        let index_header = IndexHeader::produce(index_stream.as_mut())?;
+        let index_header = IndexHeader::produce(&mut index_stream)?;
         let store = self.get_store(index_header.store_id)?;
         let index = Index::new(index_header, Rc::new(store));
         Ok(index)
@@ -92,7 +92,7 @@ impl DirectoryPack {
         for index_id in self.header.index_count {
             let sized_offset = self.index_ptrs.index(*index_id)?;
             let mut index_stream = self.reader.create_stream_for(sized_offset);
-            let index_header = IndexHeader::produce(index_stream.as_mut())?;
+            let index_header = IndexHeader::produce(&mut index_stream)?;
             if index_header.name == index_name {
                 let store = self.get_store(index_header.store_id)?;
                 let index = Index::new(index_header, Rc::new(store));
@@ -104,7 +104,7 @@ impl DirectoryPack {
 
     fn get_store(&self, store_id: EntryStoreIdx) -> Result<EntryStore> {
         let sized_offset = self.entry_stores_ptrs.index(*store_id)?;
-        EntryStore::new(self.reader.as_ref(), sized_offset)
+        EntryStore::new(&self.reader, sized_offset)
     }
 
     pub fn get_resolver(self: &Rc<Self>) -> Rc<Resolver> {
@@ -120,7 +120,7 @@ impl private::ValueStorageTrait for DirectoryPack {
 
     fn get_value_store(&self, store_id: ValueStoreIdx) -> Result<ValueStore> {
         let sized_offset = self.value_stores_ptrs.index(*store_id)?;
-        ValueStore::new(self.reader.as_ref(), sized_offset)
+        ValueStore::new(&self.reader, sized_offset)
     }
 }
 
@@ -148,7 +148,7 @@ impl Pack for DirectoryPack {
             let mut checkinfo_stream = self
                 .reader
                 .create_stream_from(self.header.pack_header.check_info_pos);
-            let check_info = CheckInfo::produce(checkinfo_stream.as_mut())?;
+            let check_info = CheckInfo::produce(&mut checkinfo_stream)?;
             self.check_info.set(Some(check_info));
         }
         let mut check_stream = self
@@ -157,7 +157,7 @@ impl Pack for DirectoryPack {
         self.check_info
             .get()
             .unwrap()
-            .check(&mut check_stream.as_mut() as &mut dyn Read)
+            .check(&mut check_stream as &mut dyn Read)
     }
 }
 
@@ -189,10 +189,10 @@ mod tests {
             0x05, //value_store count
         ];
         content.extend_from_slice(&[0xff; 31]);
-        let reader = BufReader::new(content, End::None);
+        let reader = Reader::new(content, End::None);
         let mut stream = reader.create_stream_all();
         assert_eq!(
-            DirectoryPackHeader::produce(stream.as_mut()).unwrap(),
+            DirectoryPackHeader::produce(&mut stream).unwrap(),
             DirectoryPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::Directory,
@@ -299,7 +299,7 @@ mod tests {
         let hash = blake3::hash(&content);
         content.push(0x01); // check info off: 281
         content.extend(hash.as_bytes()); // end : 281+32 = 313/0x139
-        let reader = Box::new(BufReader::new(content, End::None));
+        let reader = Reader::new(content, End::None);
         let directory_pack = Rc::new(DirectoryPack::new(reader).unwrap());
         let index = directory_pack.get_index(IndexIdx::from(0)).unwrap();
         let resolver = directory_pack.get_resolver();

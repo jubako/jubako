@@ -24,7 +24,7 @@ impl SizedProducable for PackInfo {
 
 impl Producable for PackInfo {
     type Output = Self;
-    fn produce(stream: &mut dyn Stream) -> Result<Self> {
+    fn produce(stream: &mut Stream) -> Result<Self> {
         let id = Uuid::produce(stream)?;
         let pack_id = Id::produce(stream)?.into();
         let free_data = FreeData103::produce(stream)?;
@@ -52,7 +52,7 @@ impl Producable for PackInfo {
 
 pub struct ManifestPack {
     header: ManifestPackHeader,
-    reader: Box<dyn Reader>,
+    reader: Reader,
     directory_pack_info: PackInfo,
     pack_infos: Vec<PackInfo>,
     check_info: OnceCell<CheckInfo>,
@@ -60,14 +60,14 @@ pub struct ManifestPack {
 }
 
 impl ManifestPack {
-    pub fn new(reader: Box<dyn Reader>) -> Result<Self> {
+    pub fn new(reader: Reader) -> Result<Self> {
         let mut stream = reader.create_stream_all();
-        let header = ManifestPackHeader::produce(stream.as_mut())?;
-        let directory_pack_info = PackInfo::produce(stream.as_mut())?;
+        let header = ManifestPackHeader::produce(&mut stream)?;
+        let directory_pack_info = PackInfo::produce(&mut stream)?;
         let mut pack_infos: Vec<PackInfo> = Vec::with_capacity(header.pack_count.into_usize());
         let mut max_id = 0;
         for _i in header.pack_count {
-            let pack_info = PackInfo::produce(stream.as_mut())?;
+            let pack_info = PackInfo::produce(&mut stream)?;
             max_id = cmp::max(max_id, pack_info.pack_id.into_u8());
             pack_infos.push(pack_info);
         }
@@ -98,7 +98,7 @@ impl ManifestPack {
         let mut checkinfo_stream = self
             .reader
             .create_stream_from(self.header.pack_header.check_info_pos);
-        CheckInfo::produce(checkinfo_stream.as_mut())
+        CheckInfo::produce(&mut checkinfo_stream)
     }
 
     pub fn get_directory_pack_info(&self) -> &PackInfo {
@@ -116,12 +116,12 @@ impl ManifestPack {
 }
 
 struct CheckStream<'a> {
-    source: &'a mut dyn Stream,
+    source: &'a mut Stream,
     start_safe_zone: u64,
 }
 
 impl<'a> CheckStream<'a> {
-    pub fn new(source: &'a mut dyn Stream, pack_count: PackCount) -> Self {
+    pub fn new(source: &'a mut Stream, pack_count: PackCount) -> Self {
         let start_safe_zone =
             <ManifestPackHeader as SizedProducable>::Size::U64 + 256 * (pack_count.into_u64());
         Self {
@@ -187,15 +187,14 @@ impl Pack for ManifestPack {
             let mut check_stream = self
                 .reader
                 .create_stream_to(End::Offset(self.header.pack_header.check_info_pos));
-            let mut check_stream =
-                CheckStream::new(check_stream.as_mut(), self.header.pack_count + 1);
+            let mut check_stream = CheckStream::new(&mut check_stream, self.header.pack_count + 1);
             let mut v = vec![];
             check_stream.read_to_end(&mut v)?;
         }
         let mut check_stream = self
             .reader
             .create_stream_to(End::Offset(self.header.pack_header.check_info_pos));
-        let mut check_stream = CheckStream::new(check_stream.as_mut(), self.header.pack_count + 1);
+        let mut check_stream = CheckStream::new(&mut check_stream, self.header.pack_count + 1);
         check_info.check(&mut check_stream as &mut dyn Read)
     }
 }
@@ -269,9 +268,9 @@ mod tests {
         }
         let hash = {
             let mut hasher = blake3::Hasher::new();
-            let reader = BufReader::new_from_rc(Rc::clone(&rc_content), End::None);
+            let reader = Reader::new_from_rc(Rc::clone(&rc_content), End::None);
             let mut stream = reader.create_stream_all();
-            let mut check_stream = CheckStream::new(stream.as_mut(), PackCount::from(3));
+            let mut check_stream = CheckStream::new(&mut stream, PackCount::from(3));
             io::copy(&mut check_stream, &mut hasher).unwrap();
             hasher.finalize()
         };
@@ -280,7 +279,7 @@ mod tests {
             content.push(0x01);
             content.extend(hash.as_bytes());
         }
-        let reader = Box::new(BufReader::new_from_rc(rc_content, End::None));
+        let reader = Reader::new_from_rc(rc_content, End::None);
         let main_pack = ManifestPack::new(reader).unwrap();
         assert_eq!(main_pack.kind(), PackKind::Manifest);
         assert_eq!(main_pack.app_vendor_id(), 0x01000000);

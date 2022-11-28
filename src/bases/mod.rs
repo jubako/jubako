@@ -22,7 +22,7 @@ pub trait SizedProducable: Producable {
 /// ArrayReader is a wrapper a reader to access element stored as a array.
 /// (Consecutif block of data of the same size).
 pub struct ArrayReader<OutType, IdxType> {
-    reader: Box<dyn Reader>,
+    reader: Reader,
     length: Count<IdxType>,
     elem_size: usize,
     produced_type: PhantomData<*const OutType>,
@@ -49,7 +49,7 @@ where
     }*/
 
     pub fn new_memory_from_reader(
-        reader: &dyn Reader,
+        reader: &Reader,
         at: Offset,
         length: Count<IdxType>,
     ) -> Result<Self> {
@@ -82,7 +82,7 @@ where
         let mut stream = self
             .reader
             .create_stream(Offset::from(offset), End::new_size(self.elem_size as u64));
-        OutType::produce(stream.as_mut())
+        OutType::produce(&mut stream)
     }
 }
 

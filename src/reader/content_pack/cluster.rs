@@ -4,10 +4,10 @@ use std::cell::RefCell;
 
 enum ClusterReader {
     // The reader on the raw data as stored in the cluster.
-    Raw(Box<dyn Reader>),
+    Raw(Reader),
     // The reader on the plain data as we need to read it.
     // May be the same that a raw reader if the data is not compressed
-    Plain(Box<dyn Reader>),
+    Plain(Reader),
 }
 
 pub struct Cluster {
@@ -18,11 +18,11 @@ pub struct Cluster {
 }
 
 impl Cluster {
-    pub fn new(reader: &dyn Reader, cluster_info: SizedOffset) -> Result<Self> {
+    pub fn new(reader: &Reader, cluster_info: SizedOffset) -> Result<Self> {
         let header_reader =
             reader.create_sub_memory_reader(cluster_info.offset, End::Size(cluster_info.size))?;
         let mut stream = header_reader.create_stream_all();
-        let header = ClusterHeader::produce(stream.as_mut())?;
+        let header = ClusterHeader::produce(&mut stream)?;
         let raw_data_size: Size = stream.read_sized(header.offset_size.into())?.into();
         let data_size: Size = stream.read_sized(header.offset_size.into())?.into();
         let blob_count = header.blob_count.into_usize();
@@ -82,19 +82,21 @@ impl Cluster {
         };
         let raw_stream = raw_reader.create_stream_all();
         let decompress_reader = match self.compression {
-            CompressionType::Lz4 => Box::new(Lz4Reader::new(
-                lz4::Decoder::new(raw_stream)?,
-                self.data_size,
-            )) as Box<dyn Reader>,
-            CompressionType::Lzma => Box::new(LzmaReader::new(
-                lzma::LzmaReader::new_decompressor(raw_stream)?,
-                self.data_size,
-            )),
-            CompressionType::Zstd => {
-                let reader = ZstdReader::new(zstd::Decoder::new(raw_stream)?, self.data_size);
-                //reader.source.decode_to(Offset(self.data_size.0))?;
-                Box::new(reader)
-            }
+            CompressionType::Lz4 => Reader::new(
+                Lz4Source::new(lz4::Decoder::new(raw_stream)?, self.data_size),
+                End::Size(self.data_size),
+            ),
+            CompressionType::Lzma => Reader::new(
+                LzmaSource::new(
+                    lzma::LzmaReader::new_decompressor(raw_stream)?,
+                    self.data_size,
+                ),
+                End::Size(self.data_size),
+            ),
+            CompressionType::Zstd => Reader::new(
+                ZstdSource::new(zstd::Decoder::new(raw_stream)?, self.data_size),
+                End::Size(self.data_size),
+            ),
             CompressionType::None => unreachable!(),
         };
         *cluster_reader = ClusterReader::Plain(decompress_reader);
@@ -106,7 +108,7 @@ impl Cluster {
         BlobCount::from((self.blob_offsets.len() - 1) as u16)
     }
 
-    pub fn get_reader(&self, index: BlobIdx) -> Result<Box<dyn Reader>> {
+    pub fn get_reader(&self, index: BlobIdx) -> Result<Reader> {
         self.build_plain_reader()?;
         let offset = self.blob_offsets[index.into_usize()];
         let end_offset = self.blob_offsets[index.into_usize() + 1];
@@ -122,6 +124,7 @@ impl Cluster {
 mod tests {
     use super::*;
     use std::io::Cursor;
+    use std::io::Read;
     use test_case::test_case;
 
     fn create_cluster(comp: CompressionType, data: &[u8]) -> (SizedOffset, Vec<u8>) {
@@ -217,9 +220,9 @@ mod tests {
     #[test_case(CompressionType::Zstd, create_zstd_cluster)]
     fn test_cluster(comp: CompressionType, creator: ClusterCreator) {
         let (ptr_info, data) = creator();
-        let reader = BufReader::new(data, End::None);
+        let reader = Reader::new(data, End::None);
         let mut stream = reader.create_stream_from(ptr_info.offset);
-        let header = ClusterHeader::produce(stream.as_mut()).unwrap();
+        let header = ClusterHeader::produce(&mut stream).unwrap();
         assert_eq!(header.compression, comp);
         assert_eq!(header.offset_size, 1);
         assert_eq!(header.blob_count, 3.into());

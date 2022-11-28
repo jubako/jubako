@@ -1,6 +1,7 @@
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType, ContentInfo};
 use std::io::Cursor;
+use std::io::Read;
 
 pub struct ClusterCreator {
     index: usize,
@@ -99,7 +100,7 @@ impl ClusterCreator {
         self.data.is_empty()
     }
 
-    pub fn add_content(&mut self, content: &mut dyn Stream) -> IoResult<ContentInfo> {
+    pub fn add_content(&mut self, content: &mut Stream) -> IoResult<ContentInfo> {
         assert!(self.offsets.len() < MAX_BLOBS_PER_CLUSTER);
         let idx = self.offsets.len() as u16;
         content.read_to_end(&mut self.data)?;
