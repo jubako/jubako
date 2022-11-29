@@ -256,7 +256,6 @@ test_suite! {
     use std::fs::OpenOptions;
     use std::io::{Write, Seek, SeekFrom, Result, Read};
     use std::io;
-    use std::rc::Rc;
     use crate::{Entry as TestEntry, Cluster, KeyStore, IndexStore, Index, PackInfo, CheckInfo};
     use uuid::Uuid;
 
@@ -482,11 +481,12 @@ test_suite! {
         let container = reader::Container::new(main_path).unwrap();
         assert_eq!(container.pack_count(), 1.into());
         assert!(container.check().unwrap());
-
-        let directory_pack = container.get_directory_pack().unwrap();
+        let directory_pack = container.get_directory_pack();
         let index = directory_pack.get_index(0.into()).unwrap();
-        let resolver = directory_pack.get_resolver();
-        let finder = index.get_finder(Rc::clone(&resolver));
+        let entry_storage = directory_pack.create_entry_storage();
+        let value_storage = directory_pack.create_value_storage();
+        let resolver = reader::Resolver::new(value_storage);
+        let finder = index.get_finder(&entry_storage, resolver.clone()).unwrap();
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {
             let entry = finder.get_entry(i).unwrap();

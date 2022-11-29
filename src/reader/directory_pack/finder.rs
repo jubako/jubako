@@ -1,7 +1,7 @@
 use super::entry_store::EntryStoreTrait;
 use super::private::ValueStorageTrait;
 use super::resolver::private::Resolver;
-use super::{DirectoryPack, EntryStore, EntryTrait, Value};
+use super::{EntryStore, EntryTrait, Value, ValueStorage};
 use crate::bases::*;
 use std::rc::Rc;
 
@@ -11,7 +11,7 @@ mod private {
         store: Rc<IS>,
         offset: EntryIdx,
         count: EntryCount,
-        resolver: Rc<Resolver<K>>,
+        resolver: Resolver<K>,
     }
 
     impl<K: ValueStorageTrait, IS: EntryStoreTrait> Finder<K, IS> {
@@ -19,7 +19,7 @@ mod private {
             store: Rc<IS>,
             offset: EntryIdx,
             count: EntryCount,
-            resolver: Rc<Resolver<K>>,
+            resolver: Resolver<K>,
         ) -> Self {
             Self {
                 store,
@@ -41,7 +41,7 @@ mod private {
             self.count
         }
 
-        pub fn get_resolver(&self) -> &Rc<Resolver<K>> {
+        pub fn get_resolver(&self) -> &Resolver<K> {
             &self.resolver
         }
 
@@ -72,12 +72,13 @@ mod private {
     }
 }
 
-pub type Finder = private::Finder<DirectoryPack, EntryStore>;
+pub type Finder = private::Finder<ValueStorage, EntryStore>;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::reader::RawValue;
+    use std::rc::Rc;
 
     mod mock {
         use super::*;
@@ -116,7 +117,7 @@ mod tests {
 
         pub struct ValueStore {}
         impl ValueStoreTrait for ValueStore {
-            fn get_data(&self, _id: ValueIdx) -> Result<Vec<u8>> {
+            fn get_data(&self, _id: ValueIdx) -> Result<&[u8]> {
                 unreachable!()
             }
         }
@@ -124,11 +125,7 @@ mod tests {
         pub struct ValueStorage {}
         impl ValueStorageTrait for ValueStorage {
             type ValueStore = ValueStore;
-            fn get_value_store_count(&self) -> ValueStoreCount {
-                0.into()
-            }
-
-            fn get_value_store(&self, _id: ValueStoreIdx) -> Result<Self::ValueStore> {
+            fn get_value_store(&self, _id: ValueStoreIdx) -> Result<&Rc<Self::ValueStore>> {
                 unreachable!()
             }
         }
@@ -137,10 +134,9 @@ mod tests {
     #[test]
     fn test_finder() {
         let value_storage = Rc::new(mock::ValueStorage {});
-        let resolver = Rc::new(Resolver::new(value_storage));
+        let resolver = Resolver::new(Rc::clone(&value_storage));
         let index_store = Rc::new(mock::EntryStore {});
-        let finder = private::Finder::new(index_store, 0.into(), 10.into(), Rc::clone(&resolver));
-
+        let finder = private::Finder::new(index_store, 0.into(), 10.into(), resolver.clone());
         for i in 0..10 {
             let entry = finder.get_entry(i.into()).unwrap();
             let value0 = entry.get_value(0.into()).unwrap();

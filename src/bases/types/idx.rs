@@ -86,7 +86,13 @@ impl<T> From<T> for Idx<T> {
         Idx(v)
     }
 }
-
+/*
+impl Into<usize> for Idx<u32> {
+    fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+*/
 /// This is somehow the same as std::ops::Index
 /// but with a output by value and not by ref.
 pub trait IndexTrait<Idx> {

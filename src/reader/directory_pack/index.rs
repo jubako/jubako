@@ -1,4 +1,4 @@
-use super::{EntryStore, Finder, Resolver};
+use super::{EntryStorage, Finder, Resolver};
 use crate::bases::*;
 use crate::common::ContentAddress;
 use std::rc::Rc;
@@ -36,12 +36,11 @@ impl Producable for IndexHeader {
 #[derive(Debug)]
 pub struct Index {
     header: IndexHeader,
-    store: Rc<EntryStore>,
 }
 
 impl Index {
-    pub fn new(header: IndexHeader, store: Rc<EntryStore>) -> Self {
-        Self { header, store }
+    pub fn new(header: IndexHeader) -> Self {
+        Self { header }
     }
 
     fn entry_offset(&self) -> EntryIdx {
@@ -52,17 +51,18 @@ impl Index {
         self.header.entry_count
     }
 
-    pub fn get_finder(&self, resolver: Rc<Resolver>) -> Finder {
-        Finder::new(
-            Rc::clone(&self.store),
+    pub fn get_finder(&self, entry_storage: &EntryStorage, resolver: Resolver) -> Result<Finder> {
+        let store = entry_storage.get_entry_store(self.header.store_id)?;
+        Ok(Finder::new(
+            Rc::clone(store),
             self.entry_offset(),
             self.entry_count(),
             resolver,
-        )
+        ))
     }
 
-    pub fn get_store(&self) -> Rc<EntryStore> {
-        Rc::clone(&self.store)
+    pub fn get_store_id(&self) -> EntryStoreIdx {
+        self.header.store_id
     }
 }
 

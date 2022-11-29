@@ -256,3 +256,17 @@ specific! {u16,  BlobIdx(Idx), BlobCount}
 specific! {u8,  PropertyIdx(Idx), PropertyCount}
 specific! {u64,  ValueIdx(Idx), ValueCount}
 specific! {u8, VariantIdx(Idx), VariantCount}
+
+#[cfg(target_pointer_width = "64")]
+impl From<ValueStoreIdx> for usize {
+    fn from(v: ValueStoreIdx) -> usize {
+        v.into_usize()
+    }
+}
+
+#[cfg(target_pointer_width = "64")]
+impl From<EntryStoreIdx> for usize {
+    fn from(v: EntryStoreIdx) -> usize {
+        v.into_usize()
+    }
+}

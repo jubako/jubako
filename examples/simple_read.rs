@@ -1,15 +1,16 @@
 use jbk::reader::EntryTrait;
 use jubako as jbk;
 use std::error::Error;
-use std::rc::Rc;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Let's read our container created in `simple_create.rs`
     let container = jbk::reader::Container::new("test.jbkm")?; // or "test.jbkm"
-    let directory = container.get_directory_pack()?;
+    let directory = container.get_directory_pack();
     let index = directory.get_index_from_name("My own index")?;
-    let resolver = directory.get_resolver(); // This is needed to get our info in the value_store
-    let finder = index.get_finder(Rc::clone(&resolver)); // To found our entries.
+    let entry_storage = directory.create_entry_storage();
+    let value_storage = directory.create_value_storage();
+    let resolver = jbk::reader::Resolver::new(value_storage); // This is needed to get our info in the value_store
+    let finder = index.get_finder(&entry_storage, resolver.clone())?; // To found our entries.
 
     {
         let entry = finder.get_entry(0.into())?;
