@@ -52,7 +52,7 @@ impl Index {
         self.header.entry_count
     }
 
-    pub fn get_finder(&self, resolver: Rc<Resolver>) -> Finder {
+    pub fn get_finder(&self, resolver: Resolver) -> Finder {
         Finder::new(
             Rc::clone(&self.store),
             self.entry_offset(),

@@ -31,10 +31,26 @@ pub trait EntryTrait {
 }
 
 mod private {
+    use super::*;
     pub trait ValueStorageTrait {
-        type ValueStore: super::ValueStoreTrait;
-        fn get_value_store_count(&self) -> super::ValueStoreCount;
-        fn get_value_store(&self, id: super::ValueStoreIdx) -> super::Result<Self::ValueStore>;
+        type ValueStore: ValueStoreTrait;
+        fn get_value_store(&self, id: ValueStoreIdx) -> Result<&Rc<Self::ValueStore>>;
+    }
+}
+
+pub struct ValueStorage(VecCache<ValueStore, DirectoryPack>);
+
+impl ValueStorage {
+    pub fn new(source: Rc<DirectoryPack>) -> Self {
+        Self(VecCache::new(source))
+    }
+}
+
+impl private::ValueStorageTrait for ValueStorage {
+    type ValueStore = ValueStore;
+
+    fn get_value_store(&self, store_id: ValueStoreIdx) -> Result<&Rc<Self::ValueStore>> {
+        self.0.get(store_id)
     }
 }
 
@@ -107,20 +123,20 @@ impl DirectoryPack {
         EntryStore::new(&self.reader, sized_offset)
     }
 
-    pub fn get_resolver(self: &Rc<Self>) -> Rc<Resolver> {
-        Rc::new(Resolver::new(Rc::clone(self)))
+    pub fn create_value_storage(self: &Rc<Self>) -> Rc<ValueStorage> {
+        Rc::new(ValueStorage::new(Rc::clone(self)))
     }
 }
 
-impl private::ValueStorageTrait for DirectoryPack {
-    type ValueStore = ValueStore;
-    fn get_value_store_count(&self) -> ValueStoreCount {
-        self.header.value_store_count
+impl CachableSource<ValueStore> for DirectoryPack {
+    type Idx = ValueStoreIdx;
+    fn get_len(&self) -> usize {
+        self.header.value_store_count.into_usize()
     }
 
-    fn get_value_store(&self, store_id: ValueStoreIdx) -> Result<ValueStore> {
-        let sized_offset = self.value_stores_ptrs.index(*store_id)?;
-        ValueStore::new(&self.reader, sized_offset)
+    fn get_value(&self, id: Self::Idx) -> Result<Rc<ValueStore>> {
+        let sized_offset = self.value_stores_ptrs.index(*id)?;
+        Ok(Rc::new(ValueStore::new(&self.reader, sized_offset)?))
     }
 }
 
@@ -302,8 +318,9 @@ mod tests {
         let reader = Reader::new(content, End::None);
         let directory_pack = Rc::new(DirectoryPack::new(reader).unwrap());
         let index = directory_pack.get_index(IndexIdx::from(0)).unwrap();
-        let resolver = directory_pack.get_resolver();
-        let finder = index.get_finder(Rc::clone(&resolver));
+        let value_storage = directory_pack.create_value_storage();
+        let resolver = Resolver::new(Rc::clone(&value_storage));
+        let finder = index.get_finder(resolver.clone());
         assert_eq!(index.entry_count(), 4.into());
         {
             let entry = finder.get_entry(0.into()).unwrap();

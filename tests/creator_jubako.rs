@@ -141,8 +141,9 @@ test_suite! {
         println!("Read directory pack");
         let directory_pack = container.get_directory_pack().unwrap();
         let index = directory_pack.get_index(0.into()).unwrap();
-        let resolver = directory_pack.get_resolver();
-        let finder = index.get_finder(Rc::clone(&resolver));
+        let value_storage = directory_pack.create_value_storage();
+        let resolver = jubako::reader::Resolver::new(Rc::clone(&value_storage));
+        let finder = index.get_finder(resolver.clone());
         println!("Read index");
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {

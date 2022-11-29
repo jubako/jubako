@@ -1,39 +1,33 @@
 use super::private::ValueStorageTrait;
 use super::value_store::ValueStoreTrait;
-use super::{Array, Content, DirectoryPack, Extend, RawValue};
+use super::{Array, Content, Extend, RawValue, ValueStorage};
 use crate::bases::*;
 use crate::common::Value;
-use std::cell::OnceCell;
 use std::cmp;
 use std::rc::Rc;
 
 pub(crate) mod private {
     use super::*;
-    pub struct Resolver<K: ValueStorageTrait> {
-        directory: Rc<K>,
-        stores: Vec<OnceCell<K::ValueStore>>,
+
+    pub struct Resolver<ValueStorage: ValueStorageTrait> {
+        value_storage: Rc<ValueStorage>,
     }
 
-    impl<K: ValueStorageTrait> Resolver<K> {
-        pub fn new(directory: Rc<K>) -> Self {
-            let mut stores = Vec::new();
-            stores.resize_with(
-                directory.get_value_store_count().into_usize(),
-                Default::default,
-            );
-            Self { directory, stores }
+    impl<ValueStorage: ValueStorageTrait> Clone for Resolver<ValueStorage> {
+        fn clone(&self) -> Self {
+            Self {
+                value_storage: Rc::clone(&self.value_storage),
+            }
         }
+    }
 
-        fn get_value_store(&self, id: ValueStoreIdx) -> Result<&K::ValueStore> {
-            self.stores[id.into_usize()].get_or_try_init(|| self._get_value_store(id))
-        }
-
-        fn _get_value_store(&self, id: ValueStoreIdx) -> Result<K::ValueStore> {
-            self.directory.get_value_store(id)
+    impl<ValueStorage: ValueStorageTrait> Resolver<ValueStorage> {
+        pub fn new(value_storage: Rc<ValueStorage>) -> Self {
+            Self { value_storage }
         }
 
         fn get_data(&self, extend: &Extend) -> Result<Vec<u8>> {
-            let value_store = self.get_value_store(extend.store_id)?;
+            let value_store = self.value_storage.get_value_store(extend.store_id)?;
             value_store.get_data(extend.value_id)
         }
 
@@ -137,7 +131,7 @@ pub(crate) mod private {
     }
 }
 
-pub type Resolver = private::Resolver<DirectoryPack>;
+pub type Resolver = private::Resolver<ValueStorage>;
 
 #[cfg(test)]
 mod tests {
@@ -166,25 +160,30 @@ mod tests {
                 }
             }
 
-            pub struct ValueStorage {}
+            pub struct ValueStorage {
+                store: Rc<ValueStore>,
+            }
+            impl ValueStorage {
+                pub fn new() -> Self {
+                    Self {
+                        store: Rc::new(ValueStore {})
+                    }
+                }
+            }
             impl ValueStorageTrait for ValueStorage {
                 type ValueStore = ValueStore;
-                fn get_value_store_count(&self) -> ValueStoreCount {
-                    1.into()
-                }
-                fn get_value_store(&self, id: ValueStoreIdx) -> Result<Self::ValueStore> {
-                    Ok(match id {
-                        ValueStoreIdx(Idx(0)) => ValueStore {},
+                fn get_value_store(&self, id: ValueStoreIdx) -> Result<&Rc<Self::ValueStore>> {
+                    Ok(match id.0 {
+                        Idx(0) => &self.store,
                         _ => panic!(),
                     })
                 }
             }
         }
 
-        fixture resolver() -> private::Resolver<mock::ValueStorage> {
+        fixture storage() -> Rc<mock::ValueStorage> {
             setup(&mut self) {
-                let value_storage = Rc::new(mock::ValueStorage {});
-                private::Resolver::new(value_storage)
+                Rc::new(mock::ValueStorage::new())
             }
         }
 
@@ -208,13 +207,13 @@ mod tests {
             setup(&mut self) {}
         }
 
-        test test_resolver_resolve(resolver, value) {
-            let resolver = resolver.val;
+        test test_resolver_resolve(storage, value) {
+            let resolver = private::Resolver::new(storage.val);
             assert_eq!(&resolver.resolve(&value.params.value).unwrap(), value.params.expected);
         }
 
-        test test_resolver_unsigned(resolver) {
-            let resolver = resolver.val;
+        test test_resolver_unsigned(storage) {
+            let resolver = private::Resolver::new(storage.val);
             assert_eq!(resolver.resolve_to_unsigned(&RawValue::U8(0)), 0);
             assert_eq!(resolver.resolve_to_unsigned(&RawValue::U8(5)), 5);
             assert_eq!(resolver.resolve_to_unsigned(&RawValue::U8(255)), 255);
@@ -226,8 +225,8 @@ mod tests {
             );
         }
 
-        test test_resolver_signed(resolver) {
-            let resolver = resolver.val;
+        test test_resolver_signed(storage) {
+            let resolver = private::Resolver::new(storage.val);
             assert_eq!(resolver.resolve_to_signed(&RawValue::I8(0)), 0);
             assert_eq!(resolver.resolve_to_signed(&RawValue::I8(5)), 5);
             assert_eq!(resolver.resolve_to_signed(&RawValue::I8(-1)), -1);
@@ -263,8 +262,8 @@ mod tests {
             }
         }
 
-        test test_resolver_indirect(resolver, indirect_value) {
-            let resolver = resolver.val;
+        test test_resolver_indirect(storage, indirect_value) {
+            let resolver = private::Resolver::new(storage.val);
             assert_eq!(
                 &resolver.resolve_to_vec(&indirect_value.val).unwrap(),
                 indirect_value.params.expected
