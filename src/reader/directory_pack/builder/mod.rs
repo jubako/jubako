@@ -1,11 +1,12 @@
 mod property;
 
-use self::property::{AnyProperty, PropertyBuilderTrait};
 use super::layout::{Layout, Variant};
 use super::raw_value::RawValue;
 use super::LazyEntry;
 use crate::bases::*;
 use std::rc::Rc;
+
+pub use self::property::*;
 
 pub trait BuilderTrait {
     type Entry;

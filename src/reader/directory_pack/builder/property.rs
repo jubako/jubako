@@ -17,6 +17,15 @@ pub struct Property<OutType> {
     phantom: PhantomData<OutType>,
 }
 
+impl<OutType> Property<OutType> {
+    pub fn new(offset: Offset) -> Self {
+        Self {
+            offset,
+            phantom: PhantomData,
+        }
+    }
+}
+
 impl PropertyBuilderTrait for Property<u8> {
     type Output = u8;
     fn create(&self, reader: &Reader) -> Result<Self::Output> {
@@ -54,6 +63,16 @@ pub struct IntProperty {
 impl IntProperty {
     pub fn new(offset: Offset, size: Size) -> Self {
         Self { offset, size }
+    }
+}
+
+impl TryFrom<&layout::Property> for IntProperty {
+    type Error = String;
+    fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
+        match p.kind {
+            layout::PropertyKind::UnsignedInt(size) => Ok(IntProperty::new(p.offset, size.into())),
+            _ => Err("Invalid key".to_string()),
+        }
     }
 }
 
@@ -107,6 +126,16 @@ pub struct SignedProperty {
 impl SignedProperty {
     pub fn new(offset: Offset, size: Size) -> Self {
         Self { offset, size }
+    }
+}
+
+impl TryFrom<&layout::Property> for SignedProperty {
+    type Error = String;
+    fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
+        match p.kind {
+            layout::PropertyKind::SignedInt(size) => Ok(SignedProperty::new(p.offset, size.into())),
+            _ => Err("Invalid key".to_string()),
+        }
     }
 }
 
@@ -168,6 +197,24 @@ impl ArrayProperty {
     }
 }
 
+impl TryFrom<&layout::Property> for ArrayProperty {
+    type Error = String;
+    fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
+        match p.kind {
+            layout::PropertyKind::Array(size) => {
+                Ok(ArrayProperty::new_array(p.offset, size.into()))
+            }
+            layout::PropertyKind::VLArray(vl_size, store_id, base) => Ok(match base {
+                None => ArrayProperty::new_vlarray(p.offset, store_id, vl_size.into()),
+                Some(base_size) => {
+                    ArrayProperty::new(p.offset, store_id, vl_size.into(), base_size.into())
+                }
+            }),
+            _ => Err("Invalid key".to_string()),
+        }
+    }
+}
+
 impl PropertyBuilderTrait for ArrayProperty {
     type Output = Array;
     fn create(&self, reader: &Reader) -> Result<Self::Output> {
@@ -201,6 +248,16 @@ impl ContentProperty {
             Some(Self::create_content(offset + 4, base - 1, reader)?)
         };
         Ok(Content::new(contentaddress, base_content))
+    }
+}
+
+impl TryFrom<&layout::Property> for ContentProperty {
+    type Error = String;
+    fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
+        match p.kind {
+            layout::PropertyKind::ContentAddress(base) => Ok(ContentProperty::new(p.offset, base)),
+            _ => Err("Invalid key".to_string()),
+        }
     }
 }
 
