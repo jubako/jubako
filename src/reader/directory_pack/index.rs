@@ -56,18 +56,21 @@ impl Index {
     pub fn get_finder<Schema: schema::SchemaTrait>(
         &self,
         entry_storage: &EntryStorage,
+        schema: &Schema,
     ) -> Result<Finder<Schema>> {
-        let store = self.get_store(entry_storage)?;
+        let store = self.get_store(entry_storage, schema)?;
         Ok(Finder::new(store, self.entry_offset(), self.entry_count()))
     }
 
     pub fn get_store<Schema: schema::SchemaTrait>(
         &self,
         entry_storage: &EntryStorage,
+        schema: &Schema,
     ) -> Result<Rc<EntryStoreFront<Schema>>> {
-        Ok(Rc::new(EntryStoreFront::new(Rc::clone(
-            entry_storage.get_entry_store(self.header.store_id)?,
-        ))?))
+        Ok(Rc::new(EntryStoreFront::new(
+            Rc::clone(entry_storage.get_entry_store(self.header.store_id)?),
+            schema,
+        )?))
     }
 
     pub fn get_store_id(&self) -> EntryStoreIdx {

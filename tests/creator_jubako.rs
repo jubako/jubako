@@ -143,7 +143,8 @@ test_suite! {
         let entry_storage = directory_pack.create_entry_storage();
         let value_storage = directory_pack.create_value_storage();
         let resolver = jubako::reader::Resolver::new(value_storage);
-        let finder : jubako::reader::Finder<jubako::reader::AnySchema> = index.get_finder(&entry_storage).unwrap();
+        let schema = jubako::reader::AnySchema {};
+        let finder = index.get_finder(&entry_storage, &schema).unwrap();
         println!("Read index");
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {

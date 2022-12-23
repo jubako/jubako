@@ -1,4 +1,4 @@
-mod builder;
+pub mod builder;
 mod entry_store;
 mod finder;
 mod index;
@@ -8,7 +8,7 @@ mod property_compare;
 mod raw_layout;
 mod raw_value;
 mod resolver;
-mod schema;
+pub mod schema;
 mod value_store;
 
 use self::builder::BuilderTrait;
@@ -349,7 +349,8 @@ mod tests {
         let value_storage = directory_pack.create_value_storage();
         let entry_storage = directory_pack.create_entry_storage();
         let resolver = Resolver::new(value_storage);
-        let finder: Finder<schema::AnySchema> = index.get_finder(&entry_storage).unwrap();
+        let schema = schema::AnySchema {};
+        let finder = index.get_finder(&entry_storage, &schema).unwrap();
         assert_eq!(index.entry_count(), 4.into());
         {
             let entry = finder.get_entry(0.into()).unwrap();

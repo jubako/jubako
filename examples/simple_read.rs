@@ -10,7 +10,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let entry_storage = directory.create_entry_storage();
     let value_storage = directory.create_value_storage();
     let resolver = jbk::reader::Resolver::new(value_storage); // This is needed to get our info in the value_store
-    let finder: jbk::reader::Finder<jbk::reader::AnySchema> = index.get_finder(&entry_storage)?; // To found our entries.
+    let schema = jbk::reader::AnySchema {};
+    let finder = index.get_finder(&entry_storage, &schema)?; // To found our entries.
 
     {
         let entry = finder.get_entry(0.into())?;

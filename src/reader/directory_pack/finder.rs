@@ -121,7 +121,7 @@ mod tests {
 
         impl schema::SchemaTrait for Schema {
             type Builder = Builder;
-            fn check_layout(_layout: &layout::Layout) -> Result<Self::Builder> {
+            fn check_layout(&self, _layout: &layout::Layout) -> Result<Self::Builder> {
                 Ok(Builder {})
             }
         }

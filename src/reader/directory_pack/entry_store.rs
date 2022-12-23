@@ -109,8 +109,8 @@ pub struct EntryStoreFront<Schema: SchemaTrait> {
 }
 
 impl<Schema: SchemaTrait> EntryStoreFront<Schema> {
-    pub fn new(store: Rc<EntryStore>) -> Result<Self> {
-        let builder = Schema::check_layout(store.layout())?;
+    pub fn new(store: Rc<EntryStore>, schema: &Schema) -> Result<Self> {
+        let builder = schema.check_layout(store.layout())?;
         Ok(Self { store, builder })
     }
 }
