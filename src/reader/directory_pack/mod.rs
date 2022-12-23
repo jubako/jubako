@@ -3,6 +3,7 @@ mod finder;
 mod index;
 mod layout;
 mod lazy_entry;
+mod property_compare;
 mod raw_value;
 mod resolver;
 mod value_store;
@@ -20,6 +21,7 @@ use uuid::Uuid;
 pub use self::entry_store::EntryStoreTrait;
 pub use self::finder::Finder;
 pub use self::index::Index;
+pub use self::property_compare::{CompareTrait, PropertyCompare};
 pub use crate::common::{Content, Value};
 pub use lazy_entry::LazyEntry;
 pub use raw_value::{Array, Extend, RawValue};
@@ -342,7 +344,7 @@ mod tests {
         let value_storage = directory_pack.create_value_storage();
         let entry_storage = directory_pack.create_entry_storage();
         let resolver = Resolver::new(value_storage);
-        let finder = index.get_finder(&entry_storage, resolver.clone()).unwrap();
+        let finder = index.get_finder(&entry_storage).unwrap();
         assert_eq!(index.entry_count(), 4.into());
         {
             let entry = finder.get_entry(0.into()).unwrap();
