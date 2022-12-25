@@ -115,6 +115,14 @@ macro_rules! impl_add {
             }
         }
 
+        impl std::ops::Sub<$base> for $idx_name {
+            type Output = $idx_name;
+            fn sub(self, other: $base) -> Self::Output {
+                $idx_name::from(self.0.0 - other)
+            }
+
+        }
+
         impl $idx_name {
             pub fn is_valid(&self, c: $count_name) -> bool {
                 self.0.is_valid(*c)
@@ -152,6 +160,13 @@ macro_rules! specific {
         impl From<$inner_idx<$base>> for $idx_name {
             fn from(idx: $inner_idx<$base>) -> Self {
                 Self(idx)
+            }
+        }
+
+        impl std::ops::Not for $idx_name {
+            type Output = bool;
+            fn not(self) -> Self::Output {
+                self.0.0 == 0
             }
         }
 
