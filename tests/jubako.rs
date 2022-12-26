@@ -253,6 +253,7 @@ test_suite! {
 
     use jubako::reader as reader;
     use jubako::reader::EntryTrait;
+    use jubako::reader::schema::SchemaTrait;
     use std::fs::OpenOptions;
     use std::io::{Write, Seek, SeekFrom, Result, Read};
     use std::io;
@@ -487,7 +488,8 @@ test_suite! {
         let value_storage = directory_pack.create_value_storage();
         let resolver = reader::Resolver::new(value_storage);
         let schema = reader::AnySchema {};
-        let finder = index.get_finder(&entry_storage, &schema).unwrap();
+        let builder = schema.create_builder(index.get_store(&entry_storage).unwrap()).unwrap();
+        let finder: reader::Finder<reader::AnySchema> = index.get_finder(&builder).unwrap();
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {
             let entry = finder.get_entry(i).unwrap();

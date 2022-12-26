@@ -1,10 +1,5 @@
-use super::finder::CompareTrait;
 use super::layout::Layout;
-use super::schema::SchemaTrait;
-use super::BuilderTrait;
 use crate::bases::*;
-use std::cmp::Ordering;
-use std::rc::Rc;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -27,16 +22,6 @@ impl Producable for StoreKind {
             )),
         }
     }
-}
-
-pub trait EntryStoreTrait {
-    type Builder: BuilderTrait;
-    fn get_entry(&self, idx: EntryIdx) -> Result<<Self::Builder as BuilderTrait>::Entry>;
-    fn compare_entry<Comparator: CompareTrait>(
-        &self,
-        idx: EntryIdx,
-        comparator: &Comparator,
-    ) -> Result<Ordering>;
 }
 
 #[derive(Debug)]
@@ -62,7 +47,7 @@ impl EntryStore {
         }
     }
 
-    fn layout(&self) -> &Layout {
+    pub fn layout(&self) -> &Layout {
         match self {
             EntryStore::Plain(store) => store.layout(),
             /*            _ => todo!()*/
@@ -98,33 +83,6 @@ impl PlainStore {
 
     pub fn layout(&self) -> &Layout {
         &self.layout
-    }
-}
-
-pub struct EntryStoreFront<Schema: SchemaTrait> {
-    pub store: Rc<EntryStore>,
-    pub builder: Schema::Builder,
-}
-
-impl<Schema: SchemaTrait> EntryStoreFront<Schema> {
-    pub fn new(store: Rc<EntryStore>, schema: &Schema) -> Result<Self> {
-        let builder = schema.check_layout(store.layout())?;
-        Ok(Self { store, builder })
-    }
-}
-
-impl<Schema: SchemaTrait> EntryStoreTrait for EntryStoreFront<Schema> {
-    type Builder = Schema::Builder;
-    fn get_entry(&self, idx: EntryIdx) -> Result<<Self::Builder as BuilderTrait>::Entry> {
-        self.builder
-            .create_entry(idx, &self.store.get_entry_reader(idx))
-    }
-    fn compare_entry<Comparator: CompareTrait>(
-        &self,
-        idx: EntryIdx,
-        comparator: &Comparator,
-    ) -> Result<Ordering> {
-        comparator.compare(&self.store.get_entry_reader(idx))
     }
 }
 

@@ -2,25 +2,22 @@ use super::builder::{AnyBuilder, BuilderTrait};
 use super::finder::CompareTrait;
 use super::private::ValueStorageTrait;
 use super::resolver::private::Resolver;
-use super::{EntryTrait, LazyEntry, Value, ValueStorage};
+use super::schema::AnySchema;
+use super::{EntryTrait, Value, ValueStorage};
 use crate::bases::*;
 use std::cmp::Ordering;
-use std::marker::PhantomData;
 
 pub(crate) mod private {
     use super::*;
 
-    pub struct PropertyCompare<'builder, ValueStorage: ValueStorageTrait, Entry: EntryTrait> {
+    pub struct PropertyCompare<'builder, ValueStorage: ValueStorageTrait> {
         resolver: Resolver<ValueStorage>,
         builder: &'builder AnyBuilder,
         property_ids: Box<[PropertyIdx]>,
         values: Box<[Value]>,
-        entry_type: PhantomData<Entry>,
     }
 
-    impl<'builder, ValueStorage: ValueStorageTrait, Entry: EntryTrait>
-        PropertyCompare<'builder, ValueStorage, Entry>
-    {
+    impl<'builder, ValueStorage: ValueStorageTrait> PropertyCompare<'builder, ValueStorage> {
         pub fn new(
             resolver: Resolver<ValueStorage>,
             builder: &'builder AnyBuilder,
@@ -33,16 +30,15 @@ pub(crate) mod private {
                 builder,
                 property_ids: property_ids.into(),
                 values: values.into(),
-                entry_type: PhantomData,
             }
         }
     }
 
-    impl<ValueStorage: ValueStorageTrait, Entry: EntryTrait> CompareTrait
-        for PropertyCompare<'_, ValueStorage, Entry>
+    impl<ValueStorage: ValueStorageTrait> CompareTrait<AnySchema>
+        for PropertyCompare<'_, ValueStorage>
     {
-        fn compare(&self, reader: &Reader) -> Result<Ordering> {
-            let entry = self.builder.create_entry(EntryIdx::from(0), reader)?;
+        fn compare_entry(&self, idx: EntryIdx) -> Result<Ordering> {
+            let entry = self.builder.create_entry(idx)?;
             for (property_id, value) in std::iter::zip(self.property_ids.iter(), self.values.iter())
             {
                 let ordering = self
@@ -57,4 +53,4 @@ pub(crate) mod private {
     }
 }
 
-pub type AnyPropertyCompare<'builder> = private::PropertyCompare<'builder, ValueStorage, LazyEntry>;
+pub type AnyPropertyCompare<'builder> = private::PropertyCompare<'builder, ValueStorage>;

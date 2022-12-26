@@ -1,6 +1,7 @@
 mod property;
 
-use super::layout::{Layout, Variant};
+use super::entry_store::EntryStore;
+use super::layout::Variant;
 use super::raw_value::RawValue;
 use super::{AnyPropertyCompare, LazyEntry, Resolver, Value};
 use crate::bases::*;
@@ -10,7 +11,7 @@ pub use self::property::*;
 
 pub trait BuilderTrait {
     type Entry;
-    fn create_entry(&self, idx: EntryIdx, reader: &Reader) -> Result<Self::Entry>;
+    fn create_entry(&self, idx: EntryIdx) -> Result<Self::Entry>;
 }
 
 pub struct AnyVariantBuilder {
@@ -30,16 +31,18 @@ impl AnyVariantBuilder {
 
 pub struct AnyBuilder {
     variants: Vec<Rc<AnyVariantBuilder>>,
+    store: Rc<EntryStore>,
 }
 
 impl AnyBuilder {
-    pub fn new_from_layout(layout: &Layout) -> Self {
-        let variants = layout
+    pub fn new(store: Rc<EntryStore>) -> Self {
+        let variants = store
+            .layout()
             .variants
             .iter()
             .map(|v| Rc::new(AnyVariantBuilder::new_from_variant(v)))
             .collect();
-        Self { variants }
+        Self { variants, store }
     }
 
     pub fn new_property_compare(
@@ -63,7 +66,8 @@ impl AnyBuilder {
 
 impl BuilderTrait for AnyBuilder {
     type Entry = LazyEntry;
-    fn create_entry(&self, _idx: EntryIdx, reader: &Reader) -> Result<LazyEntry> {
+    fn create_entry(&self, idx: EntryIdx) -> Result<LazyEntry> {
+        let reader = self.store.get_entry_reader(idx);
         let variant_id: VariantIdx = if self.variants.len() > 1 {
             reader.read_u8(Offset::zero())?
         } else {
@@ -83,8 +87,10 @@ impl BuilderTrait for AnyBuilder {
 mod tests {
     use super::*;
     use crate::common::ContentAddress;
+    use crate::reader::directory_pack::entry_store::PlainStore;
     use crate::reader::directory_pack::raw_layout::{RawProperty, RawPropertyKind};
     use crate::reader::directory_pack::{Array, EntryTrait};
+    use crate::reader::layout::Layout;
     use crate::reader::{Content, RawValue};
 
     #[test]
@@ -99,13 +105,18 @@ mod tests {
             )],
             size: Size::new(6),
         };
-        let builder = AnyBuilder::new_from_layout(&layout);
+        let content = vec![
+            0x00, 0x00, 0x00, 0x01, 0x88, 0x99, 0x01, 0x00, 0x00, 0x02, 0x66, 0x77,
+        ];
+        let entry_reader = Reader::new(content, End::None);
+        let store = Rc::new(EntryStore::Plain(PlainStore {
+            layout,
+            entry_reader,
+        }));
+        let builder = AnyBuilder::new(store);
 
         {
-            let content = vec![0x00, 0x00, 0x00, 0x01, 0x88, 0x99];
-
-            let reader = Reader::new(content, End::None);
-            let entry = builder.create_entry(0.into(), &reader).unwrap();
+            let entry = builder.create_entry(0.into()).unwrap();
 
             assert!(entry.get_variant_id() == 0.into());
             assert!(
@@ -119,10 +130,7 @@ mod tests {
         }
 
         {
-            let content = vec![0x01, 0x00, 0x00, 0x02, 0x66, 0x77];
-
-            let reader = Reader::new(content, End::None);
-            let entry = builder.create_entry(0.into(), &reader).unwrap();
+            let entry = builder.create_entry(1.into()).unwrap();
 
             assert!(entry.get_variant_id() == 0.into());
             assert!(
@@ -161,13 +169,19 @@ mod tests {
             ],
             size: Size::new(7),
         };
-        let builder = AnyBuilder::new_from_layout(&layout);
+
+        let content = vec![
+            0x00, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99, 0x01, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99,
+        ];
+        let entry_reader = Reader::new(content, End::None);
+        let store = Rc::new(EntryStore::Plain(PlainStore {
+            layout,
+            entry_reader,
+        }));
+        let builder = AnyBuilder::new(store);
 
         {
-            let content = vec![0x00, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99];
-
-            let reader = Reader::new(content, End::None);
-            let entry = builder.create_entry(0.into(), &reader).unwrap();
+            let entry = builder.create_entry(0.into()).unwrap();
 
             assert!(entry.get_variant_id() == 0.into());
             assert!(
@@ -178,10 +192,7 @@ mod tests {
         }
 
         {
-            let content = vec![0x01, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99];
-
-            let reader = Reader::new(content, End::None);
-            let entry = builder.create_entry(0.into(), &reader).unwrap();
+            let entry = builder.create_entry(1.into()).unwrap();
 
             assert!(entry.get_variant_id() == 1.into());
             assert!(

@@ -11,8 +11,6 @@ mod resolver;
 pub mod schema;
 mod value_store;
 
-use self::builder::BuilderTrait;
-use self::entry_store::EntryStore;
 use self::index::IndexHeader;
 use self::value_store::{ValueStore, ValueStoreTrait};
 use crate::bases::*;
@@ -22,7 +20,7 @@ use std::io::Read;
 use std::rc::Rc;
 use uuid::Uuid;
 
-pub use self::entry_store::EntryStoreTrait;
+pub use self::entry_store::EntryStore;
 pub use self::finder::{CompareTrait, Finder};
 pub use self::index::Index;
 pub use self::property_compare::AnyPropertyCompare;
@@ -210,6 +208,7 @@ mod tests {
     use super::raw_value::*;
     use super::*;
     use crate::common::{ContentAddress, PackHeader};
+    use crate::reader::schema::SchemaTrait;
 
     #[test]
     fn test_directorypackheader() {
@@ -350,7 +349,10 @@ mod tests {
         let entry_storage = directory_pack.create_entry_storage();
         let resolver = Resolver::new(value_storage);
         let schema = schema::AnySchema {};
-        let finder = index.get_finder(&entry_storage, &schema).unwrap();
+        let builder = schema
+            .create_builder(index.get_store(&entry_storage).unwrap())
+            .unwrap();
+        let finder: Finder<schema::AnySchema> = index.get_finder(&builder).unwrap();
         assert_eq!(index.entry_count(), 4.into());
         {
             let entry = finder.get_entry(0.into()).unwrap();
