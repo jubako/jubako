@@ -8,70 +8,60 @@ pub trait CompareTrait<Schema: SchemaTrait> {
     fn compare_entry(&self, idx: EntryIdx) -> Result<Ordering>;
 }
 
-mod private {
-    use super::*;
-
-    pub struct Finder<'builder, Schema: SchemaTrait> {
-        builder: &'builder Schema::Builder,
-        offset: EntryIdx,
-        count: EntryCount,
-        phantom_schema: PhantomData<Schema>,
-    }
-
-    impl<'builder, Schema: SchemaTrait> Finder<'builder, Schema> {
-        pub fn new(
-            builder: &'builder Schema::Builder,
-            offset: EntryIdx,
-            count: EntryCount,
-        ) -> Self {
-            Self {
-                builder,
-                offset,
-                count,
-                phantom_schema: PhantomData,
-            }
-        }
-
-        fn _get_entry(&self, id: EntryIdx) -> Result<<Schema::Builder as BuilderTrait>::Entry> {
-            self.builder.create_entry(self.offset + id)
-        }
-
-        pub fn offset(&self) -> EntryIdx {
-            self.offset
-        }
-
-        pub fn count(&self) -> EntryCount {
-            self.count
-        }
-
-        pub fn builder(&self) -> &'builder Schema::Builder {
-            self.builder
-        }
-
-        pub fn get_entry(&self, id: EntryIdx) -> Result<<Schema::Builder as BuilderTrait>::Entry> {
-            if id.is_valid(self.count) {
-                self._get_entry(id)
-            } else {
-                Err("Invalid id".to_string().into())
-            }
-        }
-
-        pub fn find<Comparator: CompareTrait<Schema>>(
-            &self,
-            comparator: &Comparator,
-        ) -> Result<Option<EntryIdx>> {
-            for idx in self.count {
-                let cmp = comparator.compare_entry(self.offset + idx)?;
-                if cmp.is_eq() {
-                    return Ok(Some(idx));
-                }
-            }
-            Ok(None)
-        }
-    }
+pub struct Finder<'builder, Schema: SchemaTrait> {
+    builder: &'builder Schema::Builder,
+    offset: EntryIdx,
+    count: EntryCount,
+    phantom_schema: PhantomData<Schema>,
 }
 
-pub type Finder<'builder, Schema> = private::Finder<'builder, Schema>;
+impl<'builder, Schema: SchemaTrait> Finder<'builder, Schema> {
+    pub fn new(builder: &'builder Schema::Builder, offset: EntryIdx, count: EntryCount) -> Self {
+        Self {
+            builder,
+            offset,
+            count,
+            phantom_schema: PhantomData,
+        }
+    }
+
+    fn _get_entry(&self, id: EntryIdx) -> Result<<Schema::Builder as BuilderTrait>::Entry> {
+        self.builder.create_entry(self.offset + id)
+    }
+
+    pub fn offset(&self) -> EntryIdx {
+        self.offset
+    }
+
+    pub fn count(&self) -> EntryCount {
+        self.count
+    }
+
+    pub fn builder(&self) -> &'builder Schema::Builder {
+        self.builder
+    }
+
+    pub fn get_entry(&self, id: EntryIdx) -> Result<<Schema::Builder as BuilderTrait>::Entry> {
+        if id.is_valid(self.count) {
+            self._get_entry(id)
+        } else {
+            Err("Invalid id".to_string().into())
+        }
+    }
+
+    pub fn find<Comparator: CompareTrait<Schema>>(
+        &self,
+        comparator: &Comparator,
+    ) -> Result<Option<EntryIdx>> {
+        for idx in self.count {
+            let cmp = comparator.compare_entry(self.offset + idx)?;
+            if cmp.is_eq() {
+                return Ok(Some(idx));
+            }
+        }
+        Ok(None)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -163,8 +153,8 @@ mod tests {
         let value_storage = Rc::new(mock::ValueStorage {});
         let resolver = Resolver::new(Rc::clone(&value_storage));
         let builder = mock::Builder {};
-        let finder: private::Finder<mock::Schema> =
-            private::Finder::new(&builder, EntryIdx::from(0), EntryCount::from(10));
+        let finder: Finder<mock::Schema> =
+            Finder::new(&builder, EntryIdx::from(0), EntryCount::from(10));
 
         for i in 0..10 {
             let entry = finder.get_entry(i.into()).unwrap();
