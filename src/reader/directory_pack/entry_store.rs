@@ -55,25 +55,10 @@ impl EntryStore {
         })
     }
 
-    pub fn get_entry<Builder: BuilderTrait>(
-        &self,
-        builder: &Builder,
-        idx: EntryIdx,
-    ) -> Result<Builder::Entry> {
+    pub fn get_entry_reader(&self, idx: EntryIdx) -> Reader {
         match self {
-            EntryStore::Plain(store) => store.get_entry(builder, idx),
-            /*            _ => todo!()*/
-        }
-    }
-
-    pub fn compare_entry<Comparator: CompareTrait>(
-        &self,
-        idx: EntryIdx,
-        comparator: &Comparator,
-    ) -> Result<Ordering> {
-        match self {
-            EntryStore::Plain(store) => store.compare_entry(idx, comparator),
-            /*            _ => todo!()*/
+            EntryStore::Plain(store) => store.get_entry_reader(idx),
+            /*  todo!() */
         }
     }
 
@@ -104,27 +89,11 @@ impl PlainStore {
         })
     }
 
-    fn get_reader(&self, idx: EntryIdx) -> Reader {
+    fn get_entry_reader(&self, idx: EntryIdx) -> Reader {
         self.entry_reader.create_sub_reader(
             Offset::from(self.layout.size.into_u64() * idx.into_u64()),
             End::Size(self.layout.size),
         )
-    }
-
-    pub fn get_entry<Builder: BuilderTrait>(
-        &self,
-        builder: &Builder,
-        idx: EntryIdx,
-    ) -> Result<Builder::Entry> {
-        builder.create_entry(idx, &self.get_reader(idx))
-    }
-
-    pub fn compare_entry<Comparator: CompareTrait>(
-        &self,
-        idx: EntryIdx,
-        comparator: &Comparator,
-    ) -> Result<Ordering> {
-        comparator.compare(&self.get_reader(idx))
     }
 
     pub fn layout(&self) -> &Layout {
@@ -147,14 +116,15 @@ impl<Schema: SchemaTrait> EntryStoreFront<Schema> {
 impl<Schema: SchemaTrait> EntryStoreTrait for EntryStoreFront<Schema> {
     type Builder = Schema::Builder;
     fn get_entry(&self, idx: EntryIdx) -> Result<<Self::Builder as BuilderTrait>::Entry> {
-        self.store.get_entry(&self.builder, idx)
+        self.builder
+            .create_entry(idx, &self.store.get_entry_reader(idx))
     }
     fn compare_entry<Comparator: CompareTrait>(
         &self,
         idx: EntryIdx,
         comparator: &Comparator,
     ) -> Result<Ordering> {
-        self.store.compare_entry(idx, comparator)
+        comparator.compare(&self.store.get_entry_reader(idx))
     }
 }
 
