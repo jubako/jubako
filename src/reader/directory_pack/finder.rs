@@ -1,10 +1,14 @@
 use super::builder::BuilderTrait;
 use super::entry_store::{EntryStoreFront, EntryStoreTrait};
-use super::property_compare::CompareTrait;
 use super::schema::SchemaTrait;
 use crate::bases::*;
+use std::cmp::Ordering;
 use std::marker::PhantomData;
 use std::rc::Rc;
+
+pub trait CompareTrait {
+    fn compare(&self, reader: &Reader) -> Result<Ordering>;
+}
 
 mod private {
     use super::*;
@@ -44,8 +48,8 @@ mod private {
             self.count
         }
 
-        pub fn get_store(&self) -> Rc<EntryStore> {
-            Rc::clone(&self.store)
+        pub fn get_store(&self) -> &Rc<EntryStore> {
+            &self.store
         }
 
         pub fn get_entry(&self, id: EntryIdx) -> Result<<Schema::Builder as BuilderTrait>::Entry> {
@@ -56,13 +60,12 @@ mod private {
             }
         }
 
-        pub fn find<F>(&self, comparator: &F) -> Result<Option<EntryIdx>>
-        where
-            F: CompareTrait<<Schema::Builder as BuilderTrait>::Entry>,
-        {
+        pub fn find<Comparator: CompareTrait>(
+            &self,
+            comparator: &Comparator,
+        ) -> Result<Option<EntryIdx>> {
             for idx in self.count {
-                let entry = self._get_entry(idx)?;
-                let cmp = comparator.compare(&entry)?;
+                let cmp = self.store.compare_entry(self.offset + idx, comparator)?;
                 if cmp.is_eq() {
                     return Ok(Some(idx));
                 }
@@ -81,7 +84,6 @@ mod tests {
     use crate::reader::directory_pack::EntryTrait;
     use crate::reader::directory_pack::{builder, layout, schema};
     use crate::reader::RawValue;
-    use crate::reader::Value;
     use std::rc::Rc;
 
     mod mock {
@@ -109,6 +111,24 @@ mod tests {
                 })
             }
         }
+
+        pub struct EntryCompare {
+            reference: u32,
+        }
+
+        impl EntryCompare {
+            pub fn new(reference: u32) -> Self {
+                Self { reference }
+            }
+        }
+
+        impl CompareTrait for EntryCompare {
+            fn compare(&self, reader: &Reader) -> Result<Ordering> {
+                let v = reader.read_u32(Offset::zero())?;
+                Ok(v.cmp(&self.reference))
+            }
+        }
+
         pub struct Builder {}
         impl builder::BuilderTrait for Builder {
             type Entry = Entry;
@@ -138,8 +158,16 @@ mod tests {
                 if idx.into_u32() >= 10 {
                     panic!()
                 }
-                self.builder
-                    .create_entry(idx, &Reader::new(vec![], End::None))
+                let d = idx.0.to_be_bytes().to_vec();
+                self.builder.create_entry(idx, &Reader::new(d, End::None))
+            }
+            fn compare_entry<Comparator: CompareTrait>(
+                &self,
+                idx: EntryIdx,
+                comparator: &Comparator,
+            ) -> Result<Ordering> {
+                let d = idx.into_u32().to_be_bytes().to_vec();
+                comparator.compare(&Reader::new(d, End::None))
             }
         }
 
@@ -157,12 +185,6 @@ mod tests {
                 unreachable!()
             }
         }
-
-        pub type PropertyCompare =
-            crate::reader::directory_pack::property_compare::private::PropertyCompare<
-                ValueStorage,
-                Entry,
-            >;
     }
 
     #[test]
@@ -181,16 +203,14 @@ mod tests {
         }
 
         for i in 0..10 {
-            let comparator =
-                mock::PropertyCompare::new(resolver.clone(), 0.into(), Value::Unsigned(i));
+            let comparator = mock::EntryCompare::new(i);
             let idx = finder.find(&comparator).unwrap().unwrap();
             let entry = finder.get_entry(idx).unwrap();
             let value0 = entry.get_value(0.into()).unwrap();
             assert_eq!(resolver.resolve_to_unsigned(&value0), i as u64);
         }
 
-        let comparator =
-            mock::PropertyCompare::new(resolver.clone(), 0.into(), Value::Unsigned(10));
+        let comparator = mock::EntryCompare::new(10);
         let result = finder.find(&comparator).unwrap();
         assert_eq!(result, None);
     }

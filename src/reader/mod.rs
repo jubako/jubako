@@ -8,8 +8,8 @@ pub use self::jubako::Container;
 pub use content_pack::ContentPack;
 pub use directory_pack::{builder, layout, schema};
 pub use directory_pack::{
-    Array, AnySchema, CompareTrait, Content, DirectoryPack, EntryStoreTrait, EntryTrait, Finder, Index,
-    LazyEntry as Entry, PropertyCompare, RawValue, Resolver, Value, ValueStorage,
+    AnyPropertyCompare, AnySchema, Array, CompareTrait, Content, DirectoryPack, EntryStoreTrait,
+    EntryTrait, Finder, Index, LazyEntry as Entry, RawValue, Resolver, Value, ValueStorage,
 };
 pub use manifest_pack::{ManifestPack, PackInfo};
 

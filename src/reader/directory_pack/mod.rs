@@ -23,9 +23,9 @@ use std::rc::Rc;
 use uuid::Uuid;
 
 pub use self::entry_store::EntryStoreTrait;
-pub use self::finder::Finder;
+pub use self::finder::{CompareTrait, Finder};
 pub use self::index::Index;
-pub use self::property_compare::{CompareTrait, PropertyCompare};
+pub use self::property_compare::AnyPropertyCompare;
 pub use crate::common::{Content, Value};
 pub use lazy_entry::LazyEntry;
 pub use raw_value::{Array, Extend, RawValue};

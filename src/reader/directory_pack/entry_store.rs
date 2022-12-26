@@ -1,7 +1,9 @@
+use super::finder::CompareTrait;
 use super::layout::Layout;
 use super::schema::SchemaTrait;
 use super::BuilderTrait;
 use crate::bases::*;
+use std::cmp::Ordering;
 use std::rc::Rc;
 
 #[repr(u8)]
@@ -30,6 +32,11 @@ impl Producable for StoreKind {
 pub trait EntryStoreTrait {
     type Builder: BuilderTrait;
     fn get_entry(&self, idx: EntryIdx) -> Result<<Self::Builder as BuilderTrait>::Entry>;
+    fn compare_entry<Comparator: CompareTrait>(
+        &self,
+        idx: EntryIdx,
+        comparator: &Comparator,
+    ) -> Result<Ordering>;
 }
 
 #[derive(Debug)]
@@ -55,6 +62,17 @@ impl EntryStore {
     ) -> Result<Builder::Entry> {
         match self {
             EntryStore::Plain(store) => store.get_entry(builder, idx),
+            /*            _ => todo!()*/
+        }
+    }
+
+    pub fn compare_entry<Comparator: CompareTrait>(
+        &self,
+        idx: EntryIdx,
+        comparator: &Comparator,
+    ) -> Result<Ordering> {
+        match self {
+            EntryStore::Plain(store) => store.compare_entry(idx, comparator),
             /*            _ => todo!()*/
         }
     }
@@ -86,16 +104,27 @@ impl PlainStore {
         })
     }
 
+    fn get_reader(&self, idx: EntryIdx) -> Reader {
+        self.entry_reader.create_sub_reader(
+            Offset::from(self.layout.size.into_u64() * idx.into_u64()),
+            End::Size(self.layout.size),
+        )
+    }
+
     pub fn get_entry<Builder: BuilderTrait>(
         &self,
         builder: &Builder,
         idx: EntryIdx,
     ) -> Result<Builder::Entry> {
-        let reader = self.entry_reader.create_sub_reader(
-            Offset::from(self.layout.size.into_u64() * idx.into_u64()),
-            End::Size(self.layout.size),
-        );
-        builder.create_entry(idx, &reader)
+        builder.create_entry(idx, &self.get_reader(idx))
+    }
+
+    pub fn compare_entry<Comparator: CompareTrait>(
+        &self,
+        idx: EntryIdx,
+        comparator: &Comparator,
+    ) -> Result<Ordering> {
+        comparator.compare(&self.get_reader(idx))
     }
 
     pub fn layout(&self) -> &Layout {
@@ -105,7 +134,7 @@ impl PlainStore {
 
 pub struct EntryStoreFront<Schema: SchemaTrait> {
     pub store: Rc<EntryStore>,
-    builder: Schema::Builder,
+    pub builder: Schema::Builder,
 }
 
 impl<Schema: SchemaTrait> EntryStoreFront<Schema> {
@@ -119,6 +148,13 @@ impl<Schema: SchemaTrait> EntryStoreTrait for EntryStoreFront<Schema> {
     type Builder = Schema::Builder;
     fn get_entry(&self, idx: EntryIdx) -> Result<<Self::Builder as BuilderTrait>::Entry> {
         self.store.get_entry(&self.builder, idx)
+    }
+    fn compare_entry<Comparator: CompareTrait>(
+        &self,
+        idx: EntryIdx,
+        comparator: &Comparator,
+    ) -> Result<Ordering> {
+        self.store.compare_entry(idx, comparator)
     }
 }
 

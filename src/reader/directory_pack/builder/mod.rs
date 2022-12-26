@@ -2,7 +2,7 @@ mod property;
 
 use super::layout::{Layout, Variant};
 use super::raw_value::RawValue;
-use super::LazyEntry;
+use super::{AnyPropertyCompare, LazyEntry, Resolver, Value};
 use crate::bases::*;
 use std::rc::Rc;
 
@@ -41,11 +41,28 @@ impl AnyBuilder {
             .collect();
         Self { variants }
     }
+
+    pub fn new_property_compare(
+        &self,
+        resolver: Resolver,
+        property_id: PropertyIdx,
+        value: Value,
+    ) -> AnyPropertyCompare {
+        AnyPropertyCompare::new(resolver, self, vec![property_id], vec![value])
+    }
+
+    pub fn new_multiple_property_compare(
+        &self,
+        resolver: Resolver,
+        property_ids: Vec<PropertyIdx>,
+        values: Vec<Value>,
+    ) -> AnyPropertyCompare {
+        AnyPropertyCompare::new(resolver, self, property_ids, values)
+    }
 }
 
 impl BuilderTrait for AnyBuilder {
     type Entry = LazyEntry;
-
     fn create_entry(&self, _idx: EntryIdx, reader: &Reader) -> Result<LazyEntry> {
         let variant_id: VariantIdx = if self.variants.len() > 1 {
             reader.read_u8(Offset::zero())?

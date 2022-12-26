@@ -496,7 +496,7 @@ test_suite! {
             if let reader::RawValue::Array(array) = &value_0 {
                 assert_eq!(
                     array,
-                    &reader::testing::Array::new(
+                    &reader::Array::new(
                         vec!(),
                         Some(reader::testing::Extend::new(0.into(), jubako::ValueIdx::from(i.into_u64())))
                     ));
@@ -509,7 +509,7 @@ test_suite! {
             if let reader::RawValue::Content(content) = value_1 {
                 assert_eq!(
                     content,
-                    reader::testing::Content::new(
+                    reader::Content::new(
                         jubako::ContentAddress{pack_id:0.into(), content_id:jubako::ContentIdx::from(i.into_u32())},
                         None
                     ));
