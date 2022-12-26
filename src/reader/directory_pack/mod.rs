@@ -1,14 +1,16 @@
+pub mod builder;
 mod entry_store;
 mod finder;
 mod index;
-mod layout;
+pub mod layout;
 mod lazy_entry;
 mod property_compare;
+mod raw_layout;
 mod raw_value;
 mod resolver;
+pub mod schema;
 mod value_store;
 
-use self::entry_store::EntryStore;
 use self::index::IndexHeader;
 use self::value_store::{ValueStore, ValueStoreTrait};
 use crate::bases::*;
@@ -18,17 +20,18 @@ use std::io::Read;
 use std::rc::Rc;
 use uuid::Uuid;
 
-pub use self::entry_store::EntryStoreTrait;
-pub use self::finder::Finder;
+pub use self::entry_store::EntryStore;
+pub use self::finder::{CompareTrait, Finder};
 pub use self::index::Index;
-pub use self::property_compare::{CompareTrait, PropertyCompare};
+pub use self::property_compare::AnyPropertyCompare;
 pub use crate::common::{Content, Value};
 pub use lazy_entry::LazyEntry;
 pub use raw_value::{Array, Extend, RawValue};
 pub use resolver::Resolver;
+pub use schema::AnySchema;
 
 pub trait EntryTrait {
-    fn get_variant_id(&self) -> u8;
+    fn get_variant_id(&self) -> VariantIdx;
     fn get_value(&self, idx: PropertyIdx) -> Result<RawValue>;
 }
 
@@ -205,6 +208,7 @@ mod tests {
     use super::raw_value::*;
     use super::*;
     use crate::common::{ContentAddress, PackHeader};
+    use crate::reader::schema::SchemaTrait;
 
     #[test]
     fn test_directorypackheader() {
@@ -344,11 +348,15 @@ mod tests {
         let value_storage = directory_pack.create_value_storage();
         let entry_storage = directory_pack.create_entry_storage();
         let resolver = Resolver::new(value_storage);
-        let finder = index.get_finder(&entry_storage).unwrap();
+        let schema = schema::AnySchema {};
+        let builder = schema
+            .create_builder(index.get_store(&entry_storage).unwrap())
+            .unwrap();
+        let finder: Finder<schema::AnySchema> = index.get_finder(&builder).unwrap();
         assert_eq!(index.entry_count(), 4.into());
         {
             let entry = finder.get_entry(0.into()).unwrap();
-            assert_eq!(entry.get_variant_id(), 0);
+            assert_eq!(entry.get_variant_id().into_u8(), 0);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
@@ -389,7 +397,7 @@ mod tests {
         }
         {
             let entry = finder.get_entry(1.into()).unwrap();
-            assert_eq!(entry.get_variant_id(), 0);
+            assert_eq!(entry.get_variant_id().into_u8(), 0);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
@@ -430,7 +438,7 @@ mod tests {
         }
         {
             let entry = finder.get_entry(2.into()).unwrap();
-            assert_eq!(entry.get_variant_id(), 0);
+            assert_eq!(entry.get_variant_id().into_u8(), 0);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
@@ -468,7 +476,7 @@ mod tests {
         }
         {
             let entry = finder.get_entry(3.into()).unwrap();
-            assert_eq!(entry.get_variant_id(), 0);
+            assert_eq!(entry.get_variant_id().into_u8(), 0);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(

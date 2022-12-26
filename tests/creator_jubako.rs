@@ -13,6 +13,7 @@ test_suite! {
     use jubako::creator::layout;
     use jubako::Result;
     use jubako::reader::EntryTrait;
+    use jubako::reader::schema::SchemaTrait;
     use std::io::Read;
     use crate::Entry as TestEntry;
 
@@ -143,13 +144,15 @@ test_suite! {
         let entry_storage = directory_pack.create_entry_storage();
         let value_storage = directory_pack.create_value_storage();
         let resolver = jubako::reader::Resolver::new(value_storage);
-        let finder = index.get_finder(&entry_storage).unwrap();
+        let schema = jubako::reader::AnySchema {};
+        let builder = schema.create_builder(index.get_store(&entry_storage).unwrap()).unwrap();
+        let finder: jubako::reader::Finder<jubako::reader::AnySchema> = index.get_finder(&builder).unwrap();
         println!("Read index");
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {
             println!("Check entry count {:?}", i);
             let entry = finder.get_entry(i.into()).unwrap();
-            assert_eq!(entry.get_variant_id(), 0);
+            assert_eq!(entry.get_variant_id(), 0.into());
             println!("Check value 0");
             let value_0 = entry.get_value(0.into()).unwrap();
             let value_0 = resolver.resolve_to_vec(&value_0).unwrap();

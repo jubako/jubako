@@ -1,3 +1,4 @@
+use jbk::reader::schema::SchemaTrait;
 use jbk::reader::EntryTrait;
 use jubako as jbk;
 use std::error::Error;
@@ -10,11 +11,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let entry_storage = directory.create_entry_storage();
     let value_storage = directory.create_value_storage();
     let resolver = jbk::reader::Resolver::new(value_storage); // This is needed to get our info in the value_store
-    let finder = index.get_finder(&entry_storage)?; // To found our entries.
+    let schema = jbk::reader::AnySchema {};
+    let builder = schema.create_builder(index.get_store(&entry_storage)?)?;
+    let finder: jbk::reader::Finder<jbk::reader::AnySchema> = index.get_finder(&builder)?; // To found our entries.
 
     {
         let entry = finder.get_entry(0.into())?;
-        assert_eq!(entry.get_variant_id(), 0); // We correctly have variant 0
+        assert_eq!(entry.get_variant_id(), 0.into()); // We correctly have variant 0
         assert_eq!(
             resolver.resolve_to_vec(&entry.get_value(0.into())?)?,
             Vec::from("Super")
@@ -35,7 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     {
         let entry = finder.get_entry(1.into())?;
-        assert_eq!(entry.get_variant_id(), 1);
+        assert_eq!(entry.get_variant_id(), 1.into());
         assert_eq!(
             resolver.resolve_to_vec(&entry.get_value(0.into())?)?,
             Vec::from("Mega")
@@ -49,7 +52,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     {
         let entry = finder.get_entry(2.into())?;
-        assert_eq!(entry.get_variant_id(), 1);
+        assert_eq!(entry.get_variant_id(), 1.into());
         assert_eq!(
             resolver.resolve_to_vec(&entry.get_value(0.into())?)?,
             Vec::from("Hyper")

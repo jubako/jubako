@@ -1,4 +1,5 @@
-use super::{EntryStorage, Finder};
+use super::schema;
+use super::{EntryStorage, EntryStore, Finder};
 use crate::bases::*;
 use crate::common::ContentAddress;
 use std::rc::Rc;
@@ -51,12 +52,20 @@ impl Index {
         self.header.entry_count
     }
 
-    pub fn get_finder(&self, entry_storage: &EntryStorage) -> Result<Finder> {
-        let store = entry_storage.get_entry_store(self.header.store_id)?;
+    pub fn get_finder<'builder, Schema: schema::SchemaTrait>(
+        &self,
+        builder: &'builder Schema::Builder,
+    ) -> Result<Finder<'builder, Schema>> {
         Ok(Finder::new(
-            Rc::clone(store),
+            builder,
             self.entry_offset(),
             self.entry_count(),
+        ))
+    }
+
+    pub fn get_store(&self, entry_storage: &EntryStorage) -> Result<Rc<EntryStore>> {
+        Ok(Rc::clone(
+            entry_storage.get_entry_store(self.header.store_id)?,
         ))
     }
 

@@ -1,76 +1,75 @@
-use super::entry_store::EntryStoreTrait;
-use super::property_compare::CompareTrait;
-use super::EntryStore;
+use super::builder::BuilderTrait;
+use super::schema::SchemaTrait;
 use crate::bases::*;
-use std::rc::Rc;
+use std::cmp::Ordering;
+use std::marker::PhantomData;
 
-mod private {
-    use super::*;
-
-    pub struct Finder<EntryStore: EntryStoreTrait> {
-        store: Rc<EntryStore>,
-        offset: EntryIdx,
-        count: EntryCount,
-    }
-
-    impl<EntryStore: EntryStoreTrait> Finder<EntryStore> {
-        pub fn new(store: Rc<EntryStore>, offset: EntryIdx, count: EntryCount) -> Self {
-            Self {
-                store,
-                offset,
-                count,
-            }
-        }
-
-        fn _get_entry(&self, id: EntryIdx) -> Result<EntryStore::Entry> {
-            self.store.get_entry(self.offset + id)
-        }
-
-        pub fn offset(&self) -> EntryIdx {
-            self.offset
-        }
-
-        pub fn count(&self) -> EntryCount {
-            self.count
-        }
-
-        pub fn get_store(&self) -> &Rc<EntryStore> {
-            &self.store
-        }
-
-        pub fn get_entry(&self, id: EntryIdx) -> Result<EntryStore::Entry> {
-            if id.is_valid(self.count) {
-                self._get_entry(id)
-            } else {
-                Err("Invalid id".to_string().into())
-            }
-        }
-
-        pub fn find<F>(&self, comparator: &F) -> Result<Option<EntryIdx>>
-        where
-            F: CompareTrait<EntryStore::Entry>,
-        {
-            for idx in self.count {
-                let entry = self._get_entry(idx)?;
-                let cmp = comparator.compare(&entry)?;
-                if cmp.is_eq() {
-                    return Ok(Some(idx));
-                }
-            }
-            Ok(None)
-        }
-    }
+pub trait CompareTrait<Schema: SchemaTrait> {
+    fn compare_entry(&self, idx: EntryIdx) -> Result<Ordering>;
 }
 
-pub type Finder = private::Finder<EntryStore>;
+pub struct Finder<'builder, Schema: SchemaTrait> {
+    builder: &'builder Schema::Builder,
+    offset: EntryIdx,
+    count: EntryCount,
+    phantom_schema: PhantomData<Schema>,
+}
+
+impl<'builder, Schema: SchemaTrait> Finder<'builder, Schema> {
+    pub fn new(builder: &'builder Schema::Builder, offset: EntryIdx, count: EntryCount) -> Self {
+        Self {
+            builder,
+            offset,
+            count,
+            phantom_schema: PhantomData,
+        }
+    }
+
+    fn _get_entry(&self, id: EntryIdx) -> Result<<Schema::Builder as BuilderTrait>::Entry> {
+        self.builder.create_entry(self.offset + id)
+    }
+
+    pub fn offset(&self) -> EntryIdx {
+        self.offset
+    }
+
+    pub fn count(&self) -> EntryCount {
+        self.count
+    }
+
+    pub fn builder(&self) -> &'builder Schema::Builder {
+        self.builder
+    }
+
+    pub fn get_entry(&self, id: EntryIdx) -> Result<<Schema::Builder as BuilderTrait>::Entry> {
+        if id.is_valid(self.count) {
+            self._get_entry(id)
+        } else {
+            Err("Invalid id".to_string().into())
+        }
+    }
+
+    pub fn find<Comparator: CompareTrait<Schema>>(
+        &self,
+        comparator: &Comparator,
+    ) -> Result<Option<EntryIdx>> {
+        for idx in self.count {
+            let cmp = comparator.compare_entry(self.offset + idx)?;
+            if cmp.is_eq() {
+                return Ok(Some(idx));
+            }
+        }
+        Ok(None)
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::reader::directory_pack::resolver::private::Resolver;
-    use crate::reader::directory_pack::EntryTrait;
+    use crate::reader::directory_pack::{builder, schema};
+    use crate::reader::directory_pack::{EntryStore, EntryTrait};
     use crate::reader::RawValue;
-    use crate::reader::Value;
     use std::rc::Rc;
 
     mod mock {
@@ -88,8 +87,8 @@ mod tests {
             }
         }
         impl EntryTrait for Entry {
-            fn get_variant_id(&self) -> u8 {
-                0
+            fn get_variant_id(&self) -> VariantIdx {
+                0.into()
             }
             fn get_value(&self, idx: PropertyIdx) -> Result<RawValue> {
                 Ok(match idx {
@@ -98,14 +97,38 @@ mod tests {
                 })
             }
         }
-        pub struct EntryStore {}
-        impl EntryStoreTrait for EntryStore {
+
+        pub struct EntryCompare {
+            reference: u32,
+        }
+
+        impl EntryCompare {
+            pub fn new(reference: u32) -> Self {
+                Self { reference }
+            }
+        }
+
+        impl CompareTrait<Schema> for EntryCompare {
+            fn compare_entry(&self, index: EntryIdx) -> Result<Ordering> {
+                // In our mock schema, the value stored in the entry is equal to the index.
+                Ok(index.into_u32().cmp(&self.reference))
+            }
+        }
+
+        pub struct Builder {}
+        impl builder::BuilderTrait for Builder {
             type Entry = Entry;
-            fn get_entry(&self, idx: EntryIdx) -> Result<Entry> {
-                Ok(Entry::new(match idx {
-                    EntryIdx(Idx(x)) if x < 10 => x as u16,
-                    _ => panic!(),
-                }))
+            fn create_entry(&self, idx: EntryIdx) -> Result<Self::Entry> {
+                Ok(Entry::new(idx.into_u16()))
+            }
+        }
+
+        pub struct Schema {}
+
+        impl schema::SchemaTrait for Schema {
+            type Builder = Builder;
+            fn create_builder(&self, _store: Rc<EntryStore>) -> Result<Self::Builder> {
+                unreachable!()
             }
         }
 
@@ -123,20 +146,16 @@ mod tests {
                 unreachable!()
             }
         }
-
-        pub type PropertyCompare =
-            crate::reader::directory_pack::property_compare::private::PropertyCompare<
-                ValueStorage,
-                Entry,
-            >;
     }
 
     #[test]
     fn test_finder() {
         let value_storage = Rc::new(mock::ValueStorage {});
         let resolver = Resolver::new(Rc::clone(&value_storage));
-        let index_store = Rc::new(mock::EntryStore {});
-        let finder = private::Finder::new(index_store, 0.into(), 10.into());
+        let builder = mock::Builder {};
+        let finder: Finder<mock::Schema> =
+            Finder::new(&builder, EntryIdx::from(0), EntryCount::from(10));
+
         for i in 0..10 {
             let entry = finder.get_entry(i.into()).unwrap();
             let value0 = entry.get_value(0.into()).unwrap();
@@ -144,16 +163,14 @@ mod tests {
         }
 
         for i in 0..10 {
-            let comparator =
-                mock::PropertyCompare::new(resolver.clone(), 0.into(), Value::Unsigned(i));
+            let comparator = mock::EntryCompare::new(i);
             let idx = finder.find(&comparator).unwrap().unwrap();
             let entry = finder.get_entry(idx).unwrap();
             let value0 = entry.get_value(0.into()).unwrap();
             assert_eq!(resolver.resolve_to_unsigned(&value0), i as u64);
         }
 
-        let comparator =
-            mock::PropertyCompare::new(resolver.clone(), 0.into(), Value::Unsigned(10));
+        let comparator = mock::EntryCompare::new(10);
         let result = finder.find(&comparator).unwrap();
         assert_eq!(result, None);
     }

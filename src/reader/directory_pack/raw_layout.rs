@@ -26,6 +26,10 @@ impl RawProperty {
     pub fn new(kind: RawPropertyKind, size: usize) -> Self {
         Self { size, kind }
     }
+
+    pub fn is_variant_id(&self) -> bool {
+        self.kind == RawPropertyKind::VariantId
+    }
 }
 
 impl Producable for RawProperty {
@@ -63,8 +67,8 @@ impl Producable for RawProperty {
             0b0110 | 0b0111 => {
                 let flookup: bool = proptype & 0b1 != 0;
                 let size = propdata as u16 + 1;
-                let valuestoreidx = stream.read_u8()?;
-                (size, RawPropertyKind::VLArray(flookup, valuestoreidx))
+                let keystoreidx = stream.read_u8()?;
+                (size, RawPropertyKind::VLArray(flookup, keystoreidx))
             }
             0b1000 => (1, RawPropertyKind::VariantId),
             _ => {
@@ -78,6 +82,28 @@ impl Producable for RawProperty {
             size: propsize as usize,
             kind,
         })
+    }
+}
+
+pub struct RawLayout(Vec<RawProperty>);
+
+impl std::ops::Deref for RawLayout {
+    type Target = Vec<RawProperty>;
+    fn deref(&self) -> &Vec<RawProperty> {
+        &self.0
+    }
+}
+
+impl Producable for RawLayout {
+    type Output = Self;
+    fn produce(stream: &mut Stream) -> Result<Self> {
+        let raw_property_count: PropertyCount = Count::<u8>::produce(stream)?.into();
+        let mut raw_properties = Vec::with_capacity(raw_property_count.into_usize());
+        for _ in raw_property_count {
+            let raw_property = RawProperty::produce(stream)?;
+            raw_properties.push(raw_property);
+        }
+        Ok(Self(raw_properties))
     }
 }
 
