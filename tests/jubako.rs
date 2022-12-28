@@ -149,7 +149,7 @@ impl IndexStore {
         let mut data = vec![];
         data.push(0x00); // kind
         data.extend(7_u16.to_be_bytes()); // entry_size
-        data.push(0x01); // variant count
+        data.push(0x00); // variant count
         data.push(0x03); // key count
         data.extend(&[0b0110_0000, 0x00]); // The first key, a PString(1) idx 0
         data.extend(&[0b0001_0000]); // The second key, the content address
@@ -359,7 +359,7 @@ test_suite! {
         file.write_all(&[0x00;24])?; // index_ptr_offset, entry_store_ptr_offset, key_store_ptr_offset, to be write after
         file.write_all(&1_u32.to_be_bytes())?; // index count
         file.write_all(&1_u32.to_be_bytes())?; // entry_store count
-        file.write_all(&1_u8.to_be_bytes())?; // key_store counti
+        file.write_all(&1_u8.to_be_bytes())?; // key_store count
         file.write_all(&[0xff;31])?; // free_data
 
         let key_store_ptr_offset = {
@@ -493,7 +493,7 @@ test_suite! {
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {
             let entry = finder.get_entry(i).unwrap();
-            assert_eq!(entry.get_variant_id(), 0.into());
+            assert_eq!(entry.get_variant_id().unwrap(), None);
             let value_0 = entry.get_value(0.into()).unwrap();
             if let reader::RawValue::Array(array) = &value_0 {
                 assert_eq!(

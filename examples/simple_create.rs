@@ -27,18 +27,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     let value_store = directory_pack.create_value_store(jbk::creator::ValueStoreKind::Plain);
 
     // Our entry kind will have two variants.
-    let entry_def = layout::Entry::new(vec![
+    let entry_def = layout::Entry::new(
         layout::Variant::new(vec![
             layout::Property::VLArray(0, Rc::clone(&value_store)), // One string, will be stored in value_store
             layout::Property::new_int(),                           // A integer
-            layout::Property::ContentAddress,                      // A "pointer" to a content.
         ]),
-        layout::Variant::new(vec![
-            layout::Property::VLArray(0, Rc::clone(&value_store)),
-            layout::Property::new_int(), //
-            layout::Property::new_int(), //
-        ]),
-    ]);
+        vec![
+            layout::Variant::new(vec![
+                layout::Property::ContentAddress, // A "pointer" to a content.
+            ]),
+            layout::Variant::new(vec![
+                layout::Property::new_int(), //
+            ]),
+        ],
+    );
 
     // The store for our entries.
     let entry_store_id = directory_pack.create_entry_store(entry_def);
@@ -49,7 +51,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut reader = jbk::creator::Stream::new(content, jbk::End::None);
     let content_id = content_pack.add_content(&mut reader)?;
     entry_store.add_entry(
-        0, // Variant 0
+        Some(0), // Variant 0
         vec![
             jbk::creator::Value::Array("Super".into()),
             jbk::creator::Value::Unsigned(50),
@@ -61,7 +63,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     entry_store.add_entry(
-        1, // Variant 1
+        Some(1), // Variant 1
         vec![
             jbk::creator::Value::Array("Mega".into()),
             jbk::creator::Value::Unsigned(42),
@@ -70,7 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     entry_store.add_entry(
-        1, // Variant 1
+        Some(1), // Variant 1
         vec![
             jbk::creator::Value::Array("Hyper".into()),
             jbk::creator::Value::Unsigned(45),

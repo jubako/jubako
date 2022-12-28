@@ -23,26 +23,43 @@ impl AnyVariantBuilder {
         self.properties[idx.into_usize()].create(reader)
     }
 
-    pub fn new_from_variant(variant: &Variant) -> Self {
+    pub fn new(variant: &Variant) -> Self {
         let properties = variant.properties.iter().map(|p| p.into()).collect();
         Self { properties }
     }
+
+    pub fn len(&self) -> u8 {
+        self.properties.len() as u8
+    }
+}
+
+pub struct LazyEntryProperties {
+    pub commons: AnyVariantBuilder,
+    pub variant_id: Option<Property<u8>>,
+    pub variants: Vec<AnyVariantBuilder>,
 }
 
 pub struct AnyBuilder {
-    variants: Vec<Rc<AnyVariantBuilder>>,
+    properties: Rc<LazyEntryProperties>,
     store: Rc<EntryStore>,
 }
 
 impl AnyBuilder {
     pub fn new(store: Rc<EntryStore>) -> Self {
-        let variants = store
-            .layout()
+        let layout = store.layout();
+        let commons = AnyVariantBuilder::new(&layout.common_variant);
+        let variants = layout
             .variants
             .iter()
-            .map(|v| Rc::new(AnyVariantBuilder::new_from_variant(v)))
+            .map(|v| AnyVariantBuilder::new(v))
             .collect();
-        Self { variants, store }
+        let variant_id = layout.variant_id_offset.map(Property::<u8>::new);
+        let properties = Rc::new(LazyEntryProperties {
+            commons,
+            variant_id,
+            variants,
+        });
+        Self { properties, store }
     }
 
     pub fn new_property_compare(
@@ -67,17 +84,12 @@ impl AnyBuilder {
 impl BuilderTrait for AnyBuilder {
     type Entry = LazyEntry;
     fn create_entry(&self, idx: EntryIdx) -> Result<LazyEntry> {
-        let reader = self.store.get_entry_reader(idx);
-        let variant_id: VariantIdx = if self.variants.len() > 1 {
-            reader.read_u8(Offset::zero())?
-        } else {
-            0
-        }
-        .into();
-        let variant_builder = &self.variants[variant_id.into_usize()];
+        let reader = self
+            .store
+            .get_entry_reader(idx)
+            .create_sub_reader(Offset::zero(), End::None);
         Ok(LazyEntry::new(
-            variant_id,
-            Rc::clone(variant_builder),
+            Rc::clone(&self.properties),
             reader.create_sub_reader(Offset::zero(), End::None),
         ))
     }
@@ -96,13 +108,16 @@ mod tests {
     #[test]
     fn create_entry() {
         let layout = Layout {
-            variants: vec![Rc::new(
-                Variant::new(vec![
+            common_variant: Variant::new(
+                0,
+                vec![
                     RawProperty::new(RawPropertyKind::ContentAddress(0), 4),
                     RawProperty::new(RawPropertyKind::UnsignedInt, 2),
-                ])
-                .unwrap(),
-            )],
+                ],
+            )
+            .unwrap(),
+            variant_id_offset: None,
+            variants: vec![],
             size: Size::new(6),
         };
         let content = vec![
@@ -118,7 +133,7 @@ mod tests {
         {
             let entry = builder.create_entry(0.into()).unwrap();
 
-            assert!(entry.get_variant_id() == 0.into());
+            assert!(entry.get_variant_id().unwrap().is_none());
             assert!(
                 entry.get_value(0.into()).unwrap()
                     == RawValue::Content(Content::new(
@@ -132,7 +147,7 @@ mod tests {
         {
             let entry = builder.create_entry(1.into()).unwrap();
 
-            assert!(entry.get_variant_id() == 0.into());
+            assert!(entry.get_variant_id().unwrap().is_none());
             assert!(
                 entry.get_value(0.into()).unwrap()
                     == RawValue::Content(Content::new(
@@ -147,23 +162,29 @@ mod tests {
     #[test]
     fn create_entry_with_variant() {
         let layout = Layout {
+            common_variant: Variant::new(0, vec![]).unwrap(),
+            variant_id_offset: Some(Offset::new(0)),
             variants: vec![
                 Rc::new(
-                    Variant::new(vec![
-                        RawProperty::new(RawPropertyKind::VariantId, 1),
-                        RawProperty::new(RawPropertyKind::Array, 4),
-                        RawProperty::new(RawPropertyKind::UnsignedInt, 2),
-                    ])
+                    Variant::new(
+                        1,
+                        vec![
+                            RawProperty::new(RawPropertyKind::Array, 4),
+                            RawProperty::new(RawPropertyKind::UnsignedInt, 2),
+                        ],
+                    )
                     .unwrap(),
                 ),
                 Rc::new(
-                    Variant::new(vec![
-                        RawProperty::new(RawPropertyKind::VariantId, 1),
-                        RawProperty::new(RawPropertyKind::Array, 2),
-                        RawProperty::new(RawPropertyKind::Padding, 1),
-                        RawProperty::new(RawPropertyKind::SignedInt, 1),
-                        RawProperty::new(RawPropertyKind::UnsignedInt, 2),
-                    ])
+                    Variant::new(
+                        1,
+                        vec![
+                            RawProperty::new(RawPropertyKind::Array, 2),
+                            RawProperty::new(RawPropertyKind::Padding, 1),
+                            RawProperty::new(RawPropertyKind::SignedInt, 1),
+                            RawProperty::new(RawPropertyKind::UnsignedInt, 2),
+                        ],
+                    )
                     .unwrap(),
                 ),
             ],
@@ -183,7 +204,7 @@ mod tests {
         {
             let entry = builder.create_entry(0.into()).unwrap();
 
-            assert!(entry.get_variant_id() == 0.into());
+            assert!(entry.get_variant_id().unwrap() == Some(0.into()));
             assert!(
                 entry.get_value(0.into()).unwrap()
                     == RawValue::Array(Array::new(vec![0xFF, 0xEE, 0xDD, 0xCC], None))
@@ -194,7 +215,7 @@ mod tests {
         {
             let entry = builder.create_entry(1.into()).unwrap();
 
-            assert!(entry.get_variant_id() == 1.into());
+            assert!(entry.get_variant_id().unwrap() == Some(1.into()));
             assert!(
                 entry.get_value(0.into()).unwrap()
                     == RawValue::Array(Array::new(vec![0xFF, 0xEE], None))

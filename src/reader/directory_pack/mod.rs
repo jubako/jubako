@@ -31,7 +31,7 @@ pub use resolver::Resolver;
 pub use schema::AnySchema;
 
 pub trait EntryTrait {
-    fn get_variant_id(&self) -> VariantIdx;
+    fn get_variant_id(&self) -> Result<Option<VariantIdx>>;
     fn get_value(&self, idx: PropertyIdx) -> Result<RawValue>;
 }
 
@@ -310,7 +310,7 @@ mod tests {
             0x00, 0x01, 0x00, 0x00, 0x51, 0x52, 0x53, 0x00, 0xaa, 0xaa, 0xaa, // Entry 4
             0x00, // kind
             0x00, 0x0B, // entry size
-            0x01, // variant count
+            0x00, // variant count
             0x05, // value count
             0b0110_0000, 0x00, // Pstring(1), idx 0x00
             0b0111_0000, 0x00,        // Psstringlookup(1), idx 0x00
@@ -356,7 +356,7 @@ mod tests {
         assert_eq!(index.entry_count(), 4.into());
         {
             let entry = finder.get_entry(0.into()).unwrap();
-            assert_eq!(entry.get_variant_id().into_u8(), 0);
+            assert_eq!(entry.get_variant_id().unwrap(), None);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
@@ -397,7 +397,7 @@ mod tests {
         }
         {
             let entry = finder.get_entry(1.into()).unwrap();
-            assert_eq!(entry.get_variant_id().into_u8(), 0);
+            assert_eq!(entry.get_variant_id().unwrap(), None);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
@@ -438,7 +438,7 @@ mod tests {
         }
         {
             let entry = finder.get_entry(2.into()).unwrap();
-            assert_eq!(entry.get_variant_id().into_u8(), 0);
+            assert_eq!(entry.get_variant_id().unwrap(), None);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
@@ -476,7 +476,7 @@ mod tests {
         }
         {
             let entry = finder.get_entry(3.into()).unwrap();
-            assert_eq!(entry.get_variant_id().into_u8(), 0);
+            assert_eq!(entry.get_variant_id().unwrap(), None);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(

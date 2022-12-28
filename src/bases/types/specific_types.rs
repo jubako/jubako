@@ -118,9 +118,8 @@ macro_rules! impl_add {
         impl std::ops::Sub<$base> for $idx_name {
             type Output = $idx_name;
             fn sub(self, other: $base) -> Self::Output {
-                $idx_name::from(self.0.0 - other)
+                $idx_name::from(self.0 .0 - other)
             }
-
         }
 
         impl $idx_name {
@@ -166,7 +165,7 @@ macro_rules! specific {
         impl std::ops::Not for $idx_name {
             type Output = bool;
             fn not(self) -> Self::Output {
-                self.0.0 == 0
+                self.0 .0 == 0
             }
         }
 
@@ -212,6 +211,13 @@ macro_rules! specific {
         impl From<Count<$base>> for $count_name {
             fn from(count: Count<$base>) -> Self {
                 Self(count)
+            }
+        }
+
+        impl std::ops::Not for $count_name {
+            type Output = bool;
+            fn not(self) -> Self::Output {
+                self.0 .0 == 0
             }
         }
 

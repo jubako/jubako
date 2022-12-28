@@ -8,8 +8,8 @@ pub struct Variant {
 }
 
 impl Variant {
-    pub fn new(raw_properties: Vec<RawProperty>) -> Result<Self> {
-        let mut offset = 0;
+    pub fn new(initial_offset: usize, raw_properties: Vec<RawProperty>) -> Result<Self> {
+        let mut offset = initial_offset;
         let mut current_idx = 0;
         let mut properties = Vec::new();
         while current_idx < raw_properties.len() {

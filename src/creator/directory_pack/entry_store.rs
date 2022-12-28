@@ -18,7 +18,7 @@ impl EntryStore {
         }
     }
 
-    pub fn add_entry(&mut self, variant_id: u8, values: Vec<common::Value>) {
+    pub fn add_entry(&mut self, variant_id: Option<u8>, values: Vec<common::Value>) {
         self.entries.push(Entry::new(variant_id, values));
     }
 
@@ -27,10 +27,23 @@ impl EntryStore {
     }
 
     pub(crate) fn finalize(&mut self) {
+        let mut fake_vec = vec![];
         for entry in &mut self.entries {
+            let mut key_iter = if self.layout.variants.is_empty() {
+                self.layout
+                    .common
+                    .keys
+                    .iter_mut()
+                    .chain(fake_vec.iter_mut())
+            } else {
+                self.layout.common.keys.iter_mut().chain(
+                    self.layout.variants[entry.variant_id.unwrap() as usize]
+                        .keys
+                        .iter_mut(),
+                )
+            };
             let mut value_iter = entry.values.iter_mut();
-            let variant = &mut self.layout.variants[entry.variant_id as usize];
-            for key in &mut variant.keys {
+            for key in &mut key_iter {
                 match key {
                     layout::Property::VLArray(flookup_size, store_handle) => {
                         let flookup_size = *flookup_size;
@@ -46,6 +59,7 @@ impl EntryStore {
                             *key = layout::Property::UnsignedInt(cmp::max(*max_value, *v));
                         }
                     }
+                    layout::Property::VariantId => {},
                     _ => {
                         value_iter.next();
                     }

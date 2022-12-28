@@ -6,25 +6,26 @@ use crate::creator::directory_pack::Entry as RawEntry;
 
 #[derive(Debug)]
 pub struct Variant {
-    pub(crate) need_variant_id: bool,
     pub keys: Vec<Property>,
 }
 
 impl Variant {
     pub fn new(keys: Vec<Property>) -> Self {
-        Self {
-            need_variant_id: false,
-            keys,
-        }
+        Self { keys }
     }
 
-    pub fn write_entry(&self, entry: &RawEntry, stream: &mut dyn OutStream) -> Result<usize> {
+    pub fn insert_variant_id(&mut self) {
+        self.keys.insert(0, Property::VariantId);
+    }
+
+    pub fn write_entry<'a>(
+        keys: impl Iterator<Item = &'a Property>,
+        entry: &RawEntry,
+        stream: &mut dyn OutStream,
+    ) -> Result<usize> {
         let mut written = 0;
-        if self.need_variant_id {
-            written += stream.write_u8(entry.variant_id)?;
-        }
         let mut value_iter = entry.values.iter();
-        for key in &self.keys {
+        for key in keys {
             match key {
                 Property::VLArray(flookup_size, store_handle) => {
                     let flookup_size = *flookup_size as usize;
@@ -64,20 +65,20 @@ impl Variant {
                     let data = vec![0x00; *size as usize];
                     written += stream.write(&data)?;
                 }
-                Property::VariantId => unreachable!(),
+                Property::VariantId => {
+                    written += stream.write_u8(entry.variant_id.unwrap())?;
+                }
             }
         }
         Ok(written)
     }
 
     pub(crate) fn entry_size(&self) -> u16 {
-        let base = if self.need_variant_id { 1 } else { 0 };
-        self.keys.iter().map(|k| k.size()).sum::<u16>() + base
+        self.keys.iter().map(|k| k.size()).sum::<u16>()
     }
 
     pub(crate) fn key_count(&self) -> u8 {
-        let base = if self.need_variant_id { 1 } else { 0 };
-        self.keys.iter().map(|k| k.key_count()).sum::<u8>() + base
+        self.keys.iter().map(|k| k.key_count()).sum::<u8>()
     }
 
     pub(crate) fn fill_to_size(&mut self, size: u16) {
@@ -96,9 +97,6 @@ impl Variant {
 impl Writable for Variant {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         let mut written = 0;
-        if self.need_variant_id {
-            written += Property::VariantId.write(stream)?;
-        }
         for key in &self.keys {
             written += key.write(stream)?;
         }

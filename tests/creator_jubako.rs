@@ -86,18 +86,17 @@ test_suite! {
         );
         let key_store_handle = creator.create_value_store(key_store_kind);
         let entry_def = layout::Entry::new(
-            vec![
-                layout::Variant::new(vec![
-                    layout::Property::VLArray(0, key_store_handle),
-                    layout::Property::ContentAddress,
-                    layout::Property::new_int()
-                ])
-            ]
+            layout::Variant::new(vec![
+                layout::Property::VLArray(0, key_store_handle),
+                layout::Property::ContentAddress,
+                layout::Property::new_int()
+            ]),
+            vec!()
         );
         let entry_store_idx = creator.create_entry_store(entry_def);
         let entry_store = creator.get_entry_store(entry_store_idx);
         for (idx, entry) in entries.iter().enumerate() {
-            entry_store.add_entry(0, vec![
+            entry_store.add_entry(None, vec![
                 creator::Value::Array(entry.path.clone().into()),
                 creator::Value::Content(creator::Content::new(jubako::ContentAddress::new(1.into(), (idx as u32).into()), None)),
                 creator::Value::Unsigned(entry.word_count.into())]
@@ -152,7 +151,7 @@ test_suite! {
         for i in index.entry_count() {
             println!("Check entry count {:?}", i);
             let entry = finder.get_entry(i.into()).unwrap();
-            assert_eq!(entry.get_variant_id(), 0.into());
+            assert_eq!(entry.get_variant_id().unwrap(), None);
             println!("Check value 0");
             let value_0 = entry.get_value(0.into()).unwrap();
             let value_0 = resolver.resolve_to_vec(&value_0).unwrap();
