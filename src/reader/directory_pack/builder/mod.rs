@@ -1,7 +1,7 @@
 mod property;
 
 use super::entry_store::EntryStore;
-use super::layout::Variant;
+use super::layout::Property as LProperty;
 use super::raw_value::RawValue;
 use super::{AnyPropertyCompare, LazyEntry, Resolver, Value};
 use crate::bases::*;
@@ -23,8 +23,8 @@ impl AnyVariantBuilder {
         self.properties[idx.into_usize()].create(reader)
     }
 
-    pub fn new(variant: &Variant) -> Self {
-        let properties = variant.properties.iter().map(|p| p.into()).collect();
+    pub fn new(properties: &[LProperty]) -> Self {
+        let properties = properties.iter().map(|p| p.into()).collect();
         Self { properties }
     }
 
@@ -34,7 +34,7 @@ impl AnyVariantBuilder {
 }
 
 pub struct LazyEntryProperties {
-    pub commons: AnyVariantBuilder,
+    pub common: AnyVariantBuilder,
     pub variant_id: Option<Property<u8>>,
     pub variants: Vec<AnyVariantBuilder>,
 }
@@ -47,7 +47,7 @@ pub struct AnyBuilder {
 impl AnyBuilder {
     pub fn new(store: Rc<EntryStore>) -> Self {
         let layout = store.layout();
-        let commons = AnyVariantBuilder::new(&layout.common_variant);
+        let common = AnyVariantBuilder::new(&layout.common);
         let variants = layout
             .variants
             .iter()
@@ -55,7 +55,7 @@ impl AnyBuilder {
             .collect();
         let variant_id = layout.variant_id_offset.map(Property::<u8>::new);
         let properties = Rc::new(LazyEntryProperties {
-            commons,
+            common,
             variant_id,
             variants,
         });
@@ -102,13 +102,13 @@ mod tests {
     use crate::reader::directory_pack::entry_store::PlainStore;
     use crate::reader::directory_pack::raw_layout::{RawProperty, RawPropertyKind};
     use crate::reader::directory_pack::{Array, EntryTrait};
-    use crate::reader::layout::Layout;
+    use crate::reader::layout::{Layout, Properties};
     use crate::reader::{Content, RawValue};
 
     #[test]
     fn create_entry() {
         let layout = Layout {
-            common_variant: Variant::new(
+            common: Properties::new(
                 0,
                 vec![
                     RawProperty::new(RawPropertyKind::ContentAddress(0), 4),
@@ -162,31 +162,29 @@ mod tests {
     #[test]
     fn create_entry_with_variant() {
         let layout = Layout {
-            common_variant: Variant::new(0, vec![]).unwrap(),
+            common: Properties::new(0, vec![]).unwrap(),
             variant_id_offset: Some(Offset::new(0)),
             variants: vec![
-                Rc::new(
-                    Variant::new(
-                        1,
-                        vec![
-                            RawProperty::new(RawPropertyKind::Array, 4),
-                            RawProperty::new(RawPropertyKind::UnsignedInt, 2),
-                        ],
-                    )
-                    .unwrap(),
-                ),
-                Rc::new(
-                    Variant::new(
-                        1,
-                        vec![
-                            RawProperty::new(RawPropertyKind::Array, 2),
-                            RawProperty::new(RawPropertyKind::Padding, 1),
-                            RawProperty::new(RawPropertyKind::SignedInt, 1),
-                            RawProperty::new(RawPropertyKind::UnsignedInt, 2),
-                        ],
-                    )
-                    .unwrap(),
-                ),
+                Properties::new(
+                    1,
+                    vec![
+                        RawProperty::new(RawPropertyKind::Array, 4),
+                        RawProperty::new(RawPropertyKind::UnsignedInt, 2),
+                    ],
+                )
+                .unwrap()
+                .into(),
+                Properties::new(
+                    1,
+                    vec![
+                        RawProperty::new(RawPropertyKind::Array, 2),
+                        RawProperty::new(RawPropertyKind::Padding, 1),
+                        RawProperty::new(RawPropertyKind::SignedInt, 1),
+                        RawProperty::new(RawPropertyKind::UnsignedInt, 2),
+                    ],
+                )
+                .unwrap()
+                .into(),
             ],
             size: Size::new(7),
         };

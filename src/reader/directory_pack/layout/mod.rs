@@ -1,22 +1,21 @@
+mod properties;
 mod property;
-mod variant;
 
 // Reuse from super to allow sub module to use it.
 use super::raw_layout::RawLayout;
 use super::raw_value::{Array, Extend, RawValue};
 use crate::bases::*;
 
+pub use properties::{Properties, SharedProperties};
 pub use property::{Property, PropertyKind};
-pub use variant::Variant;
 
 use std::cmp::Ordering;
-use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Layout {
-    pub common_variant: Variant,
+    pub common: Properties,
     pub variant_id_offset: Option<Offset>,
-    pub variants: Vec<Rc<Variant>>,
+    pub variants: Vec<SharedProperties>,
     pub size: Size,
 }
 
@@ -33,7 +32,7 @@ impl Producable for Layout {
             common_size += raw_property.size;
             common_properties.push(*raw_property);
         }
-        let common_variant = Variant::new(0, common_properties)?;
+        let common_properties = Properties::new(0, common_properties)?;
         let variant_id_offset = if !variant_count {
             None
         } else {
@@ -76,7 +75,7 @@ impl Producable for Layout {
                     ))
                 }
                 Ordering::Equal => {
-                    variants.push(Rc::new(Variant::new(common_size, variant_def)?));
+                    variants.push(Properties::new(common_size, variant_def)?.into());
                     variant_def = Vec::new();
                     variant_size = 0;
                     variant_started = false;
@@ -101,7 +100,7 @@ impl Producable for Layout {
             ));
         }
         Ok(Self {
-            common_variant,
+            common: common_properties,
             variant_id_offset,
             variants,
             size: Size::from(entry_size),

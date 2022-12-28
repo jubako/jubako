@@ -128,7 +128,7 @@ mod tests {
             EntryStore::Plain(s) => s,
         };
         assert_eq!(store.layout.variants.len(), 0);
-        let expected = vec![
+        let expected = [
             Property::new(8, PropertyKind::ContentAddress(0)),
             Property::new(12, PropertyKind::ContentAddress(1)),
             Property::new(20, PropertyKind::UnsignedInt(1)),
@@ -147,7 +147,7 @@ mod tests {
             Property::new(1367, PropertyKind::VLArray(1, 0x0F.into(), Some(2))),
             Property::new(1370, PropertyKind::VLArray(8, 0x0F.into(), Some(2))),
         ];
-        assert_eq!(&store.layout.common_variant.properties, &expected);
+        assert_eq!(&*store.layout.common, &expected);
     }
 
     #[test]
@@ -178,18 +178,18 @@ mod tests {
         };
         assert_eq!(store.layout.variants.len(), 2);
         let variant = &store.layout.variants[0];
-        let expected = vec![
+        let expected = [
             Property::new(1, PropertyKind::VLArray(5, 0x0F.into(), Some(1))),
             Property::new(11, PropertyKind::ContentAddress(0)),
             Property::new(15, PropertyKind::UnsignedInt(3)),
         ];
-        assert_eq!(&variant.properties, &expected);
+        assert_eq!(&**variant, &expected);
         let variant = &store.layout.variants[1];
-        let expected = vec![
+        let expected = [
             Property::new(1, PropertyKind::Array(6)),
             Property::new(7, PropertyKind::ContentAddress(1)),
             Property::new(15, PropertyKind::UnsignedInt(3)),
         ];
-        assert_eq!(&variant.properties, &expected);
+        assert_eq!(&**variant, &expected);
     }
 }
