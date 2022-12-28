@@ -20,12 +20,11 @@ impl LazyEntry {
         if idx.into_u8() < common_len {
             self.properties.common.create_value(idx, &self.reader)
         } else {
-            let variant_id = self.get_variant_id()?;
-            match variant_id {
+            match &self.properties.variant_part {
                 None => Err("Invalid key".to_string().into()),
-                Some(v) => {
-                    // TODO Handle invalid value
-                    let variant = &self.properties.variants[v.into_usize()];
+                Some((id_property, variants)) => {
+                    let variant_id = id_property.create(&self.reader)?;
+                    let variant = &variants[variant_id as usize];
                     variant.create_value(idx - common_len, &self.reader)
                 }
             }
@@ -35,9 +34,9 @@ impl LazyEntry {
 
 impl EntryTrait for LazyEntry {
     fn get_variant_id(&self) -> Result<Option<VariantIdx>> {
-        match &self.properties.variant_id {
+        match &self.properties.variant_part {
             None => Ok(None),
-            Some(v) => Ok(Some(v.create(&self.reader)?.into())),
+            Some((id_property, _)) => Ok(Some(id_property.create(&self.reader)?.into())),
         }
     }
 

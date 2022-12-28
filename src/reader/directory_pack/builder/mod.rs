@@ -35,8 +35,7 @@ impl AnyVariantBuilder {
 
 pub struct LazyEntryProperties {
     pub common: AnyVariantBuilder,
-    pub variant_id: Option<Property<u8>>,
-    pub variants: Vec<AnyVariantBuilder>,
+    pub variant_part: Option<(Property<u8>, Vec<AnyVariantBuilder>)>,
 }
 
 pub struct AnyBuilder {
@@ -48,16 +47,17 @@ impl AnyBuilder {
     pub fn new(store: Rc<EntryStore>) -> Self {
         let layout = store.layout();
         let common = AnyVariantBuilder::new(&layout.common);
-        let variants = layout
-            .variants
-            .iter()
-            .map(|v| AnyVariantBuilder::new(v))
-            .collect();
-        let variant_id = layout.variant_id_offset.map(Property::<u8>::new);
+        let variant_part = match &layout.variant_part {
+            None => None,
+            Some((variant_id_offset, variants)) => {
+                let variants = variants.iter().map(|v| AnyVariantBuilder::new(v)).collect();
+                let variant_id = Property::<u8>::new(*variant_id_offset);
+                Some((variant_id, variants))
+            }
+        };
         let properties = Rc::new(LazyEntryProperties {
             common,
-            variant_id,
-            variants,
+            variant_part,
         });
         Self { properties, store }
     }
@@ -116,8 +116,7 @@ mod tests {
                 ],
             )
             .unwrap(),
-            variant_id_offset: None,
-            variants: vec![],
+            variant_part: None,
             size: Size::new(6),
         };
         let content = vec![
@@ -163,29 +162,31 @@ mod tests {
     fn create_entry_with_variant() {
         let layout = Layout {
             common: Properties::new(0, vec![]).unwrap(),
-            variant_id_offset: Some(Offset::new(0)),
-            variants: vec![
-                Properties::new(
-                    1,
-                    vec![
-                        RawProperty::new(RawPropertyKind::Array, 4),
-                        RawProperty::new(RawPropertyKind::UnsignedInt, 2),
-                    ],
-                )
-                .unwrap()
-                .into(),
-                Properties::new(
-                    1,
-                    vec![
-                        RawProperty::new(RawPropertyKind::Array, 2),
-                        RawProperty::new(RawPropertyKind::Padding, 1),
-                        RawProperty::new(RawPropertyKind::SignedInt, 1),
-                        RawProperty::new(RawPropertyKind::UnsignedInt, 2),
-                    ],
-                )
-                .unwrap()
-                .into(),
-            ],
+            variant_part: Some((
+                Offset::new(0),
+                Box::new([
+                    Properties::new(
+                        1,
+                        vec![
+                            RawProperty::new(RawPropertyKind::Array, 4),
+                            RawProperty::new(RawPropertyKind::UnsignedInt, 2),
+                        ],
+                    )
+                    .unwrap()
+                    .into(),
+                    Properties::new(
+                        1,
+                        vec![
+                            RawProperty::new(RawPropertyKind::Array, 2),
+                            RawProperty::new(RawPropertyKind::Padding, 1),
+                            RawProperty::new(RawPropertyKind::SignedInt, 1),
+                            RawProperty::new(RawPropertyKind::UnsignedInt, 2),
+                        ],
+                    )
+                    .unwrap()
+                    .into(),
+                ]),
+            )),
             size: Size::new(7),
         };
 

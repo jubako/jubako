@@ -127,7 +127,7 @@ mod tests {
         let store = match store {
             EntryStore::Plain(s) => s,
         };
-        assert_eq!(store.layout.variants.len(), 0);
+        assert!(store.layout.variant_part.is_none());
         let expected = [
             Property::new(8, PropertyKind::ContentAddress(0)),
             Property::new(12, PropertyKind::ContentAddress(1)),
@@ -176,15 +176,17 @@ mod tests {
         let store = match store {
             EntryStore::Plain(s) => s,
         };
-        assert_eq!(store.layout.variants.len(), 2);
-        let variant = &store.layout.variants[0];
+        let (offset, variants) = store.layout.variant_part.unwrap();
+        assert_eq!(offset, Offset::zero());
+        assert_eq!(variants.len(), 2);
+        let variant = &variants[0];
         let expected = [
             Property::new(1, PropertyKind::VLArray(5, 0x0F.into(), Some(1))),
             Property::new(11, PropertyKind::ContentAddress(0)),
             Property::new(15, PropertyKind::UnsignedInt(3)),
         ];
         assert_eq!(&**variant, &expected);
-        let variant = &store.layout.variants[1];
+        let variant = &variants[1];
         let expected = [
             Property::new(1, PropertyKind::Array(6)),
             Property::new(7, PropertyKind::ContentAddress(1)),
