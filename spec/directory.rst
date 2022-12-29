@@ -188,21 +188,31 @@ Variant
 -------
 
 The structure of the entry can varying (union in C, or Enum in rust).
-When a directory contains several variants, the interpretation of the (binary) entry can vary depending of the entry itself.
+Each variant is a list of values. The actual types of the values depend of the variant itself.
+Variants of a entry may shared a set of common values (at least a variant identifier).
+Those common values are regrouped in the "common part".
+
+So a entry is composed of :
+- A common part : a list of values
+- A variant identifier
+- A specific part : a list of values (this list depends of the variant used)
 
 ``variantCount`` define how many variants is possible for the entries.
-Most of the time it is equal to 1 (only one way to parse entries).
+Most of the time it is equal to 0 (no variant, only a common part).
 
-If there is several variant, the first N keyInfos describing ``entrySize`` of data correspond to the first variant, the M following keyInfos, describing other ``entrySize`` of data correspond to the second variant, ...
+If there is several variant, the first keyInfos describes common properties of the entry.
+After that, follows the variants definition.
 
-The first key of each variant MUST be a variant identifier (0b1000).
-At parsing the index header, it is what allow implementation where the variant definitions start and stop.
+Each variant definition MUST start with a variant identifier (0b1000) followed by specific keys.
+At parsing the index header, variant identifier is what allow implementation where the variant definitions start and stop.
 When parsing the entry, this key allow implementation to know which variant to use.
 
-If there is only one variant, the ``variantCount`` is 1 and the variantId key SHOULD be omitted.
+If there is only one variant, by definition all keys are "common" and it SHOULD be no variant (``variantCount`` is 0).
+However, nothing prevent to create a entry with one variant and put only some part of the keys (potentially none) in the common part.
+
 If a variant identifier is present, ``entrySize`` and ``keyCount`` MUST integrate it.
 
-All variants MUST have the same time. (Use padding if not)
+All variants MUST have the same size. (Use padding if not)
 
 Key Type
 --------
