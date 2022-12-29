@@ -1,26 +1,22 @@
-use super::variant::Variant;
+use super::properties::{CommonProperties, Properties, VariantProperties};
 use crate::bases::Writable;
 use crate::bases::*;
 use crate::creator::directory_pack::Entry as RawEntry;
 
 #[derive(Debug)]
 pub struct Entry {
-    pub common: Variant,
-    pub variants: Vec<Variant>,
+    pub common: Properties,
+    pub variants: Vec<Properties>,
     entry_size: u16,
 }
 
 impl Entry {
-    pub fn new(common: Variant, variants: Vec<Variant>) -> Self {
-        let mut ret = Self {
+    pub fn new(common: CommonProperties, variants: Vec<VariantProperties>) -> Self {
+        Self {
             common,
-            variants,
+            variants: variants.into_iter().map(Properties::from).collect(),
             entry_size: 0,
-        };
-        for variant in &mut ret.variants {
-            variant.insert_variant_id();
         }
-        ret
     }
 
     pub fn finalize(&mut self) {
@@ -37,14 +33,13 @@ impl Entry {
     pub fn write_entry(&self, entry: &RawEntry, stream: &mut dyn OutStream) -> Result<usize> {
         assert!(self.variants.is_empty() == entry.variant_id.is_none());
         let written = if self.variants.is_empty() {
-            Variant::write_entry(self.common.keys.iter(), entry, stream)?
+            Properties::write_entry(self.common.iter(), entry, stream)?
         } else {
-            let mut keys = self.common.keys.iter().chain(
-                self.variants[entry.variant_id.unwrap() as usize]
-                    .keys
-                    .iter(),
-            );
-            Variant::write_entry(&mut keys, entry, stream)?
+            let mut keys = self
+                .common
+                .iter()
+                .chain(self.variants[entry.variant_id.unwrap() as usize].iter());
+            Properties::write_entry(&mut keys, entry, stream)?
         };
         assert_eq!(written, self.entry_size as usize);
         Ok(written)

@@ -29,13 +29,13 @@ impl EntryStore {
     pub(crate) fn finalize(&mut self) {
         for entry in &mut self.entries {
             if self.layout.variants.is_empty() {
-                Self::finalize_entry(self.layout.common.keys.iter_mut(), entry);
+                Self::finalize_entry(self.layout.common.iter_mut(), entry);
             } else {
-                let keys = self.layout.common.keys.iter_mut().chain(
-                    self.layout.variants[entry.variant_id.unwrap() as usize]
-                        .keys
-                        .iter_mut(),
-                );
+                let keys = self
+                    .layout
+                    .common
+                    .iter_mut()
+                    .chain(self.layout.variants[entry.variant_id.unwrap() as usize].iter_mut());
                 Self::finalize_entry(keys, entry);
             };
         }

@@ -1,9 +1,9 @@
 mod entry;
+mod properties;
 mod property;
-mod variant;
 
 pub use entry::Entry;
+pub use properties::{CommonProperties, VariantProperties};
 pub use property::Property;
-pub use variant::Variant;
 
 use super::{Value, ValueStore};

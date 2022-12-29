@@ -86,7 +86,7 @@ test_suite! {
         );
         let key_store_handle = creator.create_value_store(key_store_kind);
         let entry_def = layout::Entry::new(
-            layout::Variant::new(vec![
+            layout::CommonProperties::new(vec![
                 layout::Property::VLArray(0, key_store_handle),
                 layout::Property::ContentAddress,
                 layout::Property::new_int()

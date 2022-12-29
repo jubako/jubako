@@ -5,17 +5,41 @@ use crate::bases::*;
 use crate::creator::directory_pack::Entry as RawEntry;
 
 #[derive(Debug)]
-pub struct Variant {
-    pub keys: Vec<Property>,
+pub struct Properties(Vec<Property>);
+pub type CommonProperties = Properties;
+
+#[derive(Debug)]
+pub struct VariantProperties(pub Vec<Property>);
+
+impl std::ops::Deref for Properties {
+    type Target = [Property];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-impl Variant {
-    pub fn new(keys: Vec<Property>) -> Self {
-        Self { keys }
+impl std::ops::DerefMut for Properties {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
+}
 
-    pub fn insert_variant_id(&mut self) {
-        self.keys.insert(0, Property::VariantId);
+impl VariantProperties {
+    pub fn new(mut keys: Vec<Property>) -> Self {
+        keys.insert(0, Property::VariantId);
+        Self(keys)
+    }
+}
+
+impl From<VariantProperties> for Properties {
+    fn from(other: VariantProperties) -> Self {
+        Self(other.0)
+    }
+}
+
+impl Properties {
+    pub fn new(keys: Vec<Property>) -> Self {
+        Self(keys)
     }
 
     pub fn write_entry<'a>(
@@ -74,30 +98,30 @@ impl Variant {
     }
 
     pub(crate) fn entry_size(&self) -> u16 {
-        self.keys.iter().map(|k| k.size()).sum::<u16>()
+        self.iter().map(|k| k.size()).sum::<u16>()
     }
 
     pub(crate) fn key_count(&self) -> u8 {
-        self.keys.iter().map(|k| k.key_count()).sum::<u8>()
+        self.iter().map(|k| k.key_count()).sum::<u8>()
     }
 
     pub(crate) fn fill_to_size(&mut self, size: u16) {
         let current_size = self.entry_size();
         let mut padding_size = size - current_size;
         while padding_size >= 16 {
-            self.keys.push(Property::Padding(16));
+            self.0.push(Property::Padding(16));
             padding_size -= 16;
         }
         if padding_size > 0 {
-            self.keys.push(Property::Padding(padding_size as u8))
+            self.0.push(Property::Padding(padding_size as u8))
         }
     }
 }
 
-impl Writable for Variant {
+impl Writable for Properties {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         let mut written = 0;
-        for key in &self.keys {
+        for key in &self.0 {
             written += key.write(stream)?;
         }
         Ok(written)
