@@ -1,15 +1,15 @@
-=========
-Head pack
-=========
+=============
+Manifest pack
+=============
 
-The head pack is the main pack.
+The manifest pack first pack accessed when reading a container.
 This is the pack that represent the "container".
 It give all main information about the container and list other packs.
 
-Jubako mainHeader
-=================
+Jubako manifestHeader
+=====================
 
-As any other pack, a header pack must start with pack header.
+As any other pack, a manifest pack must start with a pack header.
 This pack header is followed by a mainHeader.
 
 ============= ======== ====== ===========
@@ -52,7 +52,7 @@ Full Size : 256 bytes.
 
 An packOffset and an packPath can be set in the same time. In this case the packOffset is predominant. This can be useful when a Jubako head file and its packs are concatenated together, a tool just have to change the offset from 0 to the offset.
 
-The packPath is always relative to the head pack file path.
+The packPath is always relative to the manifest pack file path.
 
 This is not an error if an pack cannot be found in the file system. The implementation may warn the user (in case of mistake in the file handling). The implementation MUST correctly handle the pack missing:
 
@@ -66,4 +66,5 @@ This can be used to have several packs providing the images (same entries) but d
 It is to the application to handle correctly the alternatives.
 
 
-The checkInfo tail of each packs must be copied in the head pack.
+The checkInfo tail of each packs must be copied in the manifest pack.
+(If the corresponding pack are not including in the manifest pack)

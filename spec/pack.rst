@@ -35,7 +35,7 @@ magic
 
 The magic number is the identifier of the kind of pack/file.
 
-For main pack the value is 0x6a626b6d (ascii encoding of jbkm)
+For manifest pack the value is 0x6a626b6d (ascii encoding of jbkm)
 For directory pack the value is 0x6a626b64 (ascii encoding of jbkd)
 For content pack the value is 0x6a626b63 (ascii encoding of jbkc)
 
@@ -94,4 +94,4 @@ For now, maximum length is 33 bytes.
 New check kind will be added in the future.
 
 The checksum is computed base of the whole content of the pack, from Offset(0) to Offset(checkInfoPos).
-The mainPack is the only exception to this as we mask some mutable data (See Jubako mainPack spec for this).
+The manifestPack is the only exception to this as we mask some mutable data (See Jubako manifestPack spec for this).

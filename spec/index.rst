@@ -75,9 +75,9 @@ to the start of the content.
 Content Part
 ============
 
-There are three kinds of pack : main, directory and content.
+There are three kinds of pack : manifest, directory and content.
 
 - `pack <pack.rst>`_ describe the common structures of all packs.
-- The `main <main.rst>`_ file itself. It is mainly a header "pointing" to other subcontent.
+- The `manifest <manifest.rst>`_. It is mainly a header "pointing" to other subcontent.
 - The `pack <pack.rst>`_. This is where contents are stored.
 - The `directory <directory.rst>`_. This is where all indexes are stored, pointing to content in the packs.
