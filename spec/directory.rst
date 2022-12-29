@@ -256,14 +256,7 @@ Content Address
 
 ``contentAddress`` is used to point to a specific blob.
 
-The content address can be "patched". The bits `0bSSSS` are used to identify the number of patches.
 
-If ``0bSSSS`` is 0, it "Classic" content address. No patch. The size of the key is 4.
-Else we have a "chained" content patch.
-The first contentAddress points to a patch to be applied to the second contentAddress.
-The second contentAddress may also be a patch (if ``0bSSSS`` >=2) which applies to the third contentAddress.
-
-The size of the key is always ``(0bSSSS + 1) * 4``
 
 Integer
 .......
