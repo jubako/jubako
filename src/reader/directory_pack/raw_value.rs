@@ -1,5 +1,5 @@
 use crate::bases::*;
-use crate::common::Content;
+use crate::common::ContentAddress;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Extend {
@@ -27,7 +27,7 @@ impl Array {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum RawValue {
-    Content(Content),
+    Content(ContentAddress),
     U8(u8),
     U16(u16),
     U32(u32),

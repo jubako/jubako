@@ -1,12 +1,12 @@
 use super::{Array, Extend, RawValue};
 use crate::bases::*;
-use crate::common::{Content, ContentAddress};
+use crate::common::ContentAddress;
 use std::io::{BorrowedBuf, Read};
 
 // The kind of the property. This will be the descriminant to how parse the value.
 #[derive(Debug, PartialEq, Eq)]
 pub enum PropertyKind {
-    ContentAddress(u8),
+    ContentAddress,
     UnsignedInt(usize),
     SignedInt(usize),
     Array(usize),
@@ -31,15 +31,10 @@ impl Property {
         }
     }
 
-    fn create_content(offset: Offset, base: u8, reader: &Reader) -> Result<Content> {
+    fn create_content(offset: Offset, reader: &Reader) -> Result<ContentAddress> {
         let mut stream = reader.create_stream(offset, End::new_size(4));
         let contentaddress = ContentAddress::produce(&mut stream)?;
-        let base_content = if base == 0 {
-            None
-        } else {
-            Some(Property::create_content(offset + 4, base - 1, reader)?)
-        };
-        Ok(Content::new(contentaddress, base_content))
+        Ok(contentaddress)
     }
 
     fn create_array(offset: Offset, size: usize, reader: &Reader) -> Result<Vec<u8>> {
@@ -55,8 +50,8 @@ impl Property {
 
     pub fn create_value(&self, reader: &Reader) -> Result<RawValue> {
         Ok(match &self.kind {
-            PropertyKind::ContentAddress(base) => {
-                RawValue::Content(Property::create_content(self.offset, *base, reader)?)
+            PropertyKind::ContentAddress => {
+                RawValue::Content(Property::create_content(self.offset, reader)?)
             }
             PropertyKind::UnsignedInt(size) => match size {
                 1 => RawValue::U8(reader.read_u8(self.offset)?),
@@ -425,27 +420,21 @@ mod tests {
     fn test_content() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
         let reader = Reader::new(content, End::None);
-        let prop = Property::new(0, PropertyKind::ContentAddress(0));
+        let prop = Property::new(0, PropertyKind::ContentAddress);
         assert_eq!(
             prop.create_value(&reader).unwrap(),
-            RawValue::Content(Content::new(
-                ContentAddress {
-                    pack_id: PackId::from(0xFE),
-                    content_id: ContentIdx::from(0xDCBA98)
-                },
-                None
-            ))
+            RawValue::Content(ContentAddress {
+                pack_id: PackId::from(0xFE),
+                content_id: ContentIdx::from(0xDCBA98)
+            })
         );
-        let prop = Property::new(2, PropertyKind::ContentAddress(0));
+        let prop = Property::new(2, PropertyKind::ContentAddress);
         assert_eq!(
             prop.create_value(&reader).unwrap(),
-            RawValue::Content(Content::new(
-                ContentAddress {
-                    pack_id: PackId::from(0xBA),
-                    content_id: ContentIdx::from(0x987654)
-                },
-                None
-            ))
+            RawValue::Content(ContentAddress {
+                pack_id: PackId::from(0xBA),
+                content_id: ContentIdx::from(0x987654)
+            })
         );
     }
 }

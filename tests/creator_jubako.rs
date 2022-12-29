@@ -98,7 +98,7 @@ test_suite! {
         for (idx, entry) in entries.iter().enumerate() {
             entry_store.add_entry(None, vec![
                 creator::Value::Array(entry.path.clone().into()),
-                creator::Value::Content(creator::Content::new(jubako::ContentAddress::new(1.into(), (idx as u32).into()), None)),
+                creator::Value::Content(jubako::ContentAddress::new(1.into(), (idx as u32).into())),
                 creator::Value::Unsigned(entry.word_count.into())]
             );
         }

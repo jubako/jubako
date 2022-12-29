@@ -103,7 +103,7 @@ mod tests {
     use crate::reader::directory_pack::raw_layout::{RawProperty, RawPropertyKind};
     use crate::reader::directory_pack::{Array, EntryTrait};
     use crate::reader::layout::{Layout, Properties};
-    use crate::reader::{Content, RawValue};
+    use crate::reader::RawValue;
 
     #[test]
     fn create_entry() {
@@ -111,7 +111,7 @@ mod tests {
             common: Properties::new(
                 0,
                 vec![
-                    RawProperty::new(RawPropertyKind::ContentAddress(0), 4),
+                    RawProperty::new(RawPropertyKind::ContentAddress, 4),
                     RawProperty::new(RawPropertyKind::UnsignedInt, 2),
                 ],
             )
@@ -135,10 +135,7 @@ mod tests {
             assert!(entry.get_variant_id().unwrap().is_none());
             assert!(
                 entry.get_value(0.into()).unwrap()
-                    == RawValue::Content(Content::new(
-                        ContentAddress::new(0.into(), 1.into()),
-                        None
-                    ))
+                    == RawValue::Content(ContentAddress::new(0.into(), 1.into()),)
             );
             assert!(entry.get_value(1.into()).unwrap() == RawValue::U16(0x8899));
         }
@@ -149,10 +146,7 @@ mod tests {
             assert!(entry.get_variant_id().unwrap().is_none());
             assert!(
                 entry.get_value(0.into()).unwrap()
-                    == RawValue::Content(Content::new(
-                        ContentAddress::new(1.into(), 2.into()),
-                        None
-                    ))
+                    == RawValue::Content(ContentAddress::new(1.into(), 2.into()),)
             );
             assert!(entry.get_value(1.into()).unwrap() == RawValue::U16(0x6677));
         }

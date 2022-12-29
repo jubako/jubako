@@ -1,11 +1,11 @@
 use std::cell::OnceCell;
 
 use super::content_pack::ContentPack;
-use super::directory_pack::{Content, DirectoryPack, EntryStorage};
+use super::directory_pack::{DirectoryPack, EntryStorage};
 use super::manifest_pack::{ManifestPack, PackInfo};
 use super::{Index, ValueStorage};
 use crate::bases::*;
-use crate::common::{Pack, PackPos};
+use crate::common::{ContentAddress, Pack, PackPos};
 use std::ffi::OsString;
 use std::fs::File;
 use std::os::unix::ffi::OsStringExt;
@@ -77,9 +77,9 @@ impl Container {
         self.packs[pack_id.into_usize()].get_or_try_init(|| self._get_pack(pack_id))
     }
 
-    pub fn get_reader(&self, content: &Content) -> Result<Reader> {
-        let pack = self.get_pack(content.pack_id())?;
-        pack.get_content(content.content_id())
+    pub fn get_reader(&self, content: ContentAddress) -> Result<Reader> {
+        let pack = self.get_pack(content.pack_id)?;
+        pack.get_content(content.content_id)
     }
 
     fn _get_pack(&self, pack_id: PackId) -> Result<ContentPack> {

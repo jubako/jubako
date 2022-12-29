@@ -511,10 +511,8 @@ test_suite! {
             if let reader::RawValue::Content(content) = value_1 {
                 assert_eq!(
                     content,
-                    reader::Content::new(
-                        jubako::ContentAddress{pack_id:0.into(), content_id:jubako::ContentIdx::from(i.into_u32())},
-                        None
-                    ));
+                    jubako::ContentAddress{pack_id:0.into(), content_id:jubako::ContentIdx::from(i.into_u32())}
+                );
                 let pack = container.get_pack(1.into()).unwrap();
                 let reader = pack.get_content(jubako::ContentIdx::from(i.into_u32())).unwrap();
                 let mut stream = reader.create_stream_all();

@@ -55,10 +55,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         vec![
             jbk::creator::Value::Array("Super".into()),
             jbk::creator::Value::Unsigned(50),
-            jbk::creator::Value::Content(jbk::creator::Content::from((
+            jbk::creator::Value::Content(jbk::ContentAddress::new(
                 jbk::PackId::from(1), // Pack id
                 content_id,           // Content id in the pack
-            ))),
+            )),
         ],
     );
 
