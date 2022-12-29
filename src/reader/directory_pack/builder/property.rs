@@ -1,5 +1,5 @@
 use crate::bases::*;
-use crate::common::{Content, ContentAddress};
+use crate::common::ContentAddress;
 use crate::reader::directory_pack::layout;
 use crate::reader::directory_pack::raw_value::{Array, Extend, RawValue};
 use std::io::BorrowedBuf;
@@ -232,22 +232,16 @@ impl PropertyBuilderTrait for ArrayProperty {
 #[derive(Debug, PartialEq, Eq)]
 pub struct ContentProperty {
     offset: Offset,
-    base: u8,
 }
 
 impl ContentProperty {
-    pub fn new(offset: Offset, base: u8) -> Self {
-        Self { offset, base }
+    pub fn new(offset: Offset) -> Self {
+        Self { offset }
     }
-    fn create_content(offset: Offset, base: u8, reader: &Reader) -> Result<Content> {
+    fn create_content(offset: Offset, reader: &Reader) -> Result<ContentAddress> {
         let mut stream = reader.create_stream(offset, End::new_size(4));
         let contentaddress = ContentAddress::produce(&mut stream)?;
-        let base_content = if base == 0 {
-            None
-        } else {
-            Some(Self::create_content(offset + 4, base - 1, reader)?)
-        };
-        Ok(Content::new(contentaddress, base_content))
+        Ok(contentaddress)
     }
 }
 
@@ -255,16 +249,16 @@ impl TryFrom<&layout::Property> for ContentProperty {
     type Error = String;
     fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
         match p.kind {
-            layout::PropertyKind::ContentAddress(base) => Ok(ContentProperty::new(p.offset, base)),
+            layout::PropertyKind::ContentAddress => Ok(ContentProperty::new(p.offset)),
             _ => Err("Invalid key".to_string()),
         }
     }
 }
 
 impl PropertyBuilderTrait for ContentProperty {
-    type Output = Content;
+    type Output = ContentAddress;
     fn create(&self, reader: &Reader) -> Result<Self::Output> {
-        Self::create_content(self.offset, self.base, reader)
+        Self::create_content(self.offset, reader)
     }
 }
 
@@ -282,8 +276,8 @@ pub enum AnyProperty {
 impl From<&layout::Property> for AnyProperty {
     fn from(p: &layout::Property) -> Self {
         match p.kind {
-            layout::PropertyKind::ContentAddress(base) => {
-                Self::ContentAddress(ContentProperty::new(p.offset, base))
+            layout::PropertyKind::ContentAddress => {
+                Self::ContentAddress(ContentProperty::new(p.offset))
             }
             layout::PropertyKind::UnsignedInt(size) => {
                 Self::UnsignedInt(IntProperty::new(p.offset, size.into()))

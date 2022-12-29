@@ -4,7 +4,7 @@ use crate::bases::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RawPropertyKind {
     Padding,
-    ContentAddress(u8),
+    ContentAddress,
     UnsignedInt,
     SignedInt,
     Array,
@@ -40,10 +40,7 @@ impl Producable for RawProperty {
         let propdata = propinfo & 0x0F;
         let (propsize, kind) = match proptype {
             0b0000 => (propdata as u16 + 1, RawPropertyKind::Padding),
-            0b0001 => (
-                (propdata as u16 + 1) * 4,
-                RawPropertyKind::ContentAddress(propdata),
-            ),
+            0b0001 => (4, RawPropertyKind::ContentAddress),
             0b0010 => (
                 (propdata & 0x07) as u16 + 1,
                 if (propdata & 0x08) != 0 {
@@ -115,9 +112,7 @@ mod tests {
     #[test_case(&[0b1000_0000] => RawProperty{size:1, kind:RawPropertyKind::VariantId })]
     #[test_case(&[0b0000_0000] => RawProperty{size:1, kind:RawPropertyKind::Padding })]
     #[test_case(&[0b0000_0111] => RawProperty{size:8, kind:RawPropertyKind::Padding })]
-    #[test_case(&[0b0001_0000] => RawProperty{size:4, kind:RawPropertyKind::ContentAddress(0) })]
-    #[test_case(&[0b0001_0001] => RawProperty{size:8, kind:RawPropertyKind::ContentAddress(1) })]
-    #[test_case(&[0b0001_0011] => RawProperty{size:16, kind:RawPropertyKind::ContentAddress(3) })]
+    #[test_case(&[0b0001_0000] => RawProperty{size:4, kind:RawPropertyKind::ContentAddress })]
     #[test_case(&[0b0010_0000] => RawProperty{size:1, kind:RawPropertyKind::UnsignedInt })]
     #[test_case(&[0b0010_0010] => RawProperty{size:3, kind:RawPropertyKind::UnsignedInt })]
     #[test_case(&[0b0010_0111] => RawProperty{size:8, kind:RawPropertyKind::UnsignedInt })]

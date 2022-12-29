@@ -16,7 +16,7 @@ pub use content_info::ContentInfo;
 pub use headers::*;
 pub use pack_kind::PackKind;
 pub use pack_pos::PackPos;
-pub use value::{Content, Value};
+pub use value::Value;
 
 impl Producable for Uuid {
     type Output = Self;

@@ -1,6 +1,6 @@
 use super::private::ValueStorageTrait;
 use super::value_store::ValueStoreTrait;
-use super::{Array, Content, Extend, RawValue, ValueStorage};
+use super::{Array, ContentAddress, Extend, RawValue, ValueStorage};
 use crate::bases::*;
 use crate::common::Value;
 use std::cmp;
@@ -41,7 +41,7 @@ pub(crate) mod private {
 
         pub fn resolve(&self, raw: &RawValue) -> Result<Value> {
             Ok(match raw {
-                RawValue::Content(c) => Value::Content(c.clone()),
+                RawValue::Content(c) => Value::Content(*c),
                 RawValue::U8(v) => Value::Unsigned(*v as u64),
                 RawValue::U16(v) => Value::Unsigned(*v as u64),
                 RawValue::U32(v) => Value::Unsigned(*v as u64),
@@ -107,9 +107,9 @@ pub(crate) mod private {
             }
         }
 
-        pub fn resolve_to_content<'a>(&self, raw: &'a RawValue) -> &'a Content {
+        pub fn resolve_to_content(&self, raw: &RawValue) -> ContentAddress {
             if let RawValue::Content(c) = raw {
-                c
+                *c
             } else {
                 panic!();
             }
@@ -206,8 +206,8 @@ mod tests {
                     (RawValue::I64(5),   Value::Signed(5)),
                     (RawValue::Array(Array{base:"Bye ".into(), extend:Some(Extend{store_id:0.into(), value_id:ValueIdx::from(2)})}),
                        Value::Array("Bye Jubako".into())),
-                    (RawValue::Content(Content::new(ContentAddress::new(PackId::from(0), ContentIdx::from(50)), None)),
-                       Value::Content(Content::new(ContentAddress::new(PackId::from(0), ContentIdx::from(50)), None))),
+                    (RawValue::Content(ContentAddress::new(PackId::from(0), ContentIdx::from(50))),
+                       Value::Content(ContentAddress::new(PackId::from(0), ContentIdx::from(50)))),
                 ].into_iter()
             }
             setup(&mut self) {}

@@ -24,7 +24,7 @@ pub use self::entry_store::EntryStore;
 pub use self::finder::{CompareTrait, Finder};
 pub use self::index::Index;
 pub use self::property_compare::AnyPropertyCompare;
-pub use crate::common::{Content, Value};
+pub use crate::common::{ContentAddress, Value};
 pub use lazy_entry::LazyEntry;
 pub use raw_value::{Array, Extend, RawValue};
 pub use resolver::Resolver;
@@ -207,7 +207,7 @@ impl Pack for DirectoryPack {
 mod tests {
     use super::raw_value::*;
     use super::*;
-    use crate::common::{ContentAddress, PackHeader};
+    use crate::common::PackHeader;
     use crate::reader::schema::SchemaTrait;
 
     #[test]
@@ -386,13 +386,10 @@ mod tests {
             assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U32(0x212223));
             assert_eq!(
                 entry.get_value(3.into()).unwrap(),
-                RawValue::Content(Content::new(
-                    ContentAddress {
-                        pack_id: PackId::from(1),
-                        content_id: ContentIdx::from(0)
-                    },
-                    None
-                ))
+                RawValue::Content(ContentAddress {
+                    pack_id: PackId::from(1),
+                    content_id: ContentIdx::from(0)
+                })
             );
         }
         {
@@ -427,13 +424,10 @@ mod tests {
             assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U32(0x313233));
             assert_eq!(
                 entry.get_value(3.into()).unwrap(),
-                RawValue::Content(Content::new(
-                    ContentAddress {
-                        pack_id: PackId::from(0),
-                        content_id: ContentIdx::from(1)
-                    },
-                    None
-                ))
+                RawValue::Content(ContentAddress {
+                    pack_id: PackId::from(0),
+                    content_id: ContentIdx::from(1)
+                })
             );
         }
         {
@@ -465,13 +459,10 @@ mod tests {
             assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U32(0x414243));
             assert_eq!(
                 entry.get_value(3.into()).unwrap(),
-                RawValue::Content(Content::new(
-                    ContentAddress {
-                        pack_id: PackId::from(0),
-                        content_id: ContentIdx::from(2)
-                    },
-                    None
-                ))
+                RawValue::Content(ContentAddress {
+                    pack_id: PackId::from(0),
+                    content_id: ContentIdx::from(2)
+                })
             );
         }
         {
@@ -500,13 +491,10 @@ mod tests {
             assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U32(0x515253));
             assert_eq!(
                 entry.get_value(3.into()).unwrap(),
-                RawValue::Content(Content::new(
-                    ContentAddress {
-                        pack_id: PackId::from(0),
-                        content_id: ContentIdx::from(0xaaaaaa)
-                    },
-                    None
-                ))
+                RawValue::Content(ContentAddress {
+                    pack_id: PackId::from(0),
+                    content_id: ContentIdx::from(0xaaaaaa)
+                })
             );
         }
     }

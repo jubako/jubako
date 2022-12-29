@@ -7,7 +7,7 @@ mod value_store;
 use super::{CheckInfo, PackInfo};
 use crate::bases::*;
 use crate::common;
-use crate::common::{Content, ContentAddress};
+use crate::common::ContentAddress;
 pub use directory_pack::DirectoryPackCreator;
 use value_store::ValueStore;
 pub use value_store::ValueStoreKind;
@@ -26,7 +26,7 @@ trait WritableTell {
 
 #[derive(Debug)]
 enum Value {
-    Content(Content),
+    Content(ContentAddress),
     Unsigned(u64),
     Signed(i64),
     Array {

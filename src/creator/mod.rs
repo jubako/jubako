@@ -4,8 +4,8 @@ mod manifest_pack;
 
 use crate::bases::*;
 pub use crate::bases::{FileSource, Stream};
+pub use crate::common::Value;
 use crate::common::{CheckKind, PackPos};
-pub use crate::common::{Content, Value};
 pub use content_pack::ContentPackCreator;
 pub use directory_pack::{layout, DirectoryPackCreator, ValueStoreKind};
 pub use manifest_pack::ManifestPackCreator;

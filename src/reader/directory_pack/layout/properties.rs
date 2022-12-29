@@ -63,10 +63,10 @@ impl Properties {
                 current_idx + 1,
                 offset + raw_property.size,
             )),
-            RawPropertyKind::ContentAddress(nb_base) => Ok((
-                Property::new(offset, PropertyKind::ContentAddress(nb_base)),
+            RawPropertyKind::ContentAddress => Ok((
+                Property::new(offset, PropertyKind::ContentAddress),
                 current_idx + 1,
-                offset + (nb_base as usize + 1) * 4,
+                offset + 4,
             )),
             RawPropertyKind::UnsignedInt => Ok((
                 Property::new(offset, PropertyKind::UnsignedInt(raw_property.size)),

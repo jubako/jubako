@@ -70,8 +70,7 @@ impl Properties {
                 Property::ContentAddress => {
                     let value = value_iter.next().unwrap();
                     if let Value::Content(value) = value {
-                        // [TODO] Write base
-                        written += value.content_address.write(stream)?;
+                        written += value.write(stream)?;
                     } else {
                         return Err("Not a Content".to_string().into());
                     }

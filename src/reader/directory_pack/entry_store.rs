@@ -96,12 +96,11 @@ mod tests {
         #[rustfmt::skip]
         let content = vec![
             0x00, // kind
-            0x05, 0x67,        //entry_size (1383)
+            0x05, 0x5F,        //entry_size (1375)
             0x00,        // variant count
-            0x14,        // property count (21)
+            0x13,        // property count (20)
             0b0000_0111, // padding (8)
-            0b0001_0000, // classic content address
-            0b0001_0001, // patch content address
+            0b0001_0000, // content address
             0b0010_0000, // u8
             0b0010_0010, // u24
             0b0010_0111, // u64
@@ -129,23 +128,22 @@ mod tests {
         };
         assert!(store.layout.variant_part.is_none());
         let expected = [
-            Property::new(8, PropertyKind::ContentAddress(0)),
-            Property::new(12, PropertyKind::ContentAddress(1)),
-            Property::new(20, PropertyKind::UnsignedInt(1)),
-            Property::new(21, PropertyKind::UnsignedInt(3)),
-            Property::new(24, PropertyKind::UnsignedInt(8)),
-            Property::new(32, PropertyKind::SignedInt(1)),
-            Property::new(33, PropertyKind::SignedInt(3)),
-            Property::new(36, PropertyKind::SignedInt(8)),
-            Property::new(44, PropertyKind::Array(1)),
-            Property::new(45, PropertyKind::Array(8)),
-            Property::new(53, PropertyKind::Array(9)),
-            Property::new(62, PropertyKind::Array(264)),
-            Property::new(326, PropertyKind::Array(1032)),
-            Property::new(1358, PropertyKind::VLArray(1, 0x0F.into(), None)),
-            Property::new(1359, PropertyKind::VLArray(8, 0x0F.into(), None)),
-            Property::new(1367, PropertyKind::VLArray(1, 0x0F.into(), Some(2))),
-            Property::new(1370, PropertyKind::VLArray(8, 0x0F.into(), Some(2))),
+            Property::new(8, PropertyKind::ContentAddress),
+            Property::new(12, PropertyKind::UnsignedInt(1)),
+            Property::new(13, PropertyKind::UnsignedInt(3)),
+            Property::new(16, PropertyKind::UnsignedInt(8)),
+            Property::new(24, PropertyKind::SignedInt(1)),
+            Property::new(25, PropertyKind::SignedInt(3)),
+            Property::new(28, PropertyKind::SignedInt(8)),
+            Property::new(36, PropertyKind::Array(1)),
+            Property::new(37, PropertyKind::Array(8)),
+            Property::new(45, PropertyKind::Array(9)),
+            Property::new(54, PropertyKind::Array(264)),
+            Property::new(318, PropertyKind::Array(1032)),
+            Property::new(1350, PropertyKind::VLArray(1, 0x0F.into(), None)),
+            Property::new(1351, PropertyKind::VLArray(8, 0x0F.into(), None)),
+            Property::new(1359, PropertyKind::VLArray(1, 0x0F.into(), Some(2))),
+            Property::new(1362, PropertyKind::VLArray(8, 0x0F.into(), Some(2))),
         ];
         assert_eq!(&*store.layout.common, &expected);
     }
@@ -155,19 +153,18 @@ mod tests {
         #[rustfmt::skip]
         let content = vec![
             0x00, // kind
-            0x00, 0x12,        //entry_size (18)
+            0x00, 0x0E,        //entry_size (14)
             0x02,        // variant count
-            0x0A,        // property count (10)
-            0b1000_0000, // Variant id
-            0b0111_0100, 0x0F, // PstringLookup(5), idx 0x0F
-            0b0100_0000,       // base char[1]
-            0b0000_0011, // padding(4)
-            0b0001_0000, // classic content address
-            0b0010_0010, // u24
-            0b1000_0000, // Variant id
-            0b0100_0101, // char[6]
-            0b0001_0001, // patch content address
-            0b0010_0010, // u24
+            0x09,        // property count (9)
+            0b1000_0000, // Variant id size:1
+            0b0111_0100, 0x0F, // PstringLookup(5), idx 0x0F size: 5
+            0b0100_0000,       // base char[1] size: 1
+            0b0001_0000, // content address size : 4
+            0b0010_0010, // u24 size: 3
+            0b1000_0000, // Variant id size: 1
+            0b0100_0101, // char[6] size: 6
+            0b0001_0000, // content address size:4
+            0b0010_0010, // u24 size: 3
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
         let size = Size::from(content.len());
@@ -182,15 +179,15 @@ mod tests {
         let variant = &variants[0];
         let expected = [
             Property::new(1, PropertyKind::VLArray(5, 0x0F.into(), Some(1))),
-            Property::new(11, PropertyKind::ContentAddress(0)),
-            Property::new(15, PropertyKind::UnsignedInt(3)),
+            Property::new(7, PropertyKind::ContentAddress),
+            Property::new(11, PropertyKind::UnsignedInt(3)),
         ];
         assert_eq!(&**variant, &expected);
         let variant = &variants[1];
         let expected = [
             Property::new(1, PropertyKind::Array(6)),
-            Property::new(7, PropertyKind::ContentAddress(1)),
-            Property::new(15, PropertyKind::UnsignedInt(3)),
+            Property::new(7, PropertyKind::ContentAddress),
+            Property::new(11, PropertyKind::UnsignedInt(3)),
         ];
         assert_eq!(&**variant, &expected);
     }
