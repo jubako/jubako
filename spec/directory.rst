@@ -256,7 +256,12 @@ Content Address
 
 ``contentAddress`` is used to point to a specific blob.
 
+It's size is always 4.
+A ``contentAddress`` is composed of two parts :
+- The first byte is the ``pack_id`` (The pack in which find the content)
+- The last three bytes are the ``content_id`` (The identifier of the content in the pack)
 
+The ``pack_id`` is the id of the pack in the ``PackInfo`` in the manifest file.
 
 Integer
 .......
