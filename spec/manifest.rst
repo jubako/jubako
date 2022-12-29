@@ -24,7 +24,7 @@ FreeData is a 63 bytes free space to extend the header with application specific
 PackInfo
 ========
 
-The mainHeader is directly (at offset 128) followed by an array of packInfo.
+At the end of the manifest pack (just before the checkInfo), there is a array of packInfo.
 There is ``packCount+1`` packInfo (one for the directoryPack and ``packCount`` for the contentPacks)
 
 It describe the pack parts of a Jubako container and where to find them.
@@ -40,8 +40,8 @@ freeData         [u8,103]  17     A 256 bytes array free data. Application speci
 packSize         Size      120    The size of the pack.
                                   Must be equal to the packSize in the packheader of the pointed pack
 packOffset       Offset    128    | The offset (starting from the beginning of
-                                    the file) where to find the pack.
-                                  | If ==0, the pack is not concatenate and must be located somewhere else (file system, db, ...)
+                                    the manifest file) where to find the pack.
+                                  | If ==0, the pack is not in the manifest file and must be located somewhere else (file system, db, ...)
 packCheckInfoPos Offset    136    The checkInfo of the pack (mandatory)
 packPath         pstring   144    | A pString pointing to the path of the pack file
                  [u8, 112]        | The array is always 112 length.
