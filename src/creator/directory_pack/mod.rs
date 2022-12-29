@@ -24,6 +24,7 @@ trait WritableTell {
     }
 }
 
+#[derive(Debug)]
 enum Value {
     Content(Content),
     Unsigned(u64),
@@ -34,13 +35,14 @@ enum Value {
     },
 }
 
+#[derive(Debug)]
 pub struct Entry {
-    variant_id: u8,
+    variant_id: Option<u8>,
     values: Vec<Value>,
 }
 
 impl Entry {
-    pub fn new(variant_id: u8, values: Vec<common::Value>) -> Self {
+    pub fn new(variant_id: Option<u8>, values: Vec<common::Value>) -> Self {
         let values = values
             .into_iter()
             .map(|v| match v {

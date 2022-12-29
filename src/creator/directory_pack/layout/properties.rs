@@ -5,26 +5,51 @@ use crate::bases::*;
 use crate::creator::directory_pack::Entry as RawEntry;
 
 #[derive(Debug)]
-pub struct Variant {
-    pub(crate) need_variant_id: bool,
-    pub keys: Vec<Property>,
+pub struct Properties(Vec<Property>);
+pub type CommonProperties = Properties;
+
+#[derive(Debug)]
+pub struct VariantProperties(pub Vec<Property>);
+
+impl std::ops::Deref for Properties {
+    type Target = [Property];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-impl Variant {
+impl std::ops::DerefMut for Properties {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl VariantProperties {
+    pub fn new(mut keys: Vec<Property>) -> Self {
+        keys.insert(0, Property::VariantId);
+        Self(keys)
+    }
+}
+
+impl From<VariantProperties> for Properties {
+    fn from(other: VariantProperties) -> Self {
+        Self(other.0)
+    }
+}
+
+impl Properties {
     pub fn new(keys: Vec<Property>) -> Self {
-        Self {
-            need_variant_id: false,
-            keys,
-        }
+        Self(keys)
     }
 
-    pub fn write_entry(&self, entry: &RawEntry, stream: &mut dyn OutStream) -> Result<usize> {
+    pub fn write_entry<'a>(
+        keys: impl Iterator<Item = &'a Property>,
+        entry: &RawEntry,
+        stream: &mut dyn OutStream,
+    ) -> Result<usize> {
         let mut written = 0;
-        if self.need_variant_id {
-            written += stream.write_u8(entry.variant_id)?;
-        }
         let mut value_iter = entry.values.iter();
-        for key in &self.keys {
+        for key in keys {
             match key {
                 Property::VLArray(flookup_size, store_handle) => {
                     let flookup_size = *flookup_size as usize;
@@ -64,42 +89,39 @@ impl Variant {
                     let data = vec![0x00; *size as usize];
                     written += stream.write(&data)?;
                 }
-                Property::VariantId => unreachable!(),
+                Property::VariantId => {
+                    written += stream.write_u8(entry.variant_id.unwrap())?;
+                }
             }
         }
         Ok(written)
     }
 
     pub(crate) fn entry_size(&self) -> u16 {
-        let base = if self.need_variant_id { 1 } else { 0 };
-        self.keys.iter().map(|k| k.size()).sum::<u16>() + base
+        self.iter().map(|k| k.size()).sum::<u16>()
     }
 
     pub(crate) fn key_count(&self) -> u8 {
-        let base = if self.need_variant_id { 1 } else { 0 };
-        self.keys.iter().map(|k| k.key_count()).sum::<u8>() + base
+        self.iter().map(|k| k.key_count()).sum::<u8>()
     }
 
     pub(crate) fn fill_to_size(&mut self, size: u16) {
         let current_size = self.entry_size();
         let mut padding_size = size - current_size;
         while padding_size >= 16 {
-            self.keys.push(Property::Padding(16));
+            self.0.push(Property::Padding(16));
             padding_size -= 16;
         }
         if padding_size > 0 {
-            self.keys.push(Property::Padding(padding_size as u8))
+            self.0.push(Property::Padding(padding_size as u8))
         }
     }
 }
 
-impl Writable for Variant {
+impl Writable for Properties {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         let mut written = 0;
-        if self.need_variant_id {
-            written += Property::VariantId.write(stream)?;
-        }
-        for key in &self.keys {
+        for key in &self.0 {
             written += key.write(stream)?;
         }
         Ok(written)

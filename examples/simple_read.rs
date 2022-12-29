@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     {
         let entry = finder.get_entry(0.into())?;
-        assert_eq!(entry.get_variant_id(), 0.into()); // We correctly have variant 0
+        assert_eq!(entry.get_variant_id().unwrap(), Some(0.into())); // We correctly have variant 0
         assert_eq!(
             resolver.resolve_to_vec(&entry.get_value(0.into())?)?,
             Vec::from("Super")
@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     {
         let entry = finder.get_entry(1.into())?;
-        assert_eq!(entry.get_variant_id(), 1.into());
+        assert_eq!(entry.get_variant_id().unwrap(), Some(1.into()));
         assert_eq!(
             resolver.resolve_to_vec(&entry.get_value(0.into())?)?,
             Vec::from("Mega")
@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     {
         let entry = finder.get_entry(2.into())?;
-        assert_eq!(entry.get_variant_id(), 1.into());
+        assert_eq!(entry.get_variant_id().unwrap(), Some(1.into()));
         assert_eq!(
             resolver.resolve_to_vec(&entry.get_value(0.into())?)?,
             Vec::from("Hyper")

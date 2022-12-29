@@ -97,9 +97,8 @@ mod tests {
         let content = vec![
             0x00, // kind
             0x05, 0x67,        //entry_size (1383)
-            0x01,        // variant count
-            0x15,        // property count (21)
-            0b1000_0000, // Variant id
+            0x00,        // variant count
+            0x14,        // property count (21)
             0b0000_0111, // padding (8)
             0b0001_0000, // classic content address
             0b0001_0001, // patch content address
@@ -128,28 +127,27 @@ mod tests {
         let store = match store {
             EntryStore::Plain(s) => s,
         };
-        assert_eq!(store.layout.variants.len(), 1);
-        let variant = &store.layout.variants[0];
-        let expected = vec![
-            Property::new(9, PropertyKind::ContentAddress(0)),
-            Property::new(13, PropertyKind::ContentAddress(1)),
-            Property::new(21, PropertyKind::UnsignedInt(1)),
-            Property::new(22, PropertyKind::UnsignedInt(3)),
-            Property::new(25, PropertyKind::UnsignedInt(8)),
-            Property::new(33, PropertyKind::SignedInt(1)),
-            Property::new(34, PropertyKind::SignedInt(3)),
-            Property::new(37, PropertyKind::SignedInt(8)),
-            Property::new(45, PropertyKind::Array(1)),
-            Property::new(46, PropertyKind::Array(8)),
-            Property::new(54, PropertyKind::Array(9)),
-            Property::new(63, PropertyKind::Array(264)),
-            Property::new(327, PropertyKind::Array(1032)),
-            Property::new(1359, PropertyKind::VLArray(1, 0x0F.into(), None)),
-            Property::new(1360, PropertyKind::VLArray(8, 0x0F.into(), None)),
-            Property::new(1368, PropertyKind::VLArray(1, 0x0F.into(), Some(2))),
-            Property::new(1371, PropertyKind::VLArray(8, 0x0F.into(), Some(2))),
+        assert!(store.layout.variant_part.is_none());
+        let expected = [
+            Property::new(8, PropertyKind::ContentAddress(0)),
+            Property::new(12, PropertyKind::ContentAddress(1)),
+            Property::new(20, PropertyKind::UnsignedInt(1)),
+            Property::new(21, PropertyKind::UnsignedInt(3)),
+            Property::new(24, PropertyKind::UnsignedInt(8)),
+            Property::new(32, PropertyKind::SignedInt(1)),
+            Property::new(33, PropertyKind::SignedInt(3)),
+            Property::new(36, PropertyKind::SignedInt(8)),
+            Property::new(44, PropertyKind::Array(1)),
+            Property::new(45, PropertyKind::Array(8)),
+            Property::new(53, PropertyKind::Array(9)),
+            Property::new(62, PropertyKind::Array(264)),
+            Property::new(326, PropertyKind::Array(1032)),
+            Property::new(1358, PropertyKind::VLArray(1, 0x0F.into(), None)),
+            Property::new(1359, PropertyKind::VLArray(8, 0x0F.into(), None)),
+            Property::new(1367, PropertyKind::VLArray(1, 0x0F.into(), Some(2))),
+            Property::new(1370, PropertyKind::VLArray(8, 0x0F.into(), Some(2))),
         ];
-        assert_eq!(&variant.properties, &expected);
+        assert_eq!(&*store.layout.common, &expected);
     }
 
     #[test]
@@ -178,20 +176,22 @@ mod tests {
         let store = match store {
             EntryStore::Plain(s) => s,
         };
-        assert_eq!(store.layout.variants.len(), 2);
-        let variant = &store.layout.variants[0];
-        let expected = vec![
+        let (offset, variants) = store.layout.variant_part.unwrap();
+        assert_eq!(offset, Offset::zero());
+        assert_eq!(variants.len(), 2);
+        let variant = &variants[0];
+        let expected = [
             Property::new(1, PropertyKind::VLArray(5, 0x0F.into(), Some(1))),
             Property::new(11, PropertyKind::ContentAddress(0)),
             Property::new(15, PropertyKind::UnsignedInt(3)),
         ];
-        assert_eq!(&variant.properties, &expected);
-        let variant = &store.layout.variants[1];
-        let expected = vec![
+        assert_eq!(&**variant, &expected);
+        let variant = &variants[1];
+        let expected = [
             Property::new(1, PropertyKind::Array(6)),
             Property::new(7, PropertyKind::ContentAddress(1)),
             Property::new(15, PropertyKind::UnsignedInt(3)),
         ];
-        assert_eq!(&variant.properties, &expected);
+        assert_eq!(&**variant, &expected);
     }
 }

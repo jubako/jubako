@@ -1,15 +1,29 @@
 use super::super::raw_layout::{RawProperty, RawPropertyKind};
 use super::property::{Property, PropertyKind};
 use crate::bases::*;
+use std::rc::Rc;
 
 #[derive(Debug)]
-pub struct Variant {
-    pub properties: Vec<Property>,
+pub struct Properties(Box<[Property]>);
+
+pub type SharedProperties = Rc<[Property]>;
+
+impl std::ops::Deref for Properties {
+    type Target = [Property];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-impl Variant {
-    pub fn new(raw_properties: Vec<RawProperty>) -> Result<Self> {
-        let mut offset = 0;
+impl From<Properties> for SharedProperties {
+    fn from(props: Properties) -> Self {
+        props.0.into()
+    }
+}
+
+impl Properties {
+    pub fn new(initial_offset: usize, raw_properties: Vec<RawProperty>) -> Result<Self> {
+        let mut offset = initial_offset;
         let mut current_idx = 0;
         let mut properties = Vec::new();
         while current_idx < raw_properties.len() {
@@ -21,8 +35,9 @@ impl Variant {
                 properties.push(property)
             }
         }
-        Ok(Self { properties })
+        Ok(Properties(properties.into_boxed_slice()))
     }
+
     fn build_property(
         current_idx: usize,
         offset: usize,

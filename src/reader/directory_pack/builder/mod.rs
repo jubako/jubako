@@ -1,7 +1,7 @@
 mod property;
 
 use super::entry_store::EntryStore;
-use super::layout::Variant;
+use super::layout::Property as LProperty;
 use super::raw_value::RawValue;
 use super::{AnyPropertyCompare, LazyEntry, Resolver, Value};
 use crate::bases::*;
@@ -23,26 +23,43 @@ impl AnyVariantBuilder {
         self.properties[idx.into_usize()].create(reader)
     }
 
-    pub fn new_from_variant(variant: &Variant) -> Self {
-        let properties = variant.properties.iter().map(|p| p.into()).collect();
+    pub fn new(properties: &[LProperty]) -> Self {
+        let properties = properties.iter().map(|p| p.into()).collect();
         Self { properties }
+    }
+
+    pub fn len(&self) -> u8 {
+        self.properties.len() as u8
     }
 }
 
+pub struct LazyEntryProperties {
+    pub common: AnyVariantBuilder,
+    pub variant_part: Option<(Property<u8>, Vec<AnyVariantBuilder>)>,
+}
+
 pub struct AnyBuilder {
-    variants: Vec<Rc<AnyVariantBuilder>>,
+    properties: Rc<LazyEntryProperties>,
     store: Rc<EntryStore>,
 }
 
 impl AnyBuilder {
     pub fn new(store: Rc<EntryStore>) -> Self {
-        let variants = store
-            .layout()
-            .variants
-            .iter()
-            .map(|v| Rc::new(AnyVariantBuilder::new_from_variant(v)))
-            .collect();
-        Self { variants, store }
+        let layout = store.layout();
+        let common = AnyVariantBuilder::new(&layout.common);
+        let variant_part = match &layout.variant_part {
+            None => None,
+            Some((variant_id_offset, variants)) => {
+                let variants = variants.iter().map(|v| AnyVariantBuilder::new(v)).collect();
+                let variant_id = Property::<u8>::new(*variant_id_offset);
+                Some((variant_id, variants))
+            }
+        };
+        let properties = Rc::new(LazyEntryProperties {
+            common,
+            variant_part,
+        });
+        Self { properties, store }
     }
 
     pub fn new_property_compare(
@@ -67,17 +84,12 @@ impl AnyBuilder {
 impl BuilderTrait for AnyBuilder {
     type Entry = LazyEntry;
     fn create_entry(&self, idx: EntryIdx) -> Result<LazyEntry> {
-        let reader = self.store.get_entry_reader(idx);
-        let variant_id: VariantIdx = if self.variants.len() > 1 {
-            reader.read_u8(Offset::zero())?
-        } else {
-            0
-        }
-        .into();
-        let variant_builder = &self.variants[variant_id.into_usize()];
+        let reader = self
+            .store
+            .get_entry_reader(idx)
+            .create_sub_reader(Offset::zero(), End::None);
         Ok(LazyEntry::new(
-            variant_id,
-            Rc::clone(variant_builder),
+            Rc::clone(&self.properties),
             reader.create_sub_reader(Offset::zero(), End::None),
         ))
     }
@@ -90,19 +102,21 @@ mod tests {
     use crate::reader::directory_pack::entry_store::PlainStore;
     use crate::reader::directory_pack::raw_layout::{RawProperty, RawPropertyKind};
     use crate::reader::directory_pack::{Array, EntryTrait};
-    use crate::reader::layout::Layout;
+    use crate::reader::layout::{Layout, Properties};
     use crate::reader::{Content, RawValue};
 
     #[test]
     fn create_entry() {
         let layout = Layout {
-            variants: vec![Rc::new(
-                Variant::new(vec![
+            common: Properties::new(
+                0,
+                vec![
                     RawProperty::new(RawPropertyKind::ContentAddress(0), 4),
                     RawProperty::new(RawPropertyKind::UnsignedInt, 2),
-                ])
-                .unwrap(),
-            )],
+                ],
+            )
+            .unwrap(),
+            variant_part: None,
             size: Size::new(6),
         };
         let content = vec![
@@ -118,7 +132,7 @@ mod tests {
         {
             let entry = builder.create_entry(0.into()).unwrap();
 
-            assert!(entry.get_variant_id() == 0.into());
+            assert!(entry.get_variant_id().unwrap().is_none());
             assert!(
                 entry.get_value(0.into()).unwrap()
                     == RawValue::Content(Content::new(
@@ -132,7 +146,7 @@ mod tests {
         {
             let entry = builder.create_entry(1.into()).unwrap();
 
-            assert!(entry.get_variant_id() == 0.into());
+            assert!(entry.get_variant_id().unwrap().is_none());
             assert!(
                 entry.get_value(0.into()).unwrap()
                     == RawValue::Content(Content::new(
@@ -147,26 +161,32 @@ mod tests {
     #[test]
     fn create_entry_with_variant() {
         let layout = Layout {
-            variants: vec![
-                Rc::new(
-                    Variant::new(vec![
-                        RawProperty::new(RawPropertyKind::VariantId, 1),
-                        RawProperty::new(RawPropertyKind::Array, 4),
-                        RawProperty::new(RawPropertyKind::UnsignedInt, 2),
-                    ])
-                    .unwrap(),
-                ),
-                Rc::new(
-                    Variant::new(vec![
-                        RawProperty::new(RawPropertyKind::VariantId, 1),
-                        RawProperty::new(RawPropertyKind::Array, 2),
-                        RawProperty::new(RawPropertyKind::Padding, 1),
-                        RawProperty::new(RawPropertyKind::SignedInt, 1),
-                        RawProperty::new(RawPropertyKind::UnsignedInt, 2),
-                    ])
-                    .unwrap(),
-                ),
-            ],
+            common: Properties::new(0, vec![]).unwrap(),
+            variant_part: Some((
+                Offset::new(0),
+                Box::new([
+                    Properties::new(
+                        1,
+                        vec![
+                            RawProperty::new(RawPropertyKind::Array, 4),
+                            RawProperty::new(RawPropertyKind::UnsignedInt, 2),
+                        ],
+                    )
+                    .unwrap()
+                    .into(),
+                    Properties::new(
+                        1,
+                        vec![
+                            RawProperty::new(RawPropertyKind::Array, 2),
+                            RawProperty::new(RawPropertyKind::Padding, 1),
+                            RawProperty::new(RawPropertyKind::SignedInt, 1),
+                            RawProperty::new(RawPropertyKind::UnsignedInt, 2),
+                        ],
+                    )
+                    .unwrap()
+                    .into(),
+                ]),
+            )),
             size: Size::new(7),
         };
 
@@ -183,7 +203,7 @@ mod tests {
         {
             let entry = builder.create_entry(0.into()).unwrap();
 
-            assert!(entry.get_variant_id() == 0.into());
+            assert!(entry.get_variant_id().unwrap() == Some(0.into()));
             assert!(
                 entry.get_value(0.into()).unwrap()
                     == RawValue::Array(Array::new(vec![0xFF, 0xEE, 0xDD, 0xCC], None))
@@ -194,7 +214,7 @@ mod tests {
         {
             let entry = builder.create_entry(1.into()).unwrap();
 
-            assert!(entry.get_variant_id() == 1.into());
+            assert!(entry.get_variant_id().unwrap() == Some(1.into()));
             assert!(
                 entry.get_value(0.into()).unwrap()
                     == RawValue::Array(Array::new(vec![0xFF, 0xEE], None))
