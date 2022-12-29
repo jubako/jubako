@@ -44,8 +44,8 @@ packOffset       Offset    128    | The offset (starting from the beginning of
                                   | If ==0, the pack is not concatenate and must be located somewhere else (file system, db, ...)
 packCheckInfoPos Offset    136    The checkInfo of the pack (mandatory)
 packPath         pstring   144    | A pString pointing to the path of the pack file
-                 [u8, 112]        | The array is always 104 length.
-                                    The max string length : 112.
+                 [u8, 112]        | The array is always 112 length.
+                                    The max string length : 111.
 ================ ========= ====== ===========
 
 Full Size : 256 bytes.
