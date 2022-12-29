@@ -249,9 +249,6 @@ However, the padding size is taken into account to deduce the offset of other ke
 Padding may be used to combine different index using the same data (as union or
 specialized index).
 
-If a entry ends wit a padding, the last padding key (of the last variant) is not necessary.
-However, writer implementation SHOULD include it.
-
 The size of a padding is ``0bSSSS + 1``.
 
 Content Address
