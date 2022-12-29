@@ -27,46 +27,48 @@ impl EntryStore {
     }
 
     pub(crate) fn finalize(&mut self) {
-        let mut fake_vec = vec![];
         for entry in &mut self.entries {
-            let mut key_iter = if self.layout.variants.is_empty() {
-                self.layout
-                    .common
-                    .keys
-                    .iter_mut()
-                    .chain(fake_vec.iter_mut())
+            if self.layout.variants.is_empty() {
+                Self::finalize_entry(self.layout.common.keys.iter_mut(), entry);
             } else {
-                self.layout.common.keys.iter_mut().chain(
+                let keys = self.layout.common.keys.iter_mut().chain(
                     self.layout.variants[entry.variant_id.unwrap() as usize]
                         .keys
                         .iter_mut(),
-                )
+                );
+                Self::finalize_entry(keys, entry);
             };
-            let mut value_iter = entry.values.iter_mut();
-            for key in &mut key_iter {
-                match key {
-                    layout::Property::VLArray(flookup_size, store_handle) => {
-                        let flookup_size = *flookup_size;
-                        let value = value_iter.next().unwrap();
-                        if let Value::Array { data, value_id } = value {
-                            let to_store = data.split_off(cmp::min(flookup_size, data.len()));
-                            *value_id = Some(store_handle.borrow_mut().add_value(&to_store));
-                        }
+        }
+        self.layout.finalize();
+    }
+
+    fn finalize_entry<'a>(
+        mut keys: impl Iterator<Item = &'a mut layout::Property>,
+        entry: &mut Entry,
+    ) {
+        let mut value_iter = entry.values.iter_mut();
+        for key in &mut keys {
+            match key {
+                layout::Property::VLArray(flookup_size, store_handle) => {
+                    let flookup_size = *flookup_size;
+                    let value = value_iter.next().unwrap();
+                    if let Value::Array { data, value_id } = value {
+                        let to_store = data.split_off(cmp::min(flookup_size, data.len()));
+                        *value_id = Some(store_handle.borrow_mut().add_value(&to_store));
                     }
-                    layout::Property::UnsignedInt(max_value) => {
-                        let value = value_iter.next().unwrap();
-                        if let Value::Unsigned(v) = value {
-                            *key = layout::Property::UnsignedInt(cmp::max(*max_value, *v));
-                        }
+                }
+                layout::Property::UnsignedInt(max_value) => {
+                    let value = value_iter.next().unwrap();
+                    if let Value::Unsigned(v) = value {
+                        *key = layout::Property::UnsignedInt(cmp::max(*max_value, *v));
                     }
-                    layout::Property::VariantId => {},
-                    _ => {
-                        value_iter.next();
-                    }
+                }
+                layout::Property::VariantId => {}
+                _ => {
+                    value_iter.next();
                 }
             }
         }
-        self.layout.finalize();
     }
 }
 
