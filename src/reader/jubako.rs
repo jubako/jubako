@@ -2,10 +2,10 @@ use std::cell::OnceCell;
 
 use super::content_pack::ContentPack;
 use super::directory_pack::{DirectoryPack, EntryStorage};
-use super::manifest_pack::{ManifestPack, PackInfo};
+use super::manifest_pack::ManifestPack;
 use super::{Index, ValueStorage};
 use crate::bases::*;
-use crate::common::{ContentAddress, Pack, PackPos};
+use crate::common::{ContentAddress, Pack, PackInfo, PackPos};
 use std::ffi::OsString;
 use std::fs::File;
 use std::os::unix::ffi::OsStringExt;

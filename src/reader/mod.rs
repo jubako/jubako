@@ -11,7 +11,7 @@ pub use directory_pack::{
     AnyPropertyCompare, AnySchema, Array, CompareTrait, ContentAddress, DirectoryPack, EntryStore,
     EntryTrait, Finder, Index, LazyEntry as Entry, RawValue, Resolver, Value, ValueStorage,
 };
-pub use manifest_pack::{ManifestPack, PackInfo};
+pub use manifest_pack::ManifestPack;
 
 pub mod testing {
     pub use super::directory_pack::Extend;

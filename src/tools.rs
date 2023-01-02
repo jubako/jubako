@@ -25,7 +25,7 @@ pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
     let manifest_header = jbk::common::ManifestPackHeader::produce(&mut stream)?;
 
     for pack_nb in manifest_header.pack_count + 1 {
-        let pack_info = jbk::reader::PackInfo::produce(&mut stream)?;
+        let pack_info = jbk::common::PackInfo::produce(&mut stream)?;
         match pack_info.pack_pos {
             jbk::common::PackPos::Offset(_) => {} // Nothing to do, it is already in the file,
             jbk::common::PackPos::Path(p) => {
