@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct PackInfo {
-    pub id: Uuid,
+    pub uuid: Uuid,
     pub pack_id: PackId,
     pub free_data: FreeData103,
     pub pack_size: Size,
@@ -19,7 +19,7 @@ impl SizedProducable for PackInfo {
 impl Producable for PackInfo {
     type Output = Self;
     fn produce(stream: &mut Stream) -> Result<Self> {
-        let id = Uuid::produce(stream)?;
+        let uuid = Uuid::produce(stream)?;
         let pack_id = Id::produce(stream)?.into();
         let free_data = FreeData103::produce(stream)?;
         let pack_size = Size::produce(stream)?;
@@ -34,7 +34,7 @@ impl Producable for PackInfo {
             PackPos::Offset(pack_offset)
         };
         Ok(Self {
-            id,
+            uuid,
             pack_id,
             free_data,
             pack_size,
