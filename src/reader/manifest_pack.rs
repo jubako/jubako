@@ -262,7 +262,7 @@ mod tests {
                 pack_id: PackId::from(0),
                 free_data: FreeData103::clone_from_slice(&[0xf0; 103]),
                 pack_size: Size::new(0xffff),
-                pack_check_info: Offset::new(0xff),
+                check_info_pos: Offset::new(0xff),
                 pack_pos: PackPos::Offset(Offset::new(0xff00))
             }
         );
@@ -276,7 +276,7 @@ mod tests {
                 pack_id: PackId::from(1),
                 free_data: FreeData103::clone_from_slice(&[0xf1; 103]),
                 pack_size: Size::new(0xffffff),
-                pack_check_info: Offset::new(0xff00ff),
+                check_info_pos: Offset::new(0xff00ff),
                 pack_pos: PackPos::Offset(Offset::new(0xff00))
             }
         );
@@ -290,7 +290,7 @@ mod tests {
                 pack_id: PackId::from(2),
                 free_data: FreeData103::clone_from_slice(&[0xf2; 103]),
                 pack_size: Size::new(0xffffff),
-                pack_check_info: Offset::new(0xffffff),
+                check_info_pos: Offset::new(0xffffff),
                 pack_pos: PackPos::Path("packpath".into())
             }
         );
