@@ -1,8 +1,8 @@
 mod cluster;
 
-use super::{CheckInfo, PackInfo};
 use crate::bases::*;
-use crate::common::{CompressionType, ContentInfo, ContentPackHeader, PackHeaderInfo, PackPos};
+use crate::common::{CompressionType, ContentInfo, ContentPackHeader, PackHeaderInfo};
+use crate::creator::{Embedded, PackData};
 use cluster::ClusterCreator;
 use std::fs::{File, OpenOptions};
 use std::io::{Seek, SeekFrom, Write};
@@ -101,7 +101,7 @@ impl ContentPackCreator {
         Ok(((self.content_infos.len() - 1) as u32).into())
     }
 
-    pub fn finalize(&mut self) -> Result<PackInfo> {
+    pub fn finalize(mut self) -> Result<PackData> {
         assert!(self.file.is_some());
         if let Some(cluster) = self.open_cluster.as_ref() {
             if !cluster.is_empty() {
@@ -135,13 +135,14 @@ impl ContentPackCreator {
         let hash = hasher.finalize();
         file.write_u8(1)?;
         file.write_all(hash.as_bytes())?;
-        Ok(PackInfo {
+        file.rewind()?;
+        Ok(PackData {
             uuid: header.pack_header.uuid,
             pack_id: self.pack_id,
             free_data: FreeData103::clone_from_slice(&[0; 103]),
-            pack_size,
-            check_info: CheckInfo::new_blake3(hash.as_bytes()),
-            pack_pos: PackPos::Path(self.path.to_str().unwrap().into()),
+            reader: Reader::new(FileSource::new(self.file.unwrap()), End::None),
+            check_info_pos: check_offset,
+            embedded: Embedded::No(self.path),
         })
     }
 }

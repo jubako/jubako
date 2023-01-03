@@ -1,6 +1,7 @@
-use super::{entry_store, layout, value_store, CheckInfo, Index, PackInfo, WritableTell};
+use super::{entry_store, layout, value_store, Index, WritableTell};
 use crate::bases::*;
 use crate::common::{ContentAddress, DirectoryPackHeader, PackHeaderInfo};
+use crate::creator::{Embedded, PackData};
 use entry_store::EntryStore;
 use std::cell::RefCell;
 use std::fs::OpenOptions;
@@ -73,7 +74,7 @@ impl DirectoryPackCreator {
         self.indexes.push(index);
     }
 
-    pub fn finalize(&mut self) -> Result<PackInfo> {
+    pub fn finalize(mut self) -> Result<PackData> {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -141,13 +142,14 @@ impl DirectoryPackCreator {
         let hash = hasher.finalize();
         file.write_u8(1)?;
         file.write_all(hash.as_bytes())?;
-        Ok(PackInfo {
+        file.rewind()?;
+        Ok(PackData {
             uuid: header.uuid(),
             pack_id: self.pack_id,
             free_data: FreeData103::clone_from_slice(&[0; 103]),
-            pack_size,
-            check_info: CheckInfo::new_blake3(hash.as_bytes()),
-            pack_pos: self.path.clone().into(),
+            reader: Reader::new(FileSource::new(file), End::None),
+            check_info_pos: check_offset,
+            embedded: Embedded::No(self.path),
         })
     }
 }

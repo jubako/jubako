@@ -1,6 +1,6 @@
-use super::PackInfo;
+use super::{Embedded, PackData};
 use crate::bases::*;
-use crate::common::{ManifestPackHeader, PackHeaderInfo};
+use crate::common::{ManifestPackHeader, PackHeaderInfo, PackInfo};
 use std::fs::OpenOptions;
 use std::io::{copy, repeat, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 pub struct ManifestPackCreator {
     app_vendor_id: u32,
     free_data: FreeData63,
-    packs: Vec<PackInfo>,
+    packs: Vec<PackData>,
     path: PathBuf,
 }
 
@@ -22,11 +22,11 @@ impl ManifestPackCreator {
         }
     }
 
-    pub fn add_pack(&mut self, pack_info: PackInfo) {
+    pub fn add_pack(&mut self, pack_info: PackData) {
         self.packs.push(pack_info);
     }
 
-    pub fn finalize(&mut self) -> IoResult<String> {
+    pub fn finalize(self) -> IoResult<String> {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -37,13 +37,23 @@ impl ManifestPackCreator {
 
         let mut check_pos = Offset::from(128 + 256 * self.packs.len());
 
-        for pack_info in &self.packs {
-            pack_info.write(check_pos, &mut file)?;
-            check_pos += pack_info.get_check_size();
+        let mut readers = vec![];
+        let nb_packs = self.packs.len() as u8;
+
+        for pack_data in self.packs.into_iter() {
+            let sub_offset = match pack_data.embedded {
+                Embedded::Yes => Offset::zero(),
+                Embedded::No(_) => pack_data.check_info_pos,
+            };
+            let reader = pack_data.reader.create_sub_reader(sub_offset, End::None);
+            let pack_info = PackInfo::new_at_pos(pack_data, check_pos);
+            check_pos += reader.size();
+            readers.push(reader);
+            pack_info.write(&mut file)?;
         }
 
-        for pack_info in &self.packs {
-            pack_info.check_info.write(&mut file)?;
+        for reader in &readers {
+            copy(&mut reader.create_stream_all(), &mut file)?;
         }
 
         let check_offset = file.tell();
@@ -52,7 +62,7 @@ impl ManifestPackCreator {
         let header = ManifestPackHeader::new(
             PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset),
             self.free_data,
-            ((self.packs.len() as u8) - 1).into(),
+            (nb_packs - 1).into(),
         );
         header.write(&mut file)?;
         file.rewind()?;
@@ -61,7 +71,7 @@ impl ManifestPackCreator {
         let mut buf = [0u8; 256];
         file.read_exact(&mut buf[..128])?;
         hasher.write_all(&buf[..128])?; //check start
-        for _i in 0..self.packs.len() {
+        for _i in 0..nb_packs {
             file.read_exact(&mut buf[..144])?;
             hasher.write_all(&buf[..144])?; //check beggining of pack
             copy(&mut repeat(0).take(112), &mut hasher)?; // fill with 0 the path

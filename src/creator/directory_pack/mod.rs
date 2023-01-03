@@ -4,7 +4,6 @@ mod entry_store;
 pub mod layout;
 mod value_store;
 
-use super::{CheckInfo, PackInfo};
 use crate::bases::*;
 use crate::common;
 use crate::common::ContentAddress;

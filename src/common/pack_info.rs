@@ -12,6 +12,53 @@ pub struct PackInfo {
     pub pack_pos: PackPos,
 }
 
+impl PackInfo {
+    pub fn new_at_pos(pack_data: crate::creator::PackData, offset: Offset) -> Self {
+        use crate::creator::Embedded;
+        let (check_info_pos, pack_pos) = match pack_data.embedded {
+            Embedded::Yes =>
+            // Offset is the offset of the pack
+            {
+                (offset + pack_data.check_info_pos, offset.into())
+            }
+            Embedded::No(path) =>
+            // Offset is the offset of the check_info, pack_pos is the patch to the file
+            {
+                (offset, path.into())
+            }
+        };
+        Self {
+            uuid: pack_data.uuid,
+            pack_id: pack_data.pack_id,
+            free_data: pack_data.free_data,
+            pack_size: pack_data.reader.size(),
+            check_info_pos,
+            pack_pos,
+        }
+    }
+}
+
+impl PackInfo {
+    pub fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
+        self.uuid.write(stream)?;
+        self.pack_id.write(stream)?;
+        self.free_data.write(stream)?;
+        self.pack_size.write(stream)?;
+        self.check_info_pos.write(stream)?;
+        match &self.pack_pos {
+            PackPos::Offset(offset) => {
+                offset.write(stream)?;
+                PString::write_string_padded(b"", 111, stream)?;
+            }
+            PackPos::Path(path) => {
+                stream.write_u64(0)?;
+                PString::write_string_padded(path.as_ref(), 111, stream)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 impl SizedProducable for PackInfo {
     type Size = typenum::U256;
 }

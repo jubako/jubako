@@ -12,3 +12,9 @@ impl From<std::path::PathBuf> for PackPos {
         PackPos::Path(p.as_os_str().to_os_string().into_vec())
     }
 }
+
+impl From<Offset> for PackPos {
+    fn from(o: Offset) -> Self {
+        PackPos::Offset(o)
+    }
+}
