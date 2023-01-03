@@ -35,25 +35,24 @@ impl ManifestPackCreator {
             .open(&self.path)?;
         file.seek(SeekFrom::Start(128))?;
 
-        let mut check_pos = Offset::from(128 + 256 * self.packs.len());
-
-        let mut readers = vec![];
+        let mut pack_infos = vec![];
         let nb_packs = self.packs.len() as u8;
-
         for pack_data in self.packs.into_iter() {
+            let current_pos = file.tell();
             let sub_offset = match pack_data.embedded {
                 Embedded::Yes => Offset::zero(),
                 Embedded::No(_) => pack_data.check_info_pos,
             };
-            let reader = pack_data.reader.create_sub_reader(sub_offset, End::None);
-            let pack_info = PackInfo::new_at_pos(pack_data, check_pos);
-            check_pos += reader.size();
-            readers.push(reader);
-            pack_info.write(&mut file)?;
+            copy(
+                &mut pack_data.reader.create_stream_from(sub_offset),
+                &mut file,
+            )?;
+            pack_infos.push(PackInfo::new_at_pos(pack_data, current_pos));
         }
 
-        for reader in &readers {
-            copy(&mut reader.create_stream_all(), &mut file)?;
+        // Write the pack_info
+        for pack_info in &pack_infos {
+            pack_info.write(&mut file)?;
         }
 
         let check_offset = file.tell();
