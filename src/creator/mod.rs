@@ -4,17 +4,22 @@ mod manifest_pack;
 
 use crate::bases::*;
 pub use crate::bases::{FileSource, Stream};
+use crate::common::CheckKind;
 pub use crate::common::Value;
-use crate::common::{CheckKind, PackPos};
 pub use content_pack::ContentPackCreator;
 pub use directory_pack::{layout, DirectoryPackCreator, ValueStoreKind};
 pub use manifest_pack::ManifestPackCreator;
+use std::path::PathBuf;
 
 pub struct CheckInfo {
     kind: CheckKind,
     data: Option<Vec<u8>>,
 }
 
+pub enum Embedded {
+    Yes,
+    No(PathBuf),
+}
 impl CheckInfo {
     pub fn new_blake3(hash: &[u8]) -> Self {
         Self {
@@ -39,36 +44,11 @@ impl Writable for CheckInfo {
     }
 }
 
-pub struct PackInfo {
+pub struct PackData {
     pub uuid: uuid::Uuid,
     pub pack_id: PackId,
     pub free_data: FreeData103,
-    pub pack_size: Size,
-    pub pack_pos: PackPos,
-    pub check_info: CheckInfo,
-}
-
-impl PackInfo {
-    pub fn write(&self, check_info_pos: Offset, stream: &mut dyn OutStream) -> IoResult<()> {
-        self.uuid.write(stream)?;
-        self.pack_id.write(stream)?;
-        self.free_data.write(stream)?;
-        self.pack_size.write(stream)?;
-        check_info_pos.write(stream)?;
-        match &self.pack_pos {
-            PackPos::Offset(offset) => {
-                offset.write(stream)?;
-                PString::write_string_padded(b"", 111, stream)?;
-            }
-            PackPos::Path(path) => {
-                stream.write_u64(0)?;
-                PString::write_string_padded(path.as_ref(), 111, stream)?;
-            }
-        }
-        Ok(())
-    }
-
-    pub fn get_check_size(&self) -> Size {
-        self.check_info.size()
-    }
+    pub reader: Reader,
+    pub check_info_pos: Offset,
+    pub embedded: Embedded,
 }

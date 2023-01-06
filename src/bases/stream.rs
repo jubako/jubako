@@ -48,6 +48,10 @@ impl Stream {
     pub fn size(&self) -> Size {
         self.end - self.origin
     }
+    pub fn seek(&mut self, pos: Offset) {
+        self.offset = self.origin + pos;
+        assert!(self.offset <= self.end);
+    }
     pub fn skip(&mut self, size: Size) -> Result<()> {
         let new_offset = self.offset + size;
         if new_offset <= self.end {

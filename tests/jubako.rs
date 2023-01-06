@@ -423,11 +423,12 @@ test_suite! {
 
     fn create_main_pack(directory_pack: PackInfo, content_pack:PackInfo) -> Result<String> {
         let uuid = Uuid::new_v4();
-        let mut file_size:u64 = 128 + 2*256;
+        let mut file_size:u64 = 128;
         let directory_check_info_pos = file_size;
         file_size += directory_pack.get_check_size();
         let content_check_info_pos = file_size;
         file_size += content_pack.get_check_size();
+        file_size += 2*256;
         let check_info_pos = file_size;
         file_size += 33;
         let mut file = OpenOptions::new()
@@ -449,11 +450,11 @@ test_suite! {
         file.write_all(&[0x01])?; // number of contentpack
         file.write_all(&[0xff;63])?; // free_data
 
-        file.write_all(&directory_pack.bytes(directory_check_info_pos))?;
-        file.write_all(&content_pack.bytes(content_check_info_pos))?;
         assert_eq!(directory_check_info_pos, file.seek(SeekFrom::End(0))?);
         file.write_all(&directory_pack.check_info.bytes())?;
         file.write_all(&content_pack.check_info.bytes())?;
+        file.write_all(&directory_pack.bytes(directory_check_info_pos))?;
+        file.write_all(&content_pack.bytes(content_check_info_pos))?;
 
         file.seek(SeekFrom::Start(0))?;
         let mut hasher = blake3::Hasher::new();

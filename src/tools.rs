@@ -1,42 +1,52 @@
 use crate as jbk;
 use jbk::bases::*;
-use std::fs::{File, OpenOptions};
-use std::io::{Seek, SeekFrom};
+use std::fs::File;
 use std::path::Path;
 
 pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
     let manifest_path = infiles.first().unwrap();
-    let mut manifest_file = File::open(&manifest_path)?;
 
-    let mut outfile = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&outfile)?;
-
-    std::io::copy(&mut manifest_file, &mut outfile)?;
-    manifest_file.seek(SeekFrom::Start(0))?;
-
-    let mut pack_path = manifest_path.as_ref().to_path_buf();
-
+    let manifest_file = File::open(&manifest_path)?;
     let reader = jbk::bases::Reader::new(FileSource::new(manifest_file), jbk::End::None);
     let mut stream = reader.create_stream_all();
 
     let manifest_header = jbk::common::ManifestPackHeader::produce(&mut stream)?;
+    stream.seek(manifest_header.packs_offset());
 
-    for pack_nb in manifest_header.pack_count + 1 {
-        let pack_info = jbk::reader::PackInfo::produce(&mut stream)?;
-        match pack_info.pack_pos {
-            jbk::common::PackPos::Offset(_) => {} // Nothing to do, it is already in the file,
+    let mut creator = jbk::creator::ManifestPackCreator::new(
+        &outfile,
+        manifest_header.pack_header.app_vendor_id,
+        manifest_header.free_data,
+    );
+
+    let mut pack_path = manifest_path.as_ref().to_path_buf();
+
+    for _ in manifest_header.pack_count + 1 {
+        let pack_info = jbk::common::PackInfo::produce(&mut stream)?;
+        let pack_reader = match pack_info.pack_pos {
+            jbk::common::PackPos::Offset(o) => {
+                reader.create_sub_reader(o, End::Size(pack_info.pack_size))
+            }
             jbk::common::PackPos::Path(p) => {
-                pack_path.set_file_name(String::from_utf8(p)?);
-                let mut file = File::open(&pack_path)?;
-                let pos = outfile.seek(SeekFrom::End(0))?;
-                std::io::copy(&mut file, &mut outfile)?;
-                outfile.seek(SeekFrom::Start(128 + 256 * pack_nb.into_u64() + 128))?;
-                Offset::from(pos).write(&mut outfile)?;
+                pack_path.set_file_name(String::from_utf8(p).unwrap());
+                Reader::new(
+                    FileSource::new(File::open(&pack_path)?),
+                    End::Size(pack_info.pack_size),
+                )
             }
         };
+        let pack_header = jbk::common::PackHeader::produce(&mut pack_reader.create_stream_all())?;
+        let pack_data = jbk::creator::PackData {
+            uuid: pack_info.uuid,
+            pack_id: pack_info.pack_id,
+            free_data: pack_info.free_data,
+            reader: pack_reader,
+            check_info_pos: pack_header.check_info_pos,
+            embedded: jbk::creator::Embedded::Yes,
+        };
+        creator.add_pack(pack_data);
     }
+
+    creator.finalize()?;
     Ok(())
 }

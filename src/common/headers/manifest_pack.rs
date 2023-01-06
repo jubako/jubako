@@ -17,6 +17,12 @@ impl ManifestPackHeader {
             free_data,
         }
     }
+
+    pub fn packs_offset(&self) -> Offset {
+        Offset::from(
+            self.pack_header.check_info_pos.into_u64() - (self.pack_count.into_u64() + 1) * 256,
+        )
+    }
 }
 
 impl SizedProducable for ManifestPackHeader {

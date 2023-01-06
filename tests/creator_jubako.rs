@@ -59,7 +59,7 @@ test_suite! {
         }
     }
 
-    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<TestEntry>) -> Result<creator::PackInfo> {
+    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<TestEntry>) -> Result<creator::PackData> {
         let mut creator = creator::ContentPackCreator::new(
             "/tmp/contentPack.jbkc",
             jubako::PackId::from(1),
@@ -77,7 +77,7 @@ test_suite! {
         Ok(pack_info)
     }
 
-    fn create_directory_pack(key_store_kind: creator::ValueStoreKind, entries: &Vec<TestEntry>) -> Result<creator::PackInfo> {
+    fn create_directory_pack(key_store_kind: creator::ValueStoreKind, entries: &Vec<TestEntry>) -> Result<creator::PackData> {
         let mut creator = creator::DirectoryPackCreator::new(
             "/tmp/directoryPack.jbkd",
             jubako::PackId::from(1),
@@ -114,7 +114,7 @@ test_suite! {
         Ok(pack_info)
     }
 
-    fn create_main_pack(directory_pack: creator::PackInfo, content_pack:creator::PackInfo) -> Result<String> {
+    fn create_main_pack(directory_pack: creator::PackData, content_pack:creator::PackData) -> Result<String> {
         let mut creator = creator::ManifestPackCreator::new(
             "/tmp/mainPack.jbkm",
             1,
