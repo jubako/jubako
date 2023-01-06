@@ -1,7 +1,7 @@
 use std::cell::OnceCell;
 
 use crate::bases::*;
-use crate::common::{CheckInfo, ManifestPackHeader, Pack, PackInfo, PackKind};
+use crate::common::{CheckInfo, ManifestPackHeader, Pack, PackInfo, PackKind, PackPos};
 use generic_array::typenum;
 use std::cmp;
 use std::io::{repeat, Read};
@@ -72,6 +72,23 @@ impl ManifestPack {
         }
         Err(Error::new_arg())
     }
+
+    fn check_manifest_only(&self) -> Result<bool> {
+        let check_info = self.get_check_info()?;
+        {
+            let mut check_stream = self
+                .reader
+                .create_stream_to(End::Offset(self.header.pack_header.check_info_pos));
+            let mut check_stream = CheckStream::new(&mut check_stream, self.header.pack_count + 1);
+            let mut v = vec![];
+            check_stream.read_to_end(&mut v)?;
+        }
+        let mut check_stream = self
+            .reader
+            .create_stream_to(End::Offset(self.header.pack_header.check_info_pos));
+        let mut check_stream = CheckStream::new(&mut check_stream, self.header.pack_count + 1);
+        check_info.check(&mut check_stream as &mut dyn Read)
+    }
 }
 
 struct CheckStream<'a> {
@@ -141,20 +158,30 @@ impl Pack for ManifestPack {
         self.header.pack_header.file_size
     }
     fn check(&self) -> Result<bool> {
-        let check_info = self.get_check_info()?;
-        {
-            let mut check_stream = self
-                .reader
-                .create_stream_to(End::Offset(self.header.pack_header.check_info_pos));
-            let mut check_stream = CheckStream::new(&mut check_stream, self.header.pack_count + 1);
-            let mut v = vec![];
-            check_stream.read_to_end(&mut v)?;
+        if !self.check_manifest_only()? {
+            return Ok(false);
         }
-        let mut check_stream = self
-            .reader
-            .create_stream_to(End::Offset(self.header.pack_header.check_info_pos));
-        let mut check_stream = CheckStream::new(&mut check_stream, self.header.pack_count + 1);
-        check_info.check(&mut check_stream as &mut dyn Read)
+        let packs = std::iter::once(&self.directory_pack_info).chain(self.pack_infos.iter());
+        for pack_info in packs {
+            println!("Check sub pack {:?}", pack_info);
+            if let PackPos::Offset(o) = pack_info.pack_pos {
+                let check_info = {
+                    let mut checkinfo_stream =
+                        self.reader.create_stream_from(pack_info.check_info_pos);
+                    CheckInfo::produce(&mut checkinfo_stream)?
+                };
+                let valid = check_info.check(
+                    &mut self
+                        .reader
+                        .create_stream(o, End::Size(pack_info.pack_size - check_info.size())),
+                )?;
+                println!("=> valid : {}", valid);
+                if !valid {
+                    return Ok(false);
+                }
+            }
+        }
+        Ok(true)
     }
 }
 
@@ -255,7 +282,9 @@ mod tests {
             ])
         );
         assert_eq!(main_pack.size(), Size::new(881));
-        assert!(main_pack.check().unwrap());
+        assert!(main_pack.check_manifest_only().unwrap());
+        // The pack offset are random. So check of embedded packs will fails.
+        assert!(main_pack.check().is_err());
         assert_eq!(
             main_pack.get_directory_pack_info(),
             &PackInfo {
