@@ -1,5 +1,6 @@
 use crate as jbk;
 use jbk::bases::*;
+use jbk::common::Pack;
 use std::fs::File;
 use std::path::Path;
 
@@ -49,4 +50,15 @@ pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
 
     creator.finalize()?;
     Ok(())
+}
+
+pub fn open_pack<P: AsRef<Path>>(path: P) -> jbk::Result<Box<dyn Pack>> {
+    let file = File::open(&path)?;
+    let reader = Reader::new(FileSource::new(file), End::None);
+    let pack_header = jbk::common::PackHeader::produce(&mut reader.create_stream_all())?;
+    Ok(match pack_header.magic {
+        jbk::common::PackKind::Manifest => Box::new(jbk::reader::ManifestPack::new(reader)?),
+        jbk::common::PackKind::Directory => Box::new(jbk::reader::DirectoryPack::new(reader)?),
+        jbk::common::PackKind::Content => Box::new(jbk::reader::ContentPack::new(reader)?),
+    })
 }
