@@ -43,12 +43,13 @@ impl fmt::Display for FormatError {
 pub enum ErrorKind {
     Io(std::io::Error),
     Format(FormatError),
+    NotAJbk,
     Arg,
     Other(String),
 }
 
 pub struct Error {
-    error: ErrorKind,
+    pub error: ErrorKind,
     bt: Backtrace,
 }
 
@@ -102,6 +103,7 @@ impl fmt::Display for Error {
         match &self.error {
             ErrorKind::Io(e) => write!(f, "IO Error {}", e),
             ErrorKind::Format(e) => write!(f, "Jubako format error {}", e),
+            ErrorKind::NotAJbk => write!(f, "This is not a Jubako archive"),
             ErrorKind::Arg => write!(f, "Invalid argument"),
             ErrorKind::Other(e) => write!(f, "Unknown error : {}", e),
         }
@@ -123,7 +125,7 @@ impl std::error::Error for Error {
             ErrorKind::Io(e) => demand.provide_ref::<std::io::Error>(e),
             ErrorKind::Format(e) => demand.provide_ref::<FormatError>(e),
             ErrorKind::Other(e) => demand.provide_ref::<String>(e),
-            ErrorKind::Arg => demand, /* Nothing*/
+            _ => demand, /* Nothing*/
         };
     }
 }
