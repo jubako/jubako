@@ -41,11 +41,44 @@ fn get_pack_reader(reader: &Reader, source_path: &Path, pack_info: &PackInfo) ->
     }
 }
 
+pub fn locate_manifest(reader: Reader) -> Result<Reader> {
+    let mut buffer_reader = [0u8; 64];
+
+    // Check at beginning
+    let mut stream = reader.create_stream_to(End::Size(Size::new(64)));
+    stream.read_exact(&mut buffer_reader)?;
+    if buffer_reader[0..4] == [0x6a, 0x62, 0x6b, 0x6d]
+        || buffer_reader[0..4] == [0x6a, 0x62, 0x6b, 0x64]
+        || buffer_reader[0..4] == [0x6a, 0x62, 0x6b, 0x63]
+    {
+        let size: Size = primitive::read_u64(&buffer_reader[32..40]).into();
+        return Ok(reader.create_sub_reader(Offset::zero(), End::Size(size)));
+    };
+
+    // Check at end
+    let mut stream = reader.create_stream(
+        (reader.size() - Size::new(64)).into(),
+        End::Size(Size::new(64)),
+    );
+    stream.read_exact(&mut buffer_reader)?;
+    buffer_reader.reverse();
+    if buffer_reader[0..4] == [0x6a, 0x62, 0x6b, 0x6d]
+        || buffer_reader[0..4] == [0x6a, 0x62, 0x6b, 0x64]
+        || buffer_reader[0..4] == [0x6a, 0x62, 0x6b, 0x63]
+    {
+        let size: Size = primitive::read_u64(&buffer_reader[32..40]).into();
+        let origin = reader.size() - size;
+        return Ok(reader.create_sub_reader(origin.into(), End::Size(size)));
+    };
+    Err(Error::new(ErrorKind::NotAJbk))
+}
+
 impl Container {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path: PathBuf = path.as_ref().into();
         let file = File::open(path.clone())?;
         let reader = Reader::new(FileSource::new(file), End::None);
+        let reader = locate_manifest(reader)?;
         let main_pack =
             ManifestPack::new(reader.create_sub_memory_reader(Offset::zero(), End::None)?)?;
         let pack_info = main_pack.get_directory_pack_info();
