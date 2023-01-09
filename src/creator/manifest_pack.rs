@@ -56,7 +56,8 @@ impl ManifestPackCreator {
         }
 
         let check_offset = file.tell();
-        let pack_size: Size = (check_offset + 33).into();
+        let pack_size: Size = (check_offset + 33 + 64).into();
+
         file.rewind()?;
         let header = ManifestPackHeader::new(
             PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset),
@@ -80,6 +81,14 @@ impl ManifestPackCreator {
         let hash = hasher.finalize();
         file.write_u8(1)?;
         file.write_all(hash.as_bytes())?;
+
+        file.rewind()?;
+        let mut tail_buffer = [0u8; 64];
+        file.read_exact(&mut tail_buffer)?;
+        tail_buffer.reverse();
+        file.seek(SeekFrom::End(0))?;
+        file.write_all(&tail_buffer)?;
+
         Ok(self.path.to_str().unwrap().into())
     }
 }
