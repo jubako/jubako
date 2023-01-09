@@ -12,8 +12,8 @@ pub mod reader;
 pub mod tools;
 
 pub use crate::bases::{
-    ContentIdx, End, EntryCount, EntryIdx, EntryStoreIdx, FreeData31, FreeData40, FreeData63,
-    Offset, PackId, PropertyIdx, Reader, Result, Size, ValueIdx,
+    ContentIdx, End, EntryCount, EntryIdx, EntryStoreIdx, ErrorKind, FreeData31, FreeData40,
+    FreeData63, Offset, PackId, PropertyIdx, Reader, Result, Size, ValueIdx,
 };
 pub use crate::common::{CompressionType, ContentAddress};
 pub use crate::tools::concat;
