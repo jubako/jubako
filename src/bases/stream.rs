@@ -52,6 +52,9 @@ impl Stream {
         self.offset = self.origin + pos;
         assert!(self.offset <= self.end);
     }
+    pub fn reset(&mut self) {
+        self.seek(Offset::zero())
+    }
     pub fn skip(&mut self, size: Size) -> Result<()> {
         let new_offset = self.offset + size;
         if new_offset <= self.end {
