@@ -44,11 +44,12 @@ impl Properties {
 
     pub fn write_entry<'a>(
         keys: impl Iterator<Item = &'a Property>,
-        entry: &RawEntry,
+        entry: &dyn RawEntry,
         stream: &mut dyn OutStream,
     ) -> Result<usize> {
         let mut written = 0;
-        let mut value_iter = entry.values.iter();
+        let values = entry.values();
+        let mut value_iter = values.iter();
         for key in keys {
             match key {
                 Property::VLArray(flookup_size, store_handle) => {
@@ -89,7 +90,7 @@ impl Properties {
                     written += stream.write(&data)?;
                 }
                 Property::VariantId => {
-                    written += stream.write_u8(entry.variant_id.unwrap())?;
+                    written += stream.write_u8(entry.variant_id().unwrap().into_u8())?;
                 }
             }
         }

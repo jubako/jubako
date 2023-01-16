@@ -1,11 +1,10 @@
-use super::{layout, Entry, Value, WritableTell};
+use super::{layout, BasicEntry, Entry, WritableTell};
 use crate::bases::*;
 use crate::common;
-use std::cmp;
 
 pub struct EntryStore {
     idx: EntryStoreIdx,
-    entries: Vec<Entry>,
+    entries: Vec<Box<dyn Entry>>,
     layout: layout::Entry,
 }
 
@@ -18,8 +17,9 @@ impl EntryStore {
         }
     }
 
-    pub fn add_entry(&mut self, variant_id: Option<u8>, values: Vec<common::Value>) {
-        self.entries.push(Entry::new(variant_id, values));
+    pub fn add_entry(&mut self, variant_id: Option<VariantIdx>, values: Vec<common::Value>) {
+        self.entries
+            .push(Box::new(BasicEntry::new(variant_id, values)));
     }
 
     pub fn get_idx(&self) -> EntryStoreIdx {
@@ -28,54 +28,16 @@ impl EntryStore {
 
     pub(crate) fn finalize(&mut self) {
         for entry in &mut self.entries {
-            if self.layout.variants.is_empty() {
-                Self::finalize_entry(self.layout.common.iter_mut(), entry);
-            } else {
-                let keys = self
-                    .layout
-                    .common
-                    .iter_mut()
-                    .chain(self.layout.variants[entry.variant_id.unwrap() as usize].iter_mut());
-                Self::finalize_entry(keys, entry);
-            };
+            entry.finalize(&mut self.layout);
         }
         self.layout.finalize();
-    }
-
-    fn finalize_entry<'a>(
-        mut keys: impl Iterator<Item = &'a mut layout::Property>,
-        entry: &mut Entry,
-    ) {
-        let mut value_iter = entry.values.iter_mut();
-        for key in &mut keys {
-            match key {
-                layout::Property::VLArray(flookup_size, store_handle) => {
-                    let flookup_size = *flookup_size;
-                    let value = value_iter.next().unwrap();
-                    if let Value::Array { data, value_id } = value {
-                        let to_store = data.split_off(cmp::min(flookup_size, data.len()));
-                        *value_id = Some(store_handle.borrow_mut().add_value(&to_store));
-                    }
-                }
-                layout::Property::UnsignedInt(max_value) => {
-                    let value = value_iter.next().unwrap();
-                    if let Value::Unsigned(v) = value {
-                        *key = layout::Property::UnsignedInt(cmp::max(*max_value, *v));
-                    }
-                }
-                layout::Property::VariantId => {}
-                _ => {
-                    value_iter.next();
-                }
-            }
-        }
     }
 }
 
 impl WritableTell for EntryStore {
     fn write_data(&self, stream: &mut dyn OutStream) -> Result<()> {
         for entry in &self.entries {
-            self.layout.write_entry(entry, stream)?;
+            self.layout.write_entry(entry.as_ref(), stream)?;
         }
         Ok(())
     }

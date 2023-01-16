@@ -30,15 +30,15 @@ impl Entry {
         }
     }
 
-    pub fn write_entry(&self, entry: &RawEntry, stream: &mut dyn OutStream) -> Result<usize> {
-        assert!(self.variants.is_empty() == entry.variant_id.is_none());
+    pub fn write_entry(&self, entry: &dyn RawEntry, stream: &mut dyn OutStream) -> Result<usize> {
+        assert!(self.variants.is_empty() == entry.variant_id().is_none());
         let written = if self.variants.is_empty() {
             Properties::write_entry(self.common.iter(), entry, stream)?
         } else {
             let mut keys = self
                 .common
                 .iter()
-                .chain(self.variants[entry.variant_id.unwrap() as usize].iter());
+                .chain(self.variants[entry.variant_id().unwrap().into_usize()].iter());
             Properties::write_entry(&mut keys, entry, stream)?
         };
         assert_eq!(written, self.entry_size as usize);

@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut reader = jbk::creator::Stream::new(content, jbk::End::None);
     let content_id = content_pack.add_content(&mut reader)?;
     entry_store.add_entry(
-        Some(0), // Variant 0
+        Some(0.into()), // Variant 0
         vec![
             jbk::creator::Value::Array("Super".into()),
             jbk::creator::Value::Unsigned(50),
@@ -63,7 +63,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     entry_store.add_entry(
-        Some(1), // Variant 1
+        Some(1.into()), // Variant 1
         vec![
             jbk::creator::Value::Array("Mega".into()),
             jbk::creator::Value::Unsigned(42),
@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     entry_store.add_entry(
-        Some(1), // Variant 1
+        Some(1.into()), // Variant 1
         vec![
             jbk::creator::Value::Array("Hyper".into()),
             jbk::creator::Value::Unsigned(45),
