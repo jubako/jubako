@@ -4,7 +4,7 @@ use std::io::Cursor;
 use std::io::Read;
 
 pub struct ClusterCreator {
-    index: usize,
+    pub index: usize,
     compression: CompressionType,
     data: Vec<u8>,
     offsets: Vec<usize>,
@@ -85,7 +85,7 @@ impl ClusterCreator {
         self.index
     }
 
-    fn data_size(&self) -> Size {
+    pub fn data_size(&self) -> Size {
         self.data.len().into()
     }
 
