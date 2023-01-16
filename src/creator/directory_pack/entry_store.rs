@@ -1,6 +1,5 @@
-use super::{layout, BasicEntry, Entry, WritableTell};
+use super::{layout, Entry, WritableTell};
 use crate::bases::*;
-use crate::common;
 
 pub struct EntryStore {
     idx: EntryStoreIdx,
@@ -17,9 +16,8 @@ impl EntryStore {
         }
     }
 
-    pub fn add_entry(&mut self, variant_id: Option<VariantIdx>, values: Vec<common::Value>) {
-        self.entries
-            .push(Box::new(BasicEntry::new(variant_id, values)));
+    pub fn add_entry(&mut self, entry: Box<dyn Entry>) {
+        self.entries.push(entry);
     }
 
     pub fn get_idx(&self) -> EntryStoreIdx {
