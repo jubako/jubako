@@ -1,7 +1,6 @@
 mod buffer;
 mod compression;
 mod file;
-mod mmap;
 
 use crate::bases::types::*;
 use crate::bases::Stream;

@@ -52,7 +52,7 @@ impl<T: Read + 'static> Source for SeekableDecoder<T> {
         let end = offset + buf.len();
         self.decode_to(end)?;
         let mut slice = &self.decoded_slice()[offset.into_usize()..];
-        match slice.read(buf) {
+        match Read::read(&mut slice, buf) {
             Err(e) => Err(e.into()),
             Ok(v) => Ok(v),
         }
