@@ -1,5 +1,7 @@
 use super::PackPos;
 use crate::bases::*;
+use pathdiff::diff_paths;
+use std::path::Path;
 use uuid::Uuid;
 
 #[derive(PartialEq, Eq, Debug)]
@@ -13,7 +15,11 @@ pub struct PackInfo {
 }
 
 impl PackInfo {
-    pub fn new_at_pos(pack_data: crate::creator::PackData, offset: Offset) -> Self {
+    pub fn new<P: AsRef<Path>>(
+        pack_data: crate::creator::PackData,
+        offset: Offset,
+        manifest_path: P,
+    ) -> Self {
         use crate::creator::Embedded;
         let (check_info_pos, pack_pos) = match pack_data.embedded {
             Embedded::Yes =>
@@ -24,7 +30,8 @@ impl PackInfo {
             Embedded::No(path) =>
             // Offset is the offset of the check_info, pack_pos is the patch to the file
             {
-                (offset, path.into())
+                let relative_path = diff_paths(path, manifest_path).unwrap();
+                (offset, relative_path.into())
             }
         };
         Self {
