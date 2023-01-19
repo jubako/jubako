@@ -21,6 +21,7 @@ typenum = "1.13.0"
 clap = { version = "3.2.15", features = ["derive"] }
 lru = "0.8.1"
 memmap2 = "0.5.7"
+pathdiff = "0.2.1"
 
 [dev-dependencies]
 test-case = "1.2.0"

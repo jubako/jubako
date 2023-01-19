@@ -47,7 +47,11 @@ impl ManifestPackCreator {
                 &mut pack_data.reader.create_stream_from(sub_offset),
                 &mut file,
             )?;
-            pack_infos.push(PackInfo::new_at_pos(pack_data, current_pos));
+            pack_infos.push(PackInfo::new(
+                pack_data,
+                current_pos,
+                self.path.parent().unwrap(),
+            ));
         }
 
         // Write the pack_info
