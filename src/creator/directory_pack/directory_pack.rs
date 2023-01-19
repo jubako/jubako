@@ -5,7 +5,7 @@ use crate::creator::{Embedded, PackData};
 use entry_store::EntryStore;
 use std::cell::RefCell;
 use std::fs::OpenOptions;
-use std::io::{Seek, SeekFrom, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use value_store::ValueStore;
@@ -120,7 +120,7 @@ impl DirectoryPackCreator {
 
         file.seek(SeekFrom::End(0))?;
         let check_offset = file.tell();
-        let pack_size: Size = (check_offset + 33).into();
+        let pack_size: Size = (check_offset + 33 + 64).into();
         file.rewind()?;
         let header = DirectoryPackHeader::new(
             PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset),
@@ -142,6 +142,14 @@ impl DirectoryPackCreator {
         let hash = hasher.finalize();
         file.write_u8(1)?;
         file.write_all(hash.as_bytes())?;
+
+        file.rewind()?;
+        let mut tail_buffer = [0u8; 64];
+        file.read_exact(&mut tail_buffer)?;
+        tail_buffer.reverse();
+        file.seek(SeekFrom::End(0))?;
+        file.write_all(&tail_buffer)?;
+
         file.rewind()?;
         Ok(PackData {
             uuid: header.uuid(),
