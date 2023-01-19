@@ -7,17 +7,58 @@ use cluster::ClusterCreator;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
+use std::cell::Cell;
+
+fn shannon_entropy(data: &mut Stream) -> Result<f32> {
+    let mut entropy = 0.0;
+    let mut counts = [0; 256];
+    let size = std::cmp::min(1024, data.size().into_usize());
+
+    for _ in 0..size {
+        counts[data.read_u8()? as usize] += 1;
+    }
+
+    for &count in &counts {
+        if count == 0 {
+            continue;
+        }
+
+        let p: f32 = (count as f32) / (size as f32);
+        entropy -= p * p.log(2.0);
+    }
+
+    Ok(entropy)
+}
 
 pub struct ContentPackCreator {
     app_vendor_id: u32,
     pack_id: PackId,
     free_data: FreeData40,
     content_infos: Vec<ContentInfo>,
-    open_cluster: Option<ClusterCreator>,
+    raw_open_cluster: Option<ClusterCreator>,
+    comp_open_cluster: Option<ClusterCreator>,
+    next_cluster_id: Cell<usize>,
     cluster_addresses: Vec<SizedOffset>,
     path: PathBuf,
     file: Option<File>,
     compression: CompressionType,
+}
+
+macro_rules! open_cluster_ref {
+    ($self:expr, $comp: expr) => {
+        if $comp {
+            &$self.comp_open_cluster
+        } else {
+            &$self.raw_open_cluster
+        }
+    };
+    (mut $self:expr, $comp: expr) => {
+        if $comp {
+            &mut $self.comp_open_cluster
+        } else {
+            &mut $self.raw_open_cluster
+        }
+    };
 }
 
 impl ContentPackCreator {
@@ -33,7 +74,9 @@ impl ContentPackCreator {
             pack_id,
             free_data,
             content_infos: vec![],
-            open_cluster: None,
+            raw_open_cluster: None,
+            comp_open_cluster: None,
+            next_cluster_id: Cell::new(0),
             cluster_addresses: vec![],
             path: path.as_ref().into(),
             file: None,
@@ -41,14 +84,19 @@ impl ContentPackCreator {
         }
     }
 
-    fn open_cluster(&mut self) {
-        assert!(self.open_cluster.is_none());
-        let cluster_id = self.cluster_addresses.len();
-        self.open_cluster = Some(ClusterCreator::new(cluster_id, self.compression));
+    fn open_cluster(&self, compressed: bool) -> ClusterCreator {
+        let cluster_id = self.next_cluster_id.replace(self.next_cluster_id.get()+1);
+        ClusterCreator::new(
+            cluster_id,
+            if compressed {
+                self.compression
+            } else {
+                CompressionType::None
+            },
+        )
     }
 
-    fn write_cluster(&mut self) -> Result<()> {
-        let cluster = self.open_cluster.as_ref().unwrap();
+    fn write_cluster(&mut self, cluster: ClusterCreator) -> Result<()> {
         let data_size = cluster.write_data(self.file.as_mut().unwrap())?;
         let cluster_offset = self.file.as_mut().unwrap().tell();
         cluster.write_tail(self.file.as_mut().unwrap(), data_size)?;
@@ -65,20 +113,32 @@ impl ContentPackCreator {
             size: cluster.tail_size(),
             offset: cluster_offset,
         };
-        self.open_cluster = None;
         Ok(())
     }
 
-    fn get_open_cluster(&mut self, size: Size) -> Result<&mut ClusterCreator> {
-        if let Some(cluster) = self.open_cluster.as_ref() {
+    fn get_open_cluster(&mut self, content: &mut Stream) -> Result<&mut ClusterCreator> {
+        let entropy = shannon_entropy(content)?;
+        content.seek(Offset::zero());
+        let compress_content = entropy <= 6.0;
+        // Let's get raw cluster
+        if let Some(cluster) = self.cluster_to_close(content.size(), compress_content) {
+            self.write_cluster(cluster)?;
+        }
+        Ok(open_cluster_ref!(mut self, compress_content).as_mut().unwrap())
+    }
+
+    fn cluster_to_close(&mut self, size: Size, compressed: bool) -> Option<ClusterCreator> {
+        if let Some(cluster) = open_cluster_ref!(self, compressed).as_ref() {
             if cluster.is_full(size) {
-                self.write_cluster()?;
+                let new_cluster = self.open_cluster(compressed);
+                open_cluster_ref!(mut self, compressed).replace(new_cluster)
+            } else {
+                None
             }
+        } else {
+            let new_cluster = self.open_cluster(compressed);
+            open_cluster_ref!(mut self, compressed).replace(new_cluster)
         }
-        if self.open_cluster.is_none() {
-            self.open_cluster();
-        }
-        Ok(self.open_cluster.as_mut().unwrap())
     }
 
     pub fn start(&mut self) -> Result<()> {
@@ -95,7 +155,7 @@ impl ContentPackCreator {
     }
 
     pub fn add_content(&mut self, content: &mut Stream) -> Result<ContentIdx> {
-        let cluster = self.get_open_cluster(content.size())?;
+        let cluster = self.get_open_cluster(content)?;
         let content_info = cluster.add_content(content)?;
         self.content_infos.push(content_info);
         Ok(((self.content_infos.len() - 1) as u32).into())
@@ -103,9 +163,14 @@ impl ContentPackCreator {
 
     pub fn finalize(mut self) -> Result<PackData> {
         assert!(self.file.is_some());
-        if let Some(cluster) = self.open_cluster.as_ref() {
+        if let Some(cluster) = self.raw_open_cluster.take() {
             if !cluster.is_empty() {
-                self.write_cluster()?;
+                self.write_cluster(cluster)?;
+            }
+        }
+        if let Some(cluster) = self.comp_open_cluster.take() {
+            if !cluster.is_empty() {
+                self.write_cluster(cluster)?;
             }
         }
         let file = self.file.as_mut().unwrap();
