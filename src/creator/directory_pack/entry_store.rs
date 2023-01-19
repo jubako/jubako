@@ -1,9 +1,9 @@
-use super::{layout, Entry, WritableTell};
+use super::{layout, EntryTrait, WritableTell};
 use crate::bases::*;
 
 pub struct EntryStore {
     idx: EntryStoreIdx,
-    entries: Vec<Box<dyn Entry>>,
+    entries: Vec<Box<dyn EntryTrait>>,
     layout: layout::Entry,
 }
 
@@ -16,7 +16,7 @@ impl EntryStore {
         }
     }
 
-    pub fn add_entry(&mut self, entry: Box<dyn Entry>) {
+    pub fn add_entry(&mut self, entry: Box<dyn EntryTrait>) {
         self.entries.push(entry);
     }
 

@@ -1,7 +1,7 @@
 use super::properties::{CommonProperties, Properties, VariantProperties};
 use crate::bases::Writable;
 use crate::bases::*;
-use crate::creator::directory_pack::Entry as RawEntry;
+use crate::creator::directory_pack::EntryTrait;
 
 #[derive(Debug)]
 pub struct Entry {
@@ -30,7 +30,7 @@ impl Entry {
         }
     }
 
-    pub fn write_entry(&self, entry: &dyn RawEntry, stream: &mut dyn OutStream) -> Result<usize> {
+    pub fn write_entry(&self, entry: &dyn EntryTrait, stream: &mut dyn OutStream) -> Result<usize> {
         assert!(self.variants.is_empty() == entry.variant_id().is_none());
         let written = if self.variants.is_empty() {
             Properties::write_entry(self.common.iter(), entry, stream)?

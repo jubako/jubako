@@ -2,7 +2,7 @@ use super::property::Property;
 use super::Value;
 use crate::bases::Writable;
 use crate::bases::*;
-use crate::creator::directory_pack::Entry as RawEntry;
+use crate::creator::directory_pack::EntryTrait;
 
 #[derive(Debug)]
 pub struct Properties(Vec<Property>);
@@ -44,7 +44,7 @@ impl Properties {
 
     pub fn write_entry<'a>(
         keys: impl Iterator<Item = &'a Property>,
-        entry: &dyn RawEntry,
+        entry: &dyn EntryTrait,
         stream: &mut dyn OutStream,
     ) -> Result<usize> {
         let mut written = 0;

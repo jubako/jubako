@@ -35,7 +35,7 @@ pub enum Value {
     },
 }
 
-pub trait Entry {
+pub trait EntryTrait {
     fn variant_id(&self) -> Option<VariantIdx>;
     fn values(&self) -> Vec<Value>;
     fn finalize(&mut self, layout: &mut layout::Entry);
@@ -91,7 +91,7 @@ impl BasicEntry {
     }
 }
 
-impl Entry for BasicEntry {
+impl EntryTrait for BasicEntry {
     fn variant_id(&self) -> Option<VariantIdx> {
         self.variant_id
     }
