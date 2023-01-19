@@ -1,6 +1,6 @@
 use crate::bases::*;
 use std::fmt;
-use std::ops::{Add, AddAssign};
+use std::ops::{Add, AddAssign, Sub};
 
 /// A size used in Jubako.
 /// We handling content in 64 bits space.
@@ -82,6 +82,13 @@ impl AddAssign<u64> for Size {
 impl AddAssign<usize> for Size {
     fn add_assign(&mut self, other: usize) {
         self.0 += other as u64;
+    }
+}
+
+impl Sub<Size> for Size {
+    type Output = Self;
+    fn sub(self, other: Size) -> Size {
+        Size(self.0.checked_sub(other.0).unwrap())
     }
 }
 

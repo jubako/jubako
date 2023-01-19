@@ -66,4 +66,11 @@ impl CheckInfo {
             Ok(true)
         }
     }
+
+    pub fn size(&self) -> Size {
+        match self.b3hash {
+            None => Size::new(1),
+            Some(_) => Size::new(33),
+        }
+    }
 }
