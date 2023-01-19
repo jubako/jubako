@@ -76,9 +76,9 @@ two different formats.
 CheckInfo tail
 ==============
 
-All pack must end with a checkInfo structure.
+All packs must contain a checkInfo structure at its end (just before the Pack tail).
 
-``packSize`` - ``checkInfoPos`` give the size of this structure.
+``packSize`` - 64 - ``checkInfoPos`` give the size of this structure.
 
 The global structure of checkInfo is a series of checks.
 Each series of check start with a byte telling which it is and by the data of the actual check.
@@ -95,3 +95,12 @@ New check kind will be added in the future.
 
 The checksum is computed base of the whole content of the pack, from Offset(0) to Offset(checkInfoPos).
 The manifestPack is the only exception to this as we mask some mutable data (See Jubako manifestPack spec for this).
+
+
+Pack tail
+=========
+
+All packs must end with a pack tail
+
+The pack tail is a 64 bytes buffer. It is the exact same value of the 64 bytes buffer of the header but byte swapped.
+The pack tail must be included in the packSize.
