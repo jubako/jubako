@@ -1,8 +1,9 @@
-use super::{entry_store, layout, value_store, Index, WritableTell};
+use super::private::WritableTell;
+use super::{entry_store, value_store, Index};
 use crate::bases::*;
 use crate::common::{ContentAddress, DirectoryPackHeader, PackHeaderInfo};
 use crate::creator::{Embedded, PackData};
-use entry_store::EntryStore;
+use entry_store::EntryStoreTrait;
 use std::cell::RefCell;
 use std::fs::OpenOptions;
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -16,7 +17,7 @@ pub struct DirectoryPackCreator {
     pack_id: PackId,
     free_data: FreeData31,
     value_stores: Vec<Rc<RefCell<ValueStore>>>,
-    entry_stores: Vec<EntryStore>,
+    entry_stores: Vec<Box<dyn EntryStoreTrait>>,
     indexes: Vec<Index>,
     path: PathBuf,
 }
@@ -50,15 +51,11 @@ impl DirectoryPackCreator {
         &self.value_stores[idx.into_usize()]
     }
 
-    pub fn create_entry_store(&mut self, layout: layout::Entry) -> EntryStoreIdx {
+    pub fn add_entry_store(&mut self, mut entry_store: Box<dyn EntryStoreTrait>) -> EntryStoreIdx {
         let idx = (self.entry_stores.len() as u32).into();
-        let entry_store = EntryStore::new(idx, layout);
+        entry_store.set_idx(idx);
         self.entry_stores.push(entry_store);
         idx
-    }
-
-    pub fn get_entry_store(&mut self, idx: EntryStoreIdx) -> &mut EntryStore {
-        &mut self.entry_stores[idx.into_usize()]
     }
 
     pub fn create_index(

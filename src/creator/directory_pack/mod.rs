@@ -8,19 +8,23 @@ use crate::bases::*;
 use crate::common;
 use crate::common::ContentAddress;
 pub use directory_pack::DirectoryPackCreator;
+pub use entry_store::EntryStore;
 use std::cmp;
 use value_store::ValueStore;
 pub use value_store::ValueStoreKind;
 
-trait WritableTell {
-    fn write_data(&self, stream: &mut dyn OutStream) -> Result<()>;
-    fn write_tail(&self, stream: &mut dyn OutStream) -> Result<()>;
-    fn write(&self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
-        self.write_data(stream)?;
-        let offset = stream.tell();
-        self.write_tail(stream)?;
-        let size = stream.tell() - offset;
-        Ok(SizedOffset { size, offset })
+mod private {
+    use super::*;
+    pub trait WritableTell {
+        fn write_data(&self, stream: &mut dyn OutStream) -> Result<()>;
+        fn write_tail(&self, stream: &mut dyn OutStream) -> Result<()>;
+        fn write(&self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
+            self.write_data(stream)?;
+            let offset = stream.tell();
+            self.write_tail(stream)?;
+            let size = stream.tell() - offset;
+            Ok(SizedOffset { size, offset })
+        }
     }
 }
 
@@ -141,7 +145,7 @@ impl Index {
     }
 }
 
-impl WritableTell for Index {
+impl private::WritableTell for Index {
     fn write_data(&self, _stream: &mut dyn OutStream) -> Result<()> {
         // No data to write
         Ok(())

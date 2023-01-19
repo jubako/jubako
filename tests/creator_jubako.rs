@@ -93,16 +93,17 @@ test_suite! {
             ]),
             vec!()
         );
-        let entry_store_idx = creator.create_entry_store(entry_def);
-        let entry_store = creator.get_entry_store(entry_store_idx);
+
+        let mut entry_store = Box::new(creator::EntryStore::new(entry_def));
         for (idx, entry) in entries.iter().enumerate() {
-            entry_store.add_entry(Box::new(creator::BasicEntry::new(None, vec![
+            entry_store.add_entry(creator::BasicEntry::new(None, vec![
                 creator::Value::Array(entry.path.clone().into()),
                 creator::Value::Content(jubako::ContentAddress::new(1.into(), (idx as u32).into())),
                 creator::Value::Unsigned(entry.word_count.into())]
-            )));
+            ));
         }
 
+        let entry_store_idx = creator.add_entry_store(entry_store);
         creator.create_index(
             "Super index",
             jubako::ContentAddress::new(0.into(), 0.into()),

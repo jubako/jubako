@@ -7,7 +7,9 @@ pub use crate::bases::{FileSource, Stream};
 use crate::common::CheckKind;
 pub use crate::common::Value;
 pub use content_pack::ContentPackCreator;
-pub use directory_pack::{layout, BasicEntry, DirectoryPackCreator, ValueStoreKind};
+pub use directory_pack::{
+    layout, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, ValueStoreKind,
+};
 pub use manifest_pack::ManifestPackCreator;
 use std::path::PathBuf;
 

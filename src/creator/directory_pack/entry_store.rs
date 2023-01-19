@@ -1,41 +1,53 @@
-use super::{layout, EntryTrait, WritableTell};
+use super::private::WritableTell;
+use super::{layout, EntryTrait};
 use crate::bases::*;
 
-pub struct EntryStore {
-    idx: EntryStoreIdx,
-    entries: Vec<Box<dyn EntryTrait>>,
+pub struct EntryStore<Entry: EntryTrait> {
+    idx: Option<EntryStoreIdx>,
+    entries: Vec<Entry>,
     layout: layout::Entry,
 }
 
-impl EntryStore {
-    pub fn new(idx: EntryStoreIdx, layout: layout::Entry) -> Self {
+impl<Entry: EntryTrait> EntryStore<Entry> {
+    pub fn new(layout: layout::Entry) -> Self {
         Self {
-            idx,
+            idx: None,
             entries: vec![],
             layout,
         }
     }
 
-    pub fn add_entry(&mut self, entry: Box<dyn EntryTrait>) {
+    pub fn add_entry(&mut self, entry: Entry) {
         self.entries.push(entry);
     }
 
-    pub fn get_idx(&self) -> EntryStoreIdx {
+    pub fn get_idx(&self) -> Option<EntryStoreIdx> {
         self.idx
     }
+}
 
-    pub(crate) fn finalize(&mut self) {
+pub trait EntryStoreTrait: WritableTell {
+    fn set_idx(&mut self, idx: EntryStoreIdx);
+    fn finalize(&mut self);
+}
+
+impl<Entry: EntryTrait> EntryStoreTrait for EntryStore<Entry> {
+    fn finalize(&mut self) {
         for entry in &mut self.entries {
             entry.finalize(&mut self.layout);
         }
         self.layout.finalize();
     }
+
+    fn set_idx(&mut self, idx: EntryStoreIdx) {
+        self.idx = Some(idx);
+    }
 }
 
-impl WritableTell for EntryStore {
+impl<Entry: EntryTrait> WritableTell for EntryStore<Entry> {
     fn write_data(&self, stream: &mut dyn OutStream) -> Result<()> {
         for entry in &self.entries {
-            self.layout.write_entry(entry.as_ref(), stream)?;
+            self.layout.write_entry(entry, stream)?;
         }
         Ok(())
     }

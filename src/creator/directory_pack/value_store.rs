@@ -1,4 +1,4 @@
-use super::WritableTell;
+use super::private::WritableTell;
 use crate::bases::*;
 
 #[derive(Debug)]

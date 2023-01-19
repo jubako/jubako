@@ -43,14 +43,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     // The store for our entries.
-    let entry_store_id = directory_pack.create_entry_store(entry_def);
-    let entry_store = directory_pack.get_entry_store(entry_store_id);
+    let mut entry_store = Box::new(jbk::creator::EntryStore::new(entry_def));
 
     // Now we have "configured" our container, let's add some content:
     let content: Vec<u8> = "A super content prime quality for our test container".into();
     let mut reader = jbk::creator::Stream::new(content, jbk::End::None);
     let content_id = content_pack.add_content(&mut reader)?;
-    entry_store.add_entry(Box::new(jbk::creator::BasicEntry::new(
+    entry_store.add_entry(jbk::creator::BasicEntry::new(
         Some(0.into()), // Variant 0
         vec![
             jbk::creator::Value::Array("Super".into()),
@@ -60,25 +59,27 @@ fn main() -> Result<(), Box<dyn Error>> {
                 content_id,           // Content id in the pack
             )),
         ],
-    )));
+    ));
 
-    entry_store.add_entry(Box::new(jbk::creator::BasicEntry::new(
+    entry_store.add_entry(jbk::creator::BasicEntry::new(
         Some(1.into()), // Variant 1
         vec![
             jbk::creator::Value::Array("Mega".into()),
             jbk::creator::Value::Unsigned(42),
             jbk::creator::Value::Unsigned(5),
         ],
-    )));
+    ));
 
-    entry_store.add_entry(Box::new(jbk::creator::BasicEntry::new(
+    entry_store.add_entry(jbk::creator::BasicEntry::new(
         Some(1.into()), // Variant 1
         vec![
             jbk::creator::Value::Array("Hyper".into()),
             jbk::creator::Value::Unsigned(45),
             jbk::creator::Value::Unsigned(2),
         ],
-    )));
+    ));
+
+    let entry_store_id = directory_pack.add_entry_store(entry_store);
 
     // One index to access our entries.
     directory_pack.create_index(
