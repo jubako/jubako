@@ -17,11 +17,28 @@ impl PlainValueStore {
         }
     }
 
+    fn offset_of(&self, data: &[u8]) -> Option<u64> {
+        let mut offset = 0;
+        for d in &self.data {
+            if d == data {
+                return Some(offset);
+            } else {
+                offset += 1 + d.len() as u64;
+            }
+        }
+        None
+    }
+
     pub fn add_value(&mut self, data: &[u8]) -> u64 {
-        let offset = self.size.into_u64();
-        self.data.push(data.to_vec());
-        self.size += 1 + data.len();
-        offset
+        match self.offset_of(data) {
+            Some(offset) => offset,
+            None => {
+                let offset = self.size.into_u64();
+                self.data.push(data.to_vec());
+                self.size += 1 + data.len();
+                offset
+            }
+        }
     }
 
     pub fn key_size(&self) -> u16 {
@@ -67,10 +84,24 @@ impl IndexedValueStore {
         self.entries_offset.last().copied().unwrap_or(0)
     }
 
+    fn id_of(&self, data: &[u8]) -> Option<u64> {
+        for (i, d) in self.data.iter().enumerate() {
+            if d == data {
+                return Some(i as u64);
+            }
+        }
+        None
+    }
+
     pub fn add_value(&mut self, data: &[u8]) -> u64 {
-        self.data.push(data.to_vec());
-        self.entries_offset.push(self.current_offset() + data.len());
-        self.entries_offset.len() as u64 - 1
+        match self.id_of(data) {
+            Some(i) => i,
+            None => {
+                self.data.push(data.to_vec());
+                self.entries_offset.push(self.current_offset() + data.len());
+                self.entries_offset.len() as u64 - 1
+            }
+        }
     }
 
     pub fn key_size(&self) -> u16 {
