@@ -57,7 +57,7 @@ impl Properties {
                     let value = value_iter.next().unwrap();
                     if let Value::Array { data, value_id } = value {
                         written += stream.write_sized(
-                            value_id.unwrap(),
+                            value_id.get(),
                             store_handle.borrow().key_size() as usize,
                         )?;
                         written += stream.write_data(data)?;

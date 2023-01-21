@@ -35,7 +35,7 @@ pub enum Value {
     Signed(i64),
     Array {
         data: Vec<u8>,
-        value_id: Option<u64>,
+        value_id: Delayed<u64>,
     },
 }
 
@@ -61,7 +61,7 @@ impl BasicEntry {
                 common::Value::Signed(s) => Value::Signed(s),
                 common::Value::Array(a) => Value::Array {
                     data: a,
-                    value_id: None,
+                    value_id: Default::default(),
                 },
             })
             .collect();
@@ -77,7 +77,7 @@ impl BasicEntry {
                     let value = value_iter.next().unwrap();
                     if let Value::Array { data, value_id } = value {
                         let to_store = data.split_off(cmp::min(flookup_size, data.len()));
-                        *value_id = Some(store_handle.borrow_mut().add_value(&to_store));
+                        value_id.set(store_handle.borrow_mut().add_value(&to_store));
                     }
                 }
                 layout::Property::UnsignedInt(max_value) => {

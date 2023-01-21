@@ -7,7 +7,7 @@ use crate::creator::directory_pack::EntryTrait;
 pub struct Entry {
     pub common: Properties,
     pub variants: Vec<Properties>,
-    entry_size: u16,
+    entry_size: Delayed<u16>,
 }
 
 impl Entry {
@@ -15,19 +15,20 @@ impl Entry {
         Self {
             common,
             variants: variants.into_iter().map(Properties::from).collect(),
-            entry_size: 0,
+            entry_size: Default::default(),
         }
     }
 
     pub fn finalize(&mut self) {
-        self.entry_size = self.common.entry_size();
+        let mut entry_size = self.common.entry_size();
         if !self.variants.is_empty() {
             let max_variant_size = self.variants.iter().map(|v| v.entry_size()).max().unwrap();
-            self.entry_size += max_variant_size;
+            entry_size += max_variant_size;
             for variant in &mut self.variants {
                 variant.fill_to_size(max_variant_size);
             }
         }
+        self.entry_size.set(entry_size);
     }
 
     pub fn write_entry(&self, entry: &dyn EntryTrait, stream: &mut dyn OutStream) -> Result<usize> {
@@ -41,12 +42,12 @@ impl Entry {
                 .chain(self.variants[entry.variant_id().unwrap().into_usize()].iter());
             Properties::write_entry(&mut keys, entry, stream)?
         };
-        assert_eq!(written, self.entry_size as usize);
+        assert_eq!(written, self.entry_size.get() as usize);
         Ok(written)
     }
 
     pub fn entry_size(&self) -> u16 {
-        self.entry_size
+        self.entry_size.get()
     }
 
     fn key_count(&self) -> u8 {

@@ -3,7 +3,7 @@ use super::{layout, EntryTrait};
 use crate::bases::*;
 
 pub struct EntryStore<Entry: EntryTrait> {
-    idx: Option<EntryStoreIdx>,
+    idx: Delayed<EntryStoreIdx>,
     entries: Vec<Entry>,
     layout: layout::Entry,
 }
@@ -11,7 +11,7 @@ pub struct EntryStore<Entry: EntryTrait> {
 impl<Entry: EntryTrait> EntryStore<Entry> {
     pub fn new(layout: layout::Entry) -> Self {
         Self {
-            idx: None,
+            idx: Default::default(),
             entries: vec![],
             layout,
         }
@@ -21,8 +21,8 @@ impl<Entry: EntryTrait> EntryStore<Entry> {
         self.entries.push(entry);
     }
 
-    pub fn get_idx(&self) -> Option<EntryStoreIdx> {
-        self.idx
+    pub fn get_idx(&self) -> EntryStoreIdx {
+        self.idx.get()
     }
 }
 
@@ -40,7 +40,7 @@ impl<Entry: EntryTrait> EntryStoreTrait for EntryStore<Entry> {
     }
 
     fn set_idx(&mut self, idx: EntryStoreIdx) {
-        self.idx = Some(idx);
+        self.idx.set(idx);
     }
 }
 
