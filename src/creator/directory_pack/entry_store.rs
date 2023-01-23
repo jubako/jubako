@@ -1,15 +1,26 @@
 use super::private::WritableTell;
 use super::schema;
-use super::EntryTrait;
+use super::FullEntryTrait;
 use crate::bases::*;
 
-pub struct EntryStore<Entry: EntryTrait> {
+struct EntryCompare<'e, Entry: FullEntryTrait> {
+    pub ref_entry: &'e Entry,
+    pub property_ids: &'e Vec<PropertyIdx>,
+}
+
+impl<'e, Entry: FullEntryTrait> EntryCompare<'e, Entry> {
+    fn compare(&self, other_entry: &Entry) -> bool {
+        other_entry.compare(&mut self.property_ids.iter(), self.ref_entry)
+    }
+}
+
+pub struct EntryStore<Entry: FullEntryTrait> {
     idx: Delayed<EntryStoreIdx>,
     entries: Vec<Entry>,
     pub schema: schema::Schema,
 }
 
-impl<Entry: EntryTrait> EntryStore<Entry> {
+impl<Entry: FullEntryTrait> EntryStore<Entry> {
     pub fn new(schema: schema::Schema) -> Self {
         Self {
             idx: Default::default(),
@@ -20,7 +31,17 @@ impl<Entry: EntryTrait> EntryStore<Entry> {
 
     pub fn add_entry(&mut self, entry: Entry) {
         self.schema.process(&entry);
-        self.entries.push(entry);
+        match &self.schema.sort_keys {
+            None => self.entries.push(entry),
+            Some(keys) => {
+                let comparator = EntryCompare {
+                    ref_entry: &entry,
+                    property_ids: keys,
+                };
+                let idx = self.entries.partition_point(|e| comparator.compare(e));
+                self.entries.insert(idx, entry);
+            }
+        }
     }
 
     pub fn get_idx(&self) -> EntryStoreIdx {
@@ -32,13 +53,13 @@ pub trait EntryStoreTrait: WritableTell {
     fn set_idx(&mut self, idx: EntryStoreIdx);
 }
 
-impl<Entry: EntryTrait> EntryStoreTrait for EntryStore<Entry> {
+impl<Entry: FullEntryTrait> EntryStoreTrait for EntryStore<Entry> {
     fn set_idx(&mut self, idx: EntryStoreIdx) {
         self.idx.set(idx)
     }
 }
 
-impl<Entry: EntryTrait> WritableTell for EntryStore<Entry> {
+impl<Entry: FullEntryTrait> WritableTell for EntryStore<Entry> {
     fn write_data(&self, _stream: &mut dyn OutStream) -> Result<()> {
         unreachable!();
     }

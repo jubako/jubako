@@ -29,7 +29,7 @@ mod private {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Content(ContentAddress),
     Unsigned(u64),
@@ -37,9 +37,70 @@ pub enum Value {
     Array { data: Vec<u8>, value_id: u64 },
 }
 
+impl PartialOrd for Value {
+    fn partial_cmp(&self, other: &Value) -> Option<cmp::Ordering> {
+        match self {
+            Value::Content(_) => None,
+            Value::Unsigned(v) => match other {
+                Value::Unsigned(o) => Some(v.cmp(o)),
+                _ => None,
+            },
+            Value::Signed(v) => match other {
+                Value::Signed(o) => Some(v.cmp(o)),
+                _ => None,
+            },
+            Value::Array { data, value_id: _ } => match other {
+                Value::Array {
+                    data: other_data,
+                    value_id: _,
+                } => match data.cmp(other_data) {
+                    cmp::Ordering::Less => Some(cmp::Ordering::Less),
+                    cmp::Ordering::Greater => Some(cmp::Ordering::Greater),
+                    cmp::Ordering::Equal => {
+                        todo!("We need to resolve indirect data to compare them")
+                    }
+                },
+                _ => None,
+            },
+        }
+    }
+}
+
 pub trait EntryTrait {
     fn variant_id(&self) -> Option<VariantIdx>;
-    fn values(&self) -> Vec<Value>;
+    fn value(&self, id: PropertyIdx) -> &Value;
+    fn value_count(&self) -> PropertyCount;
+}
+
+pub trait FullEntryTrait: EntryTrait {
+    fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PropertyIdx>, other: &Self) -> bool;
+}
+
+struct EntryIter<'e> {
+    entry: &'e dyn EntryTrait,
+    idx: PropertyIdx,
+}
+
+impl<'e> EntryIter<'e> {
+    fn new(entry: &'e dyn EntryTrait) -> Self {
+        Self {
+            entry,
+            idx: PropertyIdx::from(0),
+        }
+    }
+}
+
+impl<'e> Iterator for EntryIter<'e> {
+    type Item = &'e Value;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.idx.is_valid(self.entry.value_count()) {
+            let value = self.entry.value(self.idx);
+            self.idx += 1;
+            Some(value)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -137,8 +198,33 @@ impl EntryTrait for BasicEntry {
     fn variant_id(&self) -> Option<VariantIdx> {
         self.variant_id
     }
-    fn values(&self) -> Vec<Value> {
-        self.values.clone()
+    fn value(&self, id: PropertyIdx) -> &Value {
+        &self.values[id.into_usize()]
+    }
+    fn value_count(&self) -> PropertyCount {
+        (self.values.len() as u8).into()
+    }
+}
+
+impl FullEntryTrait for BasicEntry {
+    fn compare(
+        &self,
+        sort_keys: &mut dyn Iterator<Item = &PropertyIdx>,
+        other: &BasicEntry,
+    ) -> bool {
+        for &property_id in sort_keys {
+            let self_value = self.value(property_id);
+            let other_value = other.value(property_id);
+            match self_value.partial_cmp(other_value) {
+                None => return false,
+                Some(c) => match c {
+                    cmp::Ordering::Less => return true,
+                    cmp::Ordering::Greater => return false,
+                    cmp::Ordering::Equal => continue,
+                },
+            }
+        }
+        false
     }
 }
 

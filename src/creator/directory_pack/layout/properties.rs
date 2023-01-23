@@ -2,7 +2,7 @@ use super::property::Property;
 use super::Value;
 use crate::bases::Writable;
 use crate::bases::*;
-use crate::creator::directory_pack::EntryTrait;
+use crate::creator::directory_pack::{EntryIter, EntryTrait};
 
 #[derive(Debug)]
 pub struct Properties(Vec<Property>);
@@ -37,8 +37,7 @@ impl Properties {
         stream: &mut dyn OutStream,
     ) -> Result<usize> {
         let mut written = 0;
-        let values = entry.values();
-        let mut value_iter = values.iter();
+        let mut value_iter = EntryIter::new(entry);
         for key in keys {
             match key {
                 Property::VLArray(flookup_size, store_handle) => {
