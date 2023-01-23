@@ -59,10 +59,9 @@ impl ClusterCreator {
 
     pub fn write_tail(&self, stream: &mut dyn OutStream, data_size: Size) -> IoResult<()> {
         let offset_size = needed_bytes(self.data.len());
-        assert!(offset_size <= 8);
         let cluster_header = ClusterHeader::new(
             self.compression,
-            offset_size as u8,
+            offset_size,
             BlobCount::from(self.offsets.len() as u16),
         );
         cluster_header.write(stream)?;
@@ -77,7 +76,7 @@ impl ClusterCreator {
     pub fn tail_size(&self) -> Size {
         let mut size = 4;
         let size_byte = needed_bytes(self.data.len());
-        size += (1 + self.offsets.len()) * size_byte;
+        size += (1 + self.offsets.len()) * size_byte as usize;
         size.into()
     }
 

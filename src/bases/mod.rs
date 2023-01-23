@@ -88,7 +88,7 @@ where
     }
 }
 
-pub fn needed_bytes<T>(mut val: T) -> usize
+pub fn needed_bytes<T>(mut val: T) -> ByteSize
 where
     T: std::cmp::PartialOrd + std::ops::Shr<Output = T> + From<u8>,
 {
@@ -97,5 +97,6 @@ where
         val = val >> 8.into();
         nb_bytes += 1;
     }
-    cmp::max(nb_bytes, 1)
+    nb_bytes = cmp::max(nb_bytes, 1);
+    nb_bytes.try_into().unwrap()
 }

@@ -43,10 +43,8 @@ impl Properties {
                 Property::VLArray(flookup_size, store_handle) => {
                     let value = value_iter.next().unwrap();
                     if let Value::Array { data, value_id } = value {
-                        written += stream.write_sized(
-                            value_id.get(),
-                            store_handle.borrow().key_size() as usize,
-                        )?;
+                        written +=
+                            stream.write_sized(value_id.get(), store_handle.borrow().key_size())?;
                         written += stream.write_data(data)?;
                         // Data is truncate at flookup_size. We just want to write 0 if data is shorter than flookup_size
                         written +=
@@ -66,7 +64,7 @@ impl Properties {
                 Property::UnsignedInt(size) => {
                     let value = value_iter.next().unwrap();
                     if let Value::Unsigned(value) = value {
-                        written += stream.write_sized(value.get(), *size as usize)?;
+                        written += stream.write_sized(value.get(), *size)?;
                     } else {
                         return Err("Not a unsigned".to_string().into());
                     }
@@ -76,7 +74,7 @@ impl Properties {
                     written += stream.write(&data)?;
                 }
                 Property::VariantId => {
-                    written += stream.write_u8(entry.variant_id().unwrap().into_u8())?;
+                    written += entry.variant_id().unwrap().write(stream)?;
                 }
             }
         }

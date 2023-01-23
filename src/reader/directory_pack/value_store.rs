@@ -85,8 +85,8 @@ pub struct IndexedValueStore {
 impl IndexedValueStore {
     fn new(stream: &mut Stream, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
         let value_count: ValueCount = Count::<u64>::produce(stream)?.into();
-        let offset_size = stream.read_u8()?;
-        let data_size: Size = stream.read_sized(offset_size.into())?.into();
+        let offset_size = ByteSize::produce(stream)?;
+        let data_size: Size = stream.read_sized(offset_size)?.into();
         let value_count = value_count.into_usize();
         let mut value_offsets: Vec<Offset> = Vec::with_capacity(value_count + 1);
         // [TODO] Handle 32 and 16 bits
@@ -97,7 +97,7 @@ impl IndexedValueStore {
                 first = false;
                 Offset::zero()
             } else {
-                stream.read_sized(offset_size.into())?.into()
+                stream.read_sized(offset_size)?.into()
             };
             assert!(value.is_valid(data_size));
             elem.write(value);
@@ -217,7 +217,7 @@ mod tests {
                 assert_eq!(
                     indexedvaluestore
                         .reader
-                        .read_usized(Offset::new(8), 7)
+                        .read_usized(Offset::new(8), ByteSize::U7)
                         .unwrap(),
                     0x31323334353637_u64
                 );

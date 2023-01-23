@@ -1,5 +1,6 @@
 #[macro_use]
 mod error;
+mod byte_size;
 mod count;
 mod delayed;
 mod free_data;
@@ -11,6 +12,7 @@ mod size;
 mod sized_offset;
 mod specific_types;
 
+pub use byte_size::ByteSize;
 pub use count::Count;
 pub use delayed::{Bound, Late, Vow, Word};
 pub use error::{Error, ErrorKind, FormatError, Result};

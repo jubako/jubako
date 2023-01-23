@@ -46,9 +46,9 @@ pub trait Source {
         Ok(buf)
     }
 
-    fn slice_sized(&self, offset: Offset, size: usize) -> Result<[u8; 8]> {
+    fn slice_sized(&self, offset: Offset, size: ByteSize) -> Result<[u8; 8]> {
         let mut buf = [0_u8; 8];
-        self.read_exact(offset, &mut buf[..size])?;
+        self.read_exact(offset, &mut buf[..size as usize])?;
         Ok(buf)
     }
 }
@@ -226,59 +226,80 @@ mod tests {
             -0x23456789ABCDEF01_i64
         );
 
-        assert_eq!(reader.read_usized(Offset::zero(), 1).unwrap(), 0xFE_u64);
-        assert_eq!(reader.read_isized(Offset::zero(), 1).unwrap(), -0x02_i64);
-        assert_eq!(reader.read_usized(Offset::new(1), 1).unwrap(), 0xDC_u64);
-        assert_eq!(reader.read_isized(Offset::new(1), 1).unwrap(), -0x24_i64);
-        assert_eq!(reader.read_usized(Offset::zero(), 2).unwrap(), 0xFEDC_u64);
-        assert_eq!(reader.read_isized(Offset::zero(), 2).unwrap(), -0x0124_i64);
-        assert_eq!(reader.read_usized(Offset::zero(), 3).unwrap(), 0xFEDCBA_u64);
         assert_eq!(
-            reader.read_isized(Offset::zero(), 3).unwrap(),
+            reader.read_usized(Offset::zero(), ByteSize::U1).unwrap(),
+            0xFE_u64
+        );
+        assert_eq!(
+            reader.read_isized(Offset::zero(), ByteSize::U1).unwrap(),
+            -0x02_i64
+        );
+        assert_eq!(
+            reader.read_usized(Offset::new(1), ByteSize::U1).unwrap(),
+            0xDC_u64
+        );
+        assert_eq!(
+            reader.read_isized(Offset::new(1), ByteSize::U1).unwrap(),
+            -0x24_i64
+        );
+        assert_eq!(
+            reader.read_usized(Offset::zero(), ByteSize::U2).unwrap(),
+            0xFEDC_u64
+        );
+        assert_eq!(
+            reader.read_isized(Offset::zero(), ByteSize::U2).unwrap(),
+            -0x0124_i64
+        );
+        assert_eq!(
+            reader.read_usized(Offset::zero(), ByteSize::U3).unwrap(),
+            0xFEDCBA_u64
+        );
+        assert_eq!(
+            reader.read_isized(Offset::zero(), ByteSize::U3).unwrap(),
             -0x012346_i64
         );
         assert_eq!(
-            reader.read_isized(Offset::new(1), 3).unwrap(),
+            reader.read_isized(Offset::new(1), ByteSize::U3).unwrap(),
             -0x234568_i64
         );
         assert_eq!(
-            reader.read_usized(Offset::zero(), 4).unwrap(),
+            reader.read_usized(Offset::zero(), ByteSize::U4).unwrap(),
             0xFEDCBA98_u64
         );
         assert_eq!(
-            reader.read_isized(Offset::zero(), 4).unwrap(),
+            reader.read_isized(Offset::zero(), ByteSize::U4).unwrap(),
             -0x01234568_i64
         );
         assert_eq!(
-            reader.read_usized(Offset::zero(), 5).unwrap(),
+            reader.read_usized(Offset::zero(), ByteSize::U5).unwrap(),
             0xFEDCBA9876_u64
         );
         assert_eq!(
-            reader.read_isized(Offset::zero(), 5).unwrap(),
+            reader.read_isized(Offset::zero(), ByteSize::U5).unwrap(),
             -0x012345678A_i64
         );
         assert_eq!(
-            reader.read_usized(Offset::zero(), 6).unwrap(),
+            reader.read_usized(Offset::zero(), ByteSize::U6).unwrap(),
             0xFEDCBA987654_u64
         );
         assert_eq!(
-            reader.read_isized(Offset::zero(), 6).unwrap(),
+            reader.read_isized(Offset::zero(), ByteSize::U6).unwrap(),
             -0x0123456789AC_i64
         );
         assert_eq!(
-            reader.read_usized(Offset::zero(), 7).unwrap(),
+            reader.read_usized(Offset::zero(), ByteSize::U7).unwrap(),
             0xFEDCBA98765432_u64
         );
         assert_eq!(
-            reader.read_isized(Offset::zero(), 7).unwrap(),
+            reader.read_isized(Offset::zero(), ByteSize::U7).unwrap(),
             -0x0123456789ABCE_i64
         );
         assert_eq!(
-            reader.read_usized(Offset::zero(), 8).unwrap(),
+            reader.read_usized(Offset::zero(), ByteSize::U8).unwrap(),
             0xFEDCBA9876543210_u64
         );
         assert_eq!(
-            reader.read_isized(Offset::zero(), 8).unwrap(),
+            reader.read_isized(Offset::zero(), ByteSize::U8).unwrap(),
             -0x0123456789ABCDF0_i64
         );
     }

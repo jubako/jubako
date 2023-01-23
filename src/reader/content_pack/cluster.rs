@@ -23,8 +23,8 @@ impl Cluster {
             reader.create_sub_memory_reader(cluster_info.offset, End::Size(cluster_info.size))?;
         let mut stream = header_reader.create_stream_all();
         let header = ClusterHeader::produce(&mut stream)?;
-        let raw_data_size: Size = stream.read_sized(header.offset_size.into())?.into();
-        let data_size: Size = stream.read_sized(header.offset_size.into())?.into();
+        let raw_data_size: Size = stream.read_sized(header.offset_size)?.into();
+        let data_size: Size = stream.read_sized(header.offset_size)?.into();
         let blob_count = header.blob_count.into_usize();
         let mut blob_offsets: Vec<Offset> = Vec::with_capacity(blob_count + 1);
         let uninit = blob_offsets.spare_capacity_mut();
@@ -34,7 +34,7 @@ impl Cluster {
                 first = false;
                 Offset::zero()
             } else {
-                stream.read_sized(header.offset_size.into())?.into()
+                stream.read_sized(header.offset_size)?.into()
             };
             assert!(value.is_valid(data_size));
             elem.write(value);
@@ -223,7 +223,7 @@ mod tests {
         let mut stream = reader.create_stream_from(ptr_info.offset);
         let header = ClusterHeader::produce(&mut stream).unwrap();
         assert_eq!(header.compression, comp);
-        assert_eq!(header.offset_size, 1);
+        assert_eq!(header.offset_size, ByteSize::U1);
         assert_eq!(header.blob_count, 3.into());
         let cluster = Cluster::new(&reader, ptr_info).unwrap();
         assert_eq!(cluster.blob_count(), 3.into());

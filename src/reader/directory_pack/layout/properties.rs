@@ -69,12 +69,18 @@ impl Properties {
                 offset + 4,
             )),
             RawPropertyKind::UnsignedInt => Ok((
-                Property::new(offset, PropertyKind::UnsignedInt(raw_property.size)),
+                Property::new(
+                    offset,
+                    PropertyKind::UnsignedInt(raw_property.size.try_into().unwrap()),
+                ),
                 current_idx + 1,
                 offset + raw_property.size,
             )),
             RawPropertyKind::SignedInt => Ok((
-                Property::new(offset, PropertyKind::SignedInt(raw_property.size)),
+                Property::new(
+                    offset,
+                    PropertyKind::SignedInt(raw_property.size.try_into().unwrap()),
+                ),
                 current_idx + 1,
                 offset + raw_property.size,
             )),
@@ -104,7 +110,11 @@ impl Properties {
                 Ok((
                     Property::new(
                         offset,
-                        PropertyKind::VLArray(raw_property.size, valuestoreid.into(), subproperty),
+                        PropertyKind::VLArray(
+                            raw_property.size.try_into().unwrap(),
+                            valuestoreid.into(),
+                            subproperty,
+                        ),
                     ),
                     new_idx,
                     new_offset,

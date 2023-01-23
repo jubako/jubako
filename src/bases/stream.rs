@@ -90,8 +90,9 @@ impl Stream {
         self.offset += 8;
         Ok(read_u64(&slice))
     }
-    pub fn read_sized(&mut self, size: usize) -> Result<u64> {
+    pub fn read_sized(&mut self, size: ByteSize) -> Result<u64> {
         let slice = self.source.slice_sized(self.offset, size)?;
+        let size = size as usize;
         self.offset += size;
         Ok(read_to_u64(size, &slice[..size]))
     }

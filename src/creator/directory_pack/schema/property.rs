@@ -7,7 +7,7 @@ use std::cmp;
 use std::rc::Rc;
 
 pub enum PropertySize<T> {
-    Fixed(u8),
+    Fixed(ByteSize),
     Auto(T),
 }
 
@@ -66,7 +66,7 @@ impl Property {
                 if let Value::Unsigned(value) = values.next().unwrap() {
                     match size {
                         PropertySize::Fixed(size) => {
-                            assert!(*size <= needed_bytes(value.get()) as u8);
+                            assert!(*size <= needed_bytes(value.get()));
                         }
                         PropertySize::Auto(max) => {
                             *max = cmp::max(*max, value.get());
@@ -89,7 +89,7 @@ impl Property {
         match self {
             Self::UnsignedInt(size) => match size {
                 PropertySize::Fixed(size) => layout::Property::UnsignedInt(*size),
-                PropertySize::Auto(max) => layout::Property::UnsignedInt(needed_bytes(*max) as u8),
+                PropertySize::Auto(max) => layout::Property::UnsignedInt(needed_bytes(*max)),
             },
             Self::VLArray(flookup_size, store_handle) => {
                 layout::Property::VLArray(*flookup_size, Rc::clone(store_handle))

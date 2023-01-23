@@ -122,8 +122,9 @@ impl Reader {
         let slice = self.source.slice_8(self.origin + offset)?;
         Ok(read_u64(&slice))
     }
-    pub fn read_usized(&self, offset: Offset, size: usize) -> Result<u64> {
+    pub fn read_usized(&self, offset: Offset, size: ByteSize) -> Result<u64> {
         let slice = self.source.slice_sized(self.origin + offset, size)?;
+        let size = size as usize;
         Ok(read_to_u64(size, &slice[..size]))
     }
 
@@ -143,8 +144,9 @@ impl Reader {
         let slice = self.source.slice_8(self.origin + offset)?;
         Ok(read_i64(&slice))
     }
-    pub fn read_isized(&self, offset: Offset, size: usize) -> Result<i64> {
+    pub fn read_isized(&self, offset: Offset, size: ByteSize) -> Result<i64> {
         let slice = self.source.slice_sized(self.origin + offset, size)?;
+        let size = size as usize;
         Ok(read_to_i64(size, &slice[..size]))
     }
 }
