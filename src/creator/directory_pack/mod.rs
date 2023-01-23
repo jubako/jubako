@@ -34,7 +34,7 @@ pub enum Value {
     Content(ContentAddress),
     Unsigned(u64),
     Signed(i64),
-    Array { data: Vec<u8>, value_id: u64 },
+    Array { data: Vec<u8>, value_id: Bound<u64> },
 }
 
 impl PartialOrd for Value {

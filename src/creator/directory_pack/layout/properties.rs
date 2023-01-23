@@ -43,8 +43,10 @@ impl Properties {
                 Property::VLArray(flookup_size, store_handle) => {
                     let value = value_iter.next().unwrap();
                     if let Value::Array { data, value_id } = value {
-                        written += stream
-                            .write_sized(*value_id, store_handle.borrow().key_size() as usize)?;
+                        written += stream.write_sized(
+                            value_id.get(),
+                            store_handle.borrow().key_size() as usize,
+                        )?;
                         written += stream.write_data(data)?;
                         // Data is truncate at flookup_size. We just want to write 0 if data is shorter than flookup_size
                         written +=
