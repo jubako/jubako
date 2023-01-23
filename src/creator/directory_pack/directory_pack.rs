@@ -71,7 +71,7 @@ impl DirectoryPackCreator {
         self.indexes.push(index);
     }
 
-    pub fn finalize(mut self) -> Result<PackData> {
+    pub fn finalize(self) -> Result<PackData> {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -81,10 +81,6 @@ impl DirectoryPackCreator {
         let to_skip =
             128 + 8 * (self.value_stores.len() + self.entry_stores.len() + self.indexes.len());
         file.seek(SeekFrom::Start(to_skip as u64))?;
-
-        for entry_store in &mut self.entry_stores {
-            entry_store.finalize();
-        }
 
         let mut indexes_offsets = vec![];
         for index in &self.indexes {

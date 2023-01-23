@@ -1,7 +1,8 @@
 #[allow(clippy::module_inception)]
 mod directory_pack;
 mod entry_store;
-pub mod layout;
+mod layout;
+pub mod schema;
 mod value_store;
 
 use crate::bases::*;
@@ -33,16 +34,12 @@ pub enum Value {
     Content(ContentAddress),
     Unsigned(u64),
     Signed(i64),
-    Array {
-        data: Vec<u8>,
-        value_id: Delayed<u64>,
-    },
+    Array { data: Vec<u8>, value_id: u64 },
 }
 
 pub trait EntryTrait {
     fn variant_id(&self) -> Option<VariantIdx>;
     fn values(&self) -> Vec<Value>;
-    fn finalize(&mut self, layout: &mut layout::Entry);
 }
 
 #[derive(Debug)]
@@ -51,47 +48,84 @@ pub struct BasicEntry {
     values: Vec<Value>,
 }
 
-impl BasicEntry {
-    pub fn new(variant_id: Option<VariantIdx>, values: Vec<common::Value>) -> Self {
-        let values = values
-            .into_iter()
-            .map(|v| match v {
-                common::Value::Content(c) => Value::Content(c),
-                common::Value::Unsigned(u) => Value::Unsigned(u),
-                common::Value::Signed(s) => Value::Signed(s),
-                common::Value::Array(a) => Value::Array {
-                    data: a,
-                    value_id: Default::default(),
-                },
-            })
-            .collect();
-        Self { variant_id, values }
-    }
+struct ValueTransformer<'a, T1, T2>
+where
+    T1: Iterator<Item = &'a schema::Property>,
+    T2: Iterator<Item = common::Value>,
+{
+    keys: T1,
+    values: T2,
+}
 
-    fn finalize_keys<'a>(&mut self, mut keys: impl Iterator<Item = &'a mut layout::Property>) {
-        let mut value_iter = self.values.iter_mut();
-        for key in &mut keys {
-            match key {
-                layout::Property::VLArray(flookup_size, store_handle) => {
-                    let flookup_size = *flookup_size;
-                    let value = value_iter.next().unwrap();
-                    if let Value::Array { data, value_id } = value {
-                        let to_store = data.split_off(cmp::min(flookup_size, data.len()));
-                        value_id.set(store_handle.borrow_mut().add_value(&to_store));
+impl<'a, T1, T2> Iterator for ValueTransformer<'a, T1, T2>
+where
+    T1: Iterator<Item = &'a schema::Property>,
+    T2: Iterator<Item = common::Value>,
+{
+    type Item = Value;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.keys.next() {
+                None => return None,
+                Some(key) => match key {
+                    schema::Property::VLArray(flookup_size, store_handle) => {
+                        let flookup_size = flookup_size;
+                        let value = self.values.next().unwrap();
+                        if let common::Value::Array(mut data) = value {
+                            let to_store = data.split_off(cmp::min(*flookup_size, data.len()));
+                            let value_id = store_handle.borrow_mut().add_value(&to_store);
+                            return Some(Value::Array { data, value_id });
+                        } else {
+                            panic!("Invalide value type");
+                        }
                     }
-                }
-                layout::Property::UnsignedInt(max_value) => {
-                    let value = value_iter.next().unwrap();
-                    if let Value::Unsigned(v) = value {
-                        *key = layout::Property::UnsignedInt(cmp::max(*max_value, *v));
+                    schema::Property::UnsignedInt(_) => {
+                        let value = self.values.next().unwrap();
+                        if let common::Value::Unsigned(v) = value {
+                            return Some(Value::Unsigned(v));
+                        } else {
+                            panic!("Invalide value type");
+                        }
                     }
-                }
-                layout::Property::VariantId => {}
-                _ => {
-                    value_iter.next();
-                }
+                    schema::Property::ContentAddress => {
+                        let value = self.values.next().unwrap();
+                        if let common::Value::Content(v) = value {
+                            return Some(Value::Content(v));
+                        } else {
+                            panic!("Invalide value type");
+                        }
+                    }
+                    schema::Property::Padding(_) => {}
+                },
             }
         }
+    }
+}
+
+impl BasicEntry {
+    pub fn new(
+        schema: &schema::Schema,
+        variant_id: Option<VariantIdx>,
+        values: Vec<common::Value>,
+    ) -> Self {
+        let values: Vec<Value> = if schema.variants.is_empty() {
+            ValueTransformer {
+                keys: schema.common.iter(),
+                values: values.into_iter(),
+            }
+            .collect()
+        } else {
+            let keys = schema
+                .common
+                .iter()
+                .chain(schema.variants[variant_id.unwrap().into_usize()].iter());
+            ValueTransformer {
+                keys,
+                values: values.into_iter(),
+            }
+            .collect()
+        };
+        Self { variant_id, values }
     }
 }
 
@@ -101,18 +135,6 @@ impl EntryTrait for BasicEntry {
     }
     fn values(&self) -> Vec<Value> {
         self.values.clone()
-    }
-
-    fn finalize(&mut self, layout: &mut layout::Entry) {
-        if layout.variants.is_empty() {
-            self.finalize_keys(layout.common.iter_mut());
-        } else {
-            let keys = layout
-                .common
-                .iter_mut()
-                .chain(layout.variants[self.variant_id.unwrap().into_usize()].iter_mut());
-            self.finalize_keys(keys);
-        }
     }
 }
 

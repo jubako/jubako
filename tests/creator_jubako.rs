@@ -10,7 +10,7 @@ test_suite! {
     name basic_creation;
 
     use jubako::creator;
-    use jubako::creator::layout;
+    use jubako::creator::schema;
     use jubako::Result;
     use jubako::reader::EntryTrait;
     use jubako::reader::schema::SchemaTrait;
@@ -85,18 +85,18 @@ test_suite! {
             jubako::FreeData31::clone_from_slice(&[0xff; 31])
         );
         let key_store_handle = creator.create_value_store(key_store_kind);
-        let entry_def = layout::Entry::new(
-            layout::CommonProperties::new(vec![
-                layout::Property::VLArray(0, key_store_handle),
-                layout::Property::ContentAddress,
-                layout::Property::new_int()
+        let entry_def = schema::Schema::new(
+            schema::CommonProperties::new(vec![
+                schema::Property::VLArray(0, key_store_handle),
+                schema::Property::ContentAddress,
+                schema::Property::new_int()
             ]),
             vec!()
         );
 
         let mut entry_store = Box::new(creator::EntryStore::new(entry_def));
         for (idx, entry) in entries.iter().enumerate() {
-            entry_store.add_entry(creator::BasicEntry::new(None, vec![
+            entry_store.add_entry(creator::BasicEntry::new(&entry_store.schema, None, vec![
                 creator::Value::Array(entry.path.clone().into()),
                 creator::Value::Content(jubako::ContentAddress::new(1.into(), (idx as u32).into())),
                 creator::Value::Unsigned(entry.word_count.into())]

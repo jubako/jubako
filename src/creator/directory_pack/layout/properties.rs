@@ -6,10 +6,6 @@ use crate::creator::directory_pack::EntryTrait;
 
 #[derive(Debug)]
 pub struct Properties(Vec<Property>);
-pub type CommonProperties = Properties;
-
-#[derive(Debug)]
-pub struct VariantProperties(pub Vec<Property>);
 
 impl std::ops::Deref for Properties {
     type Target = [Property];
@@ -24,16 +20,9 @@ impl std::ops::DerefMut for Properties {
     }
 }
 
-impl VariantProperties {
-    pub fn new(mut keys: Vec<Property>) -> Self {
-        keys.insert(0, Property::VariantId);
-        Self(keys)
-    }
-}
-
-impl From<VariantProperties> for Properties {
-    fn from(other: VariantProperties) -> Self {
-        Self(other.0)
+impl FromIterator<Property> for Properties {
+    fn from_iter<I: IntoIterator<Item = Property>>(iter: I) -> Self {
+        Self(iter.into_iter().collect())
     }
 }
 
@@ -56,10 +45,8 @@ impl Properties {
                     let flookup_size = *flookup_size as usize;
                     let value = value_iter.next().unwrap();
                     if let Value::Array { data, value_id } = value {
-                        written += stream.write_sized(
-                            value_id.get(),
-                            store_handle.borrow().key_size() as usize,
-                        )?;
+                        written += stream
+                            .write_sized(*value_id, store_handle.borrow().key_size() as usize)?;
                         written += stream.write_data(data)?;
                         // Data is truncate at flookup_size. We just want to write 0 if data is shorter than flookup_size
                         written +=
@@ -76,11 +63,10 @@ impl Properties {
                         return Err("Not a Content".to_string().into());
                     }
                 }
-                Property::UnsignedInt(max_value) => {
+                Property::UnsignedInt(size) => {
                     let value = value_iter.next().unwrap();
-                    let size = needed_bytes(*max_value);
                     if let Value::Unsigned(value) = value {
-                        written += stream.write_sized(*value, size)?;
+                        written += stream.write_sized(*value, *size as usize)?;
                     } else {
                         return Err("Not a unsigned".to_string().into());
                     }

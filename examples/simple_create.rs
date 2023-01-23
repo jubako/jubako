@@ -1,5 +1,5 @@
 use jubako as jbk;
-use jubako::creator::layout;
+use jubako::creator::schema;
 use std::error::Error;
 use std::rc::Rc;
 
@@ -27,17 +27,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     let value_store = directory_pack.create_value_store(jbk::creator::ValueStoreKind::Plain);
 
     // Our entry kind will have two variants.
-    let entry_def = layout::Entry::new(
-        layout::CommonProperties::new(vec![
-            layout::Property::VLArray(0, Rc::clone(&value_store)), // One string, will be stored in value_store
-            layout::Property::new_int(),                           // A integer
+    let entry_def = schema::Schema::new(
+        schema::CommonProperties::new(vec![
+            schema::Property::VLArray(0, Rc::clone(&value_store)), // One string, will be stored in value_store
+            schema::Property::new_int(),                           // A integer
         ]),
         vec![
-            layout::VariantProperties::new(vec![
-                layout::Property::ContentAddress, // A "pointer" to a content.
+            schema::VariantProperties::new(vec![
+                schema::Property::ContentAddress, // A "pointer" to a content.
             ]),
-            layout::VariantProperties::new(vec![
-                layout::Property::new_int(), //
+            schema::VariantProperties::new(vec![
+                schema::Property::new_int(), //
             ]),
         ],
     );
@@ -50,6 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut reader = jbk::creator::Stream::new(content, jbk::End::None);
     let content_id = content_pack.add_content(&mut reader)?;
     entry_store.add_entry(jbk::creator::BasicEntry::new(
+        &entry_store.schema,
         Some(0.into()), // Variant 0
         vec![
             jbk::creator::Value::Array("Super".into()),
@@ -62,6 +63,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     ));
 
     entry_store.add_entry(jbk::creator::BasicEntry::new(
+        &entry_store.schema,
         Some(1.into()), // Variant 1
         vec![
             jbk::creator::Value::Array("Mega".into()),
@@ -71,6 +73,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     ));
 
     entry_store.add_entry(jbk::creator::BasicEntry::new(
+        &entry_store.schema,
         Some(1.into()), // Variant 1
         vec![
             jbk::creator::Value::Array("Hyper".into()),
