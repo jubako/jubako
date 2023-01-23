@@ -48,20 +48,36 @@ pub struct BasicEntry {
     values: Vec<Value>,
 }
 
-struct ValueTransformer<'a, T1, T2>
-where
-    T1: Iterator<Item = &'a schema::Property>,
-    T2: Iterator<Item = common::Value>,
-{
-    keys: T1,
-    values: T2,
+pub struct ValueTransformer<'a> {
+    keys: Box<dyn Iterator<Item = &'a schema::Property> + 'a>,
+    values: std::vec::IntoIter<common::Value>,
 }
 
-impl<'a, T1, T2> Iterator for ValueTransformer<'a, T1, T2>
-where
-    T1: Iterator<Item = &'a schema::Property>,
-    T2: Iterator<Item = common::Value>,
-{
+impl<'a> ValueTransformer<'a> {
+    pub fn new(
+        schema: &'a schema::Schema,
+        variant_id: Option<VariantIdx>,
+        values: Vec<common::Value>,
+    ) -> Self {
+        if schema.variants.is_empty() {
+            ValueTransformer {
+                keys: Box::new(schema.common.iter()),
+                values: values.into_iter(),
+            }
+        } else {
+            let keys = schema
+                .common
+                .iter()
+                .chain(schema.variants[variant_id.unwrap().into_usize()].iter());
+            ValueTransformer {
+                keys: Box::new(keys),
+                values: values.into_iter(),
+            }
+        }
+    }
+}
+
+impl<'a> Iterator for ValueTransformer<'a> {
     type Item = Value;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -103,28 +119,16 @@ where
 }
 
 impl BasicEntry {
-    pub fn new(
+    pub fn new_from_schema(
         schema: &schema::Schema,
         variant_id: Option<VariantIdx>,
         values: Vec<common::Value>,
     ) -> Self {
-        let values: Vec<Value> = if schema.variants.is_empty() {
-            ValueTransformer {
-                keys: schema.common.iter(),
-                values: values.into_iter(),
-            }
-            .collect()
-        } else {
-            let keys = schema
-                .common
-                .iter()
-                .chain(schema.variants[variant_id.unwrap().into_usize()].iter());
-            ValueTransformer {
-                keys,
-                values: values.into_iter(),
-            }
-            .collect()
-        };
+        let value_transformer = ValueTransformer::new(schema, variant_id, values);
+        Self::new(variant_id, value_transformer.collect())
+    }
+
+    pub fn new(variant_id: Option<VariantIdx>, values: Vec<Value>) -> Self {
         Self { variant_id, values }
     }
 }

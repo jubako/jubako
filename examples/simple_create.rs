@@ -49,7 +49,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let content: Vec<u8> = "A super content prime quality for our test container".into();
     let mut reader = jbk::creator::Stream::new(content, jbk::End::None);
     let content_id = content_pack.add_content(&mut reader)?;
-    entry_store.add_entry(jbk::creator::BasicEntry::new(
+    entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
         &entry_store.schema,
         Some(0.into()), // Variant 0
         vec![
@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ],
     ));
 
-    entry_store.add_entry(jbk::creator::BasicEntry::new(
+    entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
         &entry_store.schema,
         Some(1.into()), // Variant 1
         vec![
@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ],
     ));
 
-    entry_store.add_entry(jbk::creator::BasicEntry::new(
+    entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
         &entry_store.schema,
         Some(1.into()), // Variant 1
         vec![
