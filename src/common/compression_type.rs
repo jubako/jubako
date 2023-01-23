@@ -19,7 +19,7 @@ impl Producable for CompressionType {
             2 => Ok(CompressionType::Lzma),
             3 => Ok(CompressionType::Zstd),
             v => Err(format_error!(
-                &format!("Invalid compression type ({})", v),
+                &format!("Invalid compression type ({v})"),
                 stream
             )),
         }

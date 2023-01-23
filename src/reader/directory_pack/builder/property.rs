@@ -82,7 +82,7 @@ impl PropertyBuilderTrait for IntProperty {
         Ok(match self.size.into_u64() {
             1 => reader.read_u8(self.offset)? as u64,
             2 => reader.read_u16(self.offset)? as u64,
-            3 | 4 => reader.read_usized(self.offset, self.size.into_usize())? as u64,
+            3 | 4 => reader.read_usized(self.offset, self.size.into_usize())?,
             5 | 6 | 7 | 8 => reader.read_usized(self.offset, self.size.into_usize())?,
             _ => unreachable!(),
         })
@@ -145,7 +145,7 @@ impl PropertyBuilderTrait for SignedProperty {
         Ok(match self.size.into_u64() {
             1 => reader.read_i8(self.offset)? as i64,
             2 => reader.read_i16(self.offset)? as i64,
-            3 | 4 => reader.read_isized(self.offset, self.size.into_usize())? as i64,
+            3 | 4 => reader.read_isized(self.offset, self.size.into_usize())?,
             5 | 6 | 7 | 8 => reader.read_isized(self.offset, self.size.into_usize())?,
             _ => unreachable!(),
         })

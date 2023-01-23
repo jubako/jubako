@@ -45,11 +45,11 @@ pub(crate) mod private {
                 RawValue::U8(v) => Value::Unsigned(*v as u64),
                 RawValue::U16(v) => Value::Unsigned(*v as u64),
                 RawValue::U32(v) => Value::Unsigned(*v as u64),
-                RawValue::U64(v) => Value::Unsigned(*v as u64),
+                RawValue::U64(v) => Value::Unsigned(*v),
                 RawValue::I8(v) => Value::Signed(*v as i64),
                 RawValue::I16(v) => Value::Signed(*v as i64),
                 RawValue::I32(v) => Value::Signed(*v as i64),
-                RawValue::I64(v) => Value::Signed(*v as i64),
+                RawValue::I64(v) => Value::Signed(*v),
                 RawValue::Array(a) => {
                     let mut vec = vec![];
                     self.resolve_array_to_vec(a, &mut vec)?;
@@ -80,14 +80,14 @@ pub(crate) mod private {
                     RawValue::U8(r) => Ok((*r as u64).cmp(v)),
                     RawValue::U16(r) => Ok((*r as u64).cmp(v)),
                     RawValue::U32(r) => Ok((*r as u64).cmp(v)),
-                    RawValue::U64(r) => Ok((*r as u64).cmp(v)),
+                    RawValue::U64(r) => Ok((*r).cmp(v)),
                     _ => Err("Values kind cannot be compared.".to_string().into()),
                 },
                 Value::Signed(v) => match raw {
                     RawValue::I8(r) => Ok((*r as i64).cmp(v)),
                     RawValue::I16(r) => Ok((*r as i64).cmp(v)),
                     RawValue::I32(r) => Ok((*r as i64).cmp(v)),
-                    RawValue::I64(r) => Ok((*r as i64).cmp(v)),
+                    RawValue::I64(r) => Ok((*r).cmp(v)),
                     _ => Err("Values kind cannot be compared.".to_string().into()),
                 },
                 Value::Array(v) => match raw {

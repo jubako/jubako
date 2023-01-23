@@ -163,7 +163,7 @@ impl Pack for ManifestPack {
         }
         let packs = std::iter::once(&self.directory_pack_info).chain(self.pack_infos.iter());
         for pack_info in packs {
-            println!("Check sub pack {:?}", pack_info);
+            println!("Check sub pack {pack_info:?}");
             if let PackPos::Offset(o) = pack_info.pack_pos {
                 let check_info = {
                     let mut checkinfo_stream =
@@ -175,7 +175,7 @@ impl Pack for ManifestPack {
                         .reader
                         .create_stream(o, End::Size(pack_info.pack_size - check_info.size())),
                 )?;
-                println!("=> valid : {}", valid);
+                println!("=> valid : {valid}");
                 if !valid {
                     return Ok(false);
                 }

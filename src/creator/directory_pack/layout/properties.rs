@@ -42,7 +42,6 @@ impl Properties {
         for key in keys {
             match key {
                 Property::VLArray(flookup_size, store_handle) => {
-                    let flookup_size = *flookup_size as usize;
                     let value = value_iter.next().unwrap();
                     if let Value::Array { data, value_id } = value {
                         written += stream
@@ -50,7 +49,7 @@ impl Properties {
                         written += stream.write_data(data)?;
                         // Data is truncate at flookup_size. We just want to write 0 if data is shorter than flookup_size
                         written +=
-                            stream.write_data(vec![0; flookup_size - data.len()].as_slice())?;
+                            stream.write_data(vec![0; *flookup_size - data.len()].as_slice())?;
                     } else {
                         return Err("Not a Array".to_string().into());
                     }

@@ -34,7 +34,7 @@ impl Producable for Layout {
             common_properties.push(*raw_property);
         }
         let common_properties = Properties::new(0, common_properties)?;
-        let variant_part = if !!variant_count {
+        let variant_part = if variant_count.into_u8() != 0 {
             let variant_id_offset = Offset::from(common_size);
             common_size += 1;
 
@@ -66,8 +66,7 @@ impl Producable for Layout {
                     Ordering::Greater => {
                         return Err(format_error!(
                             &format!(
-                                "Sum of variant size ({} + {}) cannot exceed the entry size ({})",
-                                common_size, variant_size, entry_size
+                                "Sum of variant size ({common_size} + {variant_size}) cannot exceed the entry size ({entry_size})"
                             ),
                             stream
                         ))
@@ -90,8 +89,7 @@ impl Producable for Layout {
             if variants.len() != variant_count.into_usize() {
                 return Err(format_error!(
                     &format!(
-                        "Entry declare ({}) variants but properties define ({})",
-                        variant_count,
+                        "Entry declare ({variant_count}) variants but properties define ({})",
                         variants.len()
                     ),
                     stream

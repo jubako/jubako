@@ -16,10 +16,7 @@ impl Producable for StoreKind {
             0 => Ok(StoreKind::Plain),
             1 => Ok(StoreKind::Ref),
             2 => Ok(StoreKind::Full),
-            v => Err(format_error!(
-                &format!("Invalid store kind ({})", v),
-                stream
-            )),
+            v => Err(format_error!(&format!("Invalid store kind ({v})"), stream)),
         }
     }
 }
