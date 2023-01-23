@@ -49,16 +49,14 @@ impl PartialOrd for Value {
                 Value::Signed(o) => Some(v.cmp(o)),
                 _ => None,
             },
-            Value::Array { data, value_id: _ } => match other {
+            Value::Array { data, value_id: id } => match other {
                 Value::Array {
                     data: other_data,
-                    value_id: _,
+                    value_id: other_id,
                 } => match data.cmp(other_data) {
                     cmp::Ordering::Less => Some(cmp::Ordering::Less),
                     cmp::Ordering::Greater => Some(cmp::Ordering::Greater),
-                    cmp::Ordering::Equal => {
-                        todo!("We need to resolve indirect data to compare them")
-                    }
+                    cmp::Ordering::Equal => Some(id.get().cmp(&other_id.get())),
                 },
                 _ => None,
             },
