@@ -37,7 +37,7 @@ where
     T: std::fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Count({})", self.0)
+        write!(f, "Count : {}", self.0)
     }
 }
 

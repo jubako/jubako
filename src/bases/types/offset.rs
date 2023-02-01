@@ -124,7 +124,7 @@ impl Sub<Size> for Offset {
 
 impl fmt::Display for Offset {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Offset({})", self.0)
+        write!(f, "Offset : {}", self.0)
     }
 }
 

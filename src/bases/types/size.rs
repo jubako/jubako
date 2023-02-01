@@ -62,7 +62,7 @@ impl From<usize> for Size {
 
 impl fmt::Display for Size {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Size({})", self.0)
+        write!(f, "Size : {}", self.0)
     }
 }
 

@@ -1,7 +1,6 @@
 use super::private::WritableTell;
 use crate::bases::*;
 
-#[derive(Debug)]
 pub struct BaseValueStore {
     idx: ValueStoreIdx,
     data: Vec<Vec<u8>>,
@@ -50,7 +49,6 @@ impl BaseValueStore {
     }
 }
 
-#[derive(Debug)]
 pub struct PlainValueStore(BaseValueStore);
 
 impl PlainValueStore {
@@ -111,7 +109,17 @@ impl WritableTell for PlainValueStore {
     }
 }
 
-#[derive(Debug)]
+impl std::fmt::Debug for PlainValueStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PlainValueStore")
+            .field("idx", &self.get_idx())
+            .field("size", &self.size())
+            .field("key_size", &self.key_size())
+            .field("data count", &self.0.data.len())
+            .finish()
+    }
+}
+
 pub struct IndexedValueStore(BaseValueStore);
 
 impl IndexedValueStore {
@@ -159,6 +167,17 @@ impl WritableTell for IndexedValueStore {
             stream.write_sized(offset, offset_size)?;
         }
         Ok(())
+    }
+}
+
+impl std::fmt::Debug for IndexedValueStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IndexedValueStore")
+            .field("idx", &self.get_idx())
+            .field("size", &self.0.size)
+            .field("key_size", &self.key_size())
+            .field("data count", &self.0.data.len())
+            .finish()
     }
 }
 
