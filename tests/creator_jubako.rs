@@ -99,7 +99,7 @@ test_suite! {
             entry_store.add_entry(creator::BasicEntry::new_from_schema(&entry_store.schema, None, vec![
                 creator::Value::Array(entry.path.clone().into()),
                 creator::Value::Content(jubako::ContentAddress::new(1.into(), (idx as u32).into())),
-                creator::Value::Unsigned(entry.word_count.into())]
+                creator::Value::Unsigned((entry.word_count as u64).into())]
             ));
         }
 

@@ -32,7 +32,7 @@ mod private {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Content(ContentAddress),
-    Unsigned(u64),
+    Unsigned(Word<u64>),
     Signed(i64),
     Array { data: Vec<u8>, value_id: Bound<u64> },
 }
@@ -42,7 +42,7 @@ impl PartialOrd for Value {
         match self {
             Value::Content(_) => None,
             Value::Unsigned(v) => match other {
-                Value::Unsigned(o) => Some(v.cmp(o)),
+                Value::Unsigned(o) => Some(v.get().cmp(&o.get())),
                 _ => None,
             },
             Value::Signed(v) => match other {

@@ -66,7 +66,7 @@ impl Properties {
                 Property::UnsignedInt(size) => {
                     let value = value_iter.next().unwrap();
                     if let Value::Unsigned(value) = value {
-                        written += stream.write_sized(*value, *size as usize)?;
+                        written += stream.write_sized(value.get(), *size as usize)?;
                     } else {
                         return Err("Not a unsigned".to_string().into());
                     }

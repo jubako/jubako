@@ -40,10 +40,10 @@ impl Property {
                 if let Value::Unsigned(value) = values.next().unwrap() {
                     match size {
                         PropertySize::Fixed(size) => {
-                            assert!(*size <= needed_bytes(*value) as u8);
+                            assert!(*size <= needed_bytes(value.get()) as u8);
                         }
                         PropertySize::Auto(max) => {
-                            *max = cmp::max(*max, *value);
+                            *max = cmp::max(*max, value.get());
                         }
                     }
                 } else {
