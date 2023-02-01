@@ -59,7 +59,8 @@ pub(crate) mod private {
         }
 
         pub fn compare_array(&self, raw: &Array, value: &[u8]) -> Result<cmp::Ordering> {
-            let cmp = raw.base.as_slice().cmp(&value[..raw.base.len()]);
+            let extract_size = std::cmp::min(raw.base.len(), value.len());
+            let cmp = raw.base.as_slice().cmp(&value[..extract_size]);
             if cmp.is_ne() {
                 Ok(cmp)
             } else {
