@@ -68,6 +68,8 @@ pub trait EntryTrait {
     fn variant_id(&self) -> Option<VariantIdx>;
     fn value(&self, id: PropertyIdx) -> &Value;
     fn value_count(&self) -> PropertyCount;
+    fn set_idx(&mut self, idx: EntryIdx);
+    fn get_idx(&self) -> Bound<EntryIdx>;
 }
 
 pub trait FullEntryTrait: EntryTrait {
@@ -105,6 +107,7 @@ impl<'e> Iterator for EntryIter<'e> {
 pub struct BasicEntry {
     variant_id: Option<VariantIdx>,
     values: Vec<Value>,
+    idx: Vow<EntryIdx>,
 }
 
 pub struct ValueTransformer<'a> {
@@ -188,7 +191,11 @@ impl BasicEntry {
     }
 
     pub fn new(variant_id: Option<VariantIdx>, values: Vec<Value>) -> Self {
-        Self { variant_id, values }
+        Self {
+            variant_id,
+            values,
+            idx: Default::default(),
+        }
     }
 }
 
@@ -201,6 +208,12 @@ impl EntryTrait for BasicEntry {
     }
     fn value_count(&self) -> PropertyCount {
         (self.values.len() as u8).into()
+    }
+    fn set_idx(&mut self, idx: EntryIdx) {
+        self.idx.fulfil(idx);
+    }
+    fn get_idx(&self) -> Bound<EntryIdx> {
+        self.idx.bind()
     }
 }
 

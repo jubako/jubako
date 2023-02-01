@@ -71,7 +71,7 @@ impl DirectoryPackCreator {
         self.indexes.push(index);
     }
 
-    pub fn finalize(self) -> Result<PackData> {
+    pub fn finalize(mut self) -> Result<PackData> {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -88,6 +88,11 @@ impl DirectoryPackCreator {
         let mut indexes_offsets = vec![];
         for index in &self.indexes {
             indexes_offsets.push(index.write(&mut file)?);
+        }
+
+        println!("----- Finalize entry_stores -----");
+        for entry_store in &mut self.entry_stores {
+            entry_store.finalize();
         }
 
         println!("----- Write entry_stores -----");
@@ -138,6 +143,7 @@ impl DirectoryPackCreator {
             ),
         );
         header.write(&mut file)?;
+
         println!("----- Compute checksum -----");
         file.rewind()?;
         let mut hasher = blake3::Hasher::new();
