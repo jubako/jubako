@@ -15,7 +15,7 @@ impl<'e, Entry: FullEntryTrait> EntryCompare<'e, Entry> {
 }
 
 pub struct EntryStore<Entry: FullEntryTrait> {
-    idx: Delayed<EntryStoreIdx>,
+    idx: Late<EntryStoreIdx>,
     entries: Vec<Entry>,
     pub schema: schema::Schema,
 }
