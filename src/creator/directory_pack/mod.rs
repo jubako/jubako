@@ -217,6 +217,27 @@ impl EntryTrait for BasicEntry {
     }
 }
 
+impl<T> EntryTrait for Box<T>
+where
+    T: EntryTrait,
+{
+    fn variant_id(&self) -> Option<VariantIdx> {
+        T::variant_id(self)
+    }
+    fn value(&self, id: PropertyIdx) -> &Value {
+        T::value(self, id)
+    }
+    fn value_count(&self) -> PropertyCount {
+        T::value_count(self)
+    }
+    fn set_idx(&mut self, idx: EntryIdx) {
+        T::set_idx(self, idx)
+    }
+    fn get_idx(&self) -> Bound<EntryIdx> {
+        T::get_idx(self)
+    }
+}
+
 impl FullEntryTrait for BasicEntry {
     fn compare(
         &self,
@@ -236,6 +257,15 @@ impl FullEntryTrait for BasicEntry {
             }
         }
         false
+    }
+}
+
+impl<T> FullEntryTrait for Box<T>
+where
+    T: FullEntryTrait,
+{
+    fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PropertyIdx>, other: &Self) -> bool {
+        T::compare(self, sort_keys, other)
     }
 }
 
