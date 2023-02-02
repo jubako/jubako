@@ -55,11 +55,15 @@ impl Seek for BufferedFile {
 pub struct FileSource(Mutex<BufferedFile>);
 
 impl FileSource {
-    pub fn new(mut source: File) -> Self {
-        let len = source.seek(SeekFrom::End(0)).unwrap();
-        source.seek(SeekFrom::Start(0)).unwrap();
+    pub fn open<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
+        Self::new(std::fs::File::open(path)?)
+    }
+
+    pub fn new(mut source: File) -> Result<Self> {
+        let len = source.seek(SeekFrom::End(0))?;
+        source.seek(SeekFrom::Start(0))?;
         let source = BufferedFile::new(source, len);
-        FileSource(Mutex::new(source))
+        Ok(FileSource(Mutex::new(source)))
     }
 }
 

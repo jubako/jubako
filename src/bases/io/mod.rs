@@ -82,7 +82,7 @@ mod tests {
     fn create_file_reader(data: &[u8]) -> Reader {
         let mut file = tempfile().unwrap();
         file.write_all(data).unwrap();
-        FileSource::new(file).into()
+        FileSource::new(file).unwrap().into()
     }
 
     fn create_lz4_reader(data: &[u8]) -> Reader {

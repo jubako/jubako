@@ -215,7 +215,7 @@ impl ContentPackCreator {
             uuid: header.pack_header.uuid,
             pack_id: self.pack_id,
             free_data: FreeData103::clone_from_slice(&[0; 103]),
-            reader: FileSource::new(self.file.unwrap()).into(),
+            reader: FileSource::new(self.file.unwrap())?.into(),
             check_info_pos: check_offset,
             embedded: Embedded::No(self.path),
         })
