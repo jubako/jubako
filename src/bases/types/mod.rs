@@ -33,11 +33,17 @@ pub enum End {
 }
 
 impl End {
-    pub fn new_size(s: u64) -> Self {
+    pub fn new_size<T>(s: T) -> Self
+    where
+        Size: From<T>,
+    {
         Self::Size(Size::from(s))
     }
 
-    pub fn new_offset(o: u64) -> Self {
+    pub fn new_offset<T>(o: T) -> Self
+    where
+        Offset: From<T>,
+    {
         Self::Offset(Offset::from(o))
     }
 

@@ -246,7 +246,7 @@ impl ContentProperty {
         Self { offset }
     }
     fn create_content(offset: Offset, reader: &Reader) -> Result<ContentAddress> {
-        let mut stream = reader.create_stream(offset, End::new_size(4));
+        let mut stream = reader.create_stream(offset, End::new_size(4u64));
         let contentaddress = ContentAddress::produce(&mut stream)?;
         Ok(contentaddress)
     }
