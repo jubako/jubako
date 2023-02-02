@@ -11,6 +11,80 @@ pub struct ClusterCreator {
 const CLUSTER_SIZE: Size = Size::new(1024 * 1024 * 4);
 const MAX_BLOBS_PER_CLUSTER: usize = 0xFFF;
 
+#[cfg(feature = "lz4")]
+fn lz4_compress<'b>(
+    data: &mut Vec<Reader>,
+    stream: &'b mut dyn OutStream,
+) -> Result<&'b mut dyn OutStream> {
+    let mut encoder = lz4::EncoderBuilder::new().level(16).build(stream)?;
+    for in_reader in data.drain(..) {
+        std::io::copy(&mut in_reader.create_stream_all(), &mut encoder)?;
+    }
+    let (stream, err) = encoder.finish();
+    err?;
+    Ok(stream)
+}
+
+#[cfg(not(feature = "lz4"))]
+#[allow(clippy::ptr_arg)]
+fn lz4_compress<'b>(
+    _data: &mut Vec<Reader>,
+    _stream: &'b mut dyn OutStream,
+) -> Result<&'b mut dyn OutStream> {
+    Err("Lz4 compression is not supported by this configuration."
+        .to_string()
+        .into())
+}
+
+#[cfg(feature = "lzma")]
+fn lzma_compress<'b>(
+    data: &mut Vec<Reader>,
+    stream: &'b mut dyn OutStream,
+) -> Result<&'b mut dyn OutStream> {
+    let mut encoder = lzma::LzmaWriter::new_compressor(stream, 9)?;
+    for in_reader in data.drain(..) {
+        std::io::copy(&mut in_reader.create_stream_all(), &mut encoder)?;
+    }
+    Ok(encoder.finish()?)
+}
+
+#[cfg(not(feature = "lzma"))]
+#[allow(clippy::ptr_arg)]
+fn lzma_compress<'b>(
+    _data: &mut Vec<Reader>,
+    _stream: &'b mut dyn OutStream,
+) -> Result<&'b mut dyn OutStream> {
+    Err("Lzma compression is not supported by this configuration."
+        .to_string()
+        .into())
+}
+
+#[cfg(feature = "zstd")]
+fn zstd_compress<'b>(
+    data: &mut Vec<Reader>,
+    stream: &'b mut dyn OutStream,
+) -> Result<&'b mut dyn OutStream> {
+    let mut encoder = zstd::Encoder::new(stream, 19)?;
+    encoder.multithread(8)?;
+    encoder.include_contentsize(false)?;
+    //encoder.long_distance_matching(true);
+    for in_reader in data.drain(..) {
+        std::io::copy(&mut in_reader.create_stream_all(), &mut encoder)?;
+    }
+    Ok(encoder.finish()?)
+}
+
+#[cfg(not(feature = "zstd"))]
+#[allow(clippy::ptr_arg)]
+fn zstd_compress<'b>(
+    _data: &mut Vec<Reader>,
+    _stream: &'b mut dyn OutStream,
+) -> Result<&'b mut dyn OutStream> {
+    Err("Zstd compression is not supported by this configuration."
+        .to_string()
+        .into())
+}
+
 impl ClusterCreator {
     pub fn new(index: usize, compression: CompressionType) -> Self {
         ClusterCreator {
@@ -30,32 +104,9 @@ impl ClusterCreator {
                 }
                 stream
             }
-            CompressionType::Lz4 => {
-                let mut encoder = lz4::EncoderBuilder::new().level(16).build(stream)?;
-                for d in self.data.drain(..) {
-                    std::io::copy(&mut d.create_stream_all(), &mut encoder)?;
-                }
-                let (stream, err) = encoder.finish();
-                err?;
-                stream
-            }
-            CompressionType::Lzma => {
-                let mut encoder = lzma::LzmaWriter::new_compressor(stream, 9)?;
-                for d in self.data.drain(..) {
-                    std::io::copy(&mut d.create_stream_all(), &mut encoder)?;
-                }
-                encoder.finish()?
-            }
-            CompressionType::Zstd => {
-                let mut encoder = zstd::Encoder::new(stream, 19)?;
-                encoder.multithread(8)?;
-                encoder.include_contentsize(false)?;
-                //encoder.long_distance_matching(true);
-                for d in self.data.drain(..) {
-                    std::io::copy(&mut d.create_stream_all(), &mut encoder)?;
-                }
-                encoder.finish()?
-            }
+            CompressionType::Lz4 => lz4_compress(&mut self.data, stream)?,
+            CompressionType::Lzma => lzma_compress(&mut self.data, stream)?,
+            CompressionType::Zstd => zstd_compress(&mut self.data, stream)?,
         };
         Ok(stream.tell() - offset)
     }

@@ -75,17 +75,18 @@ mod tests {
     use tempfile::tempfile;
     use test_case::test_case;
 
-    fn create_buf_reader(data: &[u8]) -> Reader {
-        data.to_vec().into()
+    fn create_buf_reader(data: &[u8]) -> Option<Reader> {
+        Some(data.to_vec().into())
     }
 
-    fn create_file_reader(data: &[u8]) -> Reader {
+    fn create_file_reader(data: &[u8]) -> Option<Reader> {
         let mut file = tempfile().unwrap();
         file.write_all(data).unwrap();
-        FileSource::new(file).unwrap().into()
+        Some(FileSource::new(file).unwrap().into())
     }
 
-    fn create_lz4_reader(data: &[u8]) -> Reader {
+    #[cfg(feature = "lz4")]
+    fn create_lz4_reader(data: &[u8]) -> Option<Reader> {
         let compressed_content = {
             let compressed_content = Vec::new();
             let mut encoder = lz4::EncoderBuilder::new()
@@ -99,13 +100,19 @@ mod tests {
             compressed_content.into_inner()
         };
         let decoder = lz4::Decoder::new(Cursor::new(compressed_content)).unwrap();
-        Reader::new(
+        Some(Reader::new(
             Lz4Source::new(decoder, Size::from(data.len())),
             End::Size(Size::from(data.len())),
-        )
+        ))
     }
 
-    fn create_lzma_reader(data: &[u8]) -> Reader {
+    #[cfg(not(feature = "lz4"))]
+    fn create_lz4_reader(_data: &[u8]) -> Option<Reader> {
+        None
+    }
+
+    #[cfg(feature = "lzma")]
+    fn create_lzma_reader(data: &[u8]) -> Option<Reader> {
         let compressed_content = {
             let compressed_content = Vec::new();
             let mut encoder =
@@ -115,13 +122,19 @@ mod tests {
             encoder.finish().unwrap().into_inner()
         };
         let decoder = lzma::LzmaReader::new_decompressor(Cursor::new(compressed_content)).unwrap();
-        Reader::new(
+        Some(Reader::new(
             LzmaSource::new(decoder, Size::from(data.len())),
             End::Size(Size::from(data.len())),
-        )
+        ))
     }
 
-    fn create_zstd_reader(data: &[u8]) -> Reader {
+    #[cfg(not(feature = "lzma"))]
+    fn create_lzma_reader(_data: &[u8]) -> Option<Reader> {
+        None
+    }
+
+    #[cfg(feature = "zstd")]
+    fn create_zstd_reader(data: &[u8]) -> Option<Reader> {
         let compressed_content = {
             let compressed_content = Vec::new();
             let mut encoder = zstd::Encoder::new(Cursor::new(compressed_content), 0).unwrap();
@@ -130,13 +143,18 @@ mod tests {
             encoder.finish().unwrap().into_inner()
         };
         let decoder = zstd::Decoder::new(Cursor::new(compressed_content)).unwrap();
-        Reader::new(
+        Some(Reader::new(
             ZstdSource::new(decoder, Size::from(data.len())),
             End::Size(Size::from(data.len())),
-        )
+        ))
     }
 
-    type ReaderCreator = fn(&[u8]) -> Reader;
+    #[cfg(not(feature = "zstd"))]
+    fn create_zstd_reader(_data: &[u8]) -> Option<Reader> {
+        None
+    }
+
+    type ReaderCreator = fn(&[u8]) -> Option<Reader>;
 
     #[test_case(create_buf_reader)]
     #[test_case(create_file_reader)]
@@ -145,6 +163,10 @@ mod tests {
     #[test_case(create_zstd_reader)]
     fn test_reader(creator: ReaderCreator) {
         let reader = creator(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
+        if reader.is_none() {
+            return;
+        }
+        let reader = reader.unwrap();
         assert_eq!(reader.read_u8(Offset::zero()).unwrap(), 0x00_u8);
         assert_eq!(reader.read_u8(Offset::new(1)).unwrap(), 0x01_u8);
         assert_eq!(reader.read_u16(Offset::new(2)).unwrap(), 0x0203_u16);
@@ -195,6 +217,10 @@ mod tests {
     #[test_case(create_zstd_reader)]
     fn test_reader2(creator: ReaderCreator) {
         let reader = creator(&[0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xFF]);
+        if reader.is_none() {
+            return;
+        }
+        let reader = reader.unwrap();
         assert_eq!(reader.read_u8(Offset::zero()).unwrap(), 0xFE_u8);
         assert_eq!(reader.read_i8(Offset::zero()).unwrap(), -0x02_i8);
         assert_eq!(reader.read_u8(Offset::new(1)).unwrap(), 0xDC_u8);
@@ -311,6 +337,10 @@ mod tests {
     #[test_case(create_zstd_reader)]
     fn test_stream(creator: ReaderCreator) {
         let reader = creator(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
+        if reader.is_none() {
+            return;
+        }
+        let reader = reader.unwrap();
         let mut stream = reader.create_stream_all();
         assert_eq!(stream.read_u8().unwrap(), 0x00_u8);
         assert_eq!(stream.tell(), Offset::new(1));
@@ -355,6 +385,10 @@ mod tests {
     #[test_case(create_zstd_reader)]
     fn test_create_sub_reader(creator: ReaderCreator) {
         let reader = creator(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
+        if reader.is_none() {
+            return;
+        }
+        let reader = reader.unwrap();
         assert_eq!(reader.size(), Size::new(9));
         let sub_reader = reader.create_sub_reader(Offset::zero(), End::None);
         assert_eq!(sub_reader.size(), Size::new(9));
@@ -392,6 +426,10 @@ mod tests {
     #[test_case(create_zstd_reader)]
     fn test_create_sub_stream(creator: ReaderCreator) {
         let reader = creator(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
+        if reader.is_none() {
+            return;
+        }
+        let reader = reader.unwrap();
         assert_eq!(reader.size(), Size::new(9));
         let sub_reader = reader.create_stream(Offset::zero(), End::None);
         assert_eq!(sub_reader.size(), Size::new(9));

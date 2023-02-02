@@ -89,6 +89,11 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
     }
 }
 
+#[cfg(feature = "lz4")]
 pub type Lz4Source<T> = SeekableDecoder<lz4::Decoder<T>>;
+
+#[cfg(feature = "lzma")]
 pub type LzmaSource<T> = SeekableDecoder<lzma::LzmaReader<T>>;
+
+#[cfg(feature = "zstd")]
 pub type ZstdSource<'a, T> = SeekableDecoder<zstd::Decoder<'a, T>>;

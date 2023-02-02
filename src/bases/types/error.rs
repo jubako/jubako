@@ -1,9 +1,12 @@
 use crate::bases::*;
-use lzma::LzmaError;
+
 use std::any::Demand;
 use std::backtrace::Backtrace;
 use std::fmt;
 use std::string::FromUtf8Error;
+
+#[cfg(feature = "lzma")]
+use lzma::LzmaError;
 
 #[derive(Debug)]
 pub struct FormatError {
@@ -84,6 +87,7 @@ impl From<FromUtf8Error> for Error {
     }
 }
 
+#[cfg(feature = "lzma")]
 impl From<lzma::LzmaError> for Error {
     fn from(e: LzmaError) -> Error {
         match e {
