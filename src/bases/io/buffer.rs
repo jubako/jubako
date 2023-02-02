@@ -1,8 +1,8 @@
 use crate::bases::*;
 use std::io::Read;
-use std::rc::Rc;
+use std::sync::Arc;
 
-impl<T: AsRef<[u8]> + 'static> Source for T {
+impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
     fn size(&self) -> Size {
         self.as_ref().len().into()
     }
@@ -27,13 +27,13 @@ impl<T: AsRef<[u8]> + 'static> Source for T {
     }
 
     fn into_memory(
-        self: Rc<Self>,
+        self: Arc<Self>,
         offset: Offset,
         size: usize,
-    ) -> Result<(Rc<dyn Source>, Offset, End)> {
+    ) -> Result<(Arc<dyn Source>, Offset, End)> {
         assert!(offset.into_usize() + size <= self.as_ref().as_ref().len());
         Ok((
-            Rc::clone(&(self as Rc<dyn Source>)),
+            Arc::clone(&(self as Arc<dyn Source>)),
             offset,
             End::new_size(size as u64),
         ))

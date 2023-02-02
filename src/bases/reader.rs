@@ -2,22 +2,22 @@ use super::primitive::*;
 use super::stream::*;
 use super::types::*;
 use super::Source;
-use std::rc::Rc;
+use std::sync::Arc;
 
 // A wrapper arount someting to implement Reader trait
 #[derive(Debug)]
 pub struct Reader {
-    source: Rc<dyn Source>,
+    source: Arc<dyn Source>,
     origin: Offset,
     end: Offset,
 }
 
 impl Reader {
     pub fn new<T: Source + 'static>(source: T, end: End) -> Self {
-        Reader::new_from_rc(Rc::new(source), end)
+        Reader::new_from_arc(Arc::new(source), end)
     }
 
-    pub fn new_from_rc<T: Source + 'static>(source: Rc<T>, end: End) -> Self {
+    pub fn new_from_arc(source: Arc<dyn Source>, end: End) -> Self {
         let end = match end {
             End::None => source.size().into(),
             End::Offset(o) => o,
@@ -35,7 +35,7 @@ impl Reader {
     }
 
     pub fn create_stream(&self, offset: Offset, end: End) -> Stream {
-        let source = Rc::clone(&self.source);
+        let source = Arc::clone(&self.source);
         let origin = self.origin + offset;
         let end = match end {
             End::None => self.end,
@@ -58,7 +58,7 @@ impl Reader {
         self.create_stream(Offset::zero(), End::None)
     }
     pub fn create_sub_reader(&self, offset: Offset, end: End) -> Reader {
-        let source = Rc::clone(&self.source);
+        let source = Arc::clone(&self.source);
         let origin = self.origin + offset;
         let end = match end {
             End::None => self.end,
@@ -80,7 +80,7 @@ impl Reader {
             End::Size(s) => s,
         };
         let (source, origin, end) =
-            Rc::clone(&self.source).into_memory(origin, size.into_usize())?;
+            Arc::clone(&self.source).into_memory(origin, size.into_usize())?;
         let end = match end {
             End::None => source.size().into(),
             End::Offset(o) => origin + o,

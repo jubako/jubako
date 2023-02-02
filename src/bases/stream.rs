@@ -2,26 +2,26 @@
 use crate::bases::*;
 use primitive::*;
 use std::io::{BorrowedBuf, Read};
-use std::rc::Rc;
+use std::sync::Arc;
 
 // A wrapper arount someting to implement Stream trait
 #[derive(Debug)]
 pub struct Stream {
-    source: Rc<dyn Source>,
+    source: Arc<dyn Source>,
     origin: Offset,
     end: Offset,
     offset: Offset,
 }
 
 impl Stream {
-    pub fn new<T: Source + 'static>(source: T, end: End) -> Self {
+    pub fn new<T: Source + 'static + Sync>(source: T, end: End) -> Self {
         let end = match end {
             End::None => source.size().into(),
             End::Offset(o) => o,
             End::Size(s) => s.into(),
         };
         Self {
-            source: Rc::new(source),
+            source: Arc::new(source),
             origin: Offset::zero(),
             offset: Offset::zero(),
             end,
@@ -29,7 +29,7 @@ impl Stream {
     }
 
     pub fn new_from_parts(
-        source: Rc<dyn Source>,
+        source: Arc<dyn Source>,
         origin: Offset,
         end: Offset,
         offset: Offset,

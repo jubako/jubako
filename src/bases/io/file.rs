@@ -1,13 +1,13 @@
 use crate::bases::*;
 use memmap2::MmapOptions;
-use std::cell::RefCell;
 use std::fs::File;
 use std::io;
 use std::io::BorrowedBuf;
 use std::io::{Read, Seek, SeekFrom};
 use std::ops::Deref;
 use std::os::unix::prelude::{AsRawFd, RawFd};
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 pub struct BufferedFile {
     source: io::BufReader<File>,
@@ -52,19 +52,19 @@ impl Seek for BufferedFile {
     }
 }
 
-pub struct FileSource(RefCell<BufferedFile>);
+pub struct FileSource(Mutex<BufferedFile>);
 
 impl FileSource {
     pub fn new(mut source: File) -> Self {
         let len = source.seek(SeekFrom::End(0)).unwrap();
         source.seek(SeekFrom::Start(0)).unwrap();
         let source = BufferedFile::new(source, len);
-        FileSource(RefCell::new(source))
+        FileSource(Mutex::new(source))
     }
 }
 
 impl Deref for FileSource {
-    type Target = RefCell<BufferedFile>;
+    type Target = Mutex<BufferedFile>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -72,10 +72,10 @@ impl Deref for FileSource {
 
 impl Source for FileSource {
     fn size(&self) -> Size {
-        (self.borrow().len as u64).into()
+        (self.lock().unwrap().len as u64).into()
     }
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize> {
-        let mut f = self.borrow_mut();
+        let mut f = self.lock().unwrap();
         f.seek(SeekFrom::Start(offset.into_u64()))?;
         match f.read(buf) {
             Err(e) => Err(e.into()),
@@ -84,7 +84,7 @@ impl Source for FileSource {
     }
 
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()> {
-        let mut f = self.borrow_mut();
+        let mut f = self.lock().unwrap();
         f.seek(SeekFrom::Start(offset.into_u64()))?;
         match f.read_exact(buf) {
             Err(e) => Err(e.into()),
@@ -92,12 +92,12 @@ impl Source for FileSource {
         }
     }
     fn into_memory(
-        self: Rc<Self>,
+        self: Arc<Self>,
         offset: Offset,
         size: usize,
-    ) -> Result<(Rc<dyn Source>, Offset, End)> {
+    ) -> Result<(Arc<dyn Source>, Offset, End)> {
         if size < 1024 {
-            let mut f = self.borrow_mut();
+            let mut f = self.lock().unwrap();
             let mut buf = Vec::with_capacity(size);
             let mut uninit: BorrowedBuf = buf.spare_capacity_mut().into();
             f.seek(SeekFrom::Start(offset.into_u64()))?;
@@ -105,12 +105,12 @@ impl Source for FileSource {
             unsafe {
                 buf.set_len(size);
             }
-            Ok((Rc::new(buf), Offset::zero(), End::None))
+            Ok((Arc::new(buf), Offset::zero(), End::None))
         } else {
             let mut mmap_options = MmapOptions::new();
             mmap_options.offset(offset.into_u64()).len(size).populate();
-            let mmap = unsafe { mmap_options.map(&self.borrow().deref())? };
-            Ok((Rc::new(mmap), Offset::zero(), End::None))
+            let mmap = unsafe { mmap_options.map(&self.lock().unwrap().deref())? };
+            Ok((Arc::new(mmap), Offset::zero(), End::None))
         }
     }
 

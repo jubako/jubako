@@ -190,13 +190,13 @@ mod tests {
     use super::*;
     use crate::common::PackPos;
     use std::io;
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     #[test]
     fn test_mainpack() {
-        let mut rc_content = Rc::new(Vec::new());
+        let mut content = Arc::new(Vec::new());
         {
-            let content = Rc::get_mut(&mut rc_content).unwrap();
+            let content = Arc::get_mut(&mut content).unwrap();
             content.extend_from_slice(&[
                 0x6a, 0x62, 0x6b, 0x6d, // magic
                 0x01, 0x00, 0x00, 0x00, // app_vendor_id
@@ -258,18 +258,18 @@ mod tests {
         }
         let hash = {
             let mut hasher = blake3::Hasher::new();
-            let reader = Reader::new_from_rc(Rc::clone(&rc_content), End::None);
+            let reader = Reader::new_from_arc(Arc::clone(&content) as Arc<dyn Source>, End::None);
             let mut stream = reader.create_stream_all();
             let mut check_stream = CheckStream::new(&mut stream, PackCount::from(3));
             io::copy(&mut check_stream, &mut hasher).unwrap();
             hasher.finalize()
         };
         {
-            let content = Rc::get_mut(&mut rc_content).unwrap();
+            let content = Arc::get_mut(&mut content).unwrap();
             content.push(0x01);
             content.extend(hash.as_bytes());
         }
-        let reader = Reader::new_from_rc(rc_content, End::None);
+        let reader = Reader::new_from_arc(content, End::None);
         let main_pack = ManifestPack::new(reader).unwrap();
         assert_eq!(main_pack.kind(), PackKind::Manifest);
         assert_eq!(main_pack.app_vendor_id(), 0x01000000);

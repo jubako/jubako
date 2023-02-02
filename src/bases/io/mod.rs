@@ -8,17 +8,17 @@ pub use buffer::*;
 pub use compression::*;
 pub use file::*;
 use std::fmt;
-use std::rc::Rc;
+use std::sync::Arc;
 
-pub trait Source {
+pub trait Source: Sync + Send {
     fn size(&self) -> Size;
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()>;
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize>;
     fn into_memory(
-        self: Rc<Self>,
+        self: Arc<Self>,
         offset: Offset,
         size: usize,
-    ) -> Result<(Rc<dyn Source>, Offset, End)>;
+    ) -> Result<(Arc<dyn Source>, Offset, End)>;
 
     fn get_slice(&self, offset: Offset, end: Offset) -> Result<&[u8]>;
 

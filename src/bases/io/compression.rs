@@ -1,34 +1,34 @@
 use crate::bases::*;
-use std::cell::RefCell;
 use std::io::{BorrowedBuf, Read};
-use std::rc::Rc;
+use std::sync::{Arc, Mutex, RwLock};
 
 // A intermediate object acting as source for ReaderWrapper and StreamWrapper.
 // It wrapper a Read object (a decoder) and decode in a internal buffer.
 // It allow implementation of Reader and Stream.
 pub struct SeekableDecoder<T> {
-    decoder: RefCell<T>,
-    buffer: RefCell<Vec<u8>>,
+    decoder: Mutex<T>,
+    buffer: RwLock<Vec<u8>>,
 }
 
-impl<T: Read> SeekableDecoder<T> {
+impl<T: Read + Send> SeekableDecoder<T> {
     pub fn new(decoder: T, size: Size) -> Self {
         let buffer = Vec::with_capacity(size.into_usize());
         Self {
-            decoder: RefCell::new(decoder),
-            buffer: RefCell::new(buffer),
+            decoder: Mutex::new(decoder),
+            buffer: RwLock::new(buffer),
         }
     }
 
     pub fn decode_to(&self, end: Offset) -> std::result::Result<(), std::io::Error> {
-        let mut buffer = self.buffer.borrow_mut();
+        let mut buffer = self.buffer.write().unwrap();
         if end.into_usize() >= buffer.len() {
             let e = std::cmp::min(end.into_usize(), buffer.capacity());
             let s = e - buffer.len();
             let uninit = buffer.spare_capacity_mut();
             let mut uninit = BorrowedBuf::from(&mut uninit[0..s]);
             self.decoder
-                .borrow_mut()
+                .lock()
+                .unwrap()
                 .read_buf_exact(uninit.unfilled())?;
             unsafe {
                 buffer.set_len(e);
@@ -38,15 +38,16 @@ impl<T: Read> SeekableDecoder<T> {
     }
 
     pub fn decoded_slice(&self) -> &[u8] {
-        let ptr = self.buffer.borrow().as_ptr();
-        let size = self.buffer.borrow().len();
+        let buffer = self.buffer.read().unwrap();
+        let ptr = buffer.as_ptr();
+        let size = buffer.len();
         unsafe { std::slice::from_raw_parts(ptr, size) }
     }
 }
 
-impl<T: Read + 'static> Source for SeekableDecoder<T> {
+impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
     fn size(&self) -> Size {
-        self.buffer.borrow().capacity().into()
+        self.buffer.read().unwrap().capacity().into()
     }
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize> {
         let end = offset + buf.len();
@@ -71,10 +72,10 @@ impl<T: Read + 'static> Source for SeekableDecoder<T> {
     }
 
     fn into_memory(
-        self: Rc<Self>,
+        self: Arc<Self>,
         offset: Offset,
         size: usize,
-    ) -> Result<(Rc<dyn Source>, Offset, End)> {
+    ) -> Result<(Arc<dyn Source>, Offset, End)> {
         assert!((offset + size).is_valid(self.size()));
         self.decode_to(offset + size)?;
         Ok((self, offset, End::new_size(size as u64)))
