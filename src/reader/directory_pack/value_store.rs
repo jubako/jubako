@@ -126,8 +126,7 @@ mod tests {
 
     #[test]
     fn test_valuestorekind() {
-        let reader = Reader::from(vec![0x00, 0x01, 0x02]);
-        let mut stream = reader.create_stream_all();
+        let mut stream = Stream::from(vec![0x00, 0x01, 0x02]);
         assert_eq!(
             ValueStoreKind::produce(&mut stream).unwrap(),
             ValueStoreKind::Plain

@@ -48,12 +48,11 @@ mod tests {
 
     #[test]
     fn test_clusterheader() {
-        let reader = Reader::from(vec![
+        let mut stream = Stream::from(vec![
             0x00, // compression
             0x01, // offset_size
             0x00, 0x02, // blob_count
         ]);
-        let mut stream = reader.create_stream_all();
         assert_eq!(
             ClusterHeader::produce(&mut stream).unwrap(),
             ClusterHeader {

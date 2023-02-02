@@ -108,8 +108,7 @@ mod tests {
             0x05, //value_store count
         ];
         content.extend_from_slice(&[0xff; 31]);
-        let reader = Reader::from(content);
-        let mut stream = reader.create_stream_all();
+        let mut stream = Stream::from(content);
         assert_eq!(
             DirectoryPackHeader::produce(&mut stream).unwrap(),
             DirectoryPackHeader {

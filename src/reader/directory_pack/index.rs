@@ -88,8 +88,7 @@ mod tests {
             0x01, // index_property
             0x05, 0x48, 0x65, 0x6C, 0x6C, 0x6F, // PString Hello
         ];
-        let reader = Reader::from(content);
-        let mut stream = reader.create_stream_all();
+        let mut stream = Stream::from(content);
         let header = IndexHeader::produce(&mut stream).unwrap();
         assert_eq!(
             header,

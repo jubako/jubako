@@ -125,3 +125,12 @@ impl Read for Stream {
         }
     }
 }
+
+impl<T> From<T> for Stream
+where
+    T: Source + 'static,
+{
+    fn from(source: T) -> Stream {
+        Stream::new(source, End::None)
+    }
+}
