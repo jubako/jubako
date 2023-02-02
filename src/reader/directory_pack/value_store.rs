@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn test_valuestorekind() {
-        let reader = Reader::new(vec![0x00, 0x01, 0x02], End::None);
+        let reader = Reader::from(vec![0x00, 0x01, 0x02]);
         let mut stream = reader.create_stream_all();
         assert_eq!(
             ValueStoreKind::produce(&mut stream).unwrap(),
@@ -143,15 +143,14 @@ mod tests {
     #[test]
     fn test_plainvaluestore() {
         #[rustfmt::skip]
-        let reader = Reader::new(
+        let reader = Reader::from(
             vec![
                 0x05, 0x11, 0x12, 0x13, 0x14, 0x15, // Data of entry 0
                 0x03, 0x21, 0x22, 0x23, // Data of entry 1
                 0x07, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of entry 2
                 0x00, // kind
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, // data_size
-            ],
-            End::None,
+            ]
         );
         let value_store =
             ValueStore::new(&reader, SizedOffset::new(Size::new(9), Offset::new(18))).unwrap();
@@ -187,7 +186,7 @@ mod tests {
     #[test]
     fn test_indexedvaluestore() {
         #[rustfmt::skip]
-        let reader = Reader::new(
+        let reader = Reader::from(
             vec![
                 0x11, 0x12, 0x13, 0x14, 0x15, // Data of entry 0
                 0x21, 0x22, 0x23, // Data of entry 1
@@ -198,8 +197,7 @@ mod tests {
                 0x0f, // data_size
                 0x05, // Offset of entry 1
                 0x08, // Offset of entry 2
-            ],
-            End::None,
+            ]
         );
         let value_store =
             ValueStore::new(&reader, SizedOffset::new(Size::new(13), Offset::new(15))).unwrap();

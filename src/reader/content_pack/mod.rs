@@ -169,8 +169,7 @@ mod tests {
         let hash = blake3::hash(&content);
         content.push(0x01); // check info off: 171
         content.extend(hash.as_bytes()); // end : 171+32 = 203
-        let reader = Reader::new(content, End::None);
-        let content_pack = ContentPack::new(reader).unwrap();
+        let content_pack = ContentPack::new(content.into()).unwrap();
         assert_eq!(content_pack.get_content_count(), ContentCount::from(3));
         assert_eq!(content_pack.app_vendor_id(), 0x01000000_u32);
         assert_eq!(content_pack.version(), (1, 2));

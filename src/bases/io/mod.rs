@@ -76,13 +76,13 @@ mod tests {
     use test_case::test_case;
 
     fn create_buf_reader(data: &[u8]) -> Reader {
-        Reader::new(data.to_vec(), End::None)
+        data.to_vec().into()
     }
 
     fn create_file_reader(data: &[u8]) -> Reader {
         let mut file = tempfile().unwrap();
         file.write_all(data).unwrap();
-        Reader::new(FileSource::new(file), End::None)
+        FileSource::new(file).into()
     }
 
     fn create_lz4_reader(data: &[u8]) -> Reader {

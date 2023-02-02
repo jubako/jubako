@@ -8,7 +8,7 @@ pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
     let manifest_path = infiles.first().unwrap();
 
     let manifest_file = File::open(manifest_path)?;
-    let reader = jbk::bases::Reader::new(FileSource::new(manifest_file), jbk::End::None);
+    let reader = jbk::bases::Reader::from(FileSource::new(manifest_file));
     let mut stream = reader.create_stream_all();
 
     let manifest_header = jbk::common::ManifestPackHeader::produce(&mut stream)?;
@@ -54,7 +54,7 @@ pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
 
 pub fn open_pack<P: AsRef<Path>>(path: P) -> jbk::Result<Box<dyn Pack>> {
     let file = File::open(&path)?;
-    let reader = Reader::new(FileSource::new(file), End::None);
+    let reader = Reader::from(FileSource::new(file));
     let pack_header = jbk::common::PackHeader::produce(&mut reader.create_stream_all())?;
     Ok(match pack_header.magic {
         jbk::common::PackKind::Manifest => Box::new(jbk::reader::ManifestPack::new(reader)?),

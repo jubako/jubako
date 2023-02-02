@@ -101,8 +101,7 @@ mod tests {
 
     #[test]
     fn test_uint() {
-        let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from(vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
         let prop = Property::new(0, PropertyKind::UnsignedInt(ByteSize::U1));
         assert_eq!(prop.create_value(&reader).unwrap(), RawValue::U8(0xFE));
         let prop = Property::new(2, PropertyKind::UnsignedInt(ByteSize::U1));
@@ -176,8 +175,7 @@ mod tests {
 
     #[test]
     fn test_sint() {
-        let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from(vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
         let prop = Property::new(0, PropertyKind::SignedInt(ByteSize::U1));
         assert_eq!(prop.create_value(&reader).unwrap(), RawValue::I8(-0x02));
         let prop = Property::new(2, PropertyKind::SignedInt(ByteSize::U1));
@@ -257,8 +255,7 @@ mod tests {
 
     #[test]
     fn test_array() {
-        let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from(vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
         let prop = Property::new(0, PropertyKind::Array(1));
         assert_eq!(
             prop.create_value(&reader).unwrap(),
@@ -304,8 +301,7 @@ mod tests {
 
     #[test]
     fn test_vlarray() {
-        let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from(vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
         let prop = Property::new(
             0,
             PropertyKind::VLArray(ByteSize::U1, ValueStoreIdx::from(255), None),
@@ -436,8 +432,7 @@ mod tests {
 
     #[test]
     fn test_content() {
-        let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from(vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
         let prop = Property::new(0, PropertyKind::ContentAddress);
         assert_eq!(
             prop.create_value(&reader).unwrap(),

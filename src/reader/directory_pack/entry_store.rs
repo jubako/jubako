@@ -118,7 +118,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
         let size = Size::from(content.len());
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from(content);
         let store = EntryStore::new(&reader, SizedOffset::new(size, Offset::zero())).unwrap();
         let store = match store {
             EntryStore::Plain(s) => s,
@@ -171,7 +171,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
         let size = Size::from(content.len());
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from(content);
         let store = EntryStore::new(&reader, SizedOffset::new(size, Offset::zero())).unwrap();
         let store = match store {
             EntryStore::Plain(s) => s,

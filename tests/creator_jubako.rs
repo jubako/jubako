@@ -73,8 +73,7 @@ test_suite! {
         creator.start()?;
         for entry in entries {
             let content = entry.content.clone().into_bytes();
-            let reader = jubako::Reader::new(content, jubako::End::None);
-            creator.add_content(reader)?;
+            creator.add_content(content.into())?;
         }
         let pack_info = creator.finalize()?;
         Ok(pack_info)

@@ -38,7 +38,7 @@ mod tests {
 
     #[test]
     fn test_compressiontype() {
-        let reader = Reader::new(vec![0x00, 0x01, 0x02, 0x03, 0x4, 0xFF], End::None);
+        let reader = Reader::from(vec![0x00, 0x01, 0x02, 0x03, 0x4, 0xFF]);
         let mut stream = reader.create_stream_all();
         assert_eq!(
             CompressionType::produce(&mut stream).unwrap(),

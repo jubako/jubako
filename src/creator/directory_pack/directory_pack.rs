@@ -164,7 +164,7 @@ impl DirectoryPackCreator {
             uuid: header.uuid(),
             pack_id: self.pack_id,
             free_data: FreeData103::clone_from_slice(&[0; 103]),
-            reader: Reader::new(FileSource::new(file), End::None),
+            reader: FileSource::new(file).into(),
             check_info_pos: check_offset,
             embedded: Embedded::No(self.path),
         })

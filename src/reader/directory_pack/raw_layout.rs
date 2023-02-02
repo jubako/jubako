@@ -131,7 +131,7 @@ mod tests {
     fn test_rawproperty(source: &[u8]) -> RawProperty {
         let mut content = Vec::new();
         content.extend_from_slice(source);
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from(content);
         let mut stream = reader.create_stream_all();
         RawProperty::produce(&mut stream).unwrap()
     }

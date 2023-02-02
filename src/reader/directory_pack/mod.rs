@@ -232,7 +232,7 @@ mod tests {
             0x05, //value_store count
         ];
         content.extend_from_slice(&[0xff; 31]);
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from(content);
         let mut stream = reader.create_stream_all();
         assert_eq!(
             DirectoryPackHeader::produce(&mut stream).unwrap(),
@@ -342,8 +342,7 @@ mod tests {
         let hash = blake3::hash(&content);
         content.push(0x01); // check info off: 281
         content.extend(hash.as_bytes()); // end : 281+32 = 313/0x139
-        let reader = Reader::new(content, End::None);
-        let directory_pack = Rc::new(DirectoryPack::new(reader).unwrap());
+        let directory_pack = Rc::new(DirectoryPack::new(content.into()).unwrap());
         let index = directory_pack.get_index(0.into()).unwrap();
         let value_storage = directory_pack.create_value_storage();
         let entry_storage = directory_pack.create_entry_storage();

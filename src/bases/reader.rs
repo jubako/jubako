@@ -150,3 +150,12 @@ impl Reader {
         Ok(read_to_i64(size, &slice[..size]))
     }
 }
+
+impl<T> From<T> for Reader
+where
+    T: Source + 'static,
+{
+    fn from(source: T) -> Reader {
+        Reader::new(source, End::None)
+    }
+}

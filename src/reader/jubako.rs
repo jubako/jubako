@@ -77,7 +77,7 @@ impl Container {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path: PathBuf = path.as_ref().into();
         let file = File::open(path.clone())?;
-        let reader = Reader::new(FileSource::new(file), End::None);
+        let reader = Reader::from(FileSource::new(file));
         let reader = locate_manifest(reader)?;
         let main_pack =
             ManifestPack::new(reader.create_sub_memory_reader(Offset::zero(), End::None)?)?;

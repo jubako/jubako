@@ -219,7 +219,7 @@ mod tests {
     #[test_case(CompressionType::Zstd, create_zstd_cluster)]
     fn test_cluster(comp: CompressionType, creator: ClusterCreator) {
         let (ptr_info, data) = creator();
-        let reader = Reader::new(data, End::None);
+        let reader = Reader::from(data);
         let mut stream = reader.create_stream_from(ptr_info.offset);
         let header = ClusterHeader::produce(&mut stream).unwrap();
         assert_eq!(header.compression, comp);
