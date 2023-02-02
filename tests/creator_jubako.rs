@@ -21,8 +21,11 @@ test_suite! {
         params {
             vec![
                 jubako::CompressionType::None,
+                #[cfg(feature="lz4")]
                 jubako::CompressionType::Lz4,
+                #[cfg(feature="lzma")]
                 jubako::CompressionType::Lzma,
+                #[cfg(feature="zstd")]
                 jubako::CompressionType::Zstd,
             ].into_iter()
         }
@@ -70,8 +73,8 @@ test_suite! {
         creator.start()?;
         for entry in entries {
             let content = entry.content.clone().into_bytes();
-            let mut stream = creator::Stream::new(content, jubako::End::None);
-            creator.add_content(&mut stream)?;
+            let reader = jubako::Reader::new(content, jubako::End::None);
+            creator.add_content(reader)?;
         }
         let pack_info = creator.finalize()?;
         Ok(pack_info)
