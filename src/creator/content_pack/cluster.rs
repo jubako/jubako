@@ -1,11 +1,13 @@
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType, ContentInfo};
+use crate::creator::private::WritableTell;
 
 pub struct ClusterCreator {
     pub index: usize,
     compression: CompressionType,
     data: Vec<Reader>,
     offsets: Vec<usize>,
+    raw_data_size: Late<usize>,
 }
 
 const CLUSTER_SIZE: Size = Size::new(1024 * 1024 * 4);
@@ -92,46 +94,8 @@ impl ClusterCreator {
             compression,
             data: Vec::with_capacity(MAX_BLOBS_PER_CLUSTER),
             offsets: vec![],
+            raw_data_size: Default::default(),
         }
-    }
-
-    pub fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<Size> {
-        let offset = stream.tell();
-        let stream = match &self.compression {
-            CompressionType::None => {
-                for d in self.data.drain(..) {
-                    std::io::copy(&mut d.create_stream_all(), stream)?;
-                }
-                stream
-            }
-            CompressionType::Lz4 => lz4_compress(&mut self.data, stream)?,
-            CompressionType::Lzma => lzma_compress(&mut self.data, stream)?,
-            CompressionType::Zstd => zstd_compress(&mut self.data, stream)?,
-        };
-        Ok(stream.tell() - offset)
-    }
-
-    pub fn write_tail(&self, stream: &mut dyn OutStream, data_size: Size) -> IoResult<()> {
-        let offset_size = needed_bytes(self.data_size().into_u64());
-        let cluster_header = ClusterHeader::new(
-            self.compression,
-            offset_size,
-            BlobCount::from(self.offsets.len() as u16),
-        );
-        cluster_header.write(stream)?;
-        stream.write_sized(data_size.into_u64(), offset_size)?; // raw data size
-        stream.write_sized(self.data_size().into_u64(), offset_size)?; // datasize
-        for offset in &self.offsets[..self.offsets.len() - 1] {
-            stream.write_sized(*offset as u64, offset_size)?;
-        }
-        Ok(())
-    }
-
-    pub fn tail_size(&self) -> Size {
-        let mut size = 4;
-        let size_byte = needed_bytes(self.data_size().into_u64());
-        size += (1 + self.offsets.len()) * size_byte as usize;
-        size.into()
     }
 
     pub fn index(&self) -> usize {
@@ -163,5 +127,41 @@ impl ClusterCreator {
             ClusterIdx::from(self.index as u32),
             BlobIdx::from(idx),
         ))
+    }
+}
+
+impl WritableTell for ClusterCreator {
+    fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
+        let offset = stream.tell();
+        let stream = match &self.compression {
+            CompressionType::None => {
+                for d in self.data.drain(..) {
+                    std::io::copy(&mut d.create_stream_all(), stream)?;
+                }
+                stream
+            }
+            CompressionType::Lz4 => lz4_compress(&mut self.data, stream)?,
+            CompressionType::Lzma => lzma_compress(&mut self.data, stream)?,
+            CompressionType::Zstd => zstd_compress(&mut self.data, stream)?,
+        };
+        self.raw_data_size
+            .set((stream.tell() - offset).into_usize());
+        Ok(())
+    }
+
+    fn write_tail(&mut self, stream: &mut dyn OutStream) -> Result<()> {
+        let offset_size = needed_bytes(self.data_size().into_u64());
+        let cluster_header = ClusterHeader::new(
+            self.compression,
+            offset_size,
+            BlobCount::from(self.offsets.len() as u16),
+        );
+        cluster_header.write(stream)?;
+        stream.write_sized(self.raw_data_size.get() as u64, offset_size)?; // raw data size
+        stream.write_sized(self.data_size().into_u64(), offset_size)?; // datasize
+        for offset in &self.offsets[..self.offsets.len() - 1] {
+            stream.write_sized(*offset as u64, offset_size)?;
+        }
+        Ok(())
     }
 }

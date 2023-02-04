@@ -98,9 +98,7 @@ impl ContentPackCreator {
     }
 
     fn write_cluster(&mut self, mut cluster: ClusterCreator) -> Result<()> {
-        let data_size = cluster.write_data(self.file.as_mut().unwrap())?;
-        let cluster_offset = self.file.as_mut().unwrap().tell();
-        cluster.write_tail(self.file.as_mut().unwrap(), data_size)?;
+        let sized_offset = cluster.write(self.file.as_mut().unwrap())?;
         if self.cluster_addresses.len() <= cluster.index() {
             self.cluster_addresses.resize(
                 cluster.index() + 1,
@@ -110,10 +108,7 @@ impl ContentPackCreator {
                 },
             );
         }
-        self.cluster_addresses[cluster.index()] = SizedOffset {
-            size: cluster.tail_size(),
-            offset: cluster_offset,
-        };
+        self.cluster_addresses[cluster.index()] = sized_offset;
         Ok(())
     }
 
