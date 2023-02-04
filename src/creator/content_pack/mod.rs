@@ -1,11 +1,13 @@
 mod cluster;
+mod clusterwriter;
 
 use crate::bases::*;
 use crate::common::{CompressionType, ContentInfo, ContentPackHeader, PackHeaderInfo};
 use crate::creator::{Embedded, PackData};
 use cluster::ClusterCreator;
+use clusterwriter::ClusterWriter;
 use std::cell::Cell;
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
@@ -39,10 +41,8 @@ pub struct ContentPackCreator {
     raw_open_cluster: Option<ClusterCreator>,
     comp_open_cluster: Option<ClusterCreator>,
     next_cluster_id: Cell<usize>,
-    cluster_addresses: Vec<SizedOffset>,
     path: PathBuf,
-    file: Option<File>,
-    compression: CompressionType,
+    cluster_writer: ClusterWriter,
 }
 
 macro_rules! open_cluster_ref {
@@ -69,8 +69,16 @@ impl ContentPackCreator {
         app_vendor_id: u32,
         free_data: FreeData40,
         compression: CompressionType,
-    ) -> Self {
-        ContentPackCreator {
+    ) -> Result<Self> {
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&path)?;
+        file.seek(SeekFrom::Start(128))?;
+        let cluster_writer = ClusterWriter::new(file, compression);
+        Ok(Self {
             app_vendor_id,
             pack_id,
             free_data,
@@ -78,11 +86,9 @@ impl ContentPackCreator {
             raw_open_cluster: None,
             comp_open_cluster: None,
             next_cluster_id: Cell::new(0),
-            cluster_addresses: vec![],
             path: path.as_ref().into(),
-            file: None,
-            compression,
-        }
+            cluster_writer,
+        })
     }
 
     fn open_cluster(&self, compressed: bool) -> ClusterCreator {
@@ -90,26 +96,11 @@ impl ContentPackCreator {
         ClusterCreator::new(
             cluster_id,
             if compressed {
-                self.compression
+                self.cluster_writer.compression
             } else {
                 CompressionType::None
             },
         )
-    }
-
-    fn write_cluster(&mut self, mut cluster: ClusterCreator) -> Result<()> {
-        let sized_offset = cluster.write(self.file.as_mut().unwrap())?;
-        if self.cluster_addresses.len() <= cluster.index() {
-            self.cluster_addresses.resize(
-                cluster.index() + 1,
-                SizedOffset {
-                    size: Size::zero(),
-                    offset: Offset::zero(),
-                },
-            );
-        }
-        self.cluster_addresses[cluster.index()] = sized_offset;
-        Ok(())
     }
 
     fn get_open_cluster(&mut self, content: &Reader) -> Result<&mut ClusterCreator> {
@@ -117,7 +108,7 @@ impl ContentPackCreator {
         let compress_content = entropy <= 6.0;
         // Let's get raw cluster
         if let Some(cluster) = self.cluster_to_close(content.size(), compress_content) {
-            self.write_cluster(cluster)?;
+            self.cluster_writer.write_cluster(cluster)?;
         }
         Ok(open_cluster_ref!(mut self, compress_content)
             .as_mut()
@@ -138,19 +129,6 @@ impl ContentPackCreator {
         }
     }
 
-    pub fn start(&mut self) -> Result<()> {
-        self.file = Some(
-            OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(&self.path)?,
-        );
-        self.file.as_mut().unwrap().seek(SeekFrom::Start(128))?;
-        Ok(())
-    }
-
     pub fn add_content(&mut self, content: Reader) -> Result<ContentIdx> {
         let cluster = self.get_open_cluster(&content)?;
         let content_info = cluster.add_content(content)?;
@@ -159,25 +137,26 @@ impl ContentPackCreator {
     }
 
     pub fn finalize(mut self) -> Result<PackData> {
-        assert!(self.file.is_some());
         if let Some(cluster) = self.raw_open_cluster.take() {
             if !cluster.is_empty() {
-                self.write_cluster(cluster)?;
+                self.cluster_writer.write_cluster(cluster)?;
             }
         }
         if let Some(cluster) = self.comp_open_cluster.take() {
             if !cluster.is_empty() {
-                self.write_cluster(cluster)?;
+                self.cluster_writer.write_cluster(cluster)?;
             }
         }
-        let file = self.file.as_mut().unwrap();
+
+        let (mut file, cluster_addresses) = self.cluster_writer.finalize()?;
         let clusters_offset = file.tell();
-        for address in &self.cluster_addresses {
-            address.write(file)?;
+        let nb_clusters = cluster_addresses.len();
+        for address in cluster_addresses {
+            address.write(&mut file)?;
         }
         let content_infos_offset = file.tell();
         for content_info in &self.content_infos {
-            content_info.write(file)?;
+            content_info.write(&mut file)?;
         }
         let check_offset = file.tell();
         let pack_size: Size = (check_offset + 33 + 64).into();
@@ -186,14 +165,14 @@ impl ContentPackCreator {
             PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset),
             self.free_data,
             clusters_offset,
-            (self.cluster_addresses.len() as u32).into(),
+            (nb_clusters as u32).into(),
             content_infos_offset,
             (self.content_infos.len() as u32).into(),
         );
-        header.write(file)?;
+        header.write(&mut file)?;
         file.rewind()?;
         let mut hasher = blake3::Hasher::new();
-        std::io::copy(file, &mut hasher)?;
+        std::io::copy(&mut file, &mut hasher)?;
         let hash = hasher.finalize();
         file.write_u8(1)?;
         file.write_all(hash.as_bytes())?;
@@ -210,7 +189,7 @@ impl ContentPackCreator {
             uuid: header.pack_header.uuid,
             pack_id: self.pack_id,
             free_data: FreeData103::clone_from_slice(&[0; 103]),
-            reader: FileSource::new(self.file.unwrap())?.into(),
+            reader: FileSource::new(file)?.into(),
             check_info_pos: check_offset,
             embedded: Embedded::No(self.path),
         })

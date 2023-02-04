@@ -69,8 +69,7 @@ test_suite! {
             1,
             jubako::FreeData40::clone_from_slice(&[0xff; 40]),
             compression
-        );
-        creator.start()?;
+        )?;
         for entry in entries {
             let content = entry.content.clone().into_bytes();
             creator.add_content(content.into())?;

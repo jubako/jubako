@@ -13,8 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         VENDOR_ID,
         jbk::FreeData40::clone_from_slice(&[0x00; 40]), // Put whatever you what, this is for you
         jbk::CompressionType::Zstd,                     // How to compress
-    );
-    content_pack.start()?;
+    )?;
 
     let mut directory_pack = jbk::creator::DirectoryPackCreator::new(
         "test.jbkd",

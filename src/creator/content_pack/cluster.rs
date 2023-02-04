@@ -4,7 +4,7 @@ use crate::creator::private::WritableTell;
 
 pub struct ClusterCreator {
     pub index: usize,
-    compression: CompressionType,
+    pub compression: CompressionType,
     data: Vec<Reader>,
     offsets: Vec<usize>,
     raw_data_size: Late<usize>,
