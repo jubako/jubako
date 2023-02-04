@@ -145,7 +145,7 @@ impl ContentPackCreator {
         let clusters_offset = file.tell();
         let nb_clusters = cluster_addresses.len();
         for address in cluster_addresses {
-            address.write(&mut file)?;
+            address.get().write(&mut file)?;
         }
         let content_infos_offset = file.tell();
         for content_info in &self.content_infos {

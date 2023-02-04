@@ -79,7 +79,7 @@ fn zstd_compress<'b>(
 }
 
 pub struct ClusterWriter {
-    cluster_addresses: Vec<SizedOffset>,
+    cluster_addresses: Vec<Late<SizedOffset>>,
     pub compression: CompressionType,
     file: File,
     input: spmc::Receiver<(ClusterCreator, bool)>,
@@ -151,14 +151,14 @@ impl ClusterWriter {
                 Default::default()
             );
         }
-        self.cluster_addresses[cluster.index()] = SizedOffset {
+        self.cluster_addresses[cluster.index()].set(SizedOffset {
             size: tail_size,
             offset: tail_offset,
-        };
+        });
         Ok(())
     }
 
-    pub fn run(mut self) -> Result<(File, Vec<SizedOffset>)> {
+    pub fn run(mut self) -> Result<(File, Vec<Late<SizedOffset>>)> {
         while let Ok((cluster, compressed)) = self.input.recv() {
             self.write_cluster(cluster, compressed)?;
         }
@@ -167,7 +167,7 @@ impl ClusterWriter {
 }
 
 pub struct ClusterWriterProxy {
-    thread_handle: JoinHandle<Result<(File, Vec<SizedOffset>)>>,
+    thread_handle: JoinHandle<Result<(File, Vec<Late<SizedOffset>>)>>,
     dispatch_tx: spmc::Sender<(ClusterCreator, bool)>,
 }
 
@@ -188,7 +188,7 @@ impl ClusterWriterProxy {
         self.dispatch_tx.send((cluster, compressed)).unwrap()
     }
 
-    pub fn finalize(self) -> Result<(File, Vec<SizedOffset>)> {
+    pub fn finalize(self) -> Result<(File, Vec<Late<SizedOffset>>)> {
         drop(self.dispatch_tx);
         self.thread_handle.join().unwrap()
     }
