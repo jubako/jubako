@@ -5,7 +5,7 @@ use crate::bases::*;
 use crate::common::{CompressionType, ContentInfo, ContentPackHeader, PackHeaderInfo};
 use crate::creator::{Embedded, PackData};
 use cluster::ClusterCreator;
-use clusterwriter::ClusterWriter;
+use clusterwriter::ClusterWriterProxy;
 use std::cell::Cell;
 use std::fs::OpenOptions;
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -42,7 +42,7 @@ pub struct ContentPackCreator {
     comp_open_cluster: Option<ClusterCreator>,
     next_cluster_id: Cell<usize>,
     path: PathBuf,
-    cluster_writer: ClusterWriter,
+    cluster_writer: ClusterWriterProxy,
 }
 
 macro_rules! open_cluster_ref {
@@ -77,7 +77,7 @@ impl ContentPackCreator {
             .truncate(true)
             .open(&path)?;
         file.seek(SeekFrom::Start(128))?;
-        let cluster_writer = ClusterWriter::new(file, compression);
+        let cluster_writer = ClusterWriterProxy::new(file, compression);
         Ok(Self {
             app_vendor_id,
             pack_id,
@@ -101,8 +101,7 @@ impl ContentPackCreator {
         let compress_content = entropy <= 6.0;
         // Let's get raw cluster
         if let Some(cluster) = self.cluster_to_close(content.size(), compress_content) {
-            self.cluster_writer
-                .write_cluster(cluster, compress_content)?;
+            self.cluster_writer.write_cluster(cluster, compress_content);
         }
         Ok(open_cluster_ref!(mut self, compress_content)
             .as_mut()
@@ -133,12 +132,12 @@ impl ContentPackCreator {
     pub fn finalize(mut self) -> Result<PackData> {
         if let Some(cluster) = self.raw_open_cluster.take() {
             if !cluster.is_empty() {
-                self.cluster_writer.write_cluster(cluster, false)?;
+                self.cluster_writer.write_cluster(cluster, false);
             }
         }
         if let Some(cluster) = self.comp_open_cluster.take() {
             if !cluster.is_empty() {
-                self.cluster_writer.write_cluster(cluster, true)?;
+                self.cluster_writer.write_cluster(cluster, true);
             }
         }
 

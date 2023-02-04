@@ -2,6 +2,7 @@ use super::cluster::ClusterCreator;
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
 use std::fs::File;
+use std::thread::{spawn, JoinHandle};
 
 #[cfg(feature = "lz4")]
 fn lz4_compress<'b>(
@@ -81,14 +82,20 @@ pub struct ClusterWriter {
     cluster_addresses: Vec<SizedOffset>,
     pub compression: CompressionType,
     file: File,
+    input: spmc::Receiver<(ClusterCreator, bool)>,
 }
 
 impl ClusterWriter {
-    pub fn new(file: File, compression: CompressionType) -> Self {
+    pub fn new(
+        file: File,
+        compression: CompressionType,
+        input: spmc::Receiver<(ClusterCreator, bool)>,
+    ) -> Self {
         Self {
             cluster_addresses: vec![],
             compression,
             file,
+            input,
         }
     }
 
@@ -132,6 +139,7 @@ impl ClusterWriter {
     }
 
     pub fn write_cluster(&mut self, mut cluster: ClusterCreator, compressed: bool) -> Result<()> {
+        println!("Write cluster {}", cluster.index());
         let start_offset = self.file.tell();
         self.write_cluster_data(&mut cluster, compressed)?;
         let tail_offset = self.file.tell();
@@ -150,8 +158,38 @@ impl ClusterWriter {
         Ok(())
     }
 
+    pub fn run(mut self) -> Result<(File, Vec<SizedOffset>)> {
+        while let Ok((cluster, compressed)) = self.input.recv() {
+            self.write_cluster(cluster, compressed)?;
+        }
+        Ok((self.file, self.cluster_addresses))
+    }
+}
+
+pub struct ClusterWriterProxy {
+    thread_handle: JoinHandle<Result<(File, Vec<SizedOffset>)>>,
+    dispatch_tx: spmc::Sender<(ClusterCreator, bool)>,
+}
+
+impl ClusterWriterProxy {
+    pub fn new(file: File, compression: CompressionType) -> Self {
+        let (dispatch_tx, dispatch_rx) = spmc::channel();
+        let thread_handle = spawn(move || {
+            let writer = ClusterWriter::new(file, compression, dispatch_rx);
+            writer.run()
+        });
+        Self {
+            thread_handle,
+            dispatch_tx,
+        }
+    }
+
+    pub fn write_cluster(&mut self, cluster: ClusterCreator, compressed: bool) {
+        self.dispatch_tx.send((cluster, compressed)).unwrap()
+    }
 
     pub fn finalize(self) -> Result<(File, Vec<SizedOffset>)> {
-        Ok((self.file, self.cluster_addresses))
+        drop(self.dispatch_tx);
+        self.thread_handle.join().unwrap()
     }
 }
