@@ -38,8 +38,11 @@ impl ClusterCreator {
         self.data.is_empty()
     }
 
-    pub fn add_content(&mut self, content: Reader) -> IoResult<ContentInfo> {
+    pub fn add_content(&mut self, mut content: Reader) -> Result<ContentInfo> {
         assert!(self.offsets.len() < MAX_BLOBS_PER_CLUSTER);
+        if content.size() < CLUSTER_SIZE {
+            content = content.create_sub_memory_reader(Offset::zero(), End::None)?;
+        }
         let idx = self.offsets.len() as u16;
         let new_offset = self.offsets.last().unwrap_or(&0) + content.size().into_usize();
         self.data.push(content);
