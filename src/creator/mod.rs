@@ -5,7 +5,6 @@ mod manifest_pack;
 use crate::bases::*;
 pub use crate::bases::{FileSource, Stream};
 use crate::common::CheckKind;
-pub use crate::common::Value;
 pub use content_pack::ContentPackCreator;
 pub use directory_pack::{
     schema, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, ValueStoreKind,
