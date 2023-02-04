@@ -1,7 +1,7 @@
-use super::private::WritableTell;
 use super::schema;
 use super::FullEntryTrait;
 use crate::bases::*;
+use crate::creator::private::WritableTell;
 
 struct EntryCompare<'e, Entry: FullEntryTrait> {
     pub ref_entry: &'e Entry,
@@ -76,15 +76,15 @@ impl<Entry: FullEntryTrait> EntryStoreTrait for EntryStore<Entry> {
 }
 
 impl<Entry: FullEntryTrait> WritableTell for EntryStore<Entry> {
-    fn write_data(&self, _stream: &mut dyn OutStream) -> Result<()> {
+    fn write_data(&mut self, _stream: &mut dyn OutStream) -> Result<()> {
         unreachable!();
     }
 
-    fn write_tail(&self, _stream: &mut dyn OutStream) -> Result<()> {
+    fn write_tail(&mut self, _stream: &mut dyn OutStream) -> Result<()> {
         unreachable!();
     }
 
-    fn write(&self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
+    fn write(&mut self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
         let layout = self.schema.finalize();
         for entry in &self.entries {
             layout.write_entry(entry, stream)?;

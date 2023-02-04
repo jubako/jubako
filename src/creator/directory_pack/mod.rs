@@ -14,21 +14,6 @@ use std::cmp;
 use value_store::ValueStore;
 pub use value_store::ValueStoreKind;
 
-mod private {
-    use super::*;
-    pub trait WritableTell {
-        fn write_data(&self, stream: &mut dyn OutStream) -> Result<()>;
-        fn write_tail(&self, stream: &mut dyn OutStream) -> Result<()>;
-        fn write(&self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
-            self.write_data(stream)?;
-            let offset = stream.tell();
-            self.write_tail(stream)?;
-            let size = stream.tell() - offset;
-            Ok(SizedOffset { size, offset })
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Content(ContentAddress),
@@ -298,12 +283,12 @@ impl Index {
     }
 }
 
-impl private::WritableTell for Index {
-    fn write_data(&self, _stream: &mut dyn OutStream) -> Result<()> {
+impl super::private::WritableTell for Index {
+    fn write_data(&mut self, _stream: &mut dyn OutStream) -> Result<()> {
         // No data to write
         Ok(())
     }
-    fn write_tail(&self, stream: &mut dyn OutStream) -> Result<()> {
+    fn write_tail(&mut self, stream: &mut dyn OutStream) -> Result<()> {
         self.store_id.write(stream)?;
         self.count.write(stream)?;
         self.offset.write(stream)?;
