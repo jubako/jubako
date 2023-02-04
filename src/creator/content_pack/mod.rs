@@ -91,16 +91,9 @@ impl ContentPackCreator {
         })
     }
 
-    fn open_cluster(&self, compressed: bool) -> ClusterCreator {
+    fn open_cluster(&self) -> ClusterCreator {
         let cluster_id = self.next_cluster_id.replace(self.next_cluster_id.get() + 1);
-        ClusterCreator::new(
-            cluster_id,
-            if compressed {
-                self.cluster_writer.compression
-            } else {
-                CompressionType::None
-            },
-        )
+        ClusterCreator::new(cluster_id)
     }
 
     fn get_open_cluster(&mut self, content: &Reader) -> Result<&mut ClusterCreator> {
@@ -108,7 +101,8 @@ impl ContentPackCreator {
         let compress_content = entropy <= 6.0;
         // Let's get raw cluster
         if let Some(cluster) = self.cluster_to_close(content.size(), compress_content) {
-            self.cluster_writer.write_cluster(cluster)?;
+            self.cluster_writer
+                .write_cluster(cluster, compress_content)?;
         }
         Ok(open_cluster_ref!(mut self, compress_content)
             .as_mut()
@@ -118,13 +112,13 @@ impl ContentPackCreator {
     fn cluster_to_close(&mut self, size: Size, compressed: bool) -> Option<ClusterCreator> {
         if let Some(cluster) = open_cluster_ref!(self, compressed).as_ref() {
             if cluster.is_full(size) {
-                let new_cluster = self.open_cluster(compressed);
+                let new_cluster = self.open_cluster();
                 open_cluster_ref!(mut self, compressed).replace(new_cluster)
             } else {
                 None
             }
         } else {
-            let new_cluster = self.open_cluster(compressed);
+            let new_cluster = self.open_cluster();
             open_cluster_ref!(mut self, compressed).replace(new_cluster)
         }
     }
@@ -139,12 +133,12 @@ impl ContentPackCreator {
     pub fn finalize(mut self) -> Result<PackData> {
         if let Some(cluster) = self.raw_open_cluster.take() {
             if !cluster.is_empty() {
-                self.cluster_writer.write_cluster(cluster)?;
+                self.cluster_writer.write_cluster(cluster, false)?;
             }
         }
         if let Some(cluster) = self.comp_open_cluster.take() {
             if !cluster.is_empty() {
-                self.cluster_writer.write_cluster(cluster)?;
+                self.cluster_writer.write_cluster(cluster, true)?;
             }
         }
 
