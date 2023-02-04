@@ -130,7 +130,7 @@ impl DirectoryPack {
                 return Ok(index);
             }
         }
-        Err("Cannot find index".to_string().into())
+        Err(format!("Cannot find index {index_name}").into())
     }
 
     pub fn create_value_storage(self: &Rc<Self>) -> Rc<ValueStorage> {

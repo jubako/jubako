@@ -77,7 +77,7 @@ impl ContentPackCreator {
             .truncate(true)
             .open(&path)?;
         file.seek(SeekFrom::Start(128))?;
-        let cluster_writer = ClusterWriterProxy::new(file, compression);
+        let cluster_writer = ClusterWriterProxy::new(file, compression, 8);
         Ok(Self {
             app_vendor_id,
             pack_id,

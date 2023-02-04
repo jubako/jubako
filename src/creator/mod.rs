@@ -7,7 +7,7 @@ pub use crate::bases::{FileSource, Stream};
 use crate::common::CheckKind;
 pub use content_pack::ContentPackCreator;
 pub use directory_pack::{
-    schema, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, ValueStoreKind,
+    schema, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, Value, ValueStoreKind,
     ValueTransformer,
 };
 pub use manifest_pack::ManifestPackCreator;
