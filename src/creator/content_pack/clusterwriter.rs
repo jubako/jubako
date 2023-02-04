@@ -140,10 +140,7 @@ impl ClusterWriter {
         if self.cluster_addresses.len() <= cluster.index() {
             self.cluster_addresses.resize(
                 cluster.index() + 1,
-                SizedOffset {
-                    size: Size::zero(),
-                    offset: Offset::zero(),
-                },
+                Default::default()
             );
         }
         self.cluster_addresses[cluster.index()] = SizedOffset {
@@ -152,6 +149,7 @@ impl ClusterWriter {
         };
         Ok(())
     }
+
 
     pub fn finalize(self) -> Result<(File, Vec<SizedOffset>)> {
         Ok((self.file, self.cluster_addresses))
