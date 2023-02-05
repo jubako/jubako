@@ -69,8 +69,7 @@ test_suite! {
             1,
             jubako::FreeData40::clone_from_slice(&[0xff; 40]),
             compression
-        );
-        creator.start()?;
+        )?;
         for entry in entries {
             let content = entry.content.clone().into_bytes();
             creator.add_content(content.into())?;
@@ -99,9 +98,9 @@ test_suite! {
         let mut entry_store = Box::new(creator::EntryStore::new(entry_def));
         for (idx, entry) in entries.iter().enumerate() {
             entry_store.add_entry(creator::BasicEntry::new_from_schema(&entry_store.schema, None, vec![
-                creator::Value::Array(entry.path.clone().into()),
-                creator::Value::Content(jubako::ContentAddress::new(1.into(), (idx as u32).into())),
-                creator::Value::Unsigned((entry.word_count as u64).into())]
+                jubako::Value::Array(entry.path.clone().into()),
+                jubako::Value::Content(jubako::ContentAddress::new(1.into(), (idx as u32).into())),
+                jubako::Value::Unsigned((entry.word_count as u64).into())]
             ));
         }
 

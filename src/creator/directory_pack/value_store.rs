@@ -1,5 +1,5 @@
-use super::private::WritableTell;
 use crate::bases::*;
+use crate::creator::private::WritableTell;
 
 pub struct BaseValueStore {
     idx: ValueStoreIdx,
@@ -96,14 +96,14 @@ impl PlainValueStore {
 }
 
 impl WritableTell for PlainValueStore {
-    fn write_data(&self, stream: &mut dyn OutStream) -> Result<()> {
+    fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
         for (idx, _) in &self.0.sorted_indirect {
             PString::write_string(&self.0.data[*idx], stream)?;
         }
         Ok(())
     }
 
-    fn write_tail(&self, stream: &mut dyn OutStream) -> Result<()> {
+    fn write_tail(&mut self, stream: &mut dyn OutStream) -> Result<()> {
         self.size().write(stream)?;
         Ok(())
     }
@@ -147,14 +147,14 @@ impl IndexedValueStore {
 }
 
 impl WritableTell for IndexedValueStore {
-    fn write_data(&self, stream: &mut dyn OutStream) -> Result<()> {
+    fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
         for (idx, _) in &self.0.sorted_indirect {
             stream.write_data(&self.0.data[*idx])?;
         }
         Ok(())
     }
 
-    fn write_tail(&self, stream: &mut dyn OutStream) -> Result<()> {
+    fn write_tail(&mut self, stream: &mut dyn OutStream) -> Result<()> {
         stream.write_u64(self.0.sorted_indirect.len() as u64)?; // key count
         let data_size = self.0.size.into_u64();
         let offset_size = needed_bytes(data_size);
@@ -224,15 +224,15 @@ impl ValueStore {
 }
 
 impl WritableTell for ValueStore {
-    fn write_data(&self, stream: &mut dyn OutStream) -> Result<()> {
-        match &self {
+    fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
+        match self {
             ValueStore::PlainValueStore(s) => s.write_data(stream),
             ValueStore::IndexedValueStore(s) => s.write_data(stream),
         }
     }
 
-    fn write_tail(&self, stream: &mut dyn OutStream) -> Result<()> {
-        match &self {
+    fn write_tail(&mut self, stream: &mut dyn OutStream) -> Result<()> {
+        match self {
             ValueStore::PlainValueStore(s) => {
                 stream.write_u8(0x00)?;
                 s.write_tail(stream)

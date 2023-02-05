@@ -1,7 +1,7 @@
-use super::private::WritableTell;
 use super::{entry_store, value_store, Index};
 use crate::bases::*;
 use crate::common::{ContentAddress, DirectoryPackHeader, PackHeaderInfo};
+use crate::creator::private::WritableTell;
 use crate::creator::{Embedded, PackData};
 use entry_store::EntryStoreTrait;
 use std::cell::RefCell;
@@ -86,7 +86,7 @@ impl DirectoryPackCreator {
 
         println!("----- Write indexes -----");
         let mut indexes_offsets = vec![];
-        for index in &self.indexes {
+        for index in &mut self.indexes {
             indexes_offsets.push(index.write(&mut file)?);
         }
 
@@ -97,14 +97,14 @@ impl DirectoryPackCreator {
 
         println!("----- Write entry_stores -----");
         let mut entry_stores_offsets = vec![];
-        for entry_store in &self.entry_stores {
+        for entry_store in &mut self.entry_stores {
             entry_stores_offsets.push(entry_store.write(&mut file)?);
         }
 
         println!("----- Write value_stores -----");
         let mut value_stores_offsets = vec![];
         for value_store in &self.value_stores {
-            value_stores_offsets.push(value_store.borrow().write(&mut file)?);
+            value_stores_offsets.push(value_store.borrow_mut().write(&mut file)?);
         }
 
         file.seek(SeekFrom::Start(128))?;

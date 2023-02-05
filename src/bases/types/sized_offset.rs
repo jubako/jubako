@@ -14,6 +14,15 @@ impl SizedOffset {
     }
 }
 
+impl Default for SizedOffset {
+    fn default() -> Self {
+        Self {
+            size: Size::zero(),
+            offset: Offset::zero(),
+        }
+    }
+}
+
 impl SizedProducable for SizedOffset {
     type Size = typenum::U8;
 }

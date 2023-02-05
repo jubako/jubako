@@ -13,8 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         VENDOR_ID,
         jbk::FreeData40::clone_from_slice(&[0x00; 40]), // Put whatever you what, this is for you
         jbk::CompressionType::Zstd,                     // How to compress
-    );
-    content_pack.start()?;
+    )?;
 
     let mut directory_pack = jbk::creator::DirectoryPackCreator::new(
         "test.jbkd",
@@ -52,9 +51,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         &entry_store.schema,
         Some(0.into()), // Variant 0
         vec![
-            jbk::creator::Value::Array("Super".into()),
-            jbk::creator::Value::Unsigned(50.into()),
-            jbk::creator::Value::Content(jbk::ContentAddress::new(
+            jbk::Value::Array("Super".into()),
+            jbk::Value::Unsigned(50.into()),
+            jbk::Value::Content(jbk::ContentAddress::new(
                 jbk::PackId::from(1), // Pack id
                 content_id,           // Content id in the pack
             )),
@@ -65,9 +64,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         &entry_store.schema,
         Some(1.into()), // Variant 1
         vec![
-            jbk::creator::Value::Array("Mega".into()),
-            jbk::creator::Value::Unsigned(42.into()),
-            jbk::creator::Value::Unsigned(5.into()),
+            jbk::Value::Array("Mega".into()),
+            jbk::Value::Unsigned(42.into()),
+            jbk::Value::Unsigned(5.into()),
         ],
     ));
 
@@ -75,9 +74,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         &entry_store.schema,
         Some(1.into()), // Variant 1
         vec![
-            jbk::creator::Value::Array("Hyper".into()),
-            jbk::creator::Value::Unsigned(45.into()),
-            jbk::creator::Value::Unsigned(2.into()),
+            jbk::Value::Array("Hyper".into()),
+            jbk::Value::Unsigned(45.into()),
+            jbk::Value::Unsigned(2.into()),
         ],
     ));
 

@@ -5,10 +5,9 @@ mod manifest_pack;
 use crate::bases::*;
 pub use crate::bases::{FileSource, Stream};
 use crate::common::CheckKind;
-pub use crate::common::Value;
 pub use content_pack::ContentPackCreator;
 pub use directory_pack::{
-    schema, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, ValueStoreKind,
+    schema, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, Value, ValueStoreKind,
     ValueTransformer,
 };
 pub use manifest_pack::ManifestPackCreator;
@@ -44,6 +43,21 @@ impl Writable for CheckInfo {
         written += self.kind.write(stream)?;
         written += stream.write_data(self.data.as_ref().unwrap())?;
         Ok(written)
+    }
+}
+
+mod private {
+    use super::*;
+    pub trait WritableTell {
+        fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()>;
+        fn write_tail(&mut self, stream: &mut dyn OutStream) -> Result<()>;
+        fn write(&mut self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
+            self.write_data(stream)?;
+            let offset = stream.tell();
+            self.write_tail(stream)?;
+            let size = stream.tell() - offset;
+            Ok(SizedOffset { size, offset })
+        }
     }
 }
 
