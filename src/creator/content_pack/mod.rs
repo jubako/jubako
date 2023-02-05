@@ -4,10 +4,10 @@ use crate::bases::*;
 use crate::common::{CompressionType, ContentInfo, ContentPackHeader, PackHeaderInfo};
 use crate::creator::{Embedded, PackData};
 use cluster::ClusterCreator;
+use std::cell::Cell;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::cell::Cell;
 
 fn shannon_entropy(data: &mut Stream) -> Result<f32> {
     let mut entropy = 0.0;
@@ -85,7 +85,7 @@ impl ContentPackCreator {
     }
 
     fn open_cluster(&self, compressed: bool) -> ClusterCreator {
-        let cluster_id = self.next_cluster_id.replace(self.next_cluster_id.get()+1);
+        let cluster_id = self.next_cluster_id.replace(self.next_cluster_id.get() + 1);
         ClusterCreator::new(
             cluster_id,
             if compressed {
@@ -124,7 +124,9 @@ impl ContentPackCreator {
         if let Some(cluster) = self.cluster_to_close(content.size(), compress_content) {
             self.write_cluster(cluster)?;
         }
-        Ok(open_cluster_ref!(mut self, compress_content).as_mut().unwrap())
+        Ok(open_cluster_ref!(mut self, compress_content)
+            .as_mut()
+            .unwrap())
     }
 
     fn cluster_to_close(&mut self, size: Size, compressed: bool) -> Option<ClusterCreator> {

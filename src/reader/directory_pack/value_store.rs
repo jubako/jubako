@@ -14,7 +14,7 @@ impl Producable for ValueStoreKind {
             0 => Ok(ValueStoreKind::Plain),
             1 => Ok(ValueStoreKind::Indexed),
             v => Err(format_error!(
-                &format!("Invalid ValueStoreKind ({})", v),
+                &format!("Invalid ValueStoreKind ({v})"),
                 stream
             )),
         }

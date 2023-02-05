@@ -12,15 +12,11 @@ pub enum Property {
         /*store_handle:*/ Rc<RefCell<ValueStore>>,
     ),
     ContentAddress,
-    UnsignedInt(/*max_value:*/ u64),
+    UnsignedInt(/*size*/ u8),
     Padding(/*size*/ u8),
 }
 
 impl Property {
-    pub fn new_int() -> Self {
-        Property::UnsignedInt(0)
-    }
-
     pub(crate) fn size(&self) -> u16 {
         match self {
             Property::VariantId => 1,
@@ -28,7 +24,7 @@ impl Property {
                 (*flookup_size as u16) + store_handle.borrow().key_size()
             }
             Property::ContentAddress => 4,
-            Property::UnsignedInt(max_value) => needed_bytes(*max_value) as u16,
+            Property::UnsignedInt(size) => *size as u16,
             Property::Padding(size) => *size as u16,
         }
     }
@@ -81,8 +77,7 @@ impl Writable for Property {
                 Ok(written)
             }
             Property::ContentAddress => stream.write_u8(0b0001_0000),
-            Property::UnsignedInt(max_value) => {
-                let size = needed_bytes(*max_value) as u8;
+            Property::UnsignedInt(size) => {
                 let key_type = 0b0010_0000;
                 stream.write_u8(key_type + (size - 1))
             }

@@ -16,7 +16,7 @@ impl LazyEntry {
     }
 
     fn _get_value(&self, idx: PropertyIdx) -> Result<RawValue> {
-        let common_len = self.properties.common.len();
+        let common_len = self.properties.common.count();
         if idx.into_u8() < common_len {
             self.properties.common.create_value(idx, &self.reader)
         } else {

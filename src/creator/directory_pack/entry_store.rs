@@ -1,89 +1,83 @@
-use super::{layout, Entry, Value, WritableTell};
+use super::private::WritableTell;
+use super::schema;
+use super::FullEntryTrait;
 use crate::bases::*;
-use crate::common;
-use std::cmp;
 
-pub struct EntryStore {
-    idx: EntryStoreIdx,
-    entries: Vec<Entry>,
-    layout: layout::Entry,
+struct EntryCompare<'e, Entry: FullEntryTrait> {
+    pub ref_entry: &'e Entry,
+    pub property_ids: &'e Vec<PropertyIdx>,
 }
 
-impl EntryStore {
-    pub fn new(idx: EntryStoreIdx, layout: layout::Entry) -> Self {
+impl<'e, Entry: FullEntryTrait> EntryCompare<'e, Entry> {
+    fn compare(&self, other_entry: &Entry) -> bool {
+        other_entry.compare(&mut self.property_ids.iter(), self.ref_entry)
+    }
+}
+
+pub struct EntryStore<Entry: FullEntryTrait> {
+    idx: Late<EntryStoreIdx>,
+    entries: Vec<Entry>,
+    pub schema: schema::Schema,
+}
+
+impl<Entry: FullEntryTrait> EntryStore<Entry> {
+    pub fn new(schema: schema::Schema) -> Self {
         Self {
-            idx,
+            idx: Default::default(),
             entries: vec![],
-            layout,
+            schema,
         }
     }
 
-    pub fn add_entry(&mut self, variant_id: Option<u8>, values: Vec<common::Value>) {
-        self.entries.push(Entry::new(variant_id, values));
-    }
-
-    pub fn get_idx(&self) -> EntryStoreIdx {
-        self.idx
-    }
-
-    pub(crate) fn finalize(&mut self) {
-        for entry in &mut self.entries {
-            if self.layout.variants.is_empty() {
-                Self::finalize_entry(self.layout.common.iter_mut(), entry);
-            } else {
-                let keys = self
-                    .layout
-                    .common
-                    .iter_mut()
-                    .chain(self.layout.variants[entry.variant_id.unwrap() as usize].iter_mut());
-                Self::finalize_entry(keys, entry);
-            };
-        }
-        self.layout.finalize();
-    }
-
-    fn finalize_entry<'a>(
-        mut keys: impl Iterator<Item = &'a mut layout::Property>,
-        entry: &mut Entry,
-    ) {
-        let mut value_iter = entry.values.iter_mut();
-        for key in &mut keys {
-            match key {
-                layout::Property::VLArray(flookup_size, store_handle) => {
-                    let flookup_size = *flookup_size;
-                    let value = value_iter.next().unwrap();
-                    if let Value::Array { data, value_id } = value {
-                        let to_store = data.split_off(cmp::min(flookup_size, data.len()));
-                        *value_id = Some(store_handle.borrow_mut().add_value(&to_store));
-                    }
-                }
-                layout::Property::UnsignedInt(max_value) => {
-                    let value = value_iter.next().unwrap();
-                    if let Value::Unsigned(v) = value {
-                        *key = layout::Property::UnsignedInt(cmp::max(*max_value, *v));
-                    }
-                }
-                layout::Property::VariantId => {}
-                _ => {
-                    value_iter.next();
-                }
+    pub fn add_entry(&mut self, entry: Entry) {
+        self.schema.process(&entry);
+        match &self.schema.sort_keys {
+            None => self.entries.push(entry),
+            Some(keys) => {
+                let comparator = EntryCompare {
+                    ref_entry: &entry,
+                    property_ids: keys,
+                };
+                let idx = self.entries.partition_point(|e| comparator.compare(e));
+                self.entries.insert(idx, entry);
             }
         }
     }
+
+    pub fn get_idx(&self) -> EntryStoreIdx {
+        self.idx.get()
+    }
 }
 
-impl WritableTell for EntryStore {
-    fn write_data(&self, stream: &mut dyn OutStream) -> Result<()> {
-        for entry in &self.entries {
-            self.layout.write_entry(entry, stream)?;
-        }
-        Ok(())
+pub trait EntryStoreTrait: WritableTell {
+    fn set_idx(&mut self, idx: EntryStoreIdx);
+}
+
+impl<Entry: FullEntryTrait> EntryStoreTrait for EntryStore<Entry> {
+    fn set_idx(&mut self, idx: EntryStoreIdx) {
+        self.idx.set(idx)
+    }
+}
+
+impl<Entry: FullEntryTrait> WritableTell for EntryStore<Entry> {
+    fn write_data(&self, _stream: &mut dyn OutStream) -> Result<()> {
+        unreachable!();
     }
 
-    fn write_tail(&self, stream: &mut dyn OutStream) -> Result<()> {
+    fn write_tail(&self, _stream: &mut dyn OutStream) -> Result<()> {
+        unreachable!();
+    }
+
+    fn write(&self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
+        let layout = self.schema.finalize();
+        for entry in &self.entries {
+            layout.write_entry(entry, stream)?;
+        }
+        let offset = stream.tell();
         stream.write_u8(0x00)?; // kind
-        self.layout.write(stream)?;
-        stream.write_u64((self.entries.len() * self.layout.entry_size() as usize) as u64)?;
-        Ok(())
+        layout.write(stream)?;
+        stream.write_u64((self.entries.len() * layout.entry_size as usize) as u64)?;
+        let size = stream.tell() - offset;
+        Ok(SizedOffset { size, offset })
     }
 }

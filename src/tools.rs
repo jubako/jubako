@@ -7,7 +7,7 @@ use std::path::Path;
 pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
     let manifest_path = infiles.first().unwrap();
 
-    let manifest_file = File::open(&manifest_path)?;
+    let manifest_file = File::open(manifest_path)?;
     let reader = jbk::bases::Reader::new(FileSource::new(manifest_file), jbk::End::None);
     let mut stream = reader.create_stream_all();
 

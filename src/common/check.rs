@@ -15,10 +15,7 @@ impl Producable for CheckKind {
         match kind {
             0_u8 => Ok(CheckKind::None),
             1_u8 => Ok(CheckKind::Blake3),
-            _ => Err(format_error!(
-                &format!("Invalid check kind {}", kind),
-                stream
-            )),
+            _ => Err(format_error!(&format!("Invalid check kind {kind}"), stream)),
         }
     }
 }

@@ -101,11 +101,11 @@ impl From<String> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.error {
-            ErrorKind::Io(e) => write!(f, "IO Error {}", e),
-            ErrorKind::Format(e) => write!(f, "Jubako format error {}", e),
+            ErrorKind::Io(e) => write!(f, "IO Error {e}"),
+            ErrorKind::Format(e) => write!(f, "Jubako format error {e}"),
             ErrorKind::NotAJbk => write!(f, "This is not a Jubako archive"),
             ErrorKind::Arg => write!(f, "Invalid argument"),
-            ErrorKind::Other(e) => write!(f, "Unknown error : {}", e),
+            ErrorKind::Other(e) => write!(f, "Unknown error : {e}"),
         }
     }
 }

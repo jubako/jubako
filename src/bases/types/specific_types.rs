@@ -26,39 +26,71 @@ where
 }
 
 macro_rules! to_u64 {
-    ( $base: ty ) => {
-        pub fn into_u64(self) -> u64 {
-            self.0 .0 as u64
+    ( $base: ty, $name: ty ) => {
+        impl $name {
+            pub fn into_u64(self) -> u64 {
+                self.0 .0 as u64
+            }
+        }
+
+        impl From<$name> for u64 {
+            fn from(i: $name) -> u64 {
+                i.into_u64()
+            }
         }
     };
 }
 
 macro_rules! to_u32 {
-    ( u64 ) => {};
-    ( $base: ty ) => {
-        pub fn into_u32(self) -> u32 {
-            self.0 .0 as u32
+    ( u64, $name: ty ) => {};
+    ( $base: ty, $name: ty ) => {
+        impl $name {
+            pub fn into_u32(self) -> u32 {
+                self.0 .0 as u32
+            }
+        }
+
+        impl From<$name> for u32 {
+            fn from(i: $name) -> u32 {
+                i.into_u32()
+            }
         }
     };
 }
 
 macro_rules! to_u16 {
-    ( u64 ) => {};
-    ( u32 ) => {};
-    ( $base: ty ) => {
-        pub fn into_u16(self) -> u16 {
-            self.0 .0 as u16
+    ( u64, $name: ty ) => {};
+    ( u32, $name: ty ) => {};
+    ( $base: ty, $name: ty ) => {
+        impl $name {
+            pub fn into_u16(self) -> u16 {
+                self.0 .0 as u16
+            }
+        }
+
+        impl From<$name> for u16 {
+            fn from(i: $name) -> u16 {
+                i.into_u16()
+            }
         }
     };
 }
 
 macro_rules! to_u8 {
-    ( u64 ) => {};
-    ( u32 ) => {};
-    ( u16 ) => {};
-    ( $base: ty ) => {
-        pub fn into_u8(self) -> u8 {
-            self.0 .0 as u8
+    ( u64, $name: ty ) => {};
+    ( u32, $name: ty ) => {};
+    ( u16, $name: ty ) => {};
+    ( $base: ty, $name: ty ) => {
+        impl $name {
+            pub fn into_u8(self) -> u8 {
+                self.0 .0 as u8
+            }
+        }
+
+        impl From<$name> for u8 {
+            fn from(i: $name) -> u8 {
+                i.into_u8()
+            }
         }
     };
 }
@@ -137,12 +169,13 @@ macro_rules! specific {
         pub struct $idx_name(pub $inner_idx<$base>);
 
         impl $idx_name {
-            to_u64!($base);
-            to_u32!($base);
-            to_u16!($base);
-            to_u8!($base);
             to_usize!($base);
         }
+
+        to_u64!($base, $idx_name);
+        to_u32!($base, $idx_name);
+        to_u16!($base, $idx_name);
+        to_u8!($base, $idx_name);
 
         impl Next for $idx_name {
             fn next(self) -> Self {
@@ -176,12 +209,6 @@ macro_rules! specific {
             }
         }
 
-        impl From<$idx_name> for $base {
-            fn from(i: $idx_name) -> $base {
-                i.0 .0
-            }
-        }
-
         impl_add!($inner_idx, $base, $idx_name, $count_name);
 
         impl std::fmt::Display for $idx_name {
@@ -195,12 +222,13 @@ macro_rules! specific {
         pub struct $count_name(pub Count<$base>);
 
         impl $count_name {
-            to_u64!($base);
-            to_u32!($base);
-            to_u16!($base);
-            to_u8!($base);
             to_usize!($base);
         }
+
+        to_u64!($base, $count_name);
+        to_u32!($base, $count_name);
+        to_u16!($base, $count_name);
+        to_u8!($base, $count_name);
 
         impl From<$base> for $count_name {
             fn from(count: $base) -> Self {
@@ -225,12 +253,6 @@ macro_rules! specific {
             type Target = Count<$base>;
             fn deref(&self) -> &Self::Target {
                 &self.0
-            }
-        }
-
-        impl From<$count_name> for $base {
-            fn from(c: $count_name) -> $base {
-                c.0 .0
             }
         }
 

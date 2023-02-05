@@ -1,60 +1,228 @@
 #[allow(clippy::module_inception)]
 mod directory_pack;
 mod entry_store;
-pub mod layout;
+mod layout;
+pub mod schema;
 mod value_store;
 
 use crate::bases::*;
 use crate::common;
 use crate::common::ContentAddress;
 pub use directory_pack::DirectoryPackCreator;
+pub use entry_store::EntryStore;
+use std::cmp;
 use value_store::ValueStore;
 pub use value_store::ValueStoreKind;
 
-trait WritableTell {
-    fn write_data(&self, stream: &mut dyn OutStream) -> Result<()>;
-    fn write_tail(&self, stream: &mut dyn OutStream) -> Result<()>;
-    fn write(&self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
-        self.write_data(stream)?;
-        let offset = stream.tell();
-        self.write_tail(stream)?;
-        let size = stream.tell() - offset;
-        Ok(SizedOffset { size, offset })
+mod private {
+    use super::*;
+    pub trait WritableTell {
+        fn write_data(&self, stream: &mut dyn OutStream) -> Result<()>;
+        fn write_tail(&self, stream: &mut dyn OutStream) -> Result<()>;
+        fn write(&self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
+            self.write_data(stream)?;
+            let offset = stream.tell();
+            self.write_tail(stream)?;
+            let size = stream.tell() - offset;
+            Ok(SizedOffset { size, offset })
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Value {
+    Content(ContentAddress),
+    Unsigned(u64),
+    Signed(i64),
+    Array { data: Vec<u8>, value_id: Bound<u64> },
+}
+
+impl PartialOrd for Value {
+    fn partial_cmp(&self, other: &Value) -> Option<cmp::Ordering> {
+        match self {
+            Value::Content(_) => None,
+            Value::Unsigned(v) => match other {
+                Value::Unsigned(o) => Some(v.cmp(o)),
+                _ => None,
+            },
+            Value::Signed(v) => match other {
+                Value::Signed(o) => Some(v.cmp(o)),
+                _ => None,
+            },
+            Value::Array { data, value_id: id } => match other {
+                Value::Array {
+                    data: other_data,
+                    value_id: other_id,
+                } => match data.cmp(other_data) {
+                    cmp::Ordering::Less => Some(cmp::Ordering::Less),
+                    cmp::Ordering::Greater => Some(cmp::Ordering::Greater),
+                    cmp::Ordering::Equal => Some(id.get().cmp(&other_id.get())),
+                },
+                _ => None,
+            },
+        }
+    }
+}
+
+pub trait EntryTrait {
+    fn variant_id(&self) -> Option<VariantIdx>;
+    fn value(&self, id: PropertyIdx) -> &Value;
+    fn value_count(&self) -> PropertyCount;
+}
+
+pub trait FullEntryTrait: EntryTrait {
+    fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PropertyIdx>, other: &Self) -> bool;
+}
+
+struct EntryIter<'e> {
+    entry: &'e dyn EntryTrait,
+    idx: PropertyIdx,
+}
+
+impl<'e> EntryIter<'e> {
+    fn new(entry: &'e dyn EntryTrait) -> Self {
+        Self {
+            entry,
+            idx: PropertyIdx::from(0),
+        }
+    }
+}
+
+impl<'e> Iterator for EntryIter<'e> {
+    type Item = &'e Value;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.idx.is_valid(self.entry.value_count()) {
+            let value = self.entry.value(self.idx);
+            self.idx += 1;
+            Some(value)
+        } else {
+            None
+        }
     }
 }
 
 #[derive(Debug)]
-enum Value {
-    Content(ContentAddress),
-    Unsigned(u64),
-    Signed(i64),
-    Array {
-        data: Vec<u8>,
-        value_id: Option<u64>,
-    },
-}
-
-#[derive(Debug)]
-pub struct Entry {
-    variant_id: Option<u8>,
+pub struct BasicEntry {
+    variant_id: Option<VariantIdx>,
     values: Vec<Value>,
 }
 
-impl Entry {
-    pub fn new(variant_id: Option<u8>, values: Vec<common::Value>) -> Self {
-        let values = values
-            .into_iter()
-            .map(|v| match v {
-                common::Value::Content(c) => Value::Content(c),
-                common::Value::Unsigned(u) => Value::Unsigned(u),
-                common::Value::Signed(s) => Value::Signed(s),
-                common::Value::Array(a) => Value::Array {
-                    data: a,
-                    value_id: None,
+pub struct ValueTransformer<'a> {
+    keys: Box<dyn Iterator<Item = &'a schema::Property> + 'a>,
+    values: std::vec::IntoIter<common::Value>,
+}
+
+impl<'a> ValueTransformer<'a> {
+    pub fn new(
+        schema: &'a schema::Schema,
+        variant_id: Option<VariantIdx>,
+        values: Vec<common::Value>,
+    ) -> Self {
+        if schema.variants.is_empty() {
+            ValueTransformer {
+                keys: Box::new(schema.common.iter()),
+                values: values.into_iter(),
+            }
+        } else {
+            let keys = schema
+                .common
+                .iter()
+                .chain(schema.variants[variant_id.unwrap().into_usize()].iter());
+            ValueTransformer {
+                keys: Box::new(keys),
+                values: values.into_iter(),
+            }
+        }
+    }
+}
+
+impl<'a> Iterator for ValueTransformer<'a> {
+    type Item = Value;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.keys.next() {
+                None => return None,
+                Some(key) => match key {
+                    schema::Property::VLArray(flookup_size, store_handle) => {
+                        let flookup_size = flookup_size;
+                        let value = self.values.next().unwrap();
+                        if let common::Value::Array(mut data) = value {
+                            let to_store = data.split_off(cmp::min(*flookup_size, data.len()));
+                            let value_id = store_handle.borrow_mut().add_value(&to_store);
+                            return Some(Value::Array { data, value_id });
+                        } else {
+                            panic!("Invalide value type");
+                        }
+                    }
+                    schema::Property::UnsignedInt(_) => {
+                        let value = self.values.next().unwrap();
+                        if let common::Value::Unsigned(v) = value {
+                            return Some(Value::Unsigned(v));
+                        } else {
+                            panic!("Invalide value type");
+                        }
+                    }
+                    schema::Property::ContentAddress => {
+                        let value = self.values.next().unwrap();
+                        if let common::Value::Content(v) = value {
+                            return Some(Value::Content(v));
+                        } else {
+                            panic!("Invalide value type");
+                        }
+                    }
+                    schema::Property::Padding(_) => {}
                 },
-            })
-            .collect();
+            }
+        }
+    }
+}
+
+impl BasicEntry {
+    pub fn new_from_schema(
+        schema: &schema::Schema,
+        variant_id: Option<VariantIdx>,
+        values: Vec<common::Value>,
+    ) -> Self {
+        let value_transformer = ValueTransformer::new(schema, variant_id, values);
+        Self::new(variant_id, value_transformer.collect())
+    }
+
+    pub fn new(variant_id: Option<VariantIdx>, values: Vec<Value>) -> Self {
         Self { variant_id, values }
+    }
+}
+
+impl EntryTrait for BasicEntry {
+    fn variant_id(&self) -> Option<VariantIdx> {
+        self.variant_id
+    }
+    fn value(&self, id: PropertyIdx) -> &Value {
+        &self.values[id.into_usize()]
+    }
+    fn value_count(&self) -> PropertyCount {
+        (self.values.len() as u8).into()
+    }
+}
+
+impl FullEntryTrait for BasicEntry {
+    fn compare(
+        &self,
+        sort_keys: &mut dyn Iterator<Item = &PropertyIdx>,
+        other: &BasicEntry,
+    ) -> bool {
+        for &property_id in sort_keys {
+            let self_value = self.value(property_id);
+            let other_value = other.value(property_id);
+            match self_value.partial_cmp(other_value) {
+                None => return false,
+                Some(c) => match c {
+                    cmp::Ordering::Less => return true,
+                    cmp::Ordering::Greater => return false,
+                    cmp::Ordering::Equal => continue,
+                },
+            }
+        }
+        false
     }
 }
 
@@ -87,7 +255,7 @@ impl Index {
     }
 }
 
-impl WritableTell for Index {
+impl private::WritableTell for Index {
     fn write_data(&self, _stream: &mut dyn OutStream) -> Result<()> {
         // No data to write
         Ok(())

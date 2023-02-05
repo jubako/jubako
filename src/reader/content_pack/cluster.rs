@@ -45,8 +45,7 @@ impl Cluster {
             if raw_data_size != data_size {
                 return Err(format_error!(
                     &format!(
-                        "Stored size ({}) must be equal to data size ({}) if no comprresion.",
-                        raw_data_size, data_size
+                        "Stored size ({raw_data_size}) must be equal to data size ({data_size}) if no comprresion."
                     ),
                     stream
                 ));

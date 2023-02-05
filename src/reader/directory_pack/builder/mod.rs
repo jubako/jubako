@@ -28,7 +28,7 @@ impl AnyVariantBuilder {
         Self { properties }
     }
 
-    pub fn len(&self) -> u8 {
+    pub fn count(&self) -> u8 {
         self.properties.len() as u8
     }
 }

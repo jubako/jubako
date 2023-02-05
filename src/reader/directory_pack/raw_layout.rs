@@ -70,7 +70,7 @@ impl Producable for RawProperty {
             0b1000 => (1, RawPropertyKind::VariantId),
             _ => {
                 return Err(format_error!(
-                    &format!("Invalid property type ({})", proptype),
+                    &format!("Invalid property type ({proptype})"),
                     stream
                 ))
             }
