@@ -119,10 +119,9 @@ mod tests {
             variant_part: None,
             size: Size::new(6),
         };
-        let content = vec![
+        let entry_reader = Reader::from(vec![
             0x00, 0x00, 0x00, 0x01, 0x88, 0x99, 0x01, 0x00, 0x00, 0x02, 0x66, 0x77,
-        ];
-        let entry_reader = Reader::new(content, End::None);
+        ]);
         let store = Rc::new(EntryStore::Plain(PlainStore {
             layout,
             entry_reader,
@@ -184,10 +183,9 @@ mod tests {
             size: Size::new(7),
         };
 
-        let content = vec![
+        let entry_reader = Reader::from(vec![
             0x00, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99, 0x01, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99,
-        ];
-        let entry_reader = Reader::new(content, End::None);
+        ]);
         let store = Rc::new(EntryStore::Plain(PlainStore {
             layout,
             entry_reader,

@@ -32,7 +32,7 @@ mod private {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Content(ContentAddress),
-    Unsigned(u64),
+    Unsigned(Word<u64>),
     Signed(i64),
     Array { data: Vec<u8>, value_id: Bound<u64> },
 }
@@ -42,7 +42,7 @@ impl PartialOrd for Value {
         match self {
             Value::Content(_) => None,
             Value::Unsigned(v) => match other {
-                Value::Unsigned(o) => Some(v.cmp(o)),
+                Value::Unsigned(o) => Some(v.get().cmp(&o.get())),
                 _ => None,
             },
             Value::Signed(v) => match other {
@@ -68,6 +68,8 @@ pub trait EntryTrait {
     fn variant_id(&self) -> Option<VariantIdx>;
     fn value(&self, id: PropertyIdx) -> &Value;
     fn value_count(&self) -> PropertyCount;
+    fn set_idx(&mut self, idx: EntryIdx);
+    fn get_idx(&self) -> Bound<EntryIdx>;
 }
 
 pub trait FullEntryTrait: EntryTrait {
@@ -105,6 +107,7 @@ impl<'e> Iterator for EntryIter<'e> {
 pub struct BasicEntry {
     variant_id: Option<VariantIdx>,
     values: Vec<Value>,
+    idx: Vow<EntryIdx>,
 }
 
 pub struct ValueTransformer<'a> {
@@ -188,7 +191,11 @@ impl BasicEntry {
     }
 
     pub fn new(variant_id: Option<VariantIdx>, values: Vec<Value>) -> Self {
-        Self { variant_id, values }
+        Self {
+            variant_id,
+            values,
+            idx: Default::default(),
+        }
     }
 }
 
@@ -201,6 +208,33 @@ impl EntryTrait for BasicEntry {
     }
     fn value_count(&self) -> PropertyCount {
         (self.values.len() as u8).into()
+    }
+    fn set_idx(&mut self, idx: EntryIdx) {
+        self.idx.fulfil(idx);
+    }
+    fn get_idx(&self) -> Bound<EntryIdx> {
+        self.idx.bind()
+    }
+}
+
+impl<T> EntryTrait for Box<T>
+where
+    T: EntryTrait,
+{
+    fn variant_id(&self) -> Option<VariantIdx> {
+        T::variant_id(self)
+    }
+    fn value(&self, id: PropertyIdx) -> &Value {
+        T::value(self, id)
+    }
+    fn value_count(&self) -> PropertyCount {
+        T::value_count(self)
+    }
+    fn set_idx(&mut self, idx: EntryIdx) {
+        T::set_idx(self, idx)
+    }
+    fn get_idx(&self) -> Bound<EntryIdx> {
+        T::get_idx(self)
     }
 }
 
@@ -223,6 +257,15 @@ impl FullEntryTrait for BasicEntry {
             }
         }
         false
+    }
+}
+
+impl<T> FullEntryTrait for Box<T>
+where
+    T: FullEntryTrait,
+{
+    fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PropertyIdx>, other: &Self) -> bool {
+        T::compare(self, sort_keys, other)
     }
 }
 

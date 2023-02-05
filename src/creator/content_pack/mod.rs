@@ -9,10 +9,11 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
-fn shannon_entropy(data: &mut Stream) -> Result<f32> {
+fn shannon_entropy(data: &Reader) -> Result<f32> {
     let mut entropy = 0.0;
     let mut counts = [0; 256];
     let size = std::cmp::min(1024, data.size().into_usize());
+    let mut data = data.create_stream_all();
 
     for _ in 0..size {
         counts[data.read_u8()? as usize] += 1;
@@ -96,7 +97,7 @@ impl ContentPackCreator {
         )
     }
 
-    fn write_cluster(&mut self, cluster: ClusterCreator) -> Result<()> {
+    fn write_cluster(&mut self, mut cluster: ClusterCreator) -> Result<()> {
         let data_size = cluster.write_data(self.file.as_mut().unwrap())?;
         let cluster_offset = self.file.as_mut().unwrap().tell();
         cluster.write_tail(self.file.as_mut().unwrap(), data_size)?;
@@ -116,9 +117,8 @@ impl ContentPackCreator {
         Ok(())
     }
 
-    fn get_open_cluster(&mut self, content: &mut Stream) -> Result<&mut ClusterCreator> {
+    fn get_open_cluster(&mut self, content: &Reader) -> Result<&mut ClusterCreator> {
         let entropy = shannon_entropy(content)?;
-        content.seek(Offset::zero());
         let compress_content = entropy <= 6.0;
         // Let's get raw cluster
         if let Some(cluster) = self.cluster_to_close(content.size(), compress_content) {
@@ -156,8 +156,8 @@ impl ContentPackCreator {
         Ok(())
     }
 
-    pub fn add_content(&mut self, content: &mut Stream) -> Result<ContentIdx> {
-        let cluster = self.get_open_cluster(content)?;
+    pub fn add_content(&mut self, content: Reader) -> Result<ContentIdx> {
+        let cluster = self.get_open_cluster(&content)?;
         let content_info = cluster.add_content(content)?;
         self.content_infos.push(content_info);
         Ok(((self.content_infos.len() - 1) as u32).into())
@@ -215,7 +215,7 @@ impl ContentPackCreator {
             uuid: header.pack_header.uuid,
             pack_id: self.pack_id,
             free_data: FreeData103::clone_from_slice(&[0; 103]),
-            reader: Reader::new(FileSource::new(self.file.unwrap()), End::None),
+            reader: FileSource::new(self.file.unwrap())?.into(),
             check_info_pos: check_offset,
             embedded: Embedded::No(self.path),
         })

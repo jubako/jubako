@@ -21,8 +21,11 @@ test_suite! {
         params {
             vec![
                 jubako::CompressionType::None,
+                #[cfg(feature="lz4")]
                 jubako::CompressionType::Lz4,
+                #[cfg(feature="lzma")]
                 jubako::CompressionType::Lzma,
+                #[cfg(feature="zstd")]
                 jubako::CompressionType::Zstd,
             ].into_iter()
         }
@@ -70,8 +73,7 @@ test_suite! {
         creator.start()?;
         for entry in entries {
             let content = entry.content.clone().into_bytes();
-            let mut stream = creator::Stream::new(content, jubako::End::None);
-            creator.add_content(&mut stream)?;
+            creator.add_content(content.into())?;
         }
         let pack_info = creator.finalize()?;
         Ok(pack_info)
@@ -99,7 +101,7 @@ test_suite! {
             entry_store.add_entry(creator::BasicEntry::new_from_schema(&entry_store.schema, None, vec![
                 creator::Value::Array(entry.path.clone().into()),
                 creator::Value::Content(jubako::ContentAddress::new(1.into(), (idx as u32).into())),
-                creator::Value::Unsigned(entry.word_count.into())]
+                creator::Value::Unsigned((entry.word_count as u64).into())]
             ));
         }
 

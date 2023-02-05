@@ -20,7 +20,7 @@ impl Producable for ContentAddress {
     type Output = Self;
     fn produce(stream: &mut Stream) -> Result<Self> {
         let pack_id = stream.read_u8()?;
-        let content_id = stream.read_sized(3)? as u32;
+        let content_id = stream.read_sized(ByteSize::U3)? as u32;
         Ok(ContentAddress {
             pack_id: pack_id.into(),
             content_id: content_id.into(),

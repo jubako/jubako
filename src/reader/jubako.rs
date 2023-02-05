@@ -7,7 +7,6 @@ use super::{Index, ValueStorage};
 use crate::bases::*;
 use crate::common::{ContentAddress, Pack, PackInfo, PackPos};
 use std::ffi::OsString;
-use std::fs::File;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -32,9 +31,8 @@ fn get_pack_reader(reader: &Reader, source_path: &Path, pack_info: &PackInfo) ->
                 .parent()
                 .unwrap()
                 .join(OsString::from_vec(path.clone()));
-            let file = File::open(path)?;
             Ok(Reader::new(
-                FileSource::new(file),
+                FileSource::open(path)?,
                 End::Size(pack_info.pack_size),
             ))
         }
@@ -76,8 +74,7 @@ pub fn locate_manifest(reader: Reader) -> Result<Reader> {
 impl Container {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path: PathBuf = path.as_ref().into();
-        let file = File::open(path.clone())?;
-        let reader = Reader::new(FileSource::new(file), End::None);
+        let reader = Reader::from(FileSource::open(&path)?);
         let reader = locate_manifest(reader)?;
         let main_pack =
             ManifestPack::new(reader.create_sub_memory_reader(Offset::zero(), End::None)?)?;

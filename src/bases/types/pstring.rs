@@ -50,8 +50,7 @@ mod tests {
     fn test_pstring(source: &[u8]) -> String {
         let mut content = Vec::new();
         content.extend_from_slice(source);
-        let reader = Reader::new(content, End::None);
-        let mut stream = reader.create_stream_all();
+        let mut stream = Stream::from(content);
         String::from_utf8(PString::produce(&mut stream).unwrap()).unwrap()
     }
 }

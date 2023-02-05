@@ -29,8 +29,8 @@ impl<Entry: FullEntryTrait> EntryStore<Entry> {
         }
     }
 
-    pub fn add_entry(&mut self, entry: Entry) {
-        self.schema.process(&entry);
+    pub fn add_entry(&mut self, entry: Entry) -> Bound<EntryIdx> {
+        let entry_idx = entry.get_idx();
         match &self.schema.sort_keys {
             None => self.entries.push(entry),
             Some(keys) => {
@@ -41,7 +41,8 @@ impl<Entry: FullEntryTrait> EntryStore<Entry> {
                 let idx = self.entries.partition_point(|e| comparator.compare(e));
                 self.entries.insert(idx, entry);
             }
-        }
+        };
+        entry_idx
     }
 
     pub fn get_idx(&self) -> EntryStoreIdx {
@@ -51,11 +52,26 @@ impl<Entry: FullEntryTrait> EntryStore<Entry> {
 
 pub trait EntryStoreTrait: WritableTell {
     fn set_idx(&mut self, idx: EntryStoreIdx);
+    fn finalize(&mut self);
 }
 
 impl<Entry: FullEntryTrait> EntryStoreTrait for EntryStore<Entry> {
     fn set_idx(&mut self, idx: EntryStoreIdx) {
         self.idx.set(idx)
+    }
+
+    fn finalize(&mut self) {
+        let mut idx: EntryIdx = 0.into();
+        for entry in &mut self.entries {
+            entry.set_idx(idx);
+            idx += 1;
+        }
+
+        for entry in &self.entries {
+            self.schema.process(entry);
+        }
+
+        println!("Schema is {:#?}", self.schema);
     }
 }
 

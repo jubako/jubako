@@ -47,14 +47,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Now we have "configured" our container, let's add some content:
     let content: Vec<u8> = "A super content prime quality for our test container".into();
-    let mut reader = jbk::creator::Stream::new(content, jbk::End::None);
-    let content_id = content_pack.add_content(&mut reader)?;
+    let content_id = content_pack.add_content(content.into())?;
     entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
         &entry_store.schema,
         Some(0.into()), // Variant 0
         vec![
             jbk::creator::Value::Array("Super".into()),
-            jbk::creator::Value::Unsigned(50),
+            jbk::creator::Value::Unsigned(50.into()),
             jbk::creator::Value::Content(jbk::ContentAddress::new(
                 jbk::PackId::from(1), // Pack id
                 content_id,           // Content id in the pack
@@ -67,8 +66,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(1.into()), // Variant 1
         vec![
             jbk::creator::Value::Array("Mega".into()),
-            jbk::creator::Value::Unsigned(42),
-            jbk::creator::Value::Unsigned(5),
+            jbk::creator::Value::Unsigned(42.into()),
+            jbk::creator::Value::Unsigned(5.into()),
         ],
     ));
 
@@ -77,8 +76,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(1.into()), // Variant 1
         vec![
             jbk::creator::Value::Array("Hyper".into()),
-            jbk::creator::Value::Unsigned(45),
-            jbk::creator::Value::Unsigned(2),
+            jbk::creator::Value::Unsigned(45.into()),
+            jbk::creator::Value::Unsigned(2.into()),
         ],
     ));
 

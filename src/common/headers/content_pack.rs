@@ -93,8 +93,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x60, // cluster ccount
         ];
         content.extend_from_slice(&[0xff; 40]);
-        let reader = Reader::new(content, End::None);
-        let mut stream = reader.create_stream_all();
+        let mut stream = Stream::from(content);
         assert_eq!(
             ContentPackHeader::produce(&mut stream).unwrap(),
             ContentPackHeader {

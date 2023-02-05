@@ -2,26 +2,26 @@
 use crate::bases::*;
 use primitive::*;
 use std::io::{BorrowedBuf, Read};
-use std::rc::Rc;
+use std::sync::Arc;
 
 // A wrapper arount someting to implement Stream trait
 #[derive(Debug)]
 pub struct Stream {
-    source: Rc<dyn Source>,
+    source: Arc<dyn Source>,
     origin: Offset,
     end: Offset,
     offset: Offset,
 }
 
 impl Stream {
-    pub fn new<T: Source + 'static>(source: T, end: End) -> Self {
+    pub fn new<T: Source + 'static + Sync>(source: T, end: End) -> Self {
         let end = match end {
             End::None => source.size().into(),
             End::Offset(o) => o,
             End::Size(s) => s.into(),
         };
         Self {
-            source: Rc::new(source),
+            source: Arc::new(source),
             origin: Offset::zero(),
             offset: Offset::zero(),
             end,
@@ -29,7 +29,7 @@ impl Stream {
     }
 
     pub fn new_from_parts(
-        source: Rc<dyn Source>,
+        source: Arc<dyn Source>,
         origin: Offset,
         end: Offset,
         offset: Offset,
@@ -90,8 +90,9 @@ impl Stream {
         self.offset += 8;
         Ok(read_u64(&slice))
     }
-    pub fn read_sized(&mut self, size: usize) -> Result<u64> {
+    pub fn read_sized(&mut self, size: ByteSize) -> Result<u64> {
         let slice = self.source.slice_sized(self.offset, size)?;
+        let size = size as usize;
         self.offset += size;
         Ok(read_to_u64(size, &slice[..size]))
     }
@@ -122,5 +123,14 @@ impl Read for Stream {
             }
             Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
         }
+    }
+}
+
+impl<T> From<T> for Stream
+where
+    T: Source + 'static,
+{
+    fn from(source: T) -> Stream {
+        Stream::new(source, End::None)
     }
 }

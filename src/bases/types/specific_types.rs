@@ -163,9 +163,9 @@ macro_rules! impl_add {
 }
 
 macro_rules! specific {
-    ( $base: ty, $idx_name:ident($inner_idx:ident), $count_name:ident ) => {
+    ( $base: ty, $idx_name:ident($inner_idx:ident), $count_name:ident, $base_name: expr ) => {
         // Declare our Index
-        #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, Default)]
+        #[derive(PartialEq, Eq, Copy, Clone, Hash, Default)]
         pub struct $idx_name(pub $inner_idx<$base>);
 
         impl $idx_name {
@@ -213,12 +213,23 @@ macro_rules! specific {
 
         impl std::fmt::Display for $idx_name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{}({})", stringify!($idx_name), self.0)
+                write!(f, "{} {}", $base_name, self.0)
+            }
+        }
+
+        impl std::fmt::Debug for $idx_name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_fmt(format_args!(
+                    "{}<{}> : {}",
+                    stringify!($idx_name),
+                    stringify!($base),
+                    self.0 .0
+                ))
             }
         }
 
         // Declare our Count
-        #[derive(PartialEq, Eq, Debug, Copy, Clone)]
+        #[derive(PartialEq, Eq, Copy, Clone)]
         pub struct $count_name(pub Count<$base>);
 
         impl $count_name {
@@ -282,23 +293,34 @@ macro_rules! specific {
 
         impl std::fmt::Display for $count_name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{}({})", stringify!($count_name), self.0)
+                write!(f, "{} {}", $base_name, self.0)
+            }
+        }
+
+        impl std::fmt::Debug for $count_name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_fmt(format_args!(
+                    "{}<{}> : {}",
+                    stringify!($count_name),
+                    stringify!($base),
+                    self.0 .0
+                ))
             }
         }
     };
 }
 
-specific! {u32, EntryIdx(Idx), EntryCount}
-specific! {u32, EntryStoreIdx(Idx), EntryStoreCount}
-specific! {u32, ClusterIdx(Idx), ClusterCount}
-specific! {u32, ContentIdx(Idx), ContentCount}
-specific! {u32, IndexIdx(Idx), IndexCount}
-specific! {u8,  PackId(Id), PackCount}
-specific! {u8,  ValueStoreIdx(Idx), ValueStoreCount}
-specific! {u16,  BlobIdx(Idx), BlobCount}
-specific! {u8,  PropertyIdx(Idx), PropertyCount}
-specific! {u64,  ValueIdx(Idx), ValueCount}
-specific! {u8, VariantIdx(Idx), VariantCount}
+specific! {u32, EntryIdx(Idx), EntryCount, "Entry"}
+specific! {u32, EntryStoreIdx(Idx), EntryStoreCount, "EntryStore"}
+specific! {u32, ClusterIdx(Idx), ClusterCount, "Cluster"}
+specific! {u32, ContentIdx(Idx), ContentCount, "Content"}
+specific! {u32, IndexIdx(Idx), IndexCount, "Index"}
+specific! {u8,  PackId(Id), PackCount, "Pack"}
+specific! {u8,  ValueStoreIdx(Idx), ValueStoreCount, "ValueStore"}
+specific! {u16,  BlobIdx(Idx), BlobCount, "Blob"}
+specific! {u8,  PropertyIdx(Idx), PropertyCount, "Property"}
+specific! {u64,  ValueIdx(Idx), ValueCount, "Value"}
+specific! {u8, VariantIdx(Idx), VariantCount, "Variant"}
 
 #[cfg(target_pointer_width = "64")]
 impl From<ValueStoreIdx> for usize {

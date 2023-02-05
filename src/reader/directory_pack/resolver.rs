@@ -42,10 +42,10 @@ pub(crate) mod private {
         pub fn resolve(&self, raw: &RawValue) -> Result<Value> {
             Ok(match raw {
                 RawValue::Content(c) => Value::Content(*c),
-                RawValue::U8(v) => Value::Unsigned(*v as u64),
-                RawValue::U16(v) => Value::Unsigned(*v as u64),
-                RawValue::U32(v) => Value::Unsigned(*v as u64),
-                RawValue::U64(v) => Value::Unsigned(*v),
+                RawValue::U8(v) => Value::Unsigned((*v as u64).into()),
+                RawValue::U16(v) => Value::Unsigned((*v as u64).into()),
+                RawValue::U32(v) => Value::Unsigned((*v as u64).into()),
+                RawValue::U64(v) => Value::Unsigned((*v).into()),
                 RawValue::I8(v) => Value::Signed(*v as i64),
                 RawValue::I16(v) => Value::Signed(*v as i64),
                 RawValue::I32(v) => Value::Signed(*v as i64),
@@ -59,7 +59,8 @@ pub(crate) mod private {
         }
 
         pub fn compare_array(&self, raw: &Array, value: &[u8]) -> Result<cmp::Ordering> {
-            let cmp = raw.base.as_slice().cmp(&value[..raw.base.len()]);
+            let extract_size = std::cmp::min(raw.base.len(), value.len());
+            let cmp = raw.base.as_slice().cmp(&value[..extract_size]);
             if cmp.is_ne() {
                 Ok(cmp)
             } else {
@@ -77,10 +78,10 @@ pub(crate) mod private {
             match value {
                 Value::Content(_) => Err("Content cannot be compared.".to_string().into()),
                 Value::Unsigned(v) => match raw {
-                    RawValue::U8(r) => Ok((*r as u64).cmp(v)),
-                    RawValue::U16(r) => Ok((*r as u64).cmp(v)),
-                    RawValue::U32(r) => Ok((*r as u64).cmp(v)),
-                    RawValue::U64(r) => Ok((*r).cmp(v)),
+                    RawValue::U8(r) => Ok((*r as u64).cmp(&v.get())),
+                    RawValue::U16(r) => Ok((*r as u64).cmp(&v.get())),
+                    RawValue::U32(r) => Ok((*r as u64).cmp(&v.get())),
+                    RawValue::U64(r) => Ok((*r).cmp(&v.get())),
                     _ => Err("Values kind cannot be compared.".to_string().into()),
                 },
                 Value::Signed(v) => match raw {
@@ -196,14 +197,14 @@ mod tests {
         fixture value(value: RawValue, expected: Value) -> () {
             params {
                 vec![
-                    (RawValue::U8(5),    Value::Unsigned(5)),
-                    (RawValue::U16(300), Value::Unsigned(300)),
-                    (RawValue::U32(5),   Value::Unsigned(5)),
-                    (RawValue::U64(5),   Value::Unsigned(5)),
-                    (RawValue::I8(5),    Value::Signed(5)),
-                    (RawValue::I16(5),   Value::Signed(5)),
-                    (RawValue::I32(5),   Value::Signed(5)),
-                    (RawValue::I64(5),   Value::Signed(5)),
+                    (RawValue::U8(5),    Value::Unsigned(5.into())),
+                    (RawValue::U16(300), Value::Unsigned(300.into())),
+                    (RawValue::U32(5),   Value::Unsigned(5.into())),
+                    (RawValue::U64(5),   Value::Unsigned(5.into())),
+                    (RawValue::I8(5),    Value::Signed(5.into())),
+                    (RawValue::I16(5),   Value::Signed(5.into())),
+                    (RawValue::I32(5),   Value::Signed(5.into())),
+                    (RawValue::I64(5),   Value::Signed(5.into())),
                     (RawValue::Array(Array{base:"Bye ".into(), extend:Some(Extend{store_id:0.into(), value_id:ValueIdx::from(2)})}),
                        Value::Array("Bye Jubako".into())),
                     (RawValue::Content(ContentAddress::new(PackId::from(0), ContentIdx::from(50))),

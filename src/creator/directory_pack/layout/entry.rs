@@ -26,8 +26,8 @@ impl Entry {
         Ok(written)
     }
 
-    fn key_count(&self) -> u8 {
-        self.common.key_count() + self.variants.iter().map(|v| v.key_count()).sum::<u8>()
+    fn key_count(&self) -> Count<u8> {
+        (self.common.key_count() + self.variants.iter().map(|v| v.key_count()).sum::<u8>()).into()
     }
 }
 
@@ -36,7 +36,7 @@ impl Writable for Entry {
         let mut written = 0;
         written += stream.write_u16(self.entry_size)?;
         written += stream.write_u8(self.variants.len() as u8)?;
-        written += stream.write_u8(self.key_count())?;
+        written += self.key_count().write(stream)?;
         written += self.common.write(stream)?;
         for variant in &self.variants {
             written += variant.write(stream)?;

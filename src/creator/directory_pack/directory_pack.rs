@@ -71,7 +71,7 @@ impl DirectoryPackCreator {
         self.indexes.push(index);
     }
 
-    pub fn finalize(self) -> Result<PackData> {
+    pub fn finalize(mut self) -> Result<PackData> {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -82,35 +82,49 @@ impl DirectoryPackCreator {
             128 + 8 * (self.value_stores.len() + self.entry_stores.len() + self.indexes.len());
         file.seek(SeekFrom::Start(to_skip as u64))?;
 
+        println!("======= Finalize creation =======");
+
+        println!("----- Write indexes -----");
         let mut indexes_offsets = vec![];
         for index in &self.indexes {
             indexes_offsets.push(index.write(&mut file)?);
         }
 
+        println!("----- Finalize entry_stores -----");
+        for entry_store in &mut self.entry_stores {
+            entry_store.finalize();
+        }
+
+        println!("----- Write entry_stores -----");
         let mut entry_stores_offsets = vec![];
         for entry_store in &self.entry_stores {
             entry_stores_offsets.push(entry_store.write(&mut file)?);
         }
 
+        println!("----- Write value_stores -----");
         let mut value_stores_offsets = vec![];
         for value_store in &self.value_stores {
             value_stores_offsets.push(value_store.borrow().write(&mut file)?);
         }
 
         file.seek(SeekFrom::Start(128))?;
+        println!("----- Write indexes offsets -----");
         let indexes_ptr_offsets = file.tell();
         for offset in &indexes_offsets {
             offset.write(&mut file)?;
         }
+        println!("----- Write value_stores offsets -----");
         let value_stores_ptr_offsets = file.tell();
         for offset in &value_stores_offsets {
             offset.write(&mut file)?;
         }
+        println!("----- Write entry_stores offsets -----");
         let entry_stores_ptr_offsets = file.tell();
         for offset in &entry_stores_offsets {
             offset.write(&mut file)?;
         }
 
+        println!("----- Write header -----");
         file.seek(SeekFrom::End(0))?;
         let check_offset = file.tell();
         let pack_size: Size = (check_offset + 33 + 64).into();
@@ -129,6 +143,8 @@ impl DirectoryPackCreator {
             ),
         );
         header.write(&mut file)?;
+
+        println!("----- Compute checksum -----");
         file.rewind()?;
         let mut hasher = blake3::Hasher::new();
         std::io::copy(&mut file, &mut hasher)?;
@@ -148,7 +164,7 @@ impl DirectoryPackCreator {
             uuid: header.uuid(),
             pack_id: self.pack_id,
             free_data: FreeData103::clone_from_slice(&[0; 103]),
-            reader: Reader::new(FileSource::new(file), End::None),
+            reader: FileSource::new(file)?.into(),
             check_info_pos: check_offset,
             embedded: Embedded::No(self.path),
         })

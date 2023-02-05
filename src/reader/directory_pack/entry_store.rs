@@ -118,7 +118,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
         let size = Size::from(content.len());
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from(content);
         let store = EntryStore::new(&reader, SizedOffset::new(size, Offset::zero())).unwrap();
         let store = match store {
             EntryStore::Plain(s) => s,
@@ -126,21 +126,27 @@ mod tests {
         assert!(store.layout.variant_part.is_none());
         let expected = [
             Property::new(8, PropertyKind::ContentAddress),
-            Property::new(12, PropertyKind::UnsignedInt(1)),
-            Property::new(13, PropertyKind::UnsignedInt(3)),
-            Property::new(16, PropertyKind::UnsignedInt(8)),
-            Property::new(24, PropertyKind::SignedInt(1)),
-            Property::new(25, PropertyKind::SignedInt(3)),
-            Property::new(28, PropertyKind::SignedInt(8)),
+            Property::new(12, PropertyKind::UnsignedInt(ByteSize::U1)),
+            Property::new(13, PropertyKind::UnsignedInt(ByteSize::U3)),
+            Property::new(16, PropertyKind::UnsignedInt(ByteSize::U8)),
+            Property::new(24, PropertyKind::SignedInt(ByteSize::U1)),
+            Property::new(25, PropertyKind::SignedInt(ByteSize::U3)),
+            Property::new(28, PropertyKind::SignedInt(ByteSize::U8)),
             Property::new(36, PropertyKind::Array(1)),
             Property::new(37, PropertyKind::Array(8)),
             Property::new(45, PropertyKind::Array(9)),
             Property::new(54, PropertyKind::Array(264)),
             Property::new(318, PropertyKind::Array(1032)),
-            Property::new(1350, PropertyKind::VLArray(1, 0x0F.into(), None)),
-            Property::new(1351, PropertyKind::VLArray(8, 0x0F.into(), None)),
-            Property::new(1359, PropertyKind::VLArray(1, 0x0F.into(), Some(2))),
-            Property::new(1362, PropertyKind::VLArray(8, 0x0F.into(), Some(2))),
+            Property::new(1350, PropertyKind::VLArray(ByteSize::U1, 0x0F.into(), None)),
+            Property::new(1351, PropertyKind::VLArray(ByteSize::U8, 0x0F.into(), None)),
+            Property::new(
+                1359,
+                PropertyKind::VLArray(ByteSize::U1, 0x0F.into(), Some(2)),
+            ),
+            Property::new(
+                1362,
+                PropertyKind::VLArray(ByteSize::U8, 0x0F.into(), Some(2)),
+            ),
         ];
         assert_eq!(&*store.layout.common, &expected);
     }
@@ -165,7 +171,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
         let size = Size::from(content.len());
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from(content);
         let store = EntryStore::new(&reader, SizedOffset::new(size, Offset::zero())).unwrap();
         let store = match store {
             EntryStore::Plain(s) => s,
@@ -175,16 +181,16 @@ mod tests {
         assert_eq!(variants.len(), 2);
         let variant = &variants[0];
         let expected = [
-            Property::new(1, PropertyKind::VLArray(5, 0x0F.into(), Some(1))),
+            Property::new(1, PropertyKind::VLArray(ByteSize::U5, 0x0F.into(), Some(1))),
             Property::new(7, PropertyKind::ContentAddress),
-            Property::new(11, PropertyKind::UnsignedInt(3)),
+            Property::new(11, PropertyKind::UnsignedInt(ByteSize::U3)),
         ];
         assert_eq!(&**variant, &expected);
         let variant = &variants[1];
         let expected = [
             Property::new(1, PropertyKind::Array(6)),
             Property::new(7, PropertyKind::ContentAddress),
-            Property::new(11, PropertyKind::UnsignedInt(3)),
+            Property::new(11, PropertyKind::UnsignedInt(ByteSize::U3)),
         ];
         assert_eq!(&**variant, &expected);
     }

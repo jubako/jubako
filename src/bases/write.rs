@@ -32,8 +32,9 @@ pub trait OutStream: Write + Seek {
         self.write_all(&d)?;
         Ok(8)
     }
-    fn write_sized(&mut self, value: u64, size: usize) -> IoResult<usize> {
+    fn write_sized(&mut self, value: u64, size: ByteSize) -> IoResult<usize> {
         let mut d = [0_u8; 8];
+        let size = size as usize;
         write_from_u64(value, size, &mut d);
         self.write_all(&d[..size])?;
         Ok(size)

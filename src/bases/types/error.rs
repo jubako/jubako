@@ -1,9 +1,12 @@
 use crate::bases::*;
-use lzma::LzmaError;
+
 use std::any::Demand;
 use std::backtrace::Backtrace;
 use std::fmt;
 use std::string::FromUtf8Error;
+
+#[cfg(feature = "lzma")]
+use lzma::LzmaError;
 
 #[derive(Debug)]
 pub struct FormatError {
@@ -46,6 +49,7 @@ pub enum ErrorKind {
     NotAJbk,
     Arg,
     Other(String),
+    OtherStatic(&'static str),
 }
 
 pub struct Error {
@@ -83,6 +87,7 @@ impl From<FromUtf8Error> for Error {
     }
 }
 
+#[cfg(feature = "lzma")]
 impl From<lzma::LzmaError> for Error {
     fn from(e: LzmaError) -> Error {
         match e {
@@ -98,6 +103,12 @@ impl From<String> for Error {
     }
 }
 
+impl From<&'static str> for Error {
+    fn from(e: &'static str) -> Error {
+        Error::new(ErrorKind::OtherStatic(e))
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.error {
@@ -106,6 +117,7 @@ impl fmt::Display for Error {
             ErrorKind::NotAJbk => write!(f, "This is not a Jubako archive"),
             ErrorKind::Arg => write!(f, "Invalid argument"),
             ErrorKind::Other(e) => write!(f, "Unknown error : {e}"),
+            ErrorKind::OtherStatic(e) => write!(f, "Unknown error : {e}"),
         }
     }
 }

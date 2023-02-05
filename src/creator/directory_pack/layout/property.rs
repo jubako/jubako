@@ -12,7 +12,7 @@ pub enum Property {
         /*store_handle:*/ Rc<RefCell<ValueStore>>,
     ),
     ContentAddress,
-    UnsignedInt(/*size*/ u8),
+    UnsignedInt(ByteSize),
     Padding(/*size*/ u8),
 }
 
@@ -21,7 +21,7 @@ impl Property {
         match self {
             Property::VariantId => 1,
             Property::VLArray(flookup_size, store_handle) => {
-                (*flookup_size as u16) + store_handle.borrow().key_size()
+                (*flookup_size as u16) + store_handle.borrow().key_size() as u16
             }
             Property::ContentAddress => 4,
             Property::UnsignedInt(size) => *size as u16,
@@ -57,7 +57,7 @@ impl Writable for Property {
                 } else {
                     0b0110_0000
                 };
-                let key_size = (store_handle.borrow().key_size() - 1) as u8;
+                let key_size = store_handle.borrow().key_size() as u8 - 1;
                 let mut written = 0;
                 written += stream.write_u8(keytype + key_size)?;
                 written += store_handle.borrow().get_idx().write(stream)?;
@@ -79,7 +79,7 @@ impl Writable for Property {
             Property::ContentAddress => stream.write_u8(0b0001_0000),
             Property::UnsignedInt(size) => {
                 let key_type = 0b0010_0000;
-                stream.write_u8(key_type + (size - 1))
+                stream.write_u8(key_type + (*size as u8 - 1))
             }
             Property::Padding(size) => {
                 let key_type = 0b0000_0000;

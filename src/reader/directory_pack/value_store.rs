@@ -85,8 +85,8 @@ pub struct IndexedValueStore {
 impl IndexedValueStore {
     fn new(stream: &mut Stream, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
         let value_count: ValueCount = Count::<u64>::produce(stream)?.into();
-        let offset_size = stream.read_u8()?;
-        let data_size: Size = stream.read_sized(offset_size.into())?.into();
+        let offset_size = ByteSize::produce(stream)?;
+        let data_size: Size = stream.read_sized(offset_size)?.into();
         let value_count = value_count.into_usize();
         let mut value_offsets: Vec<Offset> = Vec::with_capacity(value_count + 1);
         // [TODO] Handle 32 and 16 bits
@@ -97,7 +97,7 @@ impl IndexedValueStore {
                 first = false;
                 Offset::zero()
             } else {
-                stream.read_sized(offset_size.into())?.into()
+                stream.read_sized(offset_size)?.into()
             };
             assert!(value.is_valid(data_size));
             elem.write(value);
@@ -126,8 +126,7 @@ mod tests {
 
     #[test]
     fn test_valuestorekind() {
-        let reader = Reader::new(vec![0x00, 0x01, 0x02], End::None);
-        let mut stream = reader.create_stream_all();
+        let mut stream = Stream::from(vec![0x00, 0x01, 0x02]);
         assert_eq!(
             ValueStoreKind::produce(&mut stream).unwrap(),
             ValueStoreKind::Plain
@@ -143,15 +142,14 @@ mod tests {
     #[test]
     fn test_plainvaluestore() {
         #[rustfmt::skip]
-        let reader = Reader::new(
+        let reader = Reader::from(
             vec![
                 0x05, 0x11, 0x12, 0x13, 0x14, 0x15, // Data of entry 0
                 0x03, 0x21, 0x22, 0x23, // Data of entry 1
                 0x07, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of entry 2
                 0x00, // kind
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, // data_size
-            ],
-            End::None,
+            ]
         );
         let value_store =
             ValueStore::new(&reader, SizedOffset::new(Size::new(9), Offset::new(18))).unwrap();
@@ -187,7 +185,7 @@ mod tests {
     #[test]
     fn test_indexedvaluestore() {
         #[rustfmt::skip]
-        let reader = Reader::new(
+        let reader = Reader::from(
             vec![
                 0x11, 0x12, 0x13, 0x14, 0x15, // Data of entry 0
                 0x21, 0x22, 0x23, // Data of entry 1
@@ -198,8 +196,7 @@ mod tests {
                 0x0f, // data_size
                 0x05, // Offset of entry 1
                 0x08, // Offset of entry 2
-            ],
-            End::None,
+            ]
         );
         let value_store =
             ValueStore::new(&reader, SizedOffset::new(Size::new(13), Offset::new(15))).unwrap();
@@ -217,7 +214,7 @@ mod tests {
                 assert_eq!(
                     indexedvaluestore
                         .reader
-                        .read_usized(Offset::new(8), 7)
+                        .read_usized(Offset::new(8), ByteSize::U7)
                         .unwrap(),
                     0x31323334353637_u64
                 );

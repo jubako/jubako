@@ -1,7 +1,6 @@
 use super::private::WritableTell;
 use crate::bases::*;
 
-#[derive(Debug)]
 pub struct BaseValueStore {
     idx: ValueStoreIdx,
     data: Vec<Vec<u8>>,
@@ -50,7 +49,6 @@ impl BaseValueStore {
     }
 }
 
-#[derive(Debug)]
 pub struct PlainValueStore(BaseValueStore);
 
 impl PlainValueStore {
@@ -88,8 +86,8 @@ impl PlainValueStore {
         self.0.size + Size::from(self.0.data.len())
     }
 
-    pub fn key_size(&self) -> u16 {
-        needed_bytes(self.size().into_u64()) as u16
+    pub fn key_size(&self) -> ByteSize {
+        needed_bytes(self.size().into_u64())
     }
 
     pub fn get_idx(&self) -> ValueStoreIdx {
@@ -111,7 +109,17 @@ impl WritableTell for PlainValueStore {
     }
 }
 
-#[derive(Debug)]
+impl std::fmt::Debug for PlainValueStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PlainValueStore")
+            .field("idx", &self.get_idx())
+            .field("size", &self.size())
+            .field("key_size", &self.key_size())
+            .field("data count", &self.0.data.len())
+            .finish()
+    }
+}
+
 pub struct IndexedValueStore(BaseValueStore);
 
 impl IndexedValueStore {
@@ -129,8 +137,8 @@ impl IndexedValueStore {
         self.0.add_value(data, Self::fix_offset)
     }
 
-    pub fn key_size(&self) -> u16 {
-        needed_bytes(self.0.sorted_indirect.len()) as u16
+    pub fn key_size(&self) -> ByteSize {
+        needed_bytes(self.0.sorted_indirect.len())
     }
 
     pub fn get_idx(&self) -> ValueStoreIdx {
@@ -150,7 +158,7 @@ impl WritableTell for IndexedValueStore {
         stream.write_u64(self.0.sorted_indirect.len() as u64)?; // key count
         let data_size = self.0.size.into_u64();
         let offset_size = needed_bytes(data_size);
-        stream.write_u8(offset_size as u8)?; // offset_size
+        offset_size.write(stream)?; // offset_size
         stream.write_sized(data_size, offset_size)?; // data size
         let mut offset = 0;
         for (idx, _) in &self.0.sorted_indirect[..(self.0.sorted_indirect.len() - 1)] {
@@ -159,6 +167,17 @@ impl WritableTell for IndexedValueStore {
             stream.write_sized(offset, offset_size)?;
         }
         Ok(())
+    }
+}
+
+impl std::fmt::Debug for IndexedValueStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IndexedValueStore")
+            .field("idx", &self.get_idx())
+            .field("size", &self.0.size)
+            .field("key_size", &self.key_size())
+            .field("data count", &self.0.data.len())
+            .finish()
     }
 }
 
@@ -189,7 +208,7 @@ impl ValueStore {
         }
     }
 
-    pub(crate) fn key_size(&self) -> u16 {
+    pub(crate) fn key_size(&self) -> ByteSize {
         match &self {
             ValueStore::PlainValueStore(s) => s.key_size(),
             ValueStore::IndexedValueStore(s) => s.key_size(),
