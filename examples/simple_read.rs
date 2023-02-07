@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let resolver = jbk::reader::Resolver::new(value_storage); // This is needed to get our info in the value_store
     let schema = jbk::reader::AnySchema {};
     let builder = schema.create_builder(index.get_store(&entry_storage)?)?;
-    let finder: jbk::reader::Finder<jbk::reader::AnySchema> = index.get_finder(&builder)?; // To found our entries.
+    let finder: jbk::reader::Finder<jbk::reader::AnySchema> = index.get_finder(builder)?; // To found our entries.
 
     {
         let entry = finder.get_entry(0.into())?;

@@ -52,10 +52,10 @@ impl Index {
         self.header.entry_count
     }
 
-    pub fn get_finder<'builder, Schema: schema::SchemaTrait>(
+    pub fn get_finder<Schema: schema::SchemaTrait>(
         &self,
-        builder: &'builder Schema::Builder,
-    ) -> Result<Finder<'builder, Schema>> {
+        builder: Rc<Schema::Builder>,
+    ) -> Result<Finder<Schema>> {
         Ok(Finder::new(
             builder,
             self.entry_offset(),
