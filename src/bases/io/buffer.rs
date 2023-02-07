@@ -31,7 +31,7 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
         offset: Offset,
         size: usize,
     ) -> Result<(Arc<dyn Source>, Offset, End)> {
-        assert!(offset.into_usize() + size <= self.as_ref().as_ref().len());
+        debug_assert!(offset.into_usize() + size <= self.as_ref().as_ref().len());
         Ok((
             Arc::clone(&(self as Arc<dyn Source>)),
             offset,
@@ -40,8 +40,8 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
     }
 
     fn get_slice(&self, offset: Offset, end: Offset) -> Result<&[u8]> {
-        assert!(offset <= end);
-        assert!(end.into_usize() <= self.as_ref().len());
+        debug_assert!(offset <= end);
+        debug_assert!(end.into_usize() <= self.as_ref().len());
         Ok(&self.as_ref()[offset.into_usize()..end.into_usize()])
     }
 }

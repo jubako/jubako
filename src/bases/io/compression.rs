@@ -76,14 +76,14 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
         offset: Offset,
         size: usize,
     ) -> Result<(Arc<dyn Source>, Offset, End)> {
-        assert!((offset + size).is_valid(self.size()));
+        debug_assert!((offset + size).is_valid(self.size()));
         self.decode_to(offset + size)?;
         Ok((self, offset, End::new_size(size as u64)))
     }
 
     fn get_slice(&self, offset: Offset, end: Offset) -> Result<&[u8]> {
-        assert!(offset <= end);
-        assert!(end.is_valid(self.size()));
+        debug_assert!(offset <= end);
+        debug_assert!(end.is_valid(self.size()));
         self.decode_to(end)?;
         Ok(&self.decoded_slice()[offset.into_usize()..end.into_usize()])
     }

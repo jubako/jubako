@@ -8,8 +8,8 @@ pub struct SizedOffset {
 
 impl SizedOffset {
     pub fn new(size: Size, offset: Offset) -> Self {
-        assert!(size.into_u64() <= 0xFF_FF_u64);
-        assert!(offset.into_u64() <= 0xFF_FF_FF_FF_FF_FF_u64);
+        debug_assert!(size.into_u64() <= 0xFF_FF_u64);
+        debug_assert!(offset.into_u64() <= 0xFF_FF_FF_FF_FF_FF_u64);
         Self { size, offset }
     }
 }

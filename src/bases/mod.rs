@@ -78,7 +78,7 @@ where
 {
     type OutputType = Result<OutType::Output>;
     fn index(&self, idx: Idx<IdxType>) -> Result<OutType::Output> {
-        assert!(
+        debug_assert!(
             idx.is_valid(self.length),
             "idx = {:?}, length = {:?}",
             idx,

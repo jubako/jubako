@@ -50,7 +50,7 @@ impl Reader {
             End::Offset(o) => self.origin + o,
             End::Size(s) => origin + s,
         };
-        assert!(end <= self.end);
+        debug_assert!(end <= self.end);
         Flux::new_from_parts(&self.source, origin, end, origin)
     }
     pub fn create_flux_for(&self, size_offset: SizedOffset) -> Flux {
@@ -77,7 +77,7 @@ impl Reader {
             End::Offset(o) => self.origin + o,
             End::Size(s) => origin + s,
         };
-        assert!(end <= self.end);
+        debug_assert!(end <= self.end);
         SubReader::new_from_parts(&self.source, origin, end)
     }
     pub fn create_sub_memory_reader(&self, offset: Offset, end: End) -> Result<Reader> {
