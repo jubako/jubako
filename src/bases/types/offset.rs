@@ -72,53 +72,53 @@ impl From<usize> for Offset {
 impl Add<usize> for Offset {
     type Output = Self;
     fn add(self, other: usize) -> Offset {
-        Offset(self.0.checked_add(other as u64).unwrap())
+        Offset(self.0 + other as u64)
     }
 }
 
 impl Add<Size> for Offset {
     type Output = Self;
     fn add(self, other: Size) -> Offset {
-        Offset(self.0.checked_add(other.into_u64()).unwrap())
+        Offset(self.0 + other.into_u64())
     }
 }
 
 impl Add for Offset {
     type Output = Self;
     fn add(self, other: Offset) -> Offset {
-        Offset(self.0.checked_add(other.0).unwrap())
+        Offset(self.0 + other.0)
     }
 }
 
 impl AddAssign<usize> for Offset {
     fn add_assign(&mut self, other: usize) {
-        self.0 = self.0.checked_add(other as u64).unwrap();
+        self.0 += other as u64;
     }
 }
 
 impl AddAssign<Size> for Offset {
     fn add_assign(&mut self, other: Size) {
-        self.0 = self.0.checked_add(other.into_u64()).unwrap();
+        self.0 += other.into_u64();
     }
 }
 
 impl AddAssign for Offset {
     fn add_assign(&mut self, other: Offset) {
-        self.0 = self.0.checked_add(other.0).unwrap();
+        self.0 += other.0;
     }
 }
 
 impl Sub for Offset {
     type Output = Size;
     fn sub(self, other: Offset) -> Size {
-        Size::from(self.0.checked_sub(other.0).unwrap())
+        Size::from(self.0 - other.0)
     }
 }
 
 impl Sub<Size> for Offset {
     type Output = Offset;
     fn sub(self, other: Size) -> Offset {
-        Offset::from(self.0.checked_sub(other.into_u64()).unwrap())
+        Offset::from(self.0 - other.into_u64())
     }
 }
 

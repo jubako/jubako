@@ -69,7 +69,7 @@ impl fmt::Display for Size {
 impl Add<Size> for Size {
     type Output = Self;
     fn add(self, other: Size) -> Size {
-        Size(self.0.checked_add(other.0).unwrap())
+        Size(self.0 + other.0)
     }
 }
 
@@ -88,13 +88,13 @@ impl AddAssign<usize> for Size {
 impl Sub<Size> for Size {
     type Output = Self;
     fn sub(self, other: Size) -> Size {
-        Size(self.0.checked_sub(other.0).unwrap())
+        Size(self.0 - other.0)
     }
 }
 
 impl std::ops::Mul<u64> for Size {
     type Output = Self;
     fn mul(self, other: u64) -> Size {
-        Size(self.0.checked_mul(other).unwrap())
+        Size(self.0 * other)
     }
 }
