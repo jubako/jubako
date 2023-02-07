@@ -11,12 +11,12 @@ enum StoreKind {
 
 impl Producable for StoreKind {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        match stream.read_u8()? {
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        match flux.read_u8()? {
             0 => Ok(StoreKind::Plain),
             1 => Ok(StoreKind::Ref),
             2 => Ok(StoreKind::Full),
-            v => Err(format_error!(&format!("Invalid store kind ({v})"), stream)),
+            v => Err(format_error!(&format!("Invalid store kind ({v})"), flux)),
         }
     }
 }
@@ -28,16 +28,16 @@ pub enum EntryStore {
 
 impl EntryStore {
     pub fn new(reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let mut header_stream = reader.create_stream_for(pos_info);
-        Ok(match StoreKind::produce(&mut header_stream)? {
+        let mut header_flux = reader.create_flux_for(pos_info);
+        Ok(match StoreKind::produce(&mut header_flux)? {
             StoreKind::Plain => {
-                EntryStore::Plain(PlainStore::new(&mut header_stream, reader, pos_info)?)
+                EntryStore::Plain(PlainStore::new(&mut header_flux, reader, pos_info)?)
             }
             _ => todo!(),
         })
     }
 
-    pub fn get_entry_reader(&self, idx: EntryIdx) -> Reader {
+    pub fn get_entry_reader(&self, idx: EntryIdx) -> SubReader {
         match self {
             EntryStore::Plain(store) => store.get_entry_reader(idx),
             /*  todo!() */
@@ -59,19 +59,20 @@ pub struct PlainStore {
 }
 
 impl PlainStore {
-    pub fn new(stream: &mut Stream, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let layout = Layout::produce(stream)?;
-        let data_size = Size::produce(stream)?;
+    pub fn new(flux: &mut Flux, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
+        let layout = Layout::produce(flux)?;
+        let data_size = Size::produce(flux)?;
         // [TODO] use a array_reader here
-        let entry_reader =
-            reader.create_sub_reader(pos_info.offset - data_size, End::Size(data_size));
+        let entry_reader = reader
+            .create_sub_reader(pos_info.offset - data_size, End::Size(data_size))
+            .into();
         Ok(Self {
             layout,
             entry_reader,
         })
     }
 
-    fn get_entry_reader(&self, idx: EntryIdx) -> Reader {
+    fn get_entry_reader(&self, idx: EntryIdx) -> SubReader {
         self.entry_reader.create_sub_reader(
             Offset::from(self.layout.size.into_u64() * idx.into_u64()),
             End::Size(self.layout.size),

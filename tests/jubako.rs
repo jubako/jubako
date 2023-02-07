@@ -516,9 +516,9 @@ test_suite! {
                 );
                 let pack = container.get_pack(1.into()).unwrap();
                 let reader = pack.get_content(jubako::ContentIdx::from(i.into_u32())).unwrap();
-                let mut stream = reader.create_stream_all();
+                let mut flux = reader.create_flux_all();
                 let mut read_content: String = "".to_string();
-                stream.read_to_string(&mut read_content).unwrap();
+                flux.read_to_string(&mut read_content).unwrap();
                 assert_eq!(read_content, articles.val[i.into_u32() as usize].content);
             } else {
               panic!();

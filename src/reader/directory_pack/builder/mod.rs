@@ -19,7 +19,7 @@ pub struct AnyVariantBuilder {
 }
 
 impl AnyVariantBuilder {
-    pub fn create_value(&self, idx: PropertyIdx, reader: &Reader) -> Result<RawValue> {
+    pub fn create_value(&self, idx: PropertyIdx, reader: SubReader) -> Result<RawValue> {
         self.properties[idx.into_usize()].create(reader)
     }
 
@@ -90,7 +90,7 @@ impl BuilderTrait for AnyBuilder {
             .create_sub_reader(Offset::zero(), End::None);
         Ok(LazyEntry::new(
             Rc::clone(&self.properties),
-            reader.create_sub_reader(Offset::zero(), End::None),
+            reader.create_sub_reader(Offset::zero(), End::None).into(),
         ))
     }
 }

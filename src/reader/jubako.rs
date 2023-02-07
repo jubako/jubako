@@ -23,9 +23,9 @@ pub struct Container {
 
 fn get_pack_reader(reader: &Reader, source_path: &Path, pack_info: &PackInfo) -> Result<Reader> {
     match &pack_info.pack_pos {
-        PackPos::Offset(offset) => {
-            Ok(reader.create_sub_reader(*offset, End::Size(pack_info.pack_size)))
-        }
+        PackPos::Offset(offset) => Ok(reader
+            .create_sub_reader(*offset, End::Size(pack_info.pack_size))
+            .into()),
         PackPos::Path(path) => {
             let path = source_path
                 .parent()
@@ -43,22 +43,24 @@ pub fn locate_manifest(reader: Reader) -> Result<Reader> {
     let mut buffer_reader = [0u8; 64];
 
     // Check at beginning
-    let mut stream = reader.create_stream_to(End::Size(Size::new(64)));
-    stream.read_exact(&mut buffer_reader)?;
+    let mut flux = reader.create_flux_to(End::Size(Size::new(64)));
+    flux.read_exact(&mut buffer_reader)?;
     if buffer_reader[0..4] == [0x6a, 0x62, 0x6b, 0x6d]
         || buffer_reader[0..4] == [0x6a, 0x62, 0x6b, 0x64]
         || buffer_reader[0..4] == [0x6a, 0x62, 0x6b, 0x63]
     {
         let size: Size = primitive::read_u64(&buffer_reader[32..40]).into();
-        return Ok(reader.create_sub_reader(Offset::zero(), End::Size(size)));
+        return Ok(reader
+            .create_sub_reader(Offset::zero(), End::Size(size))
+            .to_owned());
     };
 
     // Check at end
-    let mut stream = reader.create_stream(
+    let mut flux = reader.create_flux(
         (reader.size() - Size::new(64)).into(),
         End::Size(Size::new(64)),
     );
-    stream.read_exact(&mut buffer_reader)?;
+    flux.read_exact(&mut buffer_reader)?;
     buffer_reader.reverse();
     if buffer_reader[0..4] == [0x6a, 0x62, 0x6b, 0x6d]
         || buffer_reader[0..4] == [0x6a, 0x62, 0x6b, 0x64]
@@ -66,7 +68,9 @@ pub fn locate_manifest(reader: Reader) -> Result<Reader> {
     {
         let size: Size = primitive::read_u64(&buffer_reader[32..40]).into();
         let origin = reader.size() - size;
-        return Ok(reader.create_sub_reader(origin.into(), End::Size(size)));
+        return Ok(reader
+            .create_sub_reader(origin.into(), End::Size(size))
+            .into());
     };
     Err(Error::new(ErrorKind::NotAJbk))
 }

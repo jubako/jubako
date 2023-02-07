@@ -1,18 +1,22 @@
 #[macro_use]
 mod types;
 mod cache;
+mod flux;
 mod io;
 pub mod primitive;
 mod reader;
 mod stream;
+mod sub_reader;
 mod write;
 
 pub use cache::*;
+pub use flux::*;
 pub use io::*;
 pub use reader::*;
 use std::cmp;
 use std::marker::PhantomData;
 pub use stream::*;
+pub use sub_reader::*;
 use typenum::Unsigned;
 pub use types::*;
 pub use write::*;
@@ -81,10 +85,10 @@ where
             self.length
         );
         let offset = u64::from(idx.0) * self.elem_size as u64;
-        let mut stream = self
+        let mut flux = self
             .reader
-            .create_stream(Offset::from(offset), End::new_size(self.elem_size as u64));
-        OutType::produce(&mut stream)
+            .create_flux(Offset::from(offset), End::new_size(self.elem_size as u64));
+        OutType::produce(&mut flux)
     }
 }
 

@@ -8,7 +8,7 @@ use std::marker::PhantomData;
 
 pub trait PropertyBuilderTrait {
     type Output;
-    fn create(&self, reader: &Reader) -> Result<Self::Output>;
+    fn create(&self, reader: SubReader) -> Result<Self::Output>;
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -28,28 +28,28 @@ impl<OutType> Property<OutType> {
 
 impl PropertyBuilderTrait for Property<u8> {
     type Output = u8;
-    fn create(&self, reader: &Reader) -> Result<Self::Output> {
+    fn create(&self, reader: SubReader) -> Result<Self::Output> {
         reader.read_u8(self.offset)
     }
 }
 
 impl PropertyBuilderTrait for Property<u16> {
     type Output = u16;
-    fn create(&self, reader: &Reader) -> Result<Self::Output> {
+    fn create(&self, reader: SubReader) -> Result<Self::Output> {
         reader.read_u16(self.offset)
     }
 }
 
 impl PropertyBuilderTrait for Property<u32> {
     type Output = u32;
-    fn create(&self, reader: &Reader) -> Result<Self::Output> {
+    fn create(&self, reader: SubReader) -> Result<Self::Output> {
         reader.read_u32(self.offset)
     }
 }
 
 impl PropertyBuilderTrait for Property<u64> {
     type Output = u64;
-    fn create(&self, reader: &Reader) -> Result<Self::Output> {
+    fn create(&self, reader: SubReader) -> Result<Self::Output> {
         reader.read_u64(self.offset)
     }
 }
@@ -78,7 +78,7 @@ impl TryFrom<&layout::Property> for IntProperty {
 
 impl PropertyBuilderTrait for IntProperty {
     type Output = u64;
-    fn create(&self, reader: &Reader) -> Result<Self::Output> {
+    fn create(&self, reader: SubReader) -> Result<Self::Output> {
         Ok(match self.size {
             ByteSize::U1 => reader.read_u8(self.offset)? as u64,
             ByteSize::U2 => reader.read_u16(self.offset)? as u64,
@@ -92,28 +92,28 @@ impl PropertyBuilderTrait for IntProperty {
 
 impl PropertyBuilderTrait for Property<i8> {
     type Output = i8;
-    fn create(&self, reader: &Reader) -> Result<Self::Output> {
+    fn create(&self, reader: SubReader) -> Result<Self::Output> {
         reader.read_i8(self.offset)
     }
 }
 
 impl PropertyBuilderTrait for Property<i16> {
     type Output = i16;
-    fn create(&self, reader: &Reader) -> Result<Self::Output> {
+    fn create(&self, reader: SubReader) -> Result<Self::Output> {
         reader.read_i16(self.offset)
     }
 }
 
 impl PropertyBuilderTrait for Property<i32> {
     type Output = i32;
-    fn create(&self, reader: &Reader) -> Result<Self::Output> {
+    fn create(&self, reader: SubReader) -> Result<Self::Output> {
         reader.read_i32(self.offset)
     }
 }
 
 impl PropertyBuilderTrait for Property<i64> {
     type Output = i64;
-    fn create(&self, reader: &Reader) -> Result<Self::Output> {
+    fn create(&self, reader: SubReader) -> Result<Self::Output> {
         reader.read_i64(self.offset)
     }
 }
@@ -142,7 +142,7 @@ impl TryFrom<&layout::Property> for SignedProperty {
 
 impl PropertyBuilderTrait for SignedProperty {
     type Output = i64;
-    fn create(&self, reader: &Reader) -> Result<Self::Output> {
+    fn create(&self, reader: SubReader) -> Result<Self::Output> {
         Ok(match self.size {
             ByteSize::U1 => reader.read_i8(self.offset)? as i64,
             ByteSize::U2 => reader.read_i16(self.offset)? as i64,
@@ -187,14 +187,14 @@ impl ArrayProperty {
         }
     }
 
-    fn create_array(&self, reader: &Reader) -> Result<Vec<u8>> {
+    fn create_array(&self, reader: SubReader) -> Result<Vec<u8>> {
         Ok(match self.base {
             None => vec![],
             Some((offset, size)) => {
-                let mut stream = reader.create_stream(offset, End::Size(size));
+                let mut flux = reader.create_flux(offset, End::Size(size));
                 let mut ret = Vec::with_capacity(size.into_usize());
                 let mut uninit: BorrowedBuf = ret.spare_capacity_mut().into();
-                stream.read_buf_exact(uninit.unfilled())?;
+                flux.read_buf_exact(uninit.unfilled())?;
                 unsafe {
                     ret.set_len(size.into_usize());
                 }
@@ -224,7 +224,7 @@ impl TryFrom<&layout::Property> for ArrayProperty {
 
 impl PropertyBuilderTrait for ArrayProperty {
     type Output = Array;
-    fn create(&self, reader: &Reader) -> Result<Self::Output> {
+    fn create(&self, reader: SubReader) -> Result<Self::Output> {
         let base = self.create_array(reader)?;
         Ok(match self.vl_array {
             None => Array::new(base, None),
@@ -245,9 +245,9 @@ impl ContentProperty {
     pub fn new(offset: Offset) -> Self {
         Self { offset }
     }
-    fn create_content(offset: Offset, reader: &Reader) -> Result<ContentAddress> {
-        let mut stream = reader.create_stream(offset, End::new_size(4u64));
-        let contentaddress = ContentAddress::produce(&mut stream)?;
+    fn create_content(offset: Offset, reader: SubReader) -> Result<ContentAddress> {
+        let mut flux = reader.create_flux(offset, End::new_size(4u64));
+        let contentaddress = ContentAddress::produce(&mut flux)?;
         Ok(contentaddress)
     }
 }
@@ -264,7 +264,7 @@ impl TryFrom<&layout::Property> for ContentProperty {
 
 impl PropertyBuilderTrait for ContentProperty {
     type Output = ContentAddress;
-    fn create(&self, reader: &Reader) -> Result<Self::Output> {
+    fn create(&self, reader: SubReader) -> Result<Self::Output> {
         Self::create_content(self.offset, reader)
     }
 }
@@ -308,7 +308,7 @@ impl From<&layout::Property> for AnyProperty {
 
 impl PropertyBuilderTrait for AnyProperty {
     type Output = RawValue;
-    fn create(&self, reader: &Reader) -> Result<Self::Output> {
+    fn create(&self, reader: SubReader) -> Result<Self::Output> {
         Ok(match self {
             Self::ContentAddress(prop) => RawValue::Content(prop.create(reader)?),
             Self::UnsignedInt(prop) => match prop.size {

@@ -9,8 +9,8 @@ pub struct Idx<T>(pub T);
 
 impl Producable for Idx<u32> {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        Ok(stream.read_u32()?.into())
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        Ok(flux.read_u32()?.into())
     }
 }
 impl SizedProducable for Idx<u32> {

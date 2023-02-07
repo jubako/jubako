@@ -44,7 +44,7 @@ impl ManifestPackCreator {
                 Embedded::No(_) => pack_data.check_info_pos,
             };
             copy(
-                &mut pack_data.reader.create_stream_from(sub_offset),
+                &mut pack_data.reader.create_flux_from(sub_offset),
                 &mut file,
             )?;
             pack_infos.push(PackInfo::new(

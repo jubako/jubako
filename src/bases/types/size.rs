@@ -28,8 +28,8 @@ impl Size {
 
 impl Producable for Size {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        Ok(stream.read_u64()?.into())
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        Ok(flux.read_u64()?.into())
     }
 }
 impl SizedProducable for Size {

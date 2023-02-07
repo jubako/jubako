@@ -2,9 +2,9 @@ use crate::bases::*;
 use std::io::{BorrowedBuf, Read};
 use std::sync::{Arc, Mutex, RwLock};
 
-// A intermediate object acting as source for ReaderWrapper and StreamWrapper.
+// A intermediate object acting as source for ReaderWrapper and FluxWrapper.
 // It wrapper a Read object (a decoder) and decode in a internal buffer.
-// It allow implementation of Reader and Stream.
+// It allow implementation of Reader and Flux.
 pub struct SeekableDecoder<T> {
     decoder: Mutex<T>,
     buffer: RwLock<Vec<u8>>,

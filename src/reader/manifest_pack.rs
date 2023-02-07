@@ -19,14 +19,14 @@ pub struct ManifestPack {
 
 impl ManifestPack {
     pub fn new(reader: Reader) -> Result<Self> {
-        let mut stream = reader.create_stream_all();
-        let header = ManifestPackHeader::produce(&mut stream)?;
-        stream.seek(header.packs_offset());
-        let directory_pack_info = PackInfo::produce(&mut stream)?;
+        let mut flux = reader.create_flux_all();
+        let header = ManifestPackHeader::produce(&mut flux)?;
+        flux.seek(header.packs_offset());
+        let directory_pack_info = PackInfo::produce(&mut flux)?;
         let mut pack_infos: Vec<PackInfo> = Vec::with_capacity(header.pack_count.into_usize());
         let mut max_id = 0;
         for _i in header.pack_count {
-            let pack_info = PackInfo::produce(&mut stream)?;
+            let pack_info = PackInfo::produce(&mut flux)?;
             max_id = cmp::max(max_id, pack_info.pack_id.into_u8());
             pack_infos.push(pack_info);
         }
@@ -54,10 +54,10 @@ impl ManifestPack {
     }
 
     fn _get_check_info(&self) -> Result<CheckInfo> {
-        let mut checkinfo_stream = self
+        let mut checkinfo_flux = self
             .reader
-            .create_stream_from(self.header.pack_header.check_info_pos);
-        CheckInfo::produce(&mut checkinfo_stream)
+            .create_flux_from(self.header.pack_header.check_info_pos);
+        CheckInfo::produce(&mut checkinfo_flux)
     }
 
     pub fn get_directory_pack_info(&self) -> &PackInfo {
@@ -76,28 +76,28 @@ impl ManifestPack {
     fn check_manifest_only(&self) -> Result<bool> {
         let check_info = self.get_check_info()?;
         {
-            let mut check_stream = self
+            let check_flux = self
                 .reader
-                .create_stream_to(End::Offset(self.header.pack_header.check_info_pos));
-            let mut check_stream = CheckStream::new(&mut check_stream, self.header.pack_count + 1);
+                .create_flux_to(End::Offset(self.header.pack_header.check_info_pos));
+            let mut check_stream = CheckStream::new(check_flux, self.header.pack_count + 1);
             let mut v = vec![];
             check_stream.read_to_end(&mut v)?;
         }
-        let mut check_stream = self
+        let check_flux = self
             .reader
-            .create_stream_to(End::Offset(self.header.pack_header.check_info_pos));
-        let mut check_stream = CheckStream::new(&mut check_stream, self.header.pack_count + 1);
+            .create_flux_to(End::Offset(self.header.pack_header.check_info_pos));
+        let mut check_stream = CheckStream::new(check_flux, self.header.pack_count + 1);
         check_info.check(&mut check_stream as &mut dyn Read)
     }
 }
 
 struct CheckStream<'a> {
-    source: &'a mut Stream,
+    source: Flux<'a>,
     start_safe_zone: u64,
 }
 
 impl<'a> CheckStream<'a> {
-    pub fn new(source: &'a mut Stream, pack_count: PackCount) -> Self {
+    pub fn new(source: Flux<'a>, pack_count: PackCount) -> Self {
         let start_safe_zone =
             <ManifestPackHeader as SizedProducable>::Size::U64 + 256 * (pack_count.into_u64());
         Self {
@@ -167,13 +167,13 @@ impl Pack for ManifestPack {
             if let PackPos::Offset(o) = pack_info.pack_pos {
                 let check_info = {
                     let mut checkinfo_stream =
-                        self.reader.create_stream_from(pack_info.check_info_pos);
+                        self.reader.create_flux_from(pack_info.check_info_pos);
                     CheckInfo::produce(&mut checkinfo_stream)?
                 };
                 let valid = check_info.check(
                     &mut self
                         .reader
-                        .create_stream(o, End::Size(pack_info.pack_size - check_info.size())),
+                        .create_flux(o, End::Size(pack_info.pack_size - check_info.size())),
                 )?;
                 println!("=> valid : {valid}");
                 if !valid {
@@ -259,8 +259,7 @@ mod tests {
         let hash = {
             let mut hasher = blake3::Hasher::new();
             let reader = Reader::new_from_arc(Arc::clone(&content) as Arc<dyn Source>, End::None);
-            let mut stream = reader.create_stream_all();
-            let mut check_stream = CheckStream::new(&mut stream, PackCount::from(3));
+            let mut check_stream = CheckStream::new((&reader).into(), PackCount::from(3));
             io::copy(&mut check_stream, &mut hasher).unwrap();
             hasher.finalize()
         };

@@ -72,19 +72,19 @@ impl SizedProducable for PackInfo {
 
 impl Producable for PackInfo {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        let uuid = Uuid::produce(stream)?;
-        let pack_id = Id::produce(stream)?.into();
-        let free_data = FreeData103::produce(stream)?;
-        let pack_size = Size::produce(stream)?;
-        let check_info_pos = Offset::produce(stream)?;
-        let pack_offset = Offset::produce(stream)?;
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        let uuid = Uuid::produce(flux)?;
+        let pack_id = Id::produce(flux)?.into();
+        let free_data = FreeData103::produce(flux)?;
+        let pack_size = Size::produce(flux)?;
+        let check_info_pos = Offset::produce(flux)?;
+        let pack_offset = Offset::produce(flux)?;
         let pack_pos = if pack_offset.is_zero() {
-            let v = PString::produce(stream)?;
-            stream.skip(Size::from(111 - v.len()))?;
+            let v = PString::produce(flux)?;
+            flux.skip(Size::from(111 - v.len()))?;
             PackPos::Path(v)
         } else {
-            stream.skip(Size::new(112))?;
+            flux.skip(Size::new(112))?;
             PackPos::Offset(pack_offset)
         };
         Ok(Self {

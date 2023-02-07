@@ -8,8 +8,8 @@ pub struct Id<T>(pub T);
 
 impl Producable for Id<u8> {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        Ok(stream.read_u8()?.into())
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        Ok(flux.read_u8()?.into())
     }
 }
 impl SizedProducable for Id<u8> {

@@ -30,10 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let content_address = resolver.resolve_to_content(&value_2);
         // Let's print the content on stdout
         let reader = container.get_reader(content_address)?;
-        std::io::copy(
-            &mut reader.create_stream_all(),
-            &mut std::io::stdout().lock(),
-        )?;
+        std::io::copy(&mut reader.create_flux_all(), &mut std::io::stdout().lock())?;
     }
 
     {

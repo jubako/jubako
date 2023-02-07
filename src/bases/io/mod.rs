@@ -3,7 +3,7 @@ mod compression;
 mod file;
 
 use crate::bases::types::*;
-use crate::bases::Stream;
+use crate::bases::Flux;
 pub use buffer::*;
 pub use compression::*;
 pub use file::*;
@@ -59,10 +59,10 @@ impl fmt::Debug for dyn Source {
     }
 }
 
-/// A Producable is a object that can be produce from a stream.
+/// A Producable is a object that can be produce from a flux.
 pub trait Producable {
     type Output;
-    fn produce(stream: &mut Stream) -> Result<Self::Output>
+    fn produce(flux: &mut Flux) -> Result<Self::Output>
     where
         Self::Output: Sized;
 }
@@ -335,47 +335,47 @@ mod tests {
     #[test_case(create_lz4_reader)]
     #[test_case(create_lzma_reader)]
     #[test_case(create_zstd_reader)]
-    fn test_stream(creator: ReaderCreator) {
+    fn test_flux(creator: ReaderCreator) {
         let reader = creator(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
         if reader.is_none() {
             return;
         }
         let reader = reader.unwrap();
-        let mut stream = reader.create_stream_all();
-        assert_eq!(stream.read_u8().unwrap(), 0x00_u8);
-        assert_eq!(stream.tell(), Offset::new(1));
-        assert_eq!(stream.read_u8().unwrap(), 0x01_u8);
-        assert_eq!(stream.tell(), Offset::new(2));
-        assert_eq!(stream.read_u16().unwrap(), 0x0203_u16);
-        assert_eq!(stream.tell(), Offset::new(4));
-        stream = reader.create_stream_all();
-        assert_eq!(stream.read_u32().unwrap(), 0x00010203_u32);
-        assert_eq!(stream.read_u32().unwrap(), 0x04050607_u32);
-        assert_eq!(stream.tell(), Offset::new(8));
-        assert!(stream.read_u64().is_err());
-        stream = reader.create_stream_all();
-        assert_eq!(stream.read_u64().unwrap(), 0x0001020304050607_u64);
-        assert_eq!(stream.tell(), Offset::new(8));
+        let mut flux = reader.create_flux_all();
+        assert_eq!(flux.read_u8().unwrap(), 0x00_u8);
+        assert_eq!(flux.tell(), Offset::new(1));
+        assert_eq!(flux.read_u8().unwrap(), 0x01_u8);
+        assert_eq!(flux.tell(), Offset::new(2));
+        assert_eq!(flux.read_u16().unwrap(), 0x0203_u16);
+        assert_eq!(flux.tell(), Offset::new(4));
+        flux = reader.create_flux_all();
+        assert_eq!(flux.read_u32().unwrap(), 0x00010203_u32);
+        assert_eq!(flux.read_u32().unwrap(), 0x04050607_u32);
+        assert_eq!(flux.tell(), Offset::new(8));
+        assert!(flux.read_u64().is_err());
+        flux = reader.create_flux_all();
+        assert_eq!(flux.read_u64().unwrap(), 0x0001020304050607_u64);
+        assert_eq!(flux.tell(), Offset::new(8));
 
-        let mut stream1 = reader.create_stream_from(Offset::from(1_u64));
-        assert_eq!(stream1.tell(), Offset::zero());
-        assert_eq!(stream1.read_u8().unwrap(), 0x01_u8);
-        assert_eq!(stream1.tell(), Offset::new(1));
-        assert_eq!(stream1.read_u16().unwrap(), 0x0203_u16);
-        assert_eq!(stream1.tell(), Offset::new(3));
-        assert_eq!(stream1.read_u32().unwrap(), 0x04050607_u32);
-        assert_eq!(stream1.tell(), Offset::new(7));
-        assert!(stream1.read_u64().is_err());
-        stream1 = reader.create_stream_from(Offset::new(1));
-        assert_eq!(stream1.read_u64().unwrap(), 0x0102030405060708_u64);
-        assert_eq!(stream1.tell(), Offset::new(8));
+        let mut flux1 = reader.create_flux_from(Offset::from(1_u64));
+        assert_eq!(flux1.tell(), Offset::zero());
+        assert_eq!(flux1.read_u8().unwrap(), 0x01_u8);
+        assert_eq!(flux1.tell(), Offset::new(1));
+        assert_eq!(flux1.read_u16().unwrap(), 0x0203_u16);
+        assert_eq!(flux1.tell(), Offset::new(3));
+        assert_eq!(flux1.read_u32().unwrap(), 0x04050607_u32);
+        assert_eq!(flux1.tell(), Offset::new(7));
+        assert!(flux1.read_u64().is_err());
+        flux1 = reader.create_flux_from(Offset::new(1));
+        assert_eq!(flux1.read_u64().unwrap(), 0x0102030405060708_u64);
+        assert_eq!(flux1.tell(), Offset::new(8));
 
-        stream = reader.create_stream_from(Offset::zero());
-        stream1 = reader.create_stream_from(Offset::new(1));
-        stream.skip(Size::new(1)).unwrap();
-        assert_eq!(stream.read_u8().unwrap(), stream1.read_u8().unwrap());
-        assert_eq!(stream.read_u16().unwrap(), stream1.read_u16().unwrap());
-        assert_eq!(stream.read_u32().unwrap(), stream1.read_u32().unwrap());
+        flux = reader.create_flux_from(Offset::zero());
+        flux1 = reader.create_flux_from(Offset::new(1));
+        flux.skip(Size::new(1)).unwrap();
+        assert_eq!(flux.read_u8().unwrap(), flux1.read_u8().unwrap());
+        assert_eq!(flux.read_u16().unwrap(), flux1.read_u16().unwrap());
+        assert_eq!(flux.read_u32().unwrap(), flux1.read_u32().unwrap());
     }
 
     #[test_case(create_buf_reader)]
@@ -424,39 +424,39 @@ mod tests {
     #[test_case(create_lz4_reader)]
     #[test_case(create_lzma_reader)]
     #[test_case(create_zstd_reader)]
-    fn test_create_sub_stream(creator: ReaderCreator) {
+    fn test_create_sub_flux(creator: ReaderCreator) {
         let reader = creator(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
         if reader.is_none() {
             return;
         }
         let reader = reader.unwrap();
         assert_eq!(reader.size(), Size::new(9));
-        let sub_reader = reader.create_stream(Offset::zero(), End::None);
+        let sub_reader = reader.create_flux(Offset::zero(), End::None);
         assert_eq!(sub_reader.size(), Size::new(9));
-        let sub_reader = reader.create_stream(Offset::new(2), End::None);
+        let sub_reader = reader.create_flux(Offset::new(2), End::None);
         assert_eq!(sub_reader.size(), Size::new(7));
-        let sub_reader = reader.create_stream(Offset::zero(), End::new_size(6u64));
+        let sub_reader = reader.create_flux(Offset::zero(), End::new_size(6u64));
         assert_eq!(sub_reader.size(), Size::new(6));
-        let sub_reader = reader.create_stream(Offset::new(2), End::new_size(6u64));
+        let sub_reader = reader.create_flux(Offset::new(2), End::new_size(6u64));
         assert_eq!(sub_reader.size(), Size::new(6));
-        let sub_reader = reader.create_stream(Offset::zero(), End::new_offset(6u64));
+        let sub_reader = reader.create_flux(Offset::zero(), End::new_offset(6u64));
         assert_eq!(sub_reader.size(), Size::new(6));
-        let sub_reader = reader.create_stream(Offset::new(2), End::new_offset(6u64));
+        let sub_reader = reader.create_flux(Offset::new(2), End::new_offset(6u64));
         assert_eq!(sub_reader.size(), Size::new(4));
 
         let reader = reader.create_sub_reader(Offset::new(1), End::None);
         assert_eq!(reader.size(), Size::new(8));
-        let sub_reader = reader.create_stream(Offset::zero(), End::None);
+        let sub_reader = reader.create_flux(Offset::zero(), End::None);
         assert_eq!(sub_reader.size(), Size::new(8));
-        let sub_reader = reader.create_stream(Offset::new(2), End::None);
+        let sub_reader = reader.create_flux(Offset::new(2), End::None);
         assert_eq!(sub_reader.size(), Size::new(6));
-        let sub_reader = reader.create_stream(Offset::zero(), End::new_size(6u64));
+        let sub_reader = reader.create_flux(Offset::zero(), End::new_size(6u64));
         assert_eq!(sub_reader.size(), Size::new(6));
-        let sub_reader = reader.create_stream(Offset::new(2), End::new_size(6u64));
+        let sub_reader = reader.create_flux(Offset::new(2), End::new_size(6u64));
         assert_eq!(sub_reader.size(), Size::new(6));
-        let sub_reader = reader.create_stream(Offset::zero(), End::new_offset(6u64));
+        let sub_reader = reader.create_flux(Offset::zero(), End::new_offset(6u64));
         assert_eq!(sub_reader.size(), Size::new(6));
-        let sub_reader = reader.create_stream(Offset::new(2), End::new_offset(6u64));
+        let sub_reader = reader.create_flux(Offset::new(2), End::new_offset(6u64));
         assert_eq!(sub_reader.size(), Size::new(4));
     }
 }

@@ -34,16 +34,16 @@ impl ContentPackHeader {
 
 impl Producable for ContentPackHeader {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        let pack_header = PackHeader::produce(stream)?;
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        let pack_header = PackHeader::produce(flux)?;
         if pack_header.magic != PackKind::Content {
             return Err(format_error!("Pack Magic is not ContentPack"));
         }
-        let content_ptr_pos = Offset::produce(stream)?;
-        let cluster_ptr_pos = Offset::produce(stream)?;
-        let content_count = Count::<u32>::produce(stream)?.into();
-        let cluster_count = Count::<u32>::produce(stream)?.into();
-        let free_data = FreeData40::produce(stream)?;
+        let content_ptr_pos = Offset::produce(flux)?;
+        let cluster_ptr_pos = Offset::produce(flux)?;
+        let content_count = Count::<u32>::produce(flux)?.into();
+        let cluster_count = Count::<u32>::produce(flux)?.into();
+        let free_data = FreeData40::produce(flux)?;
         Ok(ContentPackHeader {
             pack_header,
             content_ptr_pos,
@@ -93,9 +93,10 @@ mod tests {
             0x00, 0x00, 0x00, 0x60, // cluster ccount
         ];
         content.extend_from_slice(&[0xff; 40]);
-        let mut stream = Stream::from(content);
+        let reader = Reader::from(content);
+        let mut flux = reader.create_flux_all();
         assert_eq!(
-            ContentPackHeader::produce(&mut stream).unwrap(),
+            ContentPackHeader::produce(&mut flux).unwrap(),
             ContentPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::Content,

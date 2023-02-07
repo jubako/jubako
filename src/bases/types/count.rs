@@ -43,8 +43,8 @@ where
 
 impl Producable for Count<u8> {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        Ok(stream.read_u8()?.into())
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        Ok(flux.read_u8()?.into())
     }
 }
 impl SizedProducable for Count<u8> {
@@ -53,8 +53,8 @@ impl SizedProducable for Count<u8> {
 
 impl Producable for Count<u16> {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        Ok(stream.read_u16()?.into())
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        Ok(flux.read_u16()?.into())
     }
 }
 impl SizedProducable for Count<u16> {
@@ -63,8 +63,8 @@ impl SizedProducable for Count<u16> {
 
 impl Producable for Count<u32> {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        Ok(stream.read_u32()?.into())
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        Ok(flux.read_u32()?.into())
     }
 }
 impl SizedProducable for Count<u32> {
@@ -73,8 +73,8 @@ impl SizedProducable for Count<u32> {
 
 impl Producable for Count<u64> {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        Ok(stream.read_u64()?.into())
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        Ok(flux.read_u64()?.into())
     }
 }
 impl SizedProducable for Count<u64> {

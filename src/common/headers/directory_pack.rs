@@ -42,18 +42,18 @@ impl DirectoryPackHeader {
 
 impl Producable for DirectoryPackHeader {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        let pack_header = PackHeader::produce(stream)?;
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        let pack_header = PackHeader::produce(flux)?;
         if pack_header.magic != PackKind::Directory {
             return Err(format_error!("Pack Magic is not DirectoryPack"));
         }
-        let index_ptr_pos = Offset::produce(stream)?;
-        let entry_store_ptr_pos = Offset::produce(stream)?;
-        let value_store_ptr_pos = Offset::produce(stream)?;
-        let index_count = Count::<u32>::produce(stream)?.into();
-        let entry_store_count = Count::<u32>::produce(stream)?.into();
-        let value_store_count = Count::<u8>::produce(stream)?.into();
-        let free_data = FreeData31::produce(stream)?;
+        let index_ptr_pos = Offset::produce(flux)?;
+        let entry_store_ptr_pos = Offset::produce(flux)?;
+        let value_store_ptr_pos = Offset::produce(flux)?;
+        let index_count = Count::<u32>::produce(flux)?.into();
+        let entry_store_count = Count::<u32>::produce(flux)?.into();
+        let value_store_count = Count::<u8>::produce(flux)?.into();
+        let free_data = FreeData31::produce(flux)?;
         Ok(DirectoryPackHeader {
             pack_header,
             entry_store_ptr_pos,
@@ -108,9 +108,10 @@ mod tests {
             0x05, //value_store count
         ];
         content.extend_from_slice(&[0xff; 31]);
-        let mut stream = Stream::from(content);
+        let reader = Reader::from(content);
+        let mut flux = reader.create_flux_all();
         assert_eq!(
-            DirectoryPackHeader::produce(&mut stream).unwrap(),
+            DirectoryPackHeader::produce(&mut flux).unwrap(),
             DirectoryPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::Directory,
