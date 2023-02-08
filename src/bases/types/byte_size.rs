@@ -33,8 +33,8 @@ impl TryFrom<usize> for ByteSize {
 
 impl Producable for ByteSize {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        Ok((stream.read_u8()? as usize).try_into()?)
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        Ok((flux.read_u8()? as usize).try_into()?)
     }
 }
 impl SizedProducable for ByteSize {

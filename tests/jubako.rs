@@ -490,7 +490,7 @@ test_suite! {
         let resolver = reader::Resolver::new(value_storage);
         let schema = reader::AnySchema {};
         let builder = schema.create_builder(index.get_store(&entry_storage).unwrap()).unwrap();
-        let finder: reader::Finder<reader::AnySchema> = index.get_finder(&builder).unwrap();
+        let finder: reader::Finder<reader::AnySchema> = index.get_finder(builder).unwrap();
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {
             let entry = finder.get_entry(i).unwrap();
@@ -516,9 +516,9 @@ test_suite! {
                 );
                 let pack = container.get_pack(1.into()).unwrap();
                 let reader = pack.get_content(jubako::ContentIdx::from(i.into_u32())).unwrap();
-                let mut stream = reader.create_stream_all();
+                let mut flux = reader.create_flux_all();
                 let mut read_content: String = "".to_string();
-                stream.read_to_string(&mut read_content).unwrap();
+                flux.read_to_string(&mut read_content).unwrap();
                 assert_eq!(read_content, articles.val[i.into_u32() as usize].content);
             } else {
               panic!();

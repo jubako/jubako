@@ -67,10 +67,10 @@ impl Cluster {
     pub fn new(reader: &Reader, cluster_info: SizedOffset) -> Result<Self> {
         let header_reader =
             reader.create_sub_memory_reader(cluster_info.offset, End::Size(cluster_info.size))?;
-        let mut stream = header_reader.create_stream_all();
-        let header = ClusterHeader::produce(&mut stream)?;
-        let raw_data_size: Size = stream.read_sized(header.offset_size)?.into();
-        let data_size: Size = stream.read_sized(header.offset_size)?.into();
+        let mut flux = header_reader.create_flux_all();
+        let header = ClusterHeader::produce(&mut flux)?;
+        let raw_data_size: Size = flux.read_sized(header.offset_size)?.into();
+        let data_size: Size = flux.read_sized(header.offset_size)?.into();
         let blob_count = header.blob_count.into_usize();
         let mut blob_offsets: Vec<Offset> = Vec::with_capacity(blob_count + 1);
         let uninit = blob_offsets.spare_capacity_mut();
@@ -80,7 +80,7 @@ impl Cluster {
                 first = false;
                 Offset::zero()
             } else {
-                stream.read_sized(header.offset_size)?.into()
+                flux.read_sized(header.offset_size)?.into()
             };
             assert!(value.is_valid(data_size));
             elem.write(value);
@@ -93,18 +93,26 @@ impl Cluster {
                     &format!(
                         "Stored size ({raw_data_size}) must be equal to data size ({data_size}) if no comprresion."
                     ),
-                    stream
+                    flux
                 ));
             }
-            ClusterReader::Plain(reader.create_sub_reader(
-                cluster_info.offset - raw_data_size,
-                End::Size(raw_data_size),
-            ))
+            ClusterReader::Plain(
+                reader
+                    .create_sub_reader(
+                        cluster_info.offset - raw_data_size,
+                        End::Size(raw_data_size),
+                    )
+                    .into(),
+            )
         } else {
-            ClusterReader::Raw(reader.create_sub_reader(
-                cluster_info.offset - raw_data_size,
-                End::Size(raw_data_size),
-            ))
+            ClusterReader::Raw(
+                reader
+                    .create_sub_reader(
+                        cluster_info.offset - raw_data_size,
+                        End::Size(raw_data_size),
+                    )
+                    .into(),
+            )
         };
         Ok(Cluster {
             blob_offsets,
@@ -125,18 +133,18 @@ impl Cluster {
         } else {
             unreachable!()
         };
-        let raw_stream = raw_reader.create_stream_all();
+        let raw_flux = raw_reader.create_flux_all();
         let decompress_reader = match self.compression {
             CompressionType::Lz4 => Reader::new_from_arc(
-                lz4_source(raw_stream, self.data_size)?,
+                lz4_source(raw_flux.into(), self.data_size)?,
                 End::Size(self.data_size),
             ),
             CompressionType::Lzma => Reader::new_from_arc(
-                lzma_source(raw_stream, self.data_size)?,
+                lzma_source(raw_flux.into(), self.data_size)?,
                 End::Size(self.data_size),
             ),
             CompressionType::Zstd => Reader::new_from_arc(
-                zstd_source(raw_stream, self.data_size)?,
+                zstd_source(raw_flux.into(), self.data_size)?,
                 End::Size(self.data_size),
             ),
             CompressionType::None => unreachable!(),
@@ -155,7 +163,7 @@ impl Cluster {
         let offset = self.blob_offsets[index.into_usize()];
         let end_offset = self.blob_offsets[index.into_usize() + 1];
         if let ClusterReader::Plain(r) = &*self.reader.borrow() {
-            Ok(r.create_sub_reader(offset, End::Offset(end_offset)))
+            Ok(r.create_sub_reader(offset, End::Offset(end_offset)).into())
         } else {
             unreachable!()
         }
@@ -285,8 +293,8 @@ mod tests {
         }
         let (ptr_info, data) = cluster_info.unwrap();
         let reader = Reader::from(data);
-        let mut stream = reader.create_stream_from(ptr_info.offset);
-        let header = ClusterHeader::produce(&mut stream).unwrap();
+        let mut flux = reader.create_flux_from(ptr_info.offset);
+        let header = ClusterHeader::produce(&mut flux).unwrap();
         assert_eq!(header.compression, comp);
         assert_eq!(header.offset_size, ByteSize::U1);
         assert_eq!(header.blob_count, 3.into());
@@ -297,24 +305,24 @@ mod tests {
             let sub_reader = cluster.get_reader(BlobIdx::from(0)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream_all();
-            stream.read_to_end(&mut v).unwrap();
+            let mut flux = sub_reader.create_flux_all();
+            flux.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
         {
             let sub_reader = cluster.get_reader(BlobIdx::from(1)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream_all();
-            stream.read_to_end(&mut v).unwrap();
+            let mut flux = sub_reader.create_flux_all();
+            flux.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
         {
             let sub_reader = cluster.get_reader(BlobIdx::from(2)).unwrap();
             assert_eq!(sub_reader.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = sub_reader.create_stream_all();
-            stream.read_to_end(&mut v).unwrap();
+            let mut flux = sub_reader.create_flux_all();
+            flux.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }
     }

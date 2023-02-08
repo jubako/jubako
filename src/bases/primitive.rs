@@ -3,7 +3,7 @@ use std::ptr::copy_nonoverlapping;
 
 macro_rules! write_num_bytes {
     ($size:expr, $n:expr, $dst:expr) => {{
-        assert!($size <= $dst.len());
+        debug_assert!($size <= $dst.len());
         let bytes = $n.to_be_bytes();
         unsafe {
             // N.B. https://github.com/rust-lang/rust/issues/22776
@@ -20,7 +20,7 @@ macro_rules! write_num_bytes {
 
 macro_rules! read_num_bytes {
     ($size:expr, $buf:expr, $ty:ty) => {{
-        assert!($size <= $buf.len());
+        debug_assert!($size <= $buf.len());
         let mut data: $ty = 0;
         unsafe {
             copy_nonoverlapping(
@@ -51,12 +51,12 @@ pub fn write_u64(val: u64, out: &mut [u8; 8]) {
 }
 
 pub fn write_from_u64(val: u64, size: usize, out: &mut [u8]) {
-    assert!(size <= 8);
+    debug_assert!(size <= 8);
     write_num_bytes!(size, val, out);
 }
 
 pub fn read_u8(buf: &[u8]) -> u8 {
-    assert!(!buf.is_empty());
+    debug_assert!(!buf.is_empty());
     buf[0]
 }
 
@@ -73,12 +73,12 @@ pub fn read_u64(buf: &[u8]) -> u64 {
 }
 
 pub fn read_to_u64(size: usize, buf: &[u8]) -> u64 {
-    assert!(size <= 8);
+    debug_assert!(size <= 8);
     read_num_bytes!(size, buf, u64)
 }
 
 pub fn read_i8(buf: &[u8]) -> i8 {
-    assert!(!buf.is_empty());
+    debug_assert!(!buf.is_empty());
     read_num_bytes!(1, buf, i8)
 }
 
@@ -95,9 +95,9 @@ pub fn read_i64(buf: &[u8]) -> i64 {
 }
 
 pub fn read_to_i64(size: usize, buf: &[u8]) -> i64 {
-    assert!(size > 0);
-    assert!(size <= 8);
-    assert!(size <= buf.len());
+    debug_assert!(size > 0);
+    debug_assert!(size <= 8);
+    debug_assert!(size <= buf.len());
     let mut data = if buf[0].leading_zeros() == 0 {
         -1_i64
     } else {

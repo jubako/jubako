@@ -10,12 +10,12 @@ pub enum CheckKind {
 
 impl Producable for CheckKind {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        let kind = stream.read_u8()?;
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        let kind = flux.read_u8()?;
         match kind {
             0_u8 => Ok(CheckKind::None),
             1_u8 => Ok(CheckKind::Blake3),
-            _ => Err(format_error!(&format!("Invalid check kind {kind}"), stream)),
+            _ => Err(format_error!(&format!("Invalid check kind {kind}"), flux)),
         }
     }
 }
@@ -28,9 +28,9 @@ impl Writable for CheckKind {
 
 impl Producable for blake3::Hash {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
+    fn produce(flux: &mut Flux) -> Result<Self> {
         let mut v = [0_u8; blake3::OUT_LEN];
-        stream.read_exact(&mut v)?;
+        flux.read_exact(&mut v)?;
         Ok(v.into())
     }
 }
@@ -42,10 +42,10 @@ pub struct CheckInfo {
 
 impl Producable for CheckInfo {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        let kind = CheckKind::produce(stream)?;
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        let kind = CheckKind::produce(flux)?;
         let b3hash = match kind {
-            CheckKind::Blake3 => Some(blake3::Hash::produce(stream)?),
+            CheckKind::Blake3 => Some(blake3::Hash::produce(flux)?),
             _ => None,
         };
         Ok(Self { b3hash })

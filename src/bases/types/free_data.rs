@@ -6,9 +6,9 @@ pub type FreeData<N> = GenericArray<u8, N>;
 
 impl<N: ArrayLength<u8>> Producable for FreeData<N> {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
+    fn produce(flux: &mut Flux) -> Result<Self> {
         let mut s = GenericArray::default();
-        stream.read_exact(s.as_mut_slice())?;
+        flux.read_exact(s.as_mut_slice())?;
         Ok(s)
     }
 }

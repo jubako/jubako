@@ -22,10 +22,10 @@ pub struct Layout {
 
 impl Producable for Layout {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        let entry_size = stream.read_u16()? as usize;
-        let variant_count: VariantCount = Count::<u8>::produce(stream)?.into();
-        let raw_layout = RawLayout::produce(stream)?;
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        let entry_size = flux.read_u16()? as usize;
+        let variant_count: VariantCount = Count::<u8>::produce(flux)?.into();
+        let raw_layout = RawLayout::produce(flux)?;
         let mut common_properties = Vec::new();
         let mut common_size = 0;
         let mut property_iter = raw_layout.iter().peekable();
@@ -46,13 +46,13 @@ impl Producable for Layout {
                 if !raw_property.is_variant_id() && !variant_started {
                     return Err(format_error!(
                         "Variant definition must start with a VariantId.",
-                        stream
+                        flux
                     ));
                 }
                 if raw_property.is_variant_id() && variant_started {
                     return Err(format_error!(
                         "VariantId cannot be in the middle of a variant definition.",
-                        stream
+                        flux
                     ));
                 }
                 if raw_property.is_variant_id() {
@@ -68,7 +68,7 @@ impl Producable for Layout {
                             &format!(
                                 "Sum of variant size ({common_size} + {variant_size}) cannot exceed the entry size ({entry_size})"
                             ),
-                            stream
+                            flux
                         ))
                     }
                     Ordering::Equal => {
@@ -92,7 +92,7 @@ impl Producable for Layout {
                         "Entry declare ({variant_count}) variants but properties define ({})",
                         variants.len()
                     ),
-                    stream
+                    flux
                 ));
             }
             Some((variant_id_offset, variants.into_boxed_slice()))

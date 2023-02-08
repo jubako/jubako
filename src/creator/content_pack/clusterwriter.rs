@@ -13,7 +13,7 @@ fn lz4_compress<'b>(
 ) -> Result<&'b mut dyn OutStream> {
     let mut encoder = lz4::EncoderBuilder::new().level(16).build(stream)?;
     for in_reader in data.drain(..) {
-        std::io::copy(&mut in_reader.create_stream_all(), &mut encoder)?;
+        std::io::copy(&mut in_reader.create_flux_all(), &mut encoder)?;
     }
     let (stream, err) = encoder.finish();
     err?;
@@ -38,7 +38,7 @@ fn lzma_compress<'b>(
 ) -> Result<&'b mut dyn OutStream> {
     let mut encoder = lzma::LzmaWriter::new_compressor(stream, 9)?;
     for in_reader in data.drain(..) {
-        std::io::copy(&mut in_reader.create_stream_all(), &mut encoder)?;
+        std::io::copy(&mut in_reader.create_flux_all(), &mut encoder)?;
     }
     Ok(encoder.finish()?)
 }
@@ -64,7 +64,7 @@ fn zstd_compress<'b>(
     encoder.include_contentsize(false)?;
     //encoder.long_distance_matching(true);
     for in_reader in data.drain(..) {
-        std::io::copy(&mut in_reader.create_stream_all(), &mut encoder)?;
+        std::io::copy(&mut in_reader.create_flux_all(), &mut encoder)?;
     }
     Ok(encoder.finish()?)
 }
@@ -193,7 +193,7 @@ impl ClusterWriter {
 
     fn write_cluster_data(&mut self, cluster: &mut ClusterCreator) -> Result<()> {
         for d in cluster.data.drain(..) {
-            std::io::copy(&mut d.create_stream_all(), &mut self.file)?;
+            std::io::copy(&mut d.create_flux_all(), &mut self.file)?;
         }
         Ok(())
     }

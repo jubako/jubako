@@ -20,10 +20,10 @@ impl ClusterHeader {
 
 impl Producable for ClusterHeader {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        let compression = CompressionType::produce(stream)?;
-        let offset_size = ByteSize::produce(stream)?;
-        let blob_count = Count::<u16>::produce(stream)?.into();
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        let compression = CompressionType::produce(flux)?;
+        let offset_size = ByteSize::produce(flux)?;
+        let blob_count = Count::<u16>::produce(flux)?.into();
         Ok(ClusterHeader {
             compression,
             offset_size,
@@ -48,13 +48,14 @@ mod tests {
 
     #[test]
     fn test_clusterheader() {
-        let mut stream = Stream::from(vec![
+        let reader = Reader::from(vec![
             0x00, // compression
             0x01, // offset_size
             0x00, 0x02, // blob_count
         ]);
+        let mut flux = reader.create_flux_all();
         assert_eq!(
-            ClusterHeader::produce(&mut stream).unwrap(),
+            ClusterHeader::produce(&mut flux).unwrap(),
             ClusterHeader {
                 compression: CompressionType::None,
                 offset_size: ByteSize::U1,

@@ -4,31 +4,31 @@ use std::io::{BorrowedBuf, Read};
 use std::sync::Arc;
 
 // A wrapper arount someting to implement Flux trait
-#[derive(Debug)]
-pub struct Stream {
-    source: Arc<dyn Source>,
+pub struct Flux<'s> {
+    source: &'s Arc<dyn Source>,
     origin: Offset,
     end: Offset,
     offset: Offset,
 }
 
-impl Stream {
-    pub fn new<T: Source + 'static + Sync>(source: T, end: End) -> Self {
-        let end = match end {
-            End::None => source.size().into(),
-            End::Offset(o) => o,
-            End::Size(s) => s.into(),
-        };
-        Self {
-            source: Arc::new(source),
-            origin: Offset::zero(),
-            offset: Offset::zero(),
-            end,
-        }
+impl<'s> std::fmt::Debug for Flux<'s> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Flux")
+            .field("source", self.source)
+            .field("origin", &self.origin)
+            .field("end", &self.end)
+            .field("offset", &self.offset)
+            .finish()
+    }
+}
+
+impl<'s> Flux<'s> {
+    pub fn to_owned(self) -> Stream {
+        Stream::new_from_parts(Arc::clone(self.source), self.origin, self.end, self.offset)
     }
 
     pub fn new_from_parts(
-        source: Arc<dyn Source>,
+        source: &'s Arc<dyn Source>,
         origin: Offset,
         end: Offset,
         offset: Offset,
@@ -39,10 +39,6 @@ impl Stream {
             end,
             offset,
         }
-    }
-
-    pub fn as_flux(&self) -> Flux {
-        Flux::new_from_parts(&self.source, self.origin, self.end, self.offset)
     }
 
     pub fn tell(&self) -> Offset {
@@ -65,7 +61,7 @@ impl Stream {
             Ok(())
         } else {
             Err(format_error!(&format!(
-                "Cannot skip at offset {} ({}+{}) after end of stream ({}).",
+                "Cannot skip at offset {} ({}+{}) after end of flux ({}).",
                 new_offset, self.offset, size, self.end
             )))
         }
@@ -93,7 +89,7 @@ impl Stream {
         self.offset += 8;
         Ok(ret)
     }
-    pub fn read_usized(&mut self, size: ByteSize) -> Result<u64> {
+    pub fn read_sized(&mut self, size: ByteSize) -> Result<u64> {
         let ret = self.source.read_usized(self.offset, size)?;
         self.offset += size as usize;
         Ok(ret)
@@ -115,7 +111,7 @@ impl Stream {
     }
 }
 
-impl Read for Stream {
+impl<'s> Read for Flux<'s> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let max_len = std::cmp::min(buf.len(), (self.end - self.offset).into_usize());
         let buf = &mut buf[..max_len];
@@ -129,8 +125,20 @@ impl Read for Stream {
     }
 }
 
-impl From<Flux<'_>> for Stream {
-    fn from(flux: Flux) -> Self {
-        flux.to_owned()
+impl<'s> From<&'s Reader> for Flux<'s> {
+    fn from(reader: &'s Reader) -> Self {
+        reader.create_flux_all()
+    }
+}
+
+impl<'s> From<&'s Stream> for Flux<'s> {
+    fn from(stream: &'s Stream) -> Self {
+        stream.as_flux()
+    }
+}
+
+impl<'s> From<&SubReader<'s>> for Flux<'s> {
+    fn from(reader: &SubReader<'s>) -> Self {
+        reader.create_flux_all()
     }
 }

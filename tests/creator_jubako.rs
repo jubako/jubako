@@ -147,7 +147,7 @@ test_suite! {
         let resolver = jubako::reader::Resolver::new(value_storage);
         let schema = jubako::reader::AnySchema {};
         let builder = schema.create_builder(index.get_store(&entry_storage).unwrap()).unwrap();
-        let finder: jubako::reader::Finder<jubako::reader::AnySchema> = index.get_finder(&builder).unwrap();
+        let finder: jubako::reader::Finder<jubako::reader::AnySchema> = index.get_finder(builder).unwrap();
         println!("Read index");
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {
@@ -164,11 +164,11 @@ test_suite! {
             println!("Get reader");
             let reader = container.get_reader(value_1).unwrap();
             println!("Readir is {:?}", reader);
-            let mut stream = reader.create_stream_all();
-            println!("Stream is {:?}", stream);
+            let mut flux = reader.create_flux_all();
+            println!("flux is {:?}", flux);
             let mut read_content: String = "".to_string();
-            println!("Read from stream");
-            stream.read_to_string(&mut read_content).unwrap();
+            println!("Read from flux");
+            flux.read_to_string(&mut read_content).unwrap();
             assert_eq!(read_content, articles.val[i.into_usize()].content);
             println!("Check value 2");
             let value_2 = entry.get_value(2.into()).unwrap();

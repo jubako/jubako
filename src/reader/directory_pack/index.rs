@@ -16,13 +16,13 @@ pub struct IndexHeader {
 
 impl Producable for IndexHeader {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        let store_id = Idx::<u32>::produce(stream)?.into();
-        let entry_count = Count::<u32>::produce(stream)?.into();
-        let entry_offset = Idx::<u32>::produce(stream)?.into();
-        let extra_data = ContentAddress::produce(stream)?;
-        let index_property = stream.read_u8()?;
-        let name = String::from_utf8(PString::produce(stream)?)?;
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        let store_id = Idx::<u32>::produce(flux)?.into();
+        let entry_count = Count::<u32>::produce(flux)?.into();
+        let entry_offset = Idx::<u32>::produce(flux)?.into();
+        let extra_data = ContentAddress::produce(flux)?;
+        let index_property = flux.read_u8()?;
+        let name = String::from_utf8(PString::produce(flux)?)?;
         Ok(Self {
             store_id,
             entry_count,
@@ -52,10 +52,10 @@ impl Index {
         self.header.entry_count
     }
 
-    pub fn get_finder<'builder, Schema: schema::SchemaTrait>(
+    pub fn get_finder<Schema: schema::SchemaTrait>(
         &self,
-        builder: &'builder Schema::Builder,
-    ) -> Result<Finder<'builder, Schema>> {
+        builder: Rc<Schema::Builder>,
+    ) -> Result<Finder<Schema>> {
         Ok(Finder::new(
             builder,
             self.entry_offset(),
@@ -88,8 +88,9 @@ mod tests {
             0x01, // index_property
             0x05, 0x48, 0x65, 0x6C, 0x6C, 0x6F, // PString Hello
         ];
-        let mut stream = Stream::from(content);
-        let header = IndexHeader::produce(&mut stream).unwrap();
+        let reader = Reader::from(content);
+        let mut flux = reader.create_flux_all();
+        let header = IndexHeader::produce(&mut flux).unwrap();
         assert_eq!(
             header,
             IndexHeader {

@@ -10,7 +10,7 @@ impl<T: Copy> Late<T> {
     }
 
     pub fn set(&self, value: T) {
-        assert!(!self.is_set());
+        debug_assert!(!self.is_set());
         self.0.set(Some(value));
     }
 

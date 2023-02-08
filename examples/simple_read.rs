@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let resolver = jbk::reader::Resolver::new(value_storage); // This is needed to get our info in the value_store
     let schema = jbk::reader::AnySchema {};
     let builder = schema.create_builder(index.get_store(&entry_storage)?)?;
-    let finder: jbk::reader::Finder<jbk::reader::AnySchema> = index.get_finder(&builder)?; // To found our entries.
+    let finder: jbk::reader::Finder<jbk::reader::AnySchema> = index.get_finder(builder)?; // To found our entries.
 
     {
         let entry = finder.get_entry(0.into())?;
@@ -30,10 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let content_address = resolver.resolve_to_content(&value_2);
         // Let's print the content on stdout
         let reader = container.get_reader(content_address)?;
-        std::io::copy(
-            &mut reader.create_stream_all(),
-            &mut std::io::stdout().lock(),
-        )?;
+        std::io::copy(&mut reader.create_flux_all(), &mut std::io::stdout().lock())?;
     }
 
     {

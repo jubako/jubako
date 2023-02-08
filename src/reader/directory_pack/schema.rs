@@ -5,14 +5,14 @@ use std::rc::Rc;
 
 pub trait SchemaTrait {
     type Builder: BuilderTrait;
-    fn create_builder(&self, store: Rc<EntryStore>) -> Result<Self::Builder>;
+    fn create_builder(&self, store: Rc<EntryStore>) -> Result<Rc<Self::Builder>>;
 }
 
 pub struct AnySchema {}
 
 impl SchemaTrait for AnySchema {
     type Builder = AnyBuilder;
-    fn create_builder(&self, store: Rc<EntryStore>) -> Result<AnyBuilder> {
-        Ok(AnyBuilder::new(store))
+    fn create_builder(&self, store: Rc<EntryStore>) -> Result<Rc<AnyBuilder>> {
+        Ok(Rc::new(AnyBuilder::new(store)))
     }
 }

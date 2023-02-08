@@ -46,16 +46,16 @@ impl PackHeader {
 
 impl Producable for PackHeader {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        let magic = PackKind::produce(stream)?;
-        let app_vendor_id = stream.read_u32()?;
-        let major_version = stream.read_u8()?;
-        let minor_version = stream.read_u8()?;
-        let uuid = Uuid::produce(stream)?;
-        stream.skip(Size::new(6))?;
-        let file_size = Size::produce(stream)?;
-        let check_info_pos = Offset::produce(stream)?;
-        stream.skip(Size::new(16))?;
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        let magic = PackKind::produce(flux)?;
+        let app_vendor_id = flux.read_u32()?;
+        let major_version = flux.read_u8()?;
+        let minor_version = flux.read_u8()?;
+        let uuid = Uuid::produce(flux)?;
+        flux.skip(Size::new(6))?;
+        let file_size = Size::produce(flux)?;
+        let check_info_pos = Offset::produce(flux)?;
+        flux.skip(Size::new(16))?;
         Ok(PackHeader {
             magic,
             app_vendor_id,
@@ -103,9 +103,10 @@ mod tests {
             0x00, // No check
         ];
         content.extend_from_slice(&[0xff; 56]);
-        let mut stream = Stream::from(content);
+        let reader = Reader::from(content);
+        let mut flux = reader.create_flux_all();
         assert_eq!(
-            PackHeader::produce(&mut stream).unwrap(),
+            PackHeader::produce(&mut flux).unwrap(),
             PackHeader {
                 magic: PackKind::Content,
                 app_vendor_id: 0x01000000_u32,

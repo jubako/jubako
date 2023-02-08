@@ -15,7 +15,7 @@ fn shannon_entropy(data: &Reader) -> Result<f32> {
     let mut entropy = 0.0;
     let mut counts = [0; 256];
     let size = std::cmp::min(1024, data.size().into_usize());
-    let mut data = data.create_stream_all();
+    let mut data = data.create_flux_all();
 
     for _ in 0..size {
         counts[data.read_u8()? as usize] += 1;

@@ -9,13 +9,13 @@ enum ValueStoreKind {
 
 impl Producable for ValueStoreKind {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        match stream.read_u8()? {
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        match flux.read_u8()? {
             0 => Ok(ValueStoreKind::Plain),
             1 => Ok(ValueStoreKind::Indexed),
             v => Err(format_error!(
                 &format!("Invalid ValueStoreKind ({v})"),
-                stream
+                flux
             )),
         }
     }
@@ -34,16 +34,14 @@ impl ValueStore {
     pub fn new(reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
         let header_reader =
             reader.create_sub_memory_reader(pos_info.offset, End::Size(pos_info.size))?;
-        let mut header_stream = header_reader.create_stream_all();
-        Ok(match ValueStoreKind::produce(&mut header_stream)? {
+        let mut header_flux = header_reader.create_flux_all();
+        Ok(match ValueStoreKind::produce(&mut header_flux)? {
             ValueStoreKind::Plain => {
-                ValueStore::Plain(PlainValueStore::new(&mut header_stream, reader, pos_info)?)
+                ValueStore::Plain(PlainValueStore::new(&mut header_flux, reader, pos_info)?)
             }
-            ValueStoreKind::Indexed => ValueStore::Indexed(IndexedValueStore::new(
-                &mut header_stream,
-                reader,
-                pos_info,
-            )?),
+            ValueStoreKind::Indexed => {
+                ValueStore::Indexed(IndexedValueStore::new(&mut header_flux, reader, pos_info)?)
+            }
         })
     }
 }
@@ -58,15 +56,17 @@ impl ValueStoreTrait for ValueStore {
 }
 
 pub struct PlainValueStore {
-    pub reader: Reader,
+    pub reader: MemoryReader,
 }
 
 impl PlainValueStore {
-    fn new(stream: &mut Stream, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let data_size = Size::produce(stream)?;
+    fn new(flux: &mut Flux, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
+        let data_size = Size::produce(flux)?;
         let reader =
             reader.create_sub_memory_reader(pos_info.offset - data_size, End::Size(data_size))?;
-        Ok(PlainValueStore { reader })
+        Ok(PlainValueStore {
+            reader: reader.try_into()?,
+        })
     }
 
     fn get_data(&self, id: ValueIdx) -> Result<&[u8]> {
@@ -79,14 +79,14 @@ impl PlainValueStore {
 
 pub struct IndexedValueStore {
     pub value_offsets: Vec<Offset>,
-    pub reader: Reader,
+    pub reader: MemoryReader,
 }
 
 impl IndexedValueStore {
-    fn new(stream: &mut Stream, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let value_count: ValueCount = Count::<u64>::produce(stream)?.into();
-        let offset_size = ByteSize::produce(stream)?;
-        let data_size: Size = stream.read_sized(offset_size)?.into();
+    fn new(flux: &mut Flux, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
+        let value_count: ValueCount = Count::<u64>::produce(flux)?.into();
+        let offset_size = ByteSize::produce(flux)?;
+        let data_size: Size = flux.read_sized(offset_size)?.into();
         let value_count = value_count.into_usize();
         let mut value_offsets: Vec<Offset> = Vec::with_capacity(value_count + 1);
         // [TODO] Handle 32 and 16 bits
@@ -97,19 +97,19 @@ impl IndexedValueStore {
                 first = false;
                 Offset::zero()
             } else {
-                stream.read_sized(offset_size)?.into()
+                flux.read_sized(offset_size)?.into()
             };
             assert!(value.is_valid(data_size));
             elem.write(value);
         }
         unsafe { value_offsets.set_len(value_count) }
         value_offsets.push(data_size.into());
-        assert_eq!(stream.tell().into_u64(), pos_info.size.into_u64());
+        assert_eq!(flux.tell().into_u64(), pos_info.size.into_u64());
         let reader =
             reader.create_sub_memory_reader(pos_info.offset - data_size, End::Size(data_size))?;
         Ok(IndexedValueStore {
             value_offsets,
-            reader,
+            reader: reader.try_into()?,
         })
     }
 
@@ -126,17 +126,18 @@ mod tests {
 
     #[test]
     fn test_valuestorekind() {
-        let mut stream = Stream::from(vec![0x00, 0x01, 0x02]);
+        let reader = Reader::from(vec![0x00, 0x01, 0x02]);
+        let mut flux = reader.create_flux_all();
         assert_eq!(
-            ValueStoreKind::produce(&mut stream).unwrap(),
+            ValueStoreKind::produce(&mut flux).unwrap(),
             ValueStoreKind::Plain
         );
         assert_eq!(
-            ValueStoreKind::produce(&mut stream).unwrap(),
+            ValueStoreKind::produce(&mut flux).unwrap(),
             ValueStoreKind::Indexed
         );
-        assert_eq!(stream.tell(), Offset::new(2));
-        assert!(ValueStoreKind::produce(&mut stream).is_err());
+        assert_eq!(flux.tell(), Offset::new(2));
+        assert!(ValueStoreKind::produce(&mut flux).is_err());
     }
 
     #[test]

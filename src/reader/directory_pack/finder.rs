@@ -3,20 +3,21 @@ use super::schema::SchemaTrait;
 use crate::bases::*;
 use std::cmp::Ordering;
 use std::marker::PhantomData;
+use std::rc::Rc;
 
 pub trait CompareTrait<Schema: SchemaTrait> {
     fn compare_entry(&self, idx: EntryIdx) -> Result<Ordering>;
 }
 
-pub struct Finder<'builder, Schema: SchemaTrait> {
-    builder: &'builder Schema::Builder,
+pub struct Finder<Schema: SchemaTrait> {
+    builder: Rc<Schema::Builder>,
     offset: EntryIdx,
     count: EntryCount,
     phantom_schema: PhantomData<Schema>,
 }
 
-impl<'builder, Schema: SchemaTrait> Finder<'builder, Schema> {
-    pub fn new(builder: &'builder Schema::Builder, offset: EntryIdx, count: EntryCount) -> Self {
+impl<Schema: SchemaTrait> Finder<Schema> {
+    pub fn new(builder: Rc<Schema::Builder>, offset: EntryIdx, count: EntryCount) -> Self {
         Self {
             builder,
             offset,
@@ -37,8 +38,8 @@ impl<'builder, Schema: SchemaTrait> Finder<'builder, Schema> {
         self.count
     }
 
-    pub fn builder(&self) -> &'builder Schema::Builder {
-        self.builder
+    pub fn builder(&self) -> &Rc<Schema::Builder> {
+        &self.builder
     }
 
     pub fn get_entry(&self, id: EntryIdx) -> Result<<Schema::Builder as BuilderTrait>::Entry> {
@@ -127,7 +128,7 @@ mod tests {
 
         impl schema::SchemaTrait for Schema {
             type Builder = Builder;
-            fn create_builder(&self, _store: Rc<EntryStore>) -> Result<Self::Builder> {
+            fn create_builder(&self, _store: Rc<EntryStore>) -> Result<Rc<Self::Builder>> {
                 unreachable!()
             }
         }
@@ -152,9 +153,9 @@ mod tests {
     fn test_finder() {
         let value_storage = Rc::new(mock::ValueStorage {});
         let resolver = Resolver::new(Rc::clone(&value_storage));
-        let builder = mock::Builder {};
+        let builder = Rc::new(mock::Builder {});
         let finder: Finder<mock::Schema> =
-            Finder::new(&builder, EntryIdx::from(0), EntryCount::from(10));
+            Finder::new(builder, EntryIdx::from(0), EntryCount::from(10));
 
         for i in 0..10 {
             let entry = finder.get_entry(i.into()).unwrap();

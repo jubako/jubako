@@ -82,8 +82,9 @@ pub struct DirectoryPack {
 
 impl DirectoryPack {
     pub fn new(reader: Reader) -> Result<DirectoryPack> {
-        let mut stream = reader.create_stream_all();
-        let header = DirectoryPackHeader::produce(&mut stream)?;
+        let reader = reader.create_sub_memory_reader(Offset::zero(), End::None)?;
+        let mut flux = reader.create_flux_all();
+        let header = DirectoryPackHeader::produce(&mut flux)?;
         let value_stores_ptrs = ArrayReader::new_memory_from_reader(
             &reader,
             header.value_store_ptr_pos,
@@ -114,8 +115,8 @@ impl DirectoryPack {
 
     pub fn get_index(&self, index_id: IndexIdx) -> Result<Index> {
         let sized_offset = self.index_ptrs.index(*index_id)?;
-        let mut index_stream = self.reader.create_stream_for(sized_offset);
-        let index_header = IndexHeader::produce(&mut index_stream)?;
+        let mut index_flux = self.reader.create_flux_for(sized_offset);
+        let index_header = IndexHeader::produce(&mut index_flux)?;
         let index = Index::new(index_header);
         Ok(index)
     }
@@ -123,8 +124,8 @@ impl DirectoryPack {
     pub fn get_index_from_name(&self, index_name: &str) -> Result<Index> {
         for index_id in self.header.index_count {
             let sized_offset = self.index_ptrs.index(*index_id)?;
-            let mut index_stream = self.reader.create_stream_for(sized_offset);
-            let index_header = IndexHeader::produce(&mut index_stream)?;
+            let mut index_flux = self.reader.create_flux_for(sized_offset);
+            let index_header = IndexHeader::produce(&mut index_flux)?;
             if index_header.name == index_name {
                 let index = Index::new(index_header);
                 return Ok(index);
@@ -187,19 +188,19 @@ impl Pack for DirectoryPack {
     }
     fn check(&self) -> Result<bool> {
         if self.check_info.get().is_none() {
-            let mut checkinfo_stream = self
+            let mut checkinfo_flux = self
                 .reader
-                .create_stream_from(self.header.pack_header.check_info_pos);
-            let check_info = CheckInfo::produce(&mut checkinfo_stream)?;
+                .create_flux_from(self.header.pack_header.check_info_pos);
+            let check_info = CheckInfo::produce(&mut checkinfo_flux)?;
             self.check_info.set(Some(check_info));
         }
-        let mut check_stream = self
+        let mut check_flux = self
             .reader
-            .create_stream_to(End::Offset(self.header.pack_header.check_info_pos));
+            .create_flux_to(End::Offset(self.header.pack_header.check_info_pos));
         self.check_info
             .get()
             .unwrap()
-            .check(&mut check_stream as &mut dyn Read)
+            .check(&mut check_flux as &mut dyn Read)
     }
 }
 
@@ -232,9 +233,10 @@ mod tests {
             0x05, //value_store count
         ];
         content.extend_from_slice(&[0xff; 31]);
-        let mut stream = Stream::from(content);
+        let reader = Reader::from(content);
+        let mut flux = reader.create_flux_all();
         assert_eq!(
-            DirectoryPackHeader::produce(&mut stream).unwrap(),
+            DirectoryPackHeader::produce(&mut flux).unwrap(),
             DirectoryPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::Directory,
@@ -350,7 +352,7 @@ mod tests {
         let builder = schema
             .create_builder(index.get_store(&entry_storage).unwrap())
             .unwrap();
-        let finder: Finder<schema::AnySchema> = index.get_finder(&builder).unwrap();
+        let finder: Finder<schema::AnySchema> = index.get_finder(builder).unwrap();
         assert_eq!(index.entry_count(), 4.into());
         {
             let entry = finder.get_entry(0.into()).unwrap();

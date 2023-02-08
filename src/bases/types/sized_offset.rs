@@ -8,8 +8,8 @@ pub struct SizedOffset {
 
 impl SizedOffset {
     pub fn new(size: Size, offset: Offset) -> Self {
-        assert!(size.into_u64() <= 0xFF_FF_u64);
-        assert!(offset.into_u64() <= 0xFF_FF_FF_FF_FF_FF_u64);
+        debug_assert!(size.into_u64() <= 0xFF_FF_u64);
+        debug_assert!(offset.into_u64() <= 0xFF_FF_FF_FF_FF_FF_u64);
         Self { size, offset }
     }
 }
@@ -29,8 +29,8 @@ impl SizedProducable for SizedOffset {
 
 impl Producable for SizedOffset {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        let data = stream.read_u64()?;
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        let data = flux.read_u64()?;
         let offset = Offset::from(data & 0xFF_FF_FF_FF_FF_FF_u64);
         let size = Size::from(data >> 48);
         Ok(Self::new(size, offset))

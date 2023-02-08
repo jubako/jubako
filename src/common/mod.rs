@@ -22,9 +22,9 @@ pub use value::Value;
 
 impl Producable for Uuid {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
+    fn produce(flux: &mut Flux) -> Result<Self> {
         let mut v = [0_u8; 16];
-        stream.read_exact(&mut v)?;
+        flux.read_exact(&mut v)?;
         Ok(Uuid::from_bytes(v))
     }
 }

@@ -1,4 +1,5 @@
 use crate::bases::*;
+use primitive::*;
 use std::io::Read;
 use std::sync::Arc;
 
@@ -31,7 +32,7 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
         offset: Offset,
         size: usize,
     ) -> Result<(Arc<dyn Source>, Offset, End)> {
-        assert!(offset.into_usize() + size <= self.as_ref().as_ref().len());
+        debug_assert!(offset.into_usize() + size <= self.as_ref().as_ref().len());
         Ok((
             Arc::clone(&(self as Arc<dyn Source>)),
             offset,
@@ -39,9 +40,114 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
         ))
     }
 
+    fn into_memory_source(
+        self: Arc<Self>,
+        offset: Offset,
+        size: usize,
+    ) -> Result<(Arc<dyn MemorySource>, Offset, End)> {
+        debug_assert!(offset.into_usize() + size <= self.as_ref().as_ref().len());
+        Ok((
+            Arc::clone(&(self as Arc<dyn MemorySource>)),
+            offset,
+            End::new_size(size as u64),
+        ))
+    }
+
+    fn read_u8(&self, offset: Offset) -> Result<u8> {
+        let end = offset + 1;
+        if !end.is_valid(self.size()) {
+            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
+        }
+        let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
+        Ok(read_u8(slice))
+    }
+
+    fn read_u16(&self, offset: Offset) -> Result<u16> {
+        let end = offset + 2;
+        if !end.is_valid(self.size()) {
+            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
+        }
+        let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
+        Ok(read_u16(slice))
+    }
+
+    fn read_u32(&self, offset: Offset) -> Result<u32> {
+        let end = offset + 4;
+        if !end.is_valid(self.size()) {
+            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
+        }
+        let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
+        Ok(read_u32(slice))
+    }
+
+    fn read_u64(&self, offset: Offset) -> Result<u64> {
+        let end = offset + 8;
+        if !end.is_valid(self.size()) {
+            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
+        }
+        let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
+        Ok(read_u64(slice))
+    }
+
+    fn read_usized(&self, offset: Offset, size: ByteSize) -> Result<u64> {
+        let end = offset + size as usize;
+        if !end.is_valid(self.size()) {
+            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
+        }
+        let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
+        Ok(read_to_u64(size as usize, slice))
+    }
+
+    fn read_i8(&self, offset: Offset) -> Result<i8> {
+        let end = offset + 1;
+        if !end.is_valid(self.size()) {
+            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
+        }
+        let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
+        Ok(read_i8(slice))
+    }
+
+    fn read_i16(&self, offset: Offset) -> Result<i16> {
+        let end = offset + 2;
+        if !end.is_valid(self.size()) {
+            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
+        }
+        let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
+        Ok(read_i16(slice))
+    }
+
+    fn read_i32(&self, offset: Offset) -> Result<i32> {
+        let end = offset + 4;
+        if !end.is_valid(self.size()) {
+            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
+        }
+        let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
+        Ok(read_i32(slice))
+    }
+
+    fn read_i64(&self, offset: Offset) -> Result<i64> {
+        let end = offset + 8;
+        if !end.is_valid(self.size()) {
+            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
+        }
+        let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
+        Ok(read_i64(slice))
+    }
+
+    fn read_isized(&self, offset: Offset, size: ByteSize) -> Result<i64> {
+        let end = offset + size as usize;
+        if !end.is_valid(self.size()) {
+            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
+        }
+        let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
+        Ok(read_to_i64(size as usize, slice))
+    }
+}
+
+impl<T: AsRef<[u8]> + 'static + Sync + Send> MemorySource for T {
     fn get_slice(&self, offset: Offset, end: Offset) -> Result<&[u8]> {
-        assert!(offset <= end);
-        assert!(end.into_usize() <= self.as_ref().len());
+        debug_assert!(offset <= end);
+        debug_assert!(end.into_usize() <= self.as_ref().len());
         Ok(&self.as_ref()[offset.into_usize()..end.into_usize()])
     }
 }

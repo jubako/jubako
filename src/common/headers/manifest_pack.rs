@@ -32,13 +32,13 @@ impl SizedProducable for ManifestPackHeader {
 
 impl Producable for ManifestPackHeader {
     type Output = Self;
-    fn produce(stream: &mut Stream) -> Result<Self> {
-        let pack_header = PackHeader::produce(stream)?;
+    fn produce(flux: &mut Flux) -> Result<Self> {
+        let pack_header = PackHeader::produce(flux)?;
         if pack_header.magic != PackKind::Manifest {
             return Err(format_error!("Pack Magic is not ManifestPack"));
         }
-        let pack_count = Count::<u8>::produce(stream)?.into();
-        let free_data = FreeData63::produce(stream)?;
+        let pack_count = Count::<u8>::produce(flux)?.into();
+        let free_data = FreeData63::produce(flux)?;
         Ok(Self {
             pack_header,
             pack_count,
@@ -79,9 +79,10 @@ mod tests {
             0x02, // pack_count
         ];
         content.extend_from_slice(&[0xff; 63]);
-        let mut stream = Stream::from(content);
+        let reader = Reader::from(content);
+        let mut flux = reader.create_flux_all();
         assert_eq!(
-            ManifestPackHeader::produce(&mut stream).unwrap(),
+            ManifestPackHeader::produce(&mut flux).unwrap(),
             ManifestPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::Manifest,
