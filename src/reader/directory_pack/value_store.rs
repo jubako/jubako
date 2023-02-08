@@ -56,7 +56,7 @@ impl ValueStoreTrait for ValueStore {
 }
 
 pub struct PlainValueStore {
-    pub reader: Reader,
+    pub reader: MemoryReader,
 }
 
 impl PlainValueStore {
@@ -64,7 +64,9 @@ impl PlainValueStore {
         let data_size = Size::produce(flux)?;
         let reader =
             reader.create_sub_memory_reader(pos_info.offset - data_size, End::Size(data_size))?;
-        Ok(PlainValueStore { reader })
+        Ok(PlainValueStore {
+            reader: reader.try_into()?,
+        })
     }
 
     fn get_data(&self, id: ValueIdx) -> Result<&[u8]> {
@@ -77,7 +79,7 @@ impl PlainValueStore {
 
 pub struct IndexedValueStore {
     pub value_offsets: Vec<Offset>,
-    pub reader: Reader,
+    pub reader: MemoryReader,
 }
 
 impl IndexedValueStore {
@@ -107,7 +109,7 @@ impl IndexedValueStore {
             reader.create_sub_memory_reader(pos_info.offset - data_size, End::Size(data_size))?;
         Ok(IndexedValueStore {
             value_offsets,
-            reader,
+            reader: reader.try_into()?,
         })
     }
 

@@ -20,42 +20,37 @@ pub trait Source: Sync + Send {
         size: usize,
     ) -> Result<(Arc<dyn Source>, Offset, End)>;
 
+    fn into_memory_source(
+        self: Arc<Self>,
+        offset: Offset,
+        size: usize,
+    ) -> Result<(Arc<dyn MemorySource>, Offset, End)>;
+
+    fn read_u8(&self, offset: Offset) -> Result<u8>;
+    fn read_u16(&self, offset: Offset) -> Result<u16>;
+    fn read_u32(&self, offset: Offset) -> Result<u32>;
+    fn read_u64(&self, offset: Offset) -> Result<u64>;
+    fn read_usized(&self, offset: Offset, size: ByteSize) -> Result<u64>;
+    fn read_i8(&self, offset: Offset) -> Result<i8>;
+    fn read_i16(&self, offset: Offset) -> Result<i16>;
+    fn read_i32(&self, offset: Offset) -> Result<i32>;
+    fn read_i64(&self, offset: Offset) -> Result<i64>;
+    fn read_isized(&self, offset: Offset, size: ByteSize) -> Result<i64>;
+}
+
+pub trait MemorySource: Source {
     fn get_slice(&self, offset: Offset, end: Offset) -> Result<&[u8]>;
-
-    fn slice_1(&self, offset: Offset) -> Result<[u8; 1]> {
-        let mut buf = [0_u8; 1];
-        self.read_exact(offset, &mut buf)?;
-        Ok(buf)
-    }
-
-    fn slice_2(&self, offset: Offset) -> Result<[u8; 2]> {
-        let mut buf = [0_u8; 2];
-        self.read_exact(offset, &mut buf)?;
-        Ok(buf)
-    }
-
-    fn slice_4(&self, offset: Offset) -> Result<[u8; 4]> {
-        let mut buf = [0_u8; 4];
-        self.read_exact(offset, &mut buf)?;
-        Ok(buf)
-    }
-
-    fn slice_8(&self, offset: Offset) -> Result<[u8; 8]> {
-        let mut buf = [0_u8; 8];
-        self.read_exact(offset, &mut buf)?;
-        Ok(buf)
-    }
-
-    fn slice_sized(&self, offset: Offset, size: ByteSize) -> Result<[u8; 8]> {
-        let mut buf = [0_u8; 8];
-        self.read_exact(offset, &mut buf[..size as usize])?;
-        Ok(buf)
-    }
 }
 
 impl fmt::Debug for dyn Source {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("Source{{Size:{}}}", self.size()))
+    }
+}
+
+impl fmt::Debug for dyn MemorySource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("MemorySource{{Size:{}}}", self.size()))
     }
 }
 

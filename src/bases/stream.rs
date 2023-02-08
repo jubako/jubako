@@ -1,6 +1,5 @@
 ///! All base traits use to produce structure from raw data.
 use crate::bases::*;
-use primitive::*;
 use std::io::{BorrowedBuf, Read};
 use std::sync::Arc;
 
@@ -75,31 +74,31 @@ impl Stream {
         self.offset
     }
     pub fn read_u8(&mut self) -> Result<u8> {
-        let slice = self.source.slice_1(self.offset)?;
+        let ret = self.source.read_u8(self.offset)?;
         self.offset += 1;
-        Ok(read_u8(&slice))
+        Ok(ret)
     }
     pub fn read_u16(&mut self) -> Result<u16> {
-        let slice = self.source.slice_2(self.offset)?;
+        let ret = self.source.read_u16(self.offset)?;
         self.offset += 2;
-        Ok(read_u16(&slice))
+        Ok(ret)
     }
     pub fn read_u32(&mut self) -> Result<u32> {
-        let slice = self.source.slice_4(self.offset)?;
+        let ret = self.source.read_u32(self.offset)?;
         self.offset += 4;
-        Ok(read_u32(&slice))
+        Ok(ret)
     }
     pub fn read_u64(&mut self) -> Result<u64> {
-        let slice = self.source.slice_8(self.offset)?;
+        let ret = self.source.read_u64(self.offset)?;
         self.offset += 8;
-        Ok(read_u64(&slice))
+        Ok(ret)
     }
-    pub fn read_sized(&mut self, size: ByteSize) -> Result<u64> {
-        let slice = self.source.slice_sized(self.offset, size)?;
-        let size = size as usize;
-        self.offset += size;
-        Ok(read_to_u64(size, &slice[..size]))
+    pub fn read_usized(&mut self, size: ByteSize) -> Result<u64> {
+        let ret = self.source.read_usized(self.offset, size)?;
+        self.offset += size as usize;
+        Ok(ret)
     }
+
     pub fn read_vec(&mut self, size: usize) -> Result<Vec<u8>> {
         let mut v = Vec::with_capacity(size);
         let mut uninit: BorrowedBuf = v.spare_capacity_mut().into();
