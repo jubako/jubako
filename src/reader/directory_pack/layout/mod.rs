@@ -3,7 +3,6 @@ mod property;
 
 // Reuse from super to allow sub module to use it.
 use super::raw_layout::RawLayout;
-use super::raw_value::{Array, Extend, RawValue};
 use crate::bases::*;
 
 pub use properties::{Properties, SharedProperties};
