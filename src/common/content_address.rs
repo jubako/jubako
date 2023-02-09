@@ -20,7 +20,7 @@ impl Producable for ContentAddress {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {
         let pack_id = flux.read_u8()?;
-        let content_id = flux.read_sized(ByteSize::U3)? as u32;
+        let content_id = flux.read_usized(ByteSize::U3)? as u32;
         Ok(ContentAddress {
             pack_id: pack_id.into(),
             content_id: content_id.into(),
