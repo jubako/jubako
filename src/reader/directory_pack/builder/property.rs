@@ -2,8 +2,14 @@ use crate::bases::*;
 use crate::common::ContentAddress;
 use crate::reader::directory_pack::layout;
 use crate::reader::directory_pack::raw_value::{Array, Extend, RawValue};
-use std::io::BorrowedBuf;
-use std::io::Read;
+
+// The properties here are pretty close from the layout::Property.
+// The main difference is that layout::Property is not typed:
+// The kind of the property is a enum and we have one property for all kind
+// of value we can produce.
+// On the other side, builder's properties are specialized: We have on kind
+// of property per kind of value. This allow specialized entry to use a specific
+// builder's property.
 
 pub trait PropertyBuilderTrait {
     type Output;
@@ -31,11 +37,16 @@ impl PropertyBuilderTrait for VariantIdProperty {
 pub struct IntProperty {
     offset: Offset,
     size: ByteSize,
+    default: Option<u64>,
 }
 
 impl IntProperty {
-    pub fn new(offset: Offset, size: ByteSize) -> Self {
-        Self { offset, size }
+    pub fn new(offset: Offset, size: ByteSize, default: Option<u64>) -> Self {
+        Self {
+            offset,
+            size,
+            default,
+        }
     }
 }
 
@@ -43,7 +54,9 @@ impl TryFrom<&layout::Property> for IntProperty {
     type Error = String;
     fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
         match p.kind {
-            layout::PropertyKind::UnsignedInt(size) => Ok(IntProperty::new(p.offset, size)),
+            layout::PropertyKind::UnsignedInt(size, default) => {
+                Ok(IntProperty::new(p.offset, size, default))
+            }
             _ => Err("Invalid key".to_string()),
         }
     }
@@ -52,13 +65,16 @@ impl TryFrom<&layout::Property> for IntProperty {
 impl PropertyBuilderTrait for IntProperty {
     type Output = u64;
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        Ok(match self.size {
-            ByteSize::U1 => reader.read_u8(self.offset)? as u64,
-            ByteSize::U2 => reader.read_u16(self.offset)? as u64,
-            ByteSize::U3 | ByteSize::U4 => reader.read_usized(self.offset, self.size)?,
-            ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
-                reader.read_usized(self.offset, self.size)?
-            }
+        Ok(match self.default {
+            Some(v) => v,
+            None => match self.size {
+                ByteSize::U1 => reader.read_u8(self.offset)? as u64,
+                ByteSize::U2 => reader.read_u16(self.offset)? as u64,
+                ByteSize::U3 | ByteSize::U4 => reader.read_usized(self.offset, self.size)?,
+                ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
+                    reader.read_usized(self.offset, self.size)?
+                }
+            },
         })
     }
 }
@@ -67,11 +83,16 @@ impl PropertyBuilderTrait for IntProperty {
 pub struct SignedProperty {
     offset: Offset,
     size: ByteSize,
+    default: Option<i64>,
 }
 
 impl SignedProperty {
-    pub fn new(offset: Offset, size: ByteSize) -> Self {
-        Self { offset, size }
+    pub fn new(offset: Offset, size: ByteSize, default: Option<i64>) -> Self {
+        Self {
+            offset,
+            size,
+            default,
+        }
     }
 }
 
@@ -79,7 +100,9 @@ impl TryFrom<&layout::Property> for SignedProperty {
     type Error = String;
     fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
         match p.kind {
-            layout::PropertyKind::SignedInt(size) => Ok(SignedProperty::new(p.offset, size)),
+            layout::PropertyKind::SignedInt(size, default) => {
+                Ok(SignedProperty::new(p.offset, size, default))
+            }
             _ => Err("Invalid key".to_string()),
         }
     }
@@ -88,64 +111,44 @@ impl TryFrom<&layout::Property> for SignedProperty {
 impl PropertyBuilderTrait for SignedProperty {
     type Output = i64;
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        Ok(match self.size {
-            ByteSize::U1 => reader.read_i8(self.offset)? as i64,
-            ByteSize::U2 => reader.read_i16(self.offset)? as i64,
-            ByteSize::U3 | ByteSize::U4 => reader.read_isized(self.offset, self.size)?,
-            ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
-                reader.read_isized(self.offset, self.size)?
-            }
+        Ok(match self.default {
+            Some(v) => v,
+            None => match self.size {
+                ByteSize::U1 => reader.read_i8(self.offset)? as i64,
+                ByteSize::U2 => reader.read_i16(self.offset)? as i64,
+                ByteSize::U3 | ByteSize::U4 => reader.read_isized(self.offset, self.size)?,
+                ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
+                    reader.read_isized(self.offset, self.size)?
+                }
+            },
         })
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ArrayProperty {
-    base: Option<(Offset, Size)>,
-    vl_array: Option<(Offset, ValueStoreIdx, ByteSize)>,
+    offset: Offset,
+    array_size_size: Option<ByteSize>,
+    fixed_array_size: u8,
+    deported_array_info: Option<(ByteSize, ValueStoreIdx)>,
+    default: Option<(u64, [u8; 31], Option<u64>)>,
 }
 
 impl ArrayProperty {
-    pub fn new_array(offset: Offset, size: Size) -> Self {
-        Self {
-            base: Some((offset, size)),
-            vl_array: None,
-        }
-    }
-
-    pub fn new_vlarray(offset: Offset, store_id: ValueStoreIdx, size: ByteSize) -> Self {
-        Self {
-            base: None,
-            vl_array: Some((offset, store_id, size)),
-        }
-    }
-
     pub fn new(
         offset: Offset,
-        store_id: ValueStoreIdx,
-        vl_size: ByteSize,
-        base_size: Size,
+        array_size_size: Option<ByteSize>,
+        fixed_array_size: u8,
+        deported_array_info: Option<(ByteSize, ValueStoreIdx)>,
+        default: Option<(u64, [u8; 31], Option<u64>)>,
     ) -> Self {
         Self {
-            base: Some((offset + vl_size as usize, base_size)),
-            vl_array: Some((offset, store_id, vl_size)),
+            offset,
+            array_size_size,
+            fixed_array_size,
+            deported_array_info,
+            default,
         }
-    }
-
-    fn create_array(&self, reader: &SubReader) -> Result<Vec<u8>> {
-        Ok(match self.base {
-            None => vec![],
-            Some((offset, size)) => {
-                let mut flux = reader.create_flux(offset, End::Size(size));
-                let mut ret = Vec::with_capacity(size.into_usize());
-                let mut uninit: BorrowedBuf = ret.spare_capacity_mut().into();
-                flux.read_buf_exact(uninit.unfilled())?;
-                unsafe {
-                    ret.set_len(size.into_usize());
-                }
-                ret
-            }
-        })
     }
 }
 
@@ -153,15 +156,9 @@ impl TryFrom<&layout::Property> for ArrayProperty {
     type Error = String;
     fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
         match p.kind {
-            layout::PropertyKind::Array(size) => {
-                Ok(ArrayProperty::new_array(p.offset, size.into()))
-            }
-            layout::PropertyKind::VLArray(vl_size, store_id, base) => Ok(match base {
-                None => ArrayProperty::new_vlarray(p.offset, store_id, vl_size),
-                Some(base_size) => {
-                    ArrayProperty::new(p.offset, store_id, vl_size, base_size.into())
-                }
-            }),
+            layout::PropertyKind::Array(size, fixed_array_size, deported, default) => Ok(
+                ArrayProperty::new(p.offset, size, fixed_array_size, deported, default),
+            ),
             _ => Err("Invalid key".to_string()),
         }
     }
@@ -170,30 +167,50 @@ impl TryFrom<&layout::Property> for ArrayProperty {
 impl PropertyBuilderTrait for ArrayProperty {
     type Output = Array;
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        let base = self.create_array(reader)?;
-        Ok(match self.vl_array {
-            None => Array::new(base, None),
-            Some((offset, store_id, size)) => {
-                let value_id = reader.read_usized(offset, size)?.into();
-                Array::new(base, Some(Extend::new(store_id, value_id)))
+        let (array_size, base_array, deported_info) = match self.default {
+            Some((array_size, base_array, value_id)) => (
+                Some(array_size.into()),
+                Vec::from(&base_array[..self.fixed_array_size.into()]),
+                self.deported_array_info
+                    .map(|(_, store_id)| Extend::new(store_id, value_id.unwrap().into())),
+            ),
+            None => {
+                let mut flux = reader.create_flux_from(self.offset);
+                let array_size = match self.array_size_size {
+                    None => None,
+                    Some(size) => Some(flux.read_usized(size)?.into()),
+                };
+                let base_array = if self.fixed_array_size != 0 {
+                    flux.read_vec(self.fixed_array_size.into())?
+                } else {
+                    Vec::new()
+                };
+                let deported_info = match self.deported_array_info {
+                    Some((value_size, store_id)) => {
+                        let value_id = flux.read_usized(value_size)?.into();
+                        Some(Extend::new(store_id, value_id))
+                    }
+                    None => None,
+                };
+                (array_size, base_array, deported_info)
             }
-        })
+        };
+        Ok(Array::new(array_size, base_array, deported_info))
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ContentProperty {
     offset: Offset,
+    content_id_size: ByteSize,
 }
 
 impl ContentProperty {
-    pub fn new(offset: Offset) -> Self {
-        Self { offset }
-    }
-    fn create_content(offset: Offset, reader: &SubReader) -> Result<ContentAddress> {
-        let mut flux = reader.create_flux(offset, End::new_size(4u64));
-        let contentaddress = ContentAddress::produce(&mut flux)?;
-        Ok(contentaddress)
+    pub fn new(offset: Offset, content_id_size: ByteSize) -> Self {
+        Self {
+            offset,
+            content_id_size,
+        }
     }
 }
 
@@ -201,7 +218,7 @@ impl TryFrom<&layout::Property> for ContentProperty {
     type Error = String;
     fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
         match p.kind {
-            layout::PropertyKind::ContentAddress => Ok(ContentProperty::new(p.offset)),
+            layout::PropertyKind::ContentAddress(s) => Ok(ContentProperty::new(p.offset, s)),
             _ => Err("Invalid key".to_string()),
         }
     }
@@ -210,7 +227,11 @@ impl TryFrom<&layout::Property> for ContentProperty {
 impl PropertyBuilderTrait for ContentProperty {
     type Output = ContentAddress;
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        Self::create_content(self.offset, reader)
+        let content_size = self.content_id_size as usize + 1;
+        let mut flux = reader.create_flux(self.offset, End::new_size(content_size));
+        let pack_id = flux.read_u8()?;
+        let content_id = flux.read_usized(self.content_id_size)? as u32;
+        Ok(ContentAddress::new(pack_id.into(), content_id.into()))
     }
 }
 
@@ -227,26 +248,23 @@ pub enum AnyProperty {
 
 impl From<&layout::Property> for AnyProperty {
     fn from(p: &layout::Property) -> Self {
-        match p.kind {
-            layout::PropertyKind::ContentAddress => {
-                Self::ContentAddress(ContentProperty::new(p.offset))
+        match &p.kind {
+            &layout::PropertyKind::ContentAddress(size) => {
+                Self::ContentAddress(ContentProperty::new(p.offset, size))
             }
-            layout::PropertyKind::UnsignedInt(size) => {
-                Self::UnsignedInt(IntProperty::new(p.offset, size))
+            &layout::PropertyKind::UnsignedInt(size, default) => {
+                Self::UnsignedInt(IntProperty::new(p.offset, size, default))
             }
-            layout::PropertyKind::SignedInt(size) => {
-                Self::SignedInt(SignedProperty::new(p.offset, size))
+            &layout::PropertyKind::SignedInt(size, default) => {
+                Self::SignedInt(SignedProperty::new(p.offset, size, default))
             }
-            layout::PropertyKind::Array(size) => {
-                Self::Array(ArrayProperty::new_array(p.offset, size.into()))
-            }
-            layout::PropertyKind::VLArray(vl_size, store_id, base) => Self::Array(match base {
-                None => ArrayProperty::new_vlarray(p.offset, store_id, vl_size),
-                Some(base_size) => {
-                    ArrayProperty::new(p.offset, store_id, vl_size, base_size.into())
-                }
-            }),
-            layout::PropertyKind::None => unreachable!(),
+            layout::PropertyKind::Array(size, fixed_array_size, deported, default) => Self::Array(
+                ArrayProperty::new(p.offset, *size, *fixed_array_size, *deported, *default),
+            ),
+            &layout::PropertyKind::DeportedUnsignedInt(_, _, _) => todo!(),
+            &layout::PropertyKind::DeportedSignedInt(_, _, _) => todo!(),
+            layout::PropertyKind::Padding => unreachable!(),
+            layout::PropertyKind::VariantId => unreachable!(),
         }
     }
 }

@@ -1,6 +1,6 @@
 use super::private::ValueStorageTrait;
 use super::value_store::ValueStoreTrait;
-use super::{Array, ContentAddress, Extend, RawValue, ValueStorage};
+use super::{Array, ArrayIter, ContentAddress, Extend, RawValue, ValueStorage};
 use crate::bases::*;
 use crate::common::Value;
 use std::cmp;
@@ -21,21 +21,46 @@ pub(crate) mod private {
         }
     }
 
+    impl<ValueStorage: ValueStorageTrait> std::fmt::Debug for Resolver<ValueStorage> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            writeln!(f, "ValueStorage")
+        }
+    }
+
     impl<ValueStorage: ValueStorageTrait> Resolver<ValueStorage> {
         pub fn new(value_storage: Rc<ValueStorage>) -> Self {
             Self { value_storage }
         }
 
-        fn get_data(&self, extend: &Extend) -> Result<&[u8]> {
+        fn get_data(&self, extend: &Extend, size: Option<Size>) -> Result<&[u8]> {
             let value_store = self.value_storage.get_value_store(extend.store_id)?;
-            value_store.get_data(extend.value_id)
+            value_store.get_data(extend.value_id, size)
         }
 
         pub fn resolve_array_to_vec(&self, array: &Array, vec: &mut Vec<u8>) -> Result<()> {
-            vec.extend_from_slice(array.base.as_slice());
-            if let Some(e) = &array.extend {
-                vec.extend_from_slice(self.get_data(e)?);
-            }
+            match array.size {
+                Some(size) => {
+                    let size = size.into_usize();
+                    vec.reserve(size);
+                    let plain_size_to_copy = std::cmp::min(size, array.base.len());
+                    vec.extend_from_slice(&array.base.as_slice()[..plain_size_to_copy]);
+                    if size > array.base.len() {
+                        if let Some(e) = &array.extend {
+                            vec.extend_from_slice(
+                                self.get_data(e, Some(Size::from(size - array.base.len())))?,
+                            );
+                        }
+                    }
+                }
+                None => {
+                    vec.reserve(array.base.len());
+                    vec.extend_from_slice(array.base.as_slice());
+                    if let Some(e) = &array.extend {
+                        vec.extend_from_slice(self.get_data(e, None)?);
+                    }
+                }
+            };
+
             Ok(())
         }
 
@@ -59,19 +84,33 @@ pub(crate) mod private {
         }
 
         pub fn compare_array(&self, raw: &Array, value: &[u8]) -> Result<cmp::Ordering> {
-            let extract_size = std::cmp::min(raw.base.len(), value.len());
-            let cmp = raw.base.as_slice().cmp(&value[..extract_size]);
-            if cmp.is_ne() {
-                Ok(cmp)
+            //println!("Compare {raw:?} to {value:?}");
+            let value_store = if let Some(e) = &raw.extend {
+                Some(self.value_storage.get_value_store(e.store_id)?)
             } else {
-                match &raw.extend {
-                    None => Ok(cmp),
-                    Some(e) => {
-                        let d = self.get_data(e)?;
-                        Ok(d.cmp(&value[raw.base.len()..]))
+                None
+            };
+            let our_iter =
+                ArrayIter::<'_, ValueStorage>::new(raw, value_store.as_ref().map(|v| v.as_ref()));
+            let mut other_iter = value.iter();
+            for our_value in our_iter {
+                let our_value = our_value?;
+                let other_value = other_iter.next();
+                //println!("cmp {our_value}, {other_value:?}");
+                match other_value {
+                    None => return Ok(cmp::Ordering::Greater),
+                    Some(other_value) => {
+                        let cmp = our_value.cmp(other_value);
+                        if cmp != cmp::Ordering::Equal {
+                            return Ok(cmp);
+                        };
                     }
                 }
             }
+            Ok(match other_iter.next() {
+                None => cmp::Ordering::Equal,
+                Some(_) => cmp::Ordering::Less,
+            })
         }
 
         pub fn compare(&self, raw: &RawValue, value: &Value) -> Result<cmp::Ordering> {
@@ -153,17 +192,9 @@ mod tests {
             use super::*;
             pub struct ValueStore {}
             impl ValueStoreTrait for ValueStore {
-                fn get_data(&self, id: ValueIdx) -> Result<&[u8]> {
-                    Ok(match id.0
-
-                     {
-                        Idx(0) => b"Hello",
-                        Idx(1) => b"World",
-                        Idx(2) => b"Jubako",
-                        Idx(3) => b"is",
-                        Idx(4) => b"awsome",
-                        _ => panic!(),
-                    })
+                fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
+                    assert!(size.is_some());
+                    Ok(&b"HelloWorldJubakoisawsome"[id.into_usize()..id.into_usize()+size.unwrap().into_usize()])
                 }
             }
 
@@ -205,7 +236,7 @@ mod tests {
                     (RawValue::I16(5),   Value::Signed(5.into())),
                     (RawValue::I32(5),   Value::Signed(5.into())),
                     (RawValue::I64(5),   Value::Signed(5.into())),
-                    (RawValue::Array(Array{base:"Bye ".into(), extend:Some(Extend{store_id:0.into(), value_id:ValueIdx::from(2)})}),
+                    (RawValue::Array(Array{size: Some(Size::new(10)), base:"Bye ".into(), extend:Some(Extend{store_id:0.into(), value_id:ValueIdx::from(10)})}),
                        Value::Array("Bye Jubako".into())),
                     (RawValue::Content(ContentAddress::new(PackId::from(0), ContentIdx::from(50))),
                        Value::Content(ContentAddress::new(PackId::from(0), ContentIdx::from(50)))),
@@ -257,12 +288,13 @@ mod tests {
                     (vec![], None, vec![]),
                     ("Hello".into(), None, "Hello".into()),
                     ("Hello".into(), Some(Extend{store_id:0.into(), value_id:ValueIdx::from(0)}), "HelloHello".into()),
-                    ("Hello ".into(), Some(Extend{store_id:0.into(), value_id:ValueIdx::from(2)}), "Hello Jubako".into()),
-                    (vec![], Some(Extend{store_id:0.into(), value_id:ValueIdx::from(4)}), "awsome".into()),
+                    ("Hello ".into(), Some(Extend{store_id:0.into(), value_id:ValueIdx::from(10)}), "Hello Jubako".into()),
+                    (vec![], Some(Extend{store_id:0.into(), value_id:ValueIdx::from(18)}), "awsome".into()),
                 ].into_iter()
             }
             setup(&mut self) {
                 RawValue::Array(Array {
+                    size: Some(self.expected.len().into()),
                     base: self.base.clone(),
                     extend: self.extend.clone()
                 })
@@ -280,8 +312,9 @@ mod tests {
         test test_resolver_compare(storage) {
             let resolver = private::Resolver::new(storage.val);
             let raw_value = Array {
+                size: Some(Size::new(12)),
                 base: "Hello ".into(),
-                extend: Some(Extend{store_id:0.into(), value_id:ValueIdx::from(2)})
+                extend: Some(Extend{store_id:0.into(), value_id:ValueIdx::from(10)})
             };
             assert_eq!(resolver.compare_array(&raw_value, &"Hel".as_bytes()).unwrap(), cmp::Ordering::Greater);
             assert_eq!(resolver.compare_array(&raw_value, &"Hello".as_bytes()).unwrap(), cmp::Ordering::Greater);

@@ -19,7 +19,11 @@ pub enum Value {
     Content(ContentAddress),
     Unsigned(Word<u64>),
     Signed(i64),
-    Array { data: Vec<u8>, value_id: Bound<u64> },
+    Array {
+        size: usize,
+        data: Vec<u8>,
+        value_id: Bound<u64>,
+    },
 }
 
 impl PartialOrd for Value {
@@ -34,8 +38,13 @@ impl PartialOrd for Value {
                 Value::Signed(o) => Some(v.cmp(o)),
                 _ => None,
             },
-            Value::Array { data, value_id: id } => match other {
+            Value::Array {
+                size: _,
+                data,
+                value_id: id,
+            } => match other {
                 Value::Array {
+                    size: _,
                     data: other_data,
                     value_id: other_id,
                 } => match data.cmp(other_data) {
@@ -131,13 +140,21 @@ impl<'a> Iterator for ValueTransformer<'a> {
             match self.keys.next() {
                 None => return None,
                 Some(key) => match key {
-                    schema::Property::VLArray(flookup_size, store_handle) => {
-                        let flookup_size = flookup_size;
+                    schema::Property::Array {
+                        max_array_size: _,
+                        fixed_array_size,
+                        store_handle,
+                    } => {
                         let value = self.values.next().unwrap();
                         if let common::Value::Array(mut data) = value {
-                            let to_store = data.split_off(cmp::min(*flookup_size, data.len()));
+                            let size = data.len();
+                            let to_store = data.split_off(cmp::min(*fixed_array_size, data.len()));
                             let value_id = store_handle.borrow_mut().add_value(&to_store);
-                            return Some(Value::Array { data, value_id });
+                            return Some(Value::Array {
+                                size,
+                                data,
+                                value_id,
+                            });
                         } else {
                             panic!("Invalide value type");
                         }

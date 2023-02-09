@@ -127,11 +127,11 @@ impl IndexStore {
         for entry in entries {
             // We are creating entry data.
             // Each entry has 3 keys :
-            // - The path : A 0Array/PString
-            // - The content : a content address
+            // - The path : A char1[0] + deported(1)
+            // - The content : a content address(1)
             // - The words counts : a u16
-            data.extend(&[idx].to_vec());
-            data.extend(&(idx as u32).to_be_bytes().to_vec());
+            data.extend(&[entry.path.as_bytes().len() as u8, idx].to_vec());
+            data.extend(&(idx as u16).to_be_bytes().to_vec());
             data.extend(&entry.word_count.to_be_bytes().to_vec());
             idx += 1;
         }
@@ -148,10 +148,10 @@ impl IndexStore {
     pub fn tail_bytes(&mut self) -> Vec<u8> {
         let mut data = vec![];
         data.push(0x00); // kind
-        data.extend(7_u16.to_be_bytes()); // entry_size
+        data.extend(6_u16.to_be_bytes()); // entry_size
         data.push(0x00); // variant count
         data.push(0x03); // key count
-        data.extend(&[0b0110_0000, 0x00]); // The first key, a PString(1) idx 0
+        data.extend(&[0b0101_0001, 0b001_00000, 0x00]); // The first key, a char1[0] + deported(1) idx 0
         data.extend(&[0b0001_0000]); // The second key, the content address
         data.extend(&[0b0010_0001]); // The third key, the u16
         data.extend((self.data.len() as u64).to_be_bytes()); //data size
@@ -500,6 +500,7 @@ test_suite! {
                 assert_eq!(
                     array,
                     &reader::Array::new(
+                        Some(jubako::Size::from(articles.val[i.into_u32() as usize].path.len())),
                         vec!(),
                         Some(reader::testing::Extend::new(0.into(), jubako::ValueIdx::from(i.into_u64())))
                     ));

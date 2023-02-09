@@ -27,7 +27,7 @@ impl Entry {
     }
 
     fn key_count(&self) -> Count<u8> {
-        (self.common.key_count() + self.variants.iter().map(|v| v.key_count()).sum::<u8>()).into()
+        (self.common.len() as u8 + self.variants.iter().map(|v| v.len() as u8).sum::<u8>()).into()
     }
 }
 

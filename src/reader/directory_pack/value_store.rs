@@ -22,7 +22,7 @@ impl Producable for ValueStoreKind {
 }
 
 pub trait ValueStoreTrait {
-    fn get_data(&self, id: ValueIdx) -> Result<&[u8]>;
+    fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]>;
 }
 
 pub enum ValueStore {
@@ -47,10 +47,10 @@ impl ValueStore {
 }
 
 impl ValueStoreTrait for ValueStore {
-    fn get_data(&self, id: ValueIdx) -> Result<&[u8]> {
+    fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
         match self {
-            ValueStore::Plain(store) => store.get_data(id),
-            ValueStore::Indexed(store) => store.get_data(id),
+            ValueStore::Plain(store) => store.get_data(id, size),
+            ValueStore::Indexed(store) => store.get_data(id, size),
         }
     }
 }
@@ -69,11 +69,13 @@ impl PlainValueStore {
         })
     }
 
-    fn get_data(&self, id: ValueIdx) -> Result<&[u8]> {
-        let offset = id.into_u64().into();
-        let data_size = self.reader.read_u8(offset)?;
-        self.reader
-            .get_slice(offset + 1, End::new_size(data_size as u64))
+    fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
+        if let Some(size) = size {
+            let offset = id.into_u64().into();
+            self.reader.get_slice(offset, End::Size(size))
+        } else {
+            panic!("Cannot use unsized with PlainValueStore");
+        }
     }
 }
 
@@ -113,10 +115,13 @@ impl IndexedValueStore {
         })
     }
 
-    fn get_data(&self, id: ValueIdx) -> Result<&[u8]> {
+    fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
         let start = self.value_offsets[id.into_usize()];
-        let end = self.value_offsets[id.into_usize() + 1];
-        self.reader.get_slice(start, End::Offset(end))
+        let size = match size {
+            Some(s) => s,
+            None => self.value_offsets[id.into_usize() + 1] - start,
+        };
+        self.reader.get_slice(start, End::Size(size))
     }
 }
 
@@ -145,40 +150,40 @@ mod tests {
         #[rustfmt::skip]
         let reader = Reader::from(
             vec![
-                0x05, 0x11, 0x12, 0x13, 0x14, 0x15, // Data of entry 0
-                0x03, 0x21, 0x22, 0x23, // Data of entry 1
-                0x07, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of entry 2
+                0x11, 0x12, 0x13, 0x14, 0x15, // Data of entry 0
+                0x21, 0x22, 0x23, // Data of entry 1
+                0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of entry 2
                 0x00, // kind
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, // data_size
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, // data_size
             ]
         );
         let value_store =
-            ValueStore::new(&reader, SizedOffset::new(Size::new(9), Offset::new(18))).unwrap();
+            ValueStore::new(&reader, SizedOffset::new(Size::new(9), Offset::new(15))).unwrap();
         match &value_store {
             ValueStore::Plain(plainvaluestore) => {
-                assert_eq!(plainvaluestore.reader.size(), Size::from(0x12_u64));
+                assert_eq!(plainvaluestore.reader.size(), Size::from(0x0F_u64));
                 assert_eq!(
                     plainvaluestore.reader.read_u64(Offset::zero()).unwrap(),
-                    0x0511121314150321_u64
+                    0x1112131415212223_u64
                 );
                 assert_eq!(
-                    plainvaluestore.reader.read_u64(Offset::new(8)).unwrap(),
-                    0x2223073132333435_u64
+                    plainvaluestore.reader.read_u64(Offset::new(7)).unwrap(),
+                    0x2331323334353637_u64
                 );
             }
             _ => panic!("Wrong type"),
         }
 
         assert_eq!(
-            value_store.get_data(0.into()).unwrap(),
+            value_store.get_data(0.into(), Some(Size::new(5))).unwrap(),
             vec![0x11, 0x12, 0x13, 0x14, 0x15]
         );
         assert_eq!(
-            value_store.get_data(6.into()).unwrap(),
+            value_store.get_data(5.into(), Some(Size::new(3))).unwrap(),
             vec![0x21, 0x22, 0x23]
         );
         assert_eq!(
-            value_store.get_data(10.into()).unwrap(),
+            value_store.get_data(8.into(), Some(Size::new(7))).unwrap(),
             vec![0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]
         );
     }
@@ -224,15 +229,28 @@ mod tests {
         }
 
         assert_eq!(
-            value_store.get_data(0.into()).unwrap(),
+            value_store.get_data(0.into(), None).unwrap(),
             vec![0x11, 0x12, 0x13, 0x14, 0x15]
         );
         assert_eq!(
-            value_store.get_data(1.into()).unwrap(),
+            value_store.get_data(1.into(), None).unwrap(),
             vec![0x21, 0x22, 0x23]
         );
         assert_eq!(
-            value_store.get_data(2.into()).unwrap(),
+            value_store.get_data(2.into(), None).unwrap(),
+            vec![0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]
+        );
+
+        assert_eq!(
+            value_store.get_data(0.into(), Some(Size::new(5))).unwrap(),
+            vec![0x11, 0x12, 0x13, 0x14, 0x15]
+        );
+        assert_eq!(
+            value_store.get_data(1.into(), Some(Size::new(3))).unwrap(),
+            vec![0x21, 0x22, 0x23]
+        );
+        assert_eq!(
+            value_store.get_data(2.into(), Some(Size::new(7))).unwrap(),
             vec![0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]
         );
     }

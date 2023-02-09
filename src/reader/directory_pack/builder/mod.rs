@@ -100,7 +100,7 @@ mod tests {
     use super::*;
     use crate::common::ContentAddress;
     use crate::reader::directory_pack::entry_store::PlainStore;
-    use crate::reader::directory_pack::raw_layout::{RawProperty, RawPropertyKind};
+    use crate::reader::directory_pack::raw_layout::{PropertyKind, RawProperty};
     use crate::reader::directory_pack::{Array, EntryTrait};
     use crate::reader::layout::{Layout, Properties};
     use crate::reader::RawValue;
@@ -111,8 +111,8 @@ mod tests {
             common: Properties::new(
                 0,
                 vec![
-                    RawProperty::new(RawPropertyKind::ContentAddress, 4),
-                    RawProperty::new(RawPropertyKind::UnsignedInt, 2),
+                    RawProperty::new(PropertyKind::ContentAddress(ByteSize::U3), 4),
+                    RawProperty::new(PropertyKind::UnsignedInt(ByteSize::U2, None), 2),
                 ],
             )
             .unwrap(),
@@ -132,9 +132,9 @@ mod tests {
             let entry = builder.create_entry(0.into()).unwrap();
 
             assert!(entry.get_variant_id().unwrap().is_none());
-            assert!(
-                entry.get_value(0.into()).unwrap()
-                    == RawValue::Content(ContentAddress::new(0.into(), 1.into()),)
+            assert_eq!(
+                entry.get_value(0.into()).unwrap(),
+                RawValue::Content(ContentAddress::new(0.into(), 1.into()),)
             );
             assert!(entry.get_value(1.into()).unwrap() == RawValue::U16(0x8899));
         }
@@ -161,8 +161,11 @@ mod tests {
                     Properties::new(
                         1,
                         vec![
-                            RawProperty::new(RawPropertyKind::Array, 4),
-                            RawProperty::new(RawPropertyKind::UnsignedInt, 2),
+                            RawProperty::new(
+                                PropertyKind::Array(Some(ByteSize::U1), 4, None, None),
+                                5,
+                            ),
+                            RawProperty::new(PropertyKind::UnsignedInt(ByteSize::U2, None), 2),
                         ],
                     )
                     .unwrap()
@@ -170,21 +173,28 @@ mod tests {
                     Properties::new(
                         1,
                         vec![
-                            RawProperty::new(RawPropertyKind::Array, 2),
-                            RawProperty::new(RawPropertyKind::Padding, 1),
-                            RawProperty::new(RawPropertyKind::SignedInt, 1),
-                            RawProperty::new(RawPropertyKind::UnsignedInt, 2),
+                            RawProperty::new(PropertyKind::Array(None, 2, None, None), 2),
+                            RawProperty::new(PropertyKind::Padding, 2),
+                            RawProperty::new(PropertyKind::SignedInt(ByteSize::U1, None), 1),
+                            RawProperty::new(PropertyKind::UnsignedInt(ByteSize::U2, None), 2),
                         ],
                     )
                     .unwrap()
                     .into(),
                 ]),
             )),
-            size: Size::new(7),
+            size: Size::new(8),
         };
 
         let entry_reader = Reader::from(vec![
-            0x00, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99, 0x01, 0xFF, 0xEE, 0xDD, 0xCC, 0x88, 0x99,
+            0x00, // Variant id entry 0
+            0x04, 0xFF, 0xEE, 0xDD, 0xCC, // array entry 0
+            0x88, 0x99, // uint entry 0
+            0x01, // variant id entry 1
+            0xFF, 0xEE, // array entry 1,
+            0x00, 0x00, // Padding entry 1
+            0xCC, // signed int entry 1
+            0x88, 0x99, // uint entry 1
         ]);
         let store = Rc::new(EntryStore::Plain(PlainStore {
             layout,
@@ -195,24 +205,28 @@ mod tests {
         {
             let entry = builder.create_entry(0.into()).unwrap();
 
-            assert!(entry.get_variant_id().unwrap() == Some(0.into()));
-            assert!(
-                entry.get_value(0.into()).unwrap()
-                    == RawValue::Array(Array::new(vec![0xFF, 0xEE, 0xDD, 0xCC], None))
+            assert_eq!(entry.get_variant_id().unwrap(), Some(0.into()));
+            assert_eq!(
+                entry.get_value(0.into()).unwrap(),
+                RawValue::Array(Array::new(
+                    Some(Size::new(4)),
+                    vec![0xFF, 0xEE, 0xDD, 0xCC],
+                    None
+                ))
             );
-            assert!(entry.get_value(1.into()).unwrap() == RawValue::U16(0x8899));
+            assert_eq!(entry.get_value(1.into()).unwrap(), RawValue::U16(0x8899));
         }
 
         {
             let entry = builder.create_entry(1.into()).unwrap();
 
-            assert!(entry.get_variant_id().unwrap() == Some(1.into()));
-            assert!(
-                entry.get_value(0.into()).unwrap()
-                    == RawValue::Array(Array::new(vec![0xFF, 0xEE], None))
+            assert_eq!(entry.get_variant_id().unwrap(), Some(1.into()));
+            assert_eq!(
+                entry.get_value(0.into()).unwrap(),
+                RawValue::Array(Array::new(None, vec![0xFF, 0xEE], None))
             );
-            assert!(entry.get_value(1.into()).unwrap() == RawValue::I8(-52));
-            assert!(entry.get_value(2.into()).unwrap() == RawValue::U16(0x8899));
+            assert_eq!(entry.get_value(1.into()).unwrap(), RawValue::I8(-52));
+            assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U16(0x8899));
         }
     }
 }

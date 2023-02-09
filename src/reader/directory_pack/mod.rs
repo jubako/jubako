@@ -26,7 +26,7 @@ pub use self::index::Index;
 pub use self::property_compare::AnyPropertyCompare;
 pub use crate::common::{ContentAddress, Value};
 pub use lazy_entry::LazyEntry;
-pub use raw_value::{Array, Extend, RawValue};
+pub use raw_value::{Array, ArrayIter, Extend, RawValue};
 pub use resolver::Resolver;
 pub use schema::AnySchema;
 
@@ -271,12 +271,12 @@ mod tests {
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
             0x0e, 0x0f, // uuid
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x39, // file_size
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x19, // check_info_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x3C, // file_size
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x24, // check_info_pos
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x11, // index_ptr_pos
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xEF, // entry_store_ptr_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x1C, // index_ptr_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFA, // entry_store_ptr_pos
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x9C, // value_store_ptr_pos
             0x00, 0x00, 0x00, 0x01, // index count
             0x00, 0x00, 0x00, 0x01, // entry_store count
@@ -301,31 +301,30 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x8F, // Offset the tailler (128+15=143/0x8F)
         ]);
         // Add a entry_store (offset 156+8=164/0xA4)
-        // One variant, with on PString, a 2ArrayChar/Pstring, a u24 and a content address
+        // One variant, with on Char1[0], a Char1[2]+Deported(1), a u24 and a content address
         #[rustfmt::skip]
         content.extend_from_slice(&[
-            0x00, 0x01, b'A', b'B', 0x11, 0x12, 0x13, 0x00, 0x00, 0x00, 0x00, // Entry 0
-            0x02, 0x00, b'a', b'B', 0x21, 0x22, 0x23, 0x01, 0x00, 0x00, 0x00, // Entry 1
-            0x01, 0x02, b'A', b'B', 0x31, 0x32, 0x33, 0x00, 0x00, 0x00, 0x01, // Entry 2
-            0x02, 0x01, b'A', b'B', 0x41, 0x42, 0x43, 0x00, 0x00, 0x00, 0x02, // Entry 3
-            0x00, 0x01, 0x00, 0x00, 0x51, 0x52, 0x53, 0x00, 0xaa, 0xaa, 0xaa, // Entry 4
+            0x05, 0x00, 0x05, b'A', b'B', 0x01, 0x11, 0x12, 0x13, 0x00, 0x00, 0x00, 0x00, // Entry 0
+            0x07, 0x02, 0x07, b'a', b'B', 0x00, 0x21, 0x22, 0x23, 0x01, 0x00, 0x00, 0x00, // Entry 1
+            0x03, 0x01, 0x09, b'A', b'B', 0x02, 0x31, 0x32, 0x33, 0x00, 0x00, 0x00, 0x01, // Entry 2
+            0x07, 0x02, 0x05, b'A', b'B', 0x01, 0x41, 0x42, 0x43, 0x00, 0x00, 0x00, 0x02, // Entry 3
+            0x05, 0x00, 0x05, 0x00, 0x00, 0x01, 0x51, 0x52, 0x53, 0x00, 0xaa, 0xaa, 0xaa, // Entry 4
             0x00, // kind
-            0x00, 0x0B, // entry size
+            0x00, 0x0D, // entry size
             0x00, // variant count
-            0x05, // value count
-            0b0110_0000, 0x00, // Pstring(1), idx 0x00
-            0b0111_0000, 0x00,        // Psstringlookup(1), idx 0x00
-            0b0100_0001, // char[2]
+            0x04, // value count
+            0b0101_0001, 0b001_00000, 0x00, // Char1[0] + deported 1, idx 0x00
+            0b0101_0001, 0b001_00010, 0x00, // Char1[2] + deported 1, idx 0x00
             0b0010_0010, // u24
-            0b0001_0000, // content address
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x37, // data size
+            0b0001_0010, // content address
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x41, // data size
         ]);
-        // Add a entry_store_ptr (offset 164+55+20=239/0xEF)
+        // Add a entry_store_ptr (offset 164+65+21=250/0xFA)
         content.extend_from_slice(&[
-            0x00, 20, // size
-            0x00, 0x00, 0x00, 0x00, 0x00, 0xDB, // offset of the tailler (164+55=219/0xDB)
+            0x00, 21, // size
+            0x00, 0x00, 0x00, 0x00, 0x00, 0xE5, // offset of the tailler (164+65=229/0xE5)
         ]);
-        // Add one index (offset 239+8=247/0xF7)
+        // Add one index (offset 250+8=258/0x102)
         content.extend_from_slice(&[
             0x00, 0x00, 0x00, 0x00, // store_id
             0x00, 0x00, 0x00, 0x04, // entry_count (use only 4 from the 5 available)
@@ -334,15 +333,15 @@ mod tests {
             0x00, // index_property (use the first pstring a binary search property
             0x08, b'm', b'y', b' ', b'i', b'n', b'd', b'e', b'x', // Pstring "my index"
         ]);
-        // Add a index_ptr (offset 247+26=273/0x111)
+        // Add a index_ptr (offset 258+26=284/0x11C)
         content.extend_from_slice(&[
             0x00, 26, //size
-            0x00, 0x00, 0x00, 0x00, 0x00, 0xF7, // offset
+            0x00, 0x00, 0x00, 0x00, 0x01, 0x02, // offset
         ]);
-        // end = 273+8=281/0x119
+        // end = 284+8=292/0x124
         let hash = blake3::hash(&content);
-        content.push(0x01); // check info off: 281
-        content.extend(hash.as_bytes()); // end : 281+32 = 313/0x139
+        content.push(0x01); // check info off: 284
+        content.extend(hash.as_bytes()); // end : 284+32 = 316/0x13C
         let directory_pack = Rc::new(DirectoryPack::new(content.into()).unwrap());
         let index = directory_pack.get_index(0.into()).unwrap();
         let value_storage = directory_pack.create_value_storage();
@@ -361,7 +360,11 @@ mod tests {
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
                     a,
-                    &Array::new(Vec::new(), Some(Extend::new(0.into(), ValueIdx::from(2))))
+                    &Array::new(
+                        Some(Size::new(7)),
+                        Vec::new(),
+                        Some(Extend::new(0.into(), ValueIdx::from(2)))
+                    )
                 );
             } else {
                 panic!("Must be a array");
@@ -375,6 +378,7 @@ mod tests {
                 assert_eq!(
                     a,
                     &Array::new(
+                        Some(Size::new(7)),
                         vec![b'a', b'B'],
                         Some(Extend::new(0.into(), ValueIdx::from(0)))
                     )
@@ -399,7 +403,11 @@ mod tests {
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
                     a,
-                    &Array::new(Vec::new(), Some(Extend::new(0.into(), ValueIdx::from(1))))
+                    &Array::new(
+                        Some(Size::new(3)),
+                        Vec::new(),
+                        Some(Extend::new(0.into(), ValueIdx::from(1)))
+                    )
                 );
             } else {
                 panic!("Must be a array");
@@ -410,6 +418,7 @@ mod tests {
                 assert_eq!(
                     a,
                     &Array::new(
+                        Some(Size::new(9)),
                         vec![b'A', b'B'],
                         Some(Extend::new(0.into(), ValueIdx::from(2)))
                     )
@@ -437,7 +446,11 @@ mod tests {
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
                     a,
-                    &Array::new(Vec::new(), Some(Extend::new(0.into(), ValueIdx::from(2))))
+                    &Array::new(
+                        Some(Size::new(7)),
+                        Vec::new(),
+                        Some(Extend::new(0.into(), ValueIdx::from(2)))
+                    )
                 );
             } else {
                 panic!("Must be a array");
@@ -448,6 +461,7 @@ mod tests {
                 assert_eq!(
                     a,
                     &Array::new(
+                        Some(Size::new(5)),
                         vec![b'A', b'B'],
                         Some(Extend::new(0.into(), ValueIdx::from(1)))
                     )
@@ -472,7 +486,11 @@ mod tests {
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
                     a,
-                    &Array::new(Vec::new(), Some(Extend::new(0.into(), ValueIdx::from(0))))
+                    &Array::new(
+                        Some(Size::new(5)),
+                        Vec::new(),
+                        Some(Extend::new(0.into(), ValueIdx::from(0)))
+                    )
                 );
             } else {
                 panic!("Must be a array");
@@ -482,7 +500,11 @@ mod tests {
             if let RawValue::Array(a) = &value1 {
                 assert_eq!(
                     a,
-                    &Array::new(vec![0, 0], Some(Extend::new(0.into(), ValueIdx::from(1))))
+                    &Array::new(
+                        Some(Size::new(5)),
+                        vec![0, 0],
+                        Some(Extend::new(0.into(), ValueIdx::from(1)))
+                    )
                 );
             } else {
                 panic!("Must be a array");

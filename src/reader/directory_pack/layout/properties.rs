@@ -1,5 +1,5 @@
-use super::super::raw_layout::{RawProperty, RawPropertyKind};
-use super::property::{Property, PropertyKind};
+use super::super::raw_layout::{PropertyKind, RawProperty};
+use super::property::Property;
 use crate::bases::*;
 use std::rc::Rc;
 
@@ -24,102 +24,14 @@ impl From<Properties> for SharedProperties {
 impl Properties {
     pub fn new(initial_offset: usize, raw_properties: Vec<RawProperty>) -> Result<Self> {
         let mut offset = initial_offset;
-        let mut current_idx = 0;
         let mut properties = Vec::new();
-        while current_idx < raw_properties.len() {
-            let (property, new_idx, new_offset) =
-                Self::build_property(current_idx, offset, &raw_properties)?;
-            offset = new_offset;
-            current_idx = new_idx;
-            if property.kind != PropertyKind::None {
+        for raw_property in raw_properties {
+            let property = Property::new(offset, raw_property.kind);
+            offset += raw_property.size;
+            if property.kind != PropertyKind::Padding && property.kind != PropertyKind::VariantId {
                 properties.push(property)
             }
         }
         Ok(Properties(properties.into_boxed_slice()))
-    }
-
-    fn build_property(
-        current_idx: usize,
-        offset: usize,
-        raw_properties: &[RawProperty],
-    ) -> Result<(Property, usize /*new_idx*/, usize /*new_offset*/)> {
-        let raw_property = raw_properties[current_idx];
-        match raw_property.kind {
-            RawPropertyKind::VariantId => {
-                if current_idx == 0 {
-                    Ok((
-                        Property::new(offset, PropertyKind::None),
-                        current_idx + 1,
-                        offset + 1,
-                    ))
-                } else {
-                    Err(format_error!(
-                        "VariantId cannot be in the middle of variant layout"
-                    ))
-                }
-            }
-            RawPropertyKind::Padding => Ok((
-                Property::new(offset, PropertyKind::None),
-                current_idx + 1,
-                offset + raw_property.size,
-            )),
-            RawPropertyKind::ContentAddress => Ok((
-                Property::new(offset, PropertyKind::ContentAddress),
-                current_idx + 1,
-                offset + 4,
-            )),
-            RawPropertyKind::UnsignedInt => Ok((
-                Property::new(
-                    offset,
-                    PropertyKind::UnsignedInt(raw_property.size.try_into().unwrap()),
-                ),
-                current_idx + 1,
-                offset + raw_property.size,
-            )),
-            RawPropertyKind::SignedInt => Ok((
-                Property::new(
-                    offset,
-                    PropertyKind::SignedInt(raw_property.size.try_into().unwrap()),
-                ),
-                current_idx + 1,
-                offset + raw_property.size,
-            )),
-            RawPropertyKind::Array => Ok((
-                Property::new(offset, PropertyKind::Array(raw_property.size)),
-                current_idx + 1,
-                offset + raw_property.size,
-            )),
-            RawPropertyKind::VLArray(flookup, valuestoreid) => {
-                let (subproperty, new_idx, new_offset) = if flookup {
-                    let subproperty = Self::build_property(
-                        current_idx + 1,
-                        offset + raw_property.size,
-                        raw_properties,
-                    )?;
-                    let subproperty_size = if let PropertyKind::Array(s) = subproperty.0.kind {
-                        s
-                    } else {
-                        return Err(format_error!(
-                            "Lookup VLArray property must be followed by a Array property."
-                        ));
-                    };
-                    (Some(subproperty_size), subproperty.1, subproperty.2)
-                } else {
-                    (None, current_idx + 1, offset + raw_property.size)
-                };
-                Ok((
-                    Property::new(
-                        offset,
-                        PropertyKind::VLArray(
-                            raw_property.size.try_into().unwrap(),
-                            valuestoreid.into(),
-                            subproperty,
-                        ),
-                    ),
-                    new_idx,
-                    new_offset,
-                ))
-            }
-        }
     }
 }
