@@ -276,5 +276,21 @@ mod tests {
                 indirect_value.params.expected
             )
         }
+
+        test test_resolver_compare(storage) {
+            let resolver = private::Resolver::new(storage.val);
+            let raw_value = Array {
+                base: "Hello ".into(),
+                extend: Some(Extend{store_id:0.into(), value_id:ValueIdx::from(2)})
+            };
+            assert_eq!(resolver.compare_array(&raw_value, &"Hel".as_bytes()).unwrap(), cmp::Ordering::Greater);
+            assert_eq!(resolver.compare_array(&raw_value, &"Hello".as_bytes()).unwrap(), cmp::Ordering::Greater);
+            assert_eq!(resolver.compare_array(&raw_value, &"Hello ".as_bytes()).unwrap(), cmp::Ordering::Greater);
+            assert_eq!(resolver.compare_array(&raw_value, &"Hello Jubako".as_bytes()).unwrap(), cmp::Ordering::Equal);
+            assert_eq!(resolver.compare_array(&raw_value, &"Hello Jubako!".as_bytes()).unwrap(), cmp::Ordering::Less);
+            assert_eq!(resolver.compare_array(&raw_value, &"Hella Jubako!".as_bytes()).unwrap(), cmp::Ordering::Greater);
+            assert_eq!(resolver.compare_array(&raw_value, &"Hemmo Jubako!".as_bytes()).unwrap(), cmp::Ordering::Less);
+
+        }
     }
 }
