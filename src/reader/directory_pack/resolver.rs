@@ -1,6 +1,5 @@
 use super::private::ValueStorageTrait;
-use super::value_store::ValueStoreTrait;
-use super::{Array, ArrayIter, ContentAddress, Extend, RawValue, ValueStorage};
+use super::{Array, ArrayIter, ContentAddress, RawValue, ValueStorage};
 use crate::bases::*;
 use crate::common::Value;
 use std::cmp;
@@ -32,35 +31,22 @@ pub(crate) mod private {
             Self { value_storage }
         }
 
-        fn get_data(&self, extend: &Extend, size: Option<Size>) -> Result<&[u8]> {
-            let value_store = self.value_storage.get_value_store(extend.store_id)?;
-            value_store.get_data(extend.value_id, size)
-        }
-
         pub fn resolve_array_to_vec(&self, array: &Array, vec: &mut Vec<u8>) -> Result<()> {
-            match array.size {
-                Some(size) => {
-                    let size = size.into_usize();
-                    vec.reserve(size);
-                    let plain_size_to_copy = std::cmp::min(size, array.base.len());
-                    vec.extend_from_slice(&array.base.as_slice()[..plain_size_to_copy]);
-                    if size > array.base.len() {
-                        if let Some(e) = &array.extend {
-                            vec.extend_from_slice(
-                                self.get_data(e, Some(Size::from(size - array.base.len())))?,
-                            );
-                        }
-                    }
-                }
-                None => {
-                    vec.reserve(array.base.len());
-                    vec.extend_from_slice(array.base.as_slice());
-                    if let Some(e) = &array.extend {
-                        vec.extend_from_slice(self.get_data(e, None)?);
-                    }
-                }
+            let value_store = if let Some(e) = &array.extend {
+                Some(self.value_storage.get_value_store(e.store_id)?)
+            } else {
+                None
             };
-
+            let our_iter =
+                ArrayIter::<'_, ValueStorage>::new(array, value_store.as_ref().map(|v| v.as_ref()));
+            if let Some(s) = array.size {
+                vec.reserve(s.into_usize());
+            } else {
+                vec.reserve(array.base.len());
+            }
+            for v in our_iter {
+                vec.push(v?);
+            }
             Ok(())
         }
 
@@ -182,6 +168,7 @@ pub type Resolver = private::Resolver<ValueStorage>;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::reader::directory_pack::{Extend, ValueStoreTrait};
     use crate::ContentAddress;
     use galvanic_test::test_suite;
 
