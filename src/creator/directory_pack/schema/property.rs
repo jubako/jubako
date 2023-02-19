@@ -64,7 +64,10 @@ pub enum Property {
         fixed_array_size: usize,
         store_handle: Rc<RefCell<ValueStore>>,
     },
-    ContentAddress,
+    ContentAddress {
+        pack_id_counter: ValueCounter<u8>,
+        content_id_size: PropertySize<u32>,
+    },
     Padding(/*size*/ u8),
 }
 
@@ -87,7 +90,14 @@ impl std::fmt::Debug for Property {
                 .field("store_idx", &store_handle.borrow().get_idx())
                 .field("key_size", &store_handle.borrow().key_size())
                 .finish(),
-            Self::ContentAddress => f.debug_tuple("ContentAddress").finish(),
+            Self::ContentAddress {
+                pack_id_counter,
+                content_id_size,
+            } => f
+                .debug_struct("ContentAddress")
+                .field("pack_id_counter", &pack_id_counter)
+                .field("content_id_size", &content_id_size)
+                .finish(),
             Self::Padding(s) => f.debug_tuple("Padding").field(&s).finish(),
         }
     }
@@ -109,6 +119,13 @@ impl Property {
         }
     }
 
+    pub fn new_content_address() -> Self {
+        Property::ContentAddress {
+            pack_id_counter: Default::default(),
+            content_id_size: Default::default(),
+        }
+    }
+
     pub fn process<'a>(&mut self, values: &mut impl Iterator<Item = &'a Value>) {
         match self {
             Self::UnsignedInt { counter, size } => {
@@ -120,6 +137,24 @@ impl Property {
                         }
                         PropertySize::Auto(max) => {
                             *max = cmp::max(*max, value.get());
+                        }
+                    }
+                } else {
+                    panic!("Value type doesn't correspond to property");
+                }
+            }
+            Self::ContentAddress {
+                pack_id_counter,
+                content_id_size,
+            } => {
+                if let Value::Content(c) = values.next().unwrap() {
+                    pack_id_counter.process(c.pack_id.into_u8());
+                    match content_id_size {
+                        PropertySize::Fixed(size) => {
+                            assert!(*size >= needed_bytes(c.content_id.into_u32()));
+                        }
+                        PropertySize::Auto(max) => {
+                            *max = cmp::max(*max, c.content_id.into_u32());
                         }
                     }
                 } else {
@@ -151,9 +186,6 @@ impl Property {
             }
             Self::Padding(_) => {
                 panic!("Padding cannot process a value");
-            }
-            _ => {
-                values.next();
             }
         }
     }
@@ -191,7 +223,20 @@ impl Property {
                     deported_info: Some((value_id_size, Rc::clone(store_handle))),
                 }
             }
-            Self::ContentAddress => layout::Property::ContentAddress(ByteSize::U3),
+            Self::ContentAddress {
+                pack_id_counter,
+                content_id_size,
+            } => {
+                let default = match pack_id_counter {
+                    ValueCounter::One(d) => Some(*d),
+                    _ => None,
+                };
+                let size = match content_id_size {
+                    PropertySize::Fixed(size) => *size,
+                    PropertySize::Auto(max) => needed_bytes(*max),
+                };
+                layout::Property::ContentAddress { size, default }
+            }
             Self::Padding(size) => layout::Property::Padding(*size),
         }
     }

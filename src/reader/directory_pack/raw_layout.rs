@@ -13,6 +13,8 @@ pub enum PropertyKind {
     ContentAddress(
         // The size of the content_id
         ByteSize,
+        // The default value of the pack_id
+        Option<PackId>,
     ),
     UnsignedInt(
         // The size of the integer
@@ -85,12 +87,21 @@ impl Producable for RawProperty {
         let propdata = propinfo & 0x0F;
         let (propsize, kind) = match proptype {
             0b0000 => (propdata as u16 + 1, PropertyKind::Padding),
-            0b0001 => (
-                (propdata & 0b11) as u16 + 2,
-                PropertyKind::ContentAddress(
-                    ByteSize::try_from((propdata & 0b11) as usize + 1).unwrap(),
-                ),
-            ),
+            0b0001 => {
+                let content_id_size = (propdata & 0b0011) as u16 + 1;
+                let pack_id_default = if (propdata & 0b0100) == 0 {
+                    Some(flux.read_u8()?.into())
+                } else {
+                    None
+                };
+                (
+                    content_id_size + if pack_id_default.is_some() { 0 } else { 1 },
+                    PropertyKind::ContentAddress(
+                        ByteSize::try_from(content_id_size as usize).unwrap(),
+                        pack_id_default,
+                    ),
+                )
+            }
             0b0010 | 0b0011 => {
                 let default_value = (propdata & 0b1000) != 0;
                 let int_size = ByteSize::try_from((propdata & 0x07) as usize + 1).unwrap();
@@ -254,9 +265,12 @@ mod tests {
     #[test_case(&[0b0000_0000] => RawProperty{size:1, kind:PropertyKind::Padding })]
     #[test_case(&[0b0000_0111] => RawProperty{size:8, kind:PropertyKind::Padding })]
     #[test_case(&[0b0000_1111] => RawProperty{size:16, kind:PropertyKind::Padding })]
-    #[test_case(&[0b0001_0000] => RawProperty{size:2, kind:PropertyKind::ContentAddress(ByteSize::U1) })]
-    #[test_case(&[0b0001_0001] => RawProperty{size:3, kind:PropertyKind::ContentAddress(ByteSize::U2) })]
-    #[test_case(&[0b0001_0010] => RawProperty{size:4, kind:PropertyKind::ContentAddress(ByteSize::U3) })]
+    #[test_case(&[0b0001_0100] => RawProperty{size:2, kind:PropertyKind::ContentAddress(ByteSize::U1, None) })]
+    #[test_case(&[0b0001_0101] => RawProperty{size:3, kind:PropertyKind::ContentAddress(ByteSize::U2, None) })]
+    #[test_case(&[0b0001_0110] => RawProperty{size:4, kind:PropertyKind::ContentAddress(ByteSize::U3, None) })]
+    #[test_case(&[0b0001_0000, 0x01] => RawProperty{size:1, kind:PropertyKind::ContentAddress(ByteSize::U1, Some(1.into())) })]
+    #[test_case(&[0b0001_0001, 0x01] => RawProperty{size:2, kind:PropertyKind::ContentAddress(ByteSize::U2, Some(1.into())) })]
+    #[test_case(&[0b0001_0010, 0x01] => RawProperty{size:3, kind:PropertyKind::ContentAddress(ByteSize::U3, Some(1.into())) })]
     #[test_case(&[0b0010_0000] => RawProperty{size:1, kind:PropertyKind::UnsignedInt(ByteSize::U1, None) })]
     #[test_case(&[0b0010_0010] => RawProperty{size:3, kind:PropertyKind::UnsignedInt(ByteSize::U3, None) })]
     #[test_case(&[0b0010_0111] => RawProperty{size:8, kind:PropertyKind::UnsignedInt(ByteSize::U8, None) })]

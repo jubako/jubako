@@ -111,7 +111,7 @@ mod tests {
             common: Properties::new(
                 0,
                 vec![
-                    RawProperty::new(PropertyKind::ContentAddress(ByteSize::U3), 4),
+                    RawProperty::new(PropertyKind::ContentAddress(ByteSize::U3, None), 4),
                     RawProperty::new(PropertyKind::UnsignedInt(ByteSize::U2, None), 2),
                 ],
             )

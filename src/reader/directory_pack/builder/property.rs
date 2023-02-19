@@ -202,13 +202,15 @@ impl PropertyBuilderTrait for ArrayProperty {
 #[derive(Debug, PartialEq, Eq)]
 pub struct ContentProperty {
     offset: Offset,
+    pack_id_default: Option<PackId>,
     content_id_size: ByteSize,
 }
 
 impl ContentProperty {
-    pub fn new(offset: Offset, content_id_size: ByteSize) -> Self {
+    pub fn new(offset: Offset, pack_id_default: Option<PackId>, content_id_size: ByteSize) -> Self {
         Self {
             offset,
+            pack_id_default,
             content_id_size,
         }
     }
@@ -218,7 +220,9 @@ impl TryFrom<&layout::Property> for ContentProperty {
     type Error = String;
     fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
         match p.kind {
-            layout::PropertyKind::ContentAddress(s) => Ok(ContentProperty::new(p.offset, s)),
+            layout::PropertyKind::ContentAddress(content_id_size, pack_id_default) => Ok(
+                ContentProperty::new(p.offset, pack_id_default, content_id_size),
+            ),
             _ => Err("Invalid key".to_string()),
         }
     }
@@ -227,11 +231,16 @@ impl TryFrom<&layout::Property> for ContentProperty {
 impl PropertyBuilderTrait for ContentProperty {
     type Output = ContentAddress;
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        let content_size = self.content_id_size as usize + 1;
+        let content_size =
+            self.content_id_size as usize + if self.pack_id_default.is_some() { 0 } else { 1 };
         let mut flux = reader.create_flux(self.offset, End::new_size(content_size));
-        let pack_id = flux.read_u8()?;
+        let pack_id = match self.pack_id_default {
+            None => flux.read_u8()?.into(),
+            Some(d) => d,
+        };
+
         let content_id = flux.read_usized(self.content_id_size)? as u32;
-        Ok(ContentAddress::new(pack_id.into(), content_id.into()))
+        Ok(ContentAddress::new(pack_id, content_id.into()))
     }
 }
 
@@ -249,8 +258,12 @@ pub enum AnyProperty {
 impl From<&layout::Property> for AnyProperty {
     fn from(p: &layout::Property) -> Self {
         match &p.kind {
-            &layout::PropertyKind::ContentAddress(size) => {
-                Self::ContentAddress(ContentProperty::new(p.offset, size))
+            &layout::PropertyKind::ContentAddress(content_id_size, pack_id_default) => {
+                Self::ContentAddress(ContentProperty::new(
+                    p.offset,
+                    pack_id_default,
+                    content_id_size,
+                ))
             }
             &layout::PropertyKind::UnsignedInt(size, default) => {
                 Self::UnsignedInt(IntProperty::new(p.offset, size, default))

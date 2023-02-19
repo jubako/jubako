@@ -152,7 +152,7 @@ impl IndexStore {
         data.push(0x00); // variant count
         data.push(0x03); // key count
         data.extend(&[0b0101_0001, 0b001_00000, 0x00]); // The first key, a char1[0] + deported(1) idx 0
-        data.extend(&[0b0001_0000]); // The second key, the content address
+        data.extend(&[0b0001_0100]); // The second key, the content address
         data.extend(&[0b0010_0001]); // The third key, the u16
         data.extend((self.data.len() as u64).to_be_bytes()); //data size
         self.tail_size = Some(data.len() as u16);

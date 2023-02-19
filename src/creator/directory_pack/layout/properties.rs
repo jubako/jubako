@@ -67,11 +67,15 @@ impl Properties {
                         return Err("Not a Array".to_string().into());
                     }
                 }
-                Property::ContentAddress(s) => {
+                Property::ContentAddress { size, default } => {
                     let value = value_iter.next().unwrap();
                     if let Value::Content(value) = value {
-                        written += stream.write_u8(value.pack_id.into_u8())?;
-                        written += stream.write_sized(value.content_id.into_u64(), *s)?;
+                        if let Some(d) = default {
+                            assert_eq!(*d, value.pack_id.into_u8());
+                        } else {
+                            written += stream.write_u8(value.pack_id.into_u8())?;
+                        }
+                        written += stream.write_sized(value.content_id.into_u64(), *size)?;
                     } else {
                         return Err("Not a Content".to_string().into());
                     }

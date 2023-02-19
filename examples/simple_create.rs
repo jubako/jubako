@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ]),
         vec![
             schema::VariantProperties::new(vec![
-                schema::Property::ContentAddress, // A "pointer" to a content.
+                schema::Property::new_content_address(), // A "pointer" to a content.
             ]),
             schema::VariantProperties::new(vec![
                 schema::Property::new_int(), //

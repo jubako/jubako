@@ -170,7 +170,10 @@ impl<'a> Iterator for ValueTransformer<'a> {
                             panic!("Invalide value type");
                         }
                     }
-                    schema::Property::ContentAddress => {
+                    schema::Property::ContentAddress {
+                        pack_id_counter: _,
+                        content_id_size: _,
+                    } => {
                         let value = self.values.next().unwrap();
                         if let common::Value::Content(v) = value {
                             return Some(Value::Content(v));

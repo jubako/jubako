@@ -94,11 +94,11 @@ mod tests {
         #[rustfmt::skip]
         let content = vec![
             0x00, // kind
-            0x00, 0x6C,  //entry_size (108)
+            0x00, 0x6D,  //entry_size (108)
             0x00,        // variant count
-            0x0F,        // property count (15)
+            0x10,       // property count (16)
             0b0000_0111, // padding (8)       offset: 0
-            0b0001_0010, // content address   offset: 8
+            0b0001_0110, // content address   offset: 8
             0b0010_0000, // u8                offset: 12
             0b0010_0010, // u24               offset: 13
             0b0010_0111, // u64               offset: 16
@@ -112,7 +112,8 @@ mod tests {
             0b0101_0010, 0b111_00000, 0x0F, // char2[0] + deported(7), idx 0x0F   offset: 84
             0b0101_0001, 0b001_00010, 0x0F, // char1[2] + deported(1), idx 0x0F   offset: 93
             0b0101_0010, 0b111_00010, 0x0F, // char2[2] + deported(7), idx 0x0F   offset: 97
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size           offset: 108
+            0b0001_0000, 0x01, // content address, with default 0x01 and 1 byte of data offset: 108
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size           offset: 109
         ];
         let size = Size::from(content.len());
         let reader = Reader::from(content);
@@ -122,7 +123,7 @@ mod tests {
         };
         assert!(store.layout.variant_part.is_none());
         let expected = [
-            Property::new(8, PropertyKind::ContentAddress(ByteSize::U3)),
+            Property::new(8, PropertyKind::ContentAddress(ByteSize::U3, None)),
             Property::new(12, PropertyKind::UnsignedInt(ByteSize::U1, None)),
             Property::new(13, PropertyKind::UnsignedInt(ByteSize::U3, None)),
             Property::new(16, PropertyKind::UnsignedInt(ByteSize::U8, None)),
@@ -168,6 +169,10 @@ mod tests {
                     None,
                 ),
             ),
+            Property::new(
+                108,
+                PropertyKind::ContentAddress(ByteSize::U1, Some(1.into())),
+            ),
         ];
         assert_eq!(&*store.layout.common, &expected);
     }
@@ -184,11 +189,11 @@ mod tests {
             0b0101_0100, 0b001_00001, 0x0F, // char4[1] + deported(1) 0x0F                offset: 7
             0b1000_0000, // Variant id size:1                                             offset: 13
             0b0101_0100, 0b101_00001, 0x0F, // char4[1] + deported(5), idx 0x0F size: 10  offset: 14
-            0b0001_0010, // content address size : 1+ 3                                    offset: 24
+            0b0001_0110, // content address size : 1+ 3                                   offset: 24
             0b0010_0010, // u24 size: 3                                                   offset: 28  => Variant size 31
             0b1000_0000, // Variant id size: 1                                            offset: 13  // new variant
             0b0101_0011, 0b000_00110, // char3[6] size: 9                                 offset: 14
-            0b0001_0001, // content address size: 1 + 2                                    offset: 23
+            0b0001_0101, // content address size: 1 + 2                                   offset: 23
             0b0010_0010, // u24 size: 3                                                   offset: 26
             0b0000_0001,  // padding (2)                                                  offset: 29  => Variant size 31
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
@@ -225,14 +230,14 @@ mod tests {
                     None,
                 ),
             ),
-            Property::new(24, PropertyKind::ContentAddress(ByteSize::U3)),
+            Property::new(24, PropertyKind::ContentAddress(ByteSize::U3, None)),
             Property::new(28, PropertyKind::UnsignedInt(ByteSize::U3, None)),
         ];
         assert_eq!(&**variant, &expected);
         let variant = &variants[1];
         let expected = [
             Property::new(14, PropertyKind::Array(Some(ByteSize::U3), 6, None, None)),
-            Property::new(23, PropertyKind::ContentAddress(ByteSize::U2)),
+            Property::new(23, PropertyKind::ContentAddress(ByteSize::U2, None)),
             Property::new(26, PropertyKind::UnsignedInt(ByteSize::U3, None)),
         ];
         assert_eq!(&**variant, &expected);

@@ -89,7 +89,7 @@ test_suite! {
         let entry_def = schema::Schema::new(
             schema::CommonProperties::new(vec![
                 schema::Property::new_array(0, key_store_handle),
-                schema::Property::ContentAddress,
+                schema::Property::new_content_address(),
                 schema::Property::new_int()
             ]),
             vec!()

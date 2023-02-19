@@ -11,7 +11,10 @@ pub enum Property {
         fixed_array_size: u8,
         deported_info: Option<(ByteSize, Rc<RefCell<ValueStore>>)>,
     },
-    ContentAddress(ByteSize),
+    ContentAddress {
+        size: ByteSize,
+        default: Option<u8>,
+    },
     UnsignedInt {
         size: ByteSize,
         default: Option<u64>,
@@ -38,9 +41,10 @@ impl std::fmt::Debug for Property {
                 .field("deported_info", &deported_info)
                 .field("size", &self.size())
                 .finish(),
-            ContentAddress(size) => f
+            ContentAddress { size, default } => f
                 .debug_struct("ContentAddress")
                 .field("size", &size)
+                .field("default", &default)
                 .field("size", &self.size())
                 .finish(),
             UnsignedInt { size, default } => f
@@ -75,7 +79,9 @@ impl Property {
                         Some((s, _)) => *s as usize as u16,
                     }
             }
-            Property::ContentAddress(s) => *s as usize as u16 + 1,
+            Property::ContentAddress { size, default } => {
+                (if default.is_some() { 0 } else { 1 }) + *size as usize as u16
+            }
             Property::UnsignedInt { size, default } => {
                 if default.is_some() {
                     0
@@ -114,7 +120,19 @@ impl Writable for Property {
                 }
                 Ok(written)
             }
-            Property::ContentAddress(s) => stream.write_u8(0b0001_0000 + (*s as usize as u8 - 1)),
+            Property::ContentAddress { size, default } => {
+                let mut key_type = 0b0001_0000;
+                key_type += *size as u8 - 1;
+                match default {
+                    None => stream.write_u8(key_type + 0b0000_0100),
+                    Some(d) => {
+                        let mut written = 0;
+                        written += stream.write_u8(key_type)?;
+                        written += stream.write_u8(*d)?;
+                        Ok(written)
+                    }
+                }
+            }
             Property::UnsignedInt { size, default } => {
                 let mut key_type = 0b0010_0000;
                 key_type += *size as u8 - 1;
