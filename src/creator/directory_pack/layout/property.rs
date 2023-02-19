@@ -12,7 +12,10 @@ pub enum Property {
         deported_info: Option<(ByteSize, Rc<RefCell<ValueStore>>)>,
     },
     ContentAddress(ByteSize),
-    UnsignedInt(ByteSize),
+    UnsignedInt {
+        size: ByteSize,
+        default: Option<u64>,
+    },
     Padding(/*size*/ u8),
 }
 
@@ -40,9 +43,10 @@ impl std::fmt::Debug for Property {
                 .field("size", &size)
                 .field("size", &self.size())
                 .finish(),
-            UnsignedInt(size) => f
+            UnsignedInt { size, default } => f
                 .debug_struct("UnsignedInt")
                 .field("size", &size)
+                .field("default", &default)
                 .field("size", &self.size())
                 .finish(),
             Padding(_size) => f
@@ -72,7 +76,13 @@ impl Property {
                     }
             }
             Property::ContentAddress(s) => *s as usize as u16 + 1,
-            Property::UnsignedInt(size) => *size as u16,
+            Property::UnsignedInt { size, default } => {
+                if default.is_some() {
+                    0
+                } else {
+                    *size as u16
+                }
+            }
             Property::Padding(size) => *size as u16,
         }
     }
@@ -105,9 +115,18 @@ impl Writable for Property {
                 Ok(written)
             }
             Property::ContentAddress(s) => stream.write_u8(0b0001_0000 + (*s as usize as u8 - 1)),
-            Property::UnsignedInt(size) => {
-                let key_type = 0b0010_0000;
-                stream.write_u8(key_type + (*size as u8 - 1))
+            Property::UnsignedInt { size, default } => {
+                let mut key_type = 0b0010_0000;
+                key_type += *size as u8 - 1;
+                match default {
+                    None => stream.write_u8(key_type),
+                    Some(d) => {
+                        let mut written = 0;
+                        written += stream.write_u8(key_type + 0b0000_1000)?;
+                        written += stream.write_sized(*d, *size)?;
+                        Ok(written)
+                    }
+                }
             }
             Property::Padding(size) => {
                 let key_type = 0b0000_0000;

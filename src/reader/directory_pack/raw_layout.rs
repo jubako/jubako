@@ -263,6 +263,10 @@ mod tests {
     #[test_case(&[0b0011_0000] => RawProperty{size:1, kind:PropertyKind::SignedInt(ByteSize::U1, None) })]
     #[test_case(&[0b0011_0010] => RawProperty{size:3, kind:PropertyKind::SignedInt(ByteSize::U3, None) })]
     #[test_case(&[0b0011_0111] => RawProperty{size:8, kind:PropertyKind::SignedInt(ByteSize::U8, None) })]
+    // Plain integer with default value
+    #[test_case(&[0b0010_1000, 0xff] => RawProperty{size:0, kind:PropertyKind::UnsignedInt(ByteSize::U1, Some(0xff)) })]
+    #[test_case(&[0b0010_1010, 0x01, 0x02, 0x03] => RawProperty{size:0, kind:PropertyKind::UnsignedInt(ByteSize::U3, Some(0x010203)) })]
+    #[test_case(&[0b0010_1111, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08] => RawProperty{size:0, kind:PropertyKind::UnsignedInt(ByteSize::U8, Some(0x0102030405060708)) })]
     // Char[] without deported part :
     #[test_case(&[0b0101_0001, 0b000_00000] => RawProperty{size:1+0+0, kind:PropertyKind::Array(Some(ByteSize::U1), 0, None, None) })]
     #[test_case(&[0b0101_0001, 0b000_00001] => RawProperty{size:1+1+0, kind:PropertyKind::Array(Some(ByteSize::U1), 1, None, None) })]

@@ -29,8 +29,36 @@ where
     }
 }
 
+#[derive(Default, Debug)]
+pub enum ValueCounter<T> {
+    #[default]
+    None,
+    One(T),
+    Many,
+}
+
+impl<T> ValueCounter<T>
+where
+    T: PartialEq<T>,
+{
+    fn process(&mut self, v: T) {
+        match self {
+            Self::None => *self = Self::One(v),
+            Self::One(d) => {
+                if *d != v {
+                    *self = Self::Many
+                }
+            }
+            Self::Many => {}
+        }
+    }
+}
+
 pub enum Property {
-    UnsignedInt(PropertySize<u64>),
+    UnsignedInt {
+        counter: ValueCounter<u64>,
+        size: PropertySize<u64>,
+    },
     Array {
         max_array_size: PropertySize<usize>,
         fixed_array_size: usize,
@@ -43,7 +71,11 @@ pub enum Property {
 impl std::fmt::Debug for Property {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UnsignedInt(s) => f.debug_tuple("UnsignedInt").field(&s).finish(),
+            Self::UnsignedInt { counter, size } => f
+                .debug_tuple("UnsignedInt")
+                .field(&counter)
+                .field(&size)
+                .finish(),
             Self::Array {
                 max_array_size,
                 fixed_array_size,
@@ -63,7 +95,10 @@ impl std::fmt::Debug for Property {
 
 impl Property {
     pub fn new_int() -> Self {
-        Property::UnsignedInt(Default::default())
+        Property::UnsignedInt {
+            counter: Default::default(),
+            size: Default::default(),
+        }
     }
 
     pub fn new_array(fixed_array_size: usize, store_handle: Rc<RefCell<ValueStore>>) -> Self {
@@ -76,8 +111,9 @@ impl Property {
 
     pub fn process<'a>(&mut self, values: &mut impl Iterator<Item = &'a Value>) {
         match self {
-            Self::UnsignedInt(size) => {
+            Self::UnsignedInt { counter, size } => {
                 if let Value::Unsigned(value) = values.next().unwrap() {
+                    counter.process(value.get());
                     match size {
                         PropertySize::Fixed(size) => {
                             assert!(*size >= needed_bytes(value.get()));
@@ -124,10 +160,22 @@ impl Property {
 
     pub fn finalize(&self) -> layout::Property {
         match self {
-            Self::UnsignedInt(size) => match size {
-                PropertySize::Fixed(size) => layout::Property::UnsignedInt(*size),
-                PropertySize::Auto(max) => layout::Property::UnsignedInt(needed_bytes(*max)),
-            },
+            Self::UnsignedInt { counter, size } => {
+                let size = match size {
+                    PropertySize::Fixed(size) => *size,
+                    PropertySize::Auto(max) => needed_bytes(*max),
+                };
+                match counter {
+                    ValueCounter::One(d) => layout::Property::UnsignedInt {
+                        size,
+                        default: Some(*d),
+                    },
+                    _ => layout::Property::UnsignedInt {
+                        size,
+                        default: None,
+                    },
+                }
+            }
             Self::Array {
                 max_array_size,
                 fixed_array_size,

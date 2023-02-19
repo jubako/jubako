@@ -76,10 +76,14 @@ impl Properties {
                         return Err("Not a Content".to_string().into());
                     }
                 }
-                Property::UnsignedInt(size) => {
+                Property::UnsignedInt { size, default } => {
                     let value = value_iter.next().unwrap();
                     if let Value::Unsigned(value) = value {
-                        written += stream.write_sized(value.get(), *size)?;
+                        if let Some(d) = default {
+                            assert_eq!(*d, value.get());
+                        } else {
+                            written += stream.write_sized(value.get(), *size)?;
+                        }
                     } else {
                         return Err("Not a unsigned".to_string().into());
                     }

@@ -159,7 +159,10 @@ impl<'a> Iterator for ValueTransformer<'a> {
                             panic!("Invalide value type");
                         }
                     }
-                    schema::Property::UnsignedInt(_) => {
+                    schema::Property::UnsignedInt {
+                        counter: _,
+                        size: _,
+                    } => {
                         let value = self.values.next().unwrap();
                         if let common::Value::Unsigned(v) = value {
                             return Some(Value::Unsigned(v));
