@@ -86,6 +86,7 @@ impl<Entry: FullEntryTrait> WritableTell for EntryStore<Entry> {
 
     fn write(&mut self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
         let layout = self.schema.finalize();
+        println!("Layout is {layout:#?}");
         for entry in &self.entries {
             layout.write_entry(entry, stream)?;
         }
