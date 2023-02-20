@@ -29,14 +29,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let entry_def = schema::Schema::new(
         schema::CommonProperties::new(vec![
             schema::Property::new_array(0, Rc::clone(&value_store)), // One string, will be stored in value_store
-            schema::Property::new_int(),                             // A integer
+            schema::Property::new_uint(),                            // A integer
         ]),
         vec![
             schema::VariantProperties::new(vec![
                 schema::Property::new_content_address(), // A "pointer" to a content.
             ]),
             schema::VariantProperties::new(vec![
-                schema::Property::new_int(), //
+                schema::Property::new_uint(), //
             ]),
         ],
     );

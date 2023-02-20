@@ -59,6 +59,10 @@ pub enum Property {
         counter: ValueCounter<u64>,
         size: PropertySize<u64>,
     },
+    SignedInt {
+        counter: ValueCounter<i64>,
+        size: PropertySize<i64>,
+    },
     Array {
         max_array_size: PropertySize<usize>,
         fixed_array_size: usize,
@@ -76,6 +80,11 @@ impl std::fmt::Debug for Property {
         match self {
             Self::UnsignedInt { counter, size } => f
                 .debug_tuple("UnsignedInt")
+                .field(&counter)
+                .field(&size)
+                .finish(),
+            Self::SignedInt { counter, size } => f
+                .debug_tuple("SignedInt")
                 .field(&counter)
                 .field(&size)
                 .finish(),
@@ -104,8 +113,15 @@ impl std::fmt::Debug for Property {
 }
 
 impl Property {
-    pub fn new_int() -> Self {
+    pub fn new_uint() -> Self {
         Property::UnsignedInt {
+            counter: Default::default(),
+            size: Default::default(),
+        }
+    }
+
+    pub fn new_sint() -> Self {
+        Property::SignedInt {
             counter: Default::default(),
             size: Default::default(),
         }
@@ -130,6 +146,21 @@ impl Property {
         match self {
             Self::UnsignedInt { counter, size } => {
                 if let Value::Unsigned(value) = values.next().unwrap() {
+                    counter.process(value.get());
+                    match size {
+                        PropertySize::Fixed(size) => {
+                            assert!(*size >= needed_bytes(value.get()));
+                        }
+                        PropertySize::Auto(max) => {
+                            *max = cmp::max(*max, value.get());
+                        }
+                    }
+                } else {
+                    panic!("Value type doesn't correspond to property");
+                }
+            }
+            Self::SignedInt { counter, size } => {
+                if let Value::Signed(value) = values.next().unwrap() {
                     counter.process(value.get());
                     match size {
                         PropertySize::Fixed(size) => {
@@ -203,6 +234,22 @@ impl Property {
                         default: Some(*d),
                     },
                     _ => layout::Property::UnsignedInt {
+                        size,
+                        default: None,
+                    },
+                }
+            }
+            Self::SignedInt { counter, size } => {
+                let size = match size {
+                    PropertySize::Fixed(size) => *size,
+                    PropertySize::Auto(max) => needed_bytes(*max),
+                };
+                match counter {
+                    ValueCounter::One(d) => layout::Property::SignedInt {
+                        size,
+                        default: Some(*d),
+                    },
+                    _ => layout::Property::SignedInt {
                         size,
                         default: None,
                     },

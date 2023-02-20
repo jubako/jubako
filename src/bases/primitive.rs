@@ -55,6 +55,11 @@ pub fn write_from_u64(val: u64, size: usize, out: &mut [u8]) {
     write_num_bytes!(size, val, out);
 }
 
+pub fn write_from_i64(val: i64, size: usize, out: &mut [u8]) {
+    debug_assert!(size <= 8);
+    write_num_bytes!(size, val, out);
+}
+
 pub fn read_u8(buf: &[u8]) -> u8 {
     debug_assert!(!buf.is_empty());
     buf[0]

@@ -90,7 +90,7 @@ test_suite! {
             schema::CommonProperties::new(vec![
                 schema::Property::new_array(0, key_store_handle),
                 schema::Property::new_content_address(),
-                schema::Property::new_int()
+                schema::Property::new_uint()
             ]),
             vec!()
         );

@@ -19,6 +19,10 @@ pub enum Property {
         size: ByteSize,
         default: Option<u64>,
     },
+    SignedInt {
+        size: ByteSize,
+        default: Option<i64>,
+    },
     Padding(/*size*/ u8),
 }
 
@@ -53,6 +57,12 @@ impl std::fmt::Debug for Property {
                 .field("default", &default)
                 .field("size", &self.size())
                 .finish(),
+            SignedInt { size, default } => f
+                .debug_struct("SignedInt")
+                .field("size", &size)
+                .field("default", &default)
+                .field("size", &self.size())
+                .finish(),
             Padding(_size) => f
                 .debug_struct("Padding")
                 .field("size", &self.size())
@@ -83,6 +93,13 @@ impl Property {
                 (if default.is_some() { 0 } else { 1 }) + *size as usize as u16
             }
             Property::UnsignedInt { size, default } => {
+                if default.is_some() {
+                    0
+                } else {
+                    *size as u16
+                }
+            }
+            Property::SignedInt { size, default } => {
                 if default.is_some() {
                     0
                 } else {
@@ -141,7 +158,20 @@ impl Writable for Property {
                     Some(d) => {
                         let mut written = 0;
                         written += stream.write_u8(key_type + 0b0000_1000)?;
-                        written += stream.write_sized(*d, *size)?;
+                        written += stream.write_usized(*d, *size)?;
+                        Ok(written)
+                    }
+                }
+            }
+            Property::SignedInt { size, default } => {
+                let mut key_type = 0b0011_0000;
+                key_type += *size as u8 - 1;
+                match default {
+                    None => stream.write_u8(key_type),
+                    Some(d) => {
+                        let mut written = 0;
+                        written += stream.write_u8(key_type + 0b0000_1000)?;
+                        written += stream.write_isized(*d, *size)?;
                         Ok(written)
                     }
                 }

@@ -53,7 +53,7 @@ impl Properties {
                     } = value
                     {
                         if let Some(array_size_size) = array_size_size {
-                            written += stream.write_sized(*size as u64, *array_size_size)?;
+                            written += stream.write_usized(*size as u64, *array_size_size)?;
                         }
                         written += stream.write_data(data)?;
                         // Data is truncate at fixed_array_size. We just want to write 0 if data is shorter than fixed_array_size
@@ -61,7 +61,7 @@ impl Properties {
                             vec![0; *fixed_array_size as usize - data.len()].as_slice(),
                         )?;
                         if let Some((key_size, _)) = deported_info {
-                            written += stream.write_sized(value_id.get(), *key_size)?;
+                            written += stream.write_usized(value_id.get(), *key_size)?;
                         }
                     } else {
                         return Err("Not a Array".to_string().into());
@@ -75,7 +75,7 @@ impl Properties {
                         } else {
                             written += stream.write_u8(value.pack_id.into_u8())?;
                         }
-                        written += stream.write_sized(value.content_id.into_u64(), *size)?;
+                        written += stream.write_usized(value.content_id.into_u64(), *size)?;
                     } else {
                         return Err("Not a Content".to_string().into());
                     }
@@ -86,7 +86,19 @@ impl Properties {
                         if let Some(d) = default {
                             assert_eq!(*d, value.get());
                         } else {
-                            written += stream.write_sized(value.get(), *size)?;
+                            written += stream.write_usized(value.get(), *size)?;
+                        }
+                    } else {
+                        return Err("Not a unsigned".to_string().into());
+                    }
+                }
+                Property::SignedInt { size, default } => {
+                    let value = value_iter.next().unwrap();
+                    if let Value::Signed(value) = value {
+                        if let Some(d) = default {
+                            assert_eq!(*d, value.get());
+                        } else {
+                            written += stream.write_isized(value.get(), *size)?;
                         }
                     } else {
                         return Err("Not a unsigned".to_string().into());

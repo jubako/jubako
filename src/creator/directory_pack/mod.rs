@@ -18,7 +18,7 @@ pub use value_store::ValueStoreKind;
 pub enum Value {
     Content(ContentAddress),
     Unsigned(Word<u64>),
-    Signed(i64),
+    Signed(Word<i64>),
     Array {
         size: usize,
         data: Vec<u8>,
@@ -35,7 +35,7 @@ impl PartialOrd for Value {
                 _ => None,
             },
             Value::Signed(v) => match other {
-                Value::Signed(o) => Some(v.cmp(o)),
+                Value::Signed(o) => Some(v.get().cmp(&o.get())),
                 _ => None,
             },
             Value::Array {
@@ -156,7 +156,7 @@ impl<'a> Iterator for ValueTransformer<'a> {
                                 value_id,
                             });
                         } else {
-                            panic!("Invalide value type");
+                            panic!("Invalid value type");
                         }
                     }
                     schema::Property::UnsignedInt {
@@ -167,7 +167,18 @@ impl<'a> Iterator for ValueTransformer<'a> {
                         if let common::Value::Unsigned(v) = value {
                             return Some(Value::Unsigned(v));
                         } else {
-                            panic!("Invalide value type");
+                            panic!("Invalid value type");
+                        }
+                    }
+                    schema::Property::SignedInt {
+                        counter: _,
+                        size: _,
+                    } => {
+                        let value = self.values.next().unwrap();
+                        if let common::Value::Signed(v) = value {
+                            return Some(Value::Signed(v));
+                        } else {
+                            panic!("Invalid value type");
                         }
                     }
                     schema::Property::ContentAddress {
@@ -178,7 +189,7 @@ impl<'a> Iterator for ValueTransformer<'a> {
                         if let common::Value::Content(v) = value {
                             return Some(Value::Content(v));
                         } else {
-                            panic!("Invalide value type");
+                            panic!("Invalid value type");
                         }
                     }
                     schema::Property::Padding(_) => {}

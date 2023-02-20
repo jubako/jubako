@@ -159,12 +159,12 @@ impl WritableTell for IndexedValueStore {
         let data_size = self.0.size.into_u64();
         let offset_size = needed_bytes(data_size);
         offset_size.write(stream)?; // offset_size
-        stream.write_sized(data_size, offset_size)?; // data size
+        stream.write_usized(data_size, offset_size)?; // data size
         let mut offset = 0;
         for (idx, _) in &self.0.sorted_indirect[..(self.0.sorted_indirect.len() - 1)] {
             let data = &self.0.data[*idx];
             offset += data.len() as u64;
-            stream.write_sized(offset, offset_size)?;
+            stream.write_usized(offset, offset_size)?;
         }
         Ok(())
     }

@@ -129,10 +129,10 @@ impl ClusterCompressor {
             BlobCount::from(cluster.offsets.len() as u16),
         );
         cluster_header.write(outstream)?;
-        outstream.write_sized(raw_data_size.into_u64(), offset_size)?; // raw data size
-        outstream.write_sized(cluster.data_size().into_u64(), offset_size)?; // datasize
+        outstream.write_usized(raw_data_size.into_u64(), offset_size)?; // raw data size
+        outstream.write_usized(cluster.data_size().into_u64(), offset_size)?; // datasize
         for offset in &cluster.offsets[..cluster.offsets.len() - 1] {
-            outstream.write_sized(*offset as u64, offset_size)?;
+            outstream.write_usized(*offset as u64, offset_size)?;
         }
         Ok(())
     }
@@ -218,11 +218,11 @@ impl ClusterWriter {
         );
         cluster_header.write(&mut self.file)?;
         self.file
-            .write_sized(raw_data_size.into_u64(), offset_size)?; // raw data size
+            .write_usized(raw_data_size.into_u64(), offset_size)?; // raw data size
         self.file
-            .write_sized(cluster.data_size().into_u64(), offset_size)?; // datasize
+            .write_usized(cluster.data_size().into_u64(), offset_size)?; // datasize
         for offset in &cluster.offsets[..cluster.offsets.len() - 1] {
-            self.file.write_sized(*offset as u64, offset_size)?;
+            self.file.write_usized(*offset as u64, offset_size)?;
         }
         Ok(())
     }
