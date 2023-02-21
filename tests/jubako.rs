@@ -501,7 +501,7 @@ test_suite! {
                     array,
                     &reader::Array::new(
                         Some(jubako::Size::from(articles.val[i.into_u32() as usize].path.len())),
-                        vec!(),
+                        Default::default(),0,
                         Some(reader::testing::Extend::new(0.into(), jubako::ValueIdx::from(i.into_u64())))
                     ));
                 let vec = resolver.resolve_to_vec(&value_0).unwrap();

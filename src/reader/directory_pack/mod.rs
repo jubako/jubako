@@ -362,7 +362,8 @@ mod tests {
                     a,
                     &Array::new(
                         Some(Size::new(7)),
-                        Vec::new(),
+                        BaseArray::default(),
+                        0,
                         Some(Extend::new(0.into(), ValueIdx::from(2)))
                     )
                 );
@@ -379,7 +380,8 @@ mod tests {
                     a,
                     &Array::new(
                         Some(Size::new(7)),
-                        vec![b'a', b'B'],
+                        BaseArray::new(b"aB"),
+                        2,
                         Some(Extend::new(0.into(), ValueIdx::from(0)))
                     )
                 );
@@ -405,7 +407,8 @@ mod tests {
                     a,
                     &Array::new(
                         Some(Size::new(3)),
-                        Vec::new(),
+                        BaseArray::default(),
+                        0,
                         Some(Extend::new(0.into(), ValueIdx::from(1)))
                     )
                 );
@@ -419,7 +422,8 @@ mod tests {
                     a,
                     &Array::new(
                         Some(Size::new(9)),
-                        vec![b'A', b'B'],
+                        BaseArray::new(b"AB"),
+                        2,
                         Some(Extend::new(0.into(), ValueIdx::from(2)))
                     )
                 );
@@ -448,7 +452,8 @@ mod tests {
                     a,
                     &Array::new(
                         Some(Size::new(7)),
-                        Vec::new(),
+                        BaseArray::default(),
+                        0,
                         Some(Extend::new(0.into(), ValueIdx::from(2)))
                     )
                 );
@@ -462,7 +467,8 @@ mod tests {
                     a,
                     &Array::new(
                         Some(Size::new(5)),
-                        vec![b'A', b'B'],
+                        BaseArray::new(b"AB"),
+                        2,
                         Some(Extend::new(0.into(), ValueIdx::from(1)))
                     )
                 );
@@ -488,7 +494,8 @@ mod tests {
                     a,
                     &Array::new(
                         Some(Size::new(5)),
-                        Vec::new(),
+                        BaseArray::default(),
+                        0,
                         Some(Extend::new(0.into(), ValueIdx::from(0)))
                     )
                 );
@@ -502,7 +509,8 @@ mod tests {
                     a,
                     &Array::new(
                         Some(Size::new(5)),
-                        vec![0, 0],
+                        BaseArray::default(),
+                        2,
                         Some(Extend::new(0.into(), ValueIdx::from(1)))
                     )
                 );

@@ -210,7 +210,8 @@ mod tests {
                 entry.get_value(0.into()).unwrap(),
                 RawValue::Array(Array::new(
                     Some(Size::new(4)),
-                    vec![0xFF, 0xEE, 0xDD, 0xCC],
+                    BaseArray::new(&[0xFF, 0xEE, 0xDD, 0xCC]),
+                    4,
                     None
                 ))
             );
@@ -223,7 +224,7 @@ mod tests {
             assert_eq!(entry.get_variant_id().unwrap(), Some(1.into()));
             assert_eq!(
                 entry.get_value(0.into()).unwrap(),
-                RawValue::Array(Array::new(None, vec![0xFF, 0xEE], None))
+                RawValue::Array(Array::new(None, BaseArray::new(&[0xFF, 0xEE]), 2, None))
             );
             assert_eq!(entry.get_value(1.into()).unwrap(), RawValue::I8(-52));
             assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U16(0x8899));

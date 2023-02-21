@@ -57,7 +57,7 @@ pub enum PropertyKind {
             ValueStoreIdx,
         )>,
         // The default value
-        Option<(u64, [u8; 31], Option<u64>)>,
+        Option<(u64, BaseArray, Option<u64>)>,
     ),
     VariantId,
 }
@@ -151,8 +151,7 @@ impl Producable for RawProperty {
                 if default_value {
                     (0, {
                         let size = flux.read_usized(size_size.unwrap())?;
-                        let mut fixed_data = [0; 31];
-                        flux.read_exact(&mut fixed_data[..fixed_array_size as usize])?;
+                        let fixed_data = BaseArray::new_from_flux(fixed_array_size, flux)?;
                         let key_id = if key_size != 0 {
                             Some(flux.read_usized(ByteSize::try_from(key_size as usize).unwrap())?)
                         } else {
@@ -289,11 +288,31 @@ mod tests {
     #[test_case(&[0b0101_0001, 0b000_00001] => RawProperty{size:1+1+0, kind:PropertyKind::Array(Some(ByteSize::U1), 1, None, None) })]
     #[test_case(&[0b0101_0011, 0b000_00101] => RawProperty{size:3+5+0, kind:PropertyKind::Array(Some(ByteSize::U3), 5, None, None) })]
     #[test_case(&[0b0101_0111, 0b000_11111] => RawProperty{size:7+31+0, kind:PropertyKind::Array(Some(ByteSize::U7), 31, None, None) })]
+    // Char[] without deported part and with default value:
+    #[test_case(&[0b0101_1001, 0b000_00000, 0x00] => RawProperty{size:0, kind:PropertyKind::Array(Some(ByteSize::U1), 0, None, Some((0, BaseArray::default(), None))) })]
+    #[test_case(&[0b0101_1001, 0b000_00001, 0x01, b'a'] => RawProperty{size:0, kind:PropertyKind::Array(Some(ByteSize::U1), 1, None, Some((1, BaseArray::new(b"a"), None))) })]
+    #[test_case(&[0b0101_1011, 0b000_00101, 0x00, 0x00, 0x04, b'a', b'b', b'c', b'd', b'\0'] => RawProperty{size:0, kind:PropertyKind::Array(Some(ByteSize::U3), 5, None, Some((4, BaseArray::new(b"abcd"), None))) })]
+    #[test_case(&[0b0101_1001, 0b000_11111,
+      0x1A,
+      b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h', b'i', b'j', b'k', b'l', b'm', b'n', b'o', b'p', b'q', b'r', b's', b't', b'u', b'v', b'w', b'x', b'y', b'z', 0x00, 0x00, 0x00, 0x00, 0x00 ] =>
+      RawProperty{size:0, kind:PropertyKind::Array(Some(ByteSize::U1), 31, None, Some((26, BaseArray::new(b"abcdefghijklmnopqrstuvwxyz"), None))) })]
     // Char[] with deported part :
     #[test_case(&[0b0101_0001, 0b001_00000, 0x0F] => RawProperty{size:1+0+1, kind:PropertyKind::Array(Some(ByteSize::U1), 0, Some((ByteSize::U1, ValueStoreIdx::from(0x0F))), None) })]
     #[test_case(&[0b0101_0001, 0b010_00001, 0x0F] => RawProperty{size:1+1+2, kind:PropertyKind::Array(Some(ByteSize::U1), 1, Some((ByteSize::U2, ValueStoreIdx::from(0x0F))), None) })]
     #[test_case(&[0b0101_0011, 0b100_00101, 0x0F] => RawProperty{size:3+5+4, kind:PropertyKind::Array(Some(ByteSize::U3), 5, Some((ByteSize::U4, ValueStoreIdx::from(0x0F))), None) })]
     #[test_case(&[0b0101_0111, 0b100_11111, 0x0F] => RawProperty{size:7+31+4, kind:PropertyKind::Array(Some(ByteSize::U7), 31, Some((ByteSize::U4, ValueStoreIdx::from(0x0F))), None) })]
+    // Char[] without deported part and with default value:
+    #[test_case(&[0b0101_1001, 0b001_00000, 0x0F, 0x00, 0x50]
+      => RawProperty{size:0, kind:PropertyKind::Array(Some(ByteSize::U1), 0, Some((ByteSize::U1, ValueStoreIdx::from(0x0F))), Some((0, BaseArray::default(), Some(0x50)))) })]
+    #[test_case(&[0b0101_1001, 0b010_00001, 0x0F, 0x10, b'a', 0x00, 0x50]
+      => RawProperty{size:0, kind:PropertyKind::Array(Some(ByteSize::U1), 1, Some((ByteSize::U2, ValueStoreIdx::from(0x0F))), Some((16, BaseArray::new(b"a"), Some(0x50)))) })]
+    #[test_case(&[0b0101_1011, 0b100_00101, 0x0F, 0x00, 0x00, 0x04, b'a', b'b', b'c', b'd', b'\0', 0xff, 0xfe, 0xfd, 0xfc]
+      => RawProperty{size:0, kind:PropertyKind::Array(Some(ByteSize::U3), 5, Some((ByteSize::U4, ValueStoreIdx::from(0x0F))), Some((4, BaseArray::new(b"abcd"), Some(0xfffefdfc)))) })]
+    #[test_case(&[0b0101_1111, 0b100_11111, 0x0F,
+      0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+      b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h', b'i', b'j', b'k', b'l', b'm', b'n', b'o', b'p', b'q', b'r', b's', b't', b'u', b'v', b'w', b'x', b'y', b'z', 0x00, 0x00, 0x00, 0x00, 0x00,
+      0xff, 0xfe, 0xfd, 0xfc ]
+       => RawProperty{size:0, kind:PropertyKind::Array(Some(ByteSize::U7), 31, Some((ByteSize::U4, ValueStoreIdx::from(0x0F))), Some((0x01020304050607, BaseArray::new(b"abcdefghijklmnopqrstuvwxyz"), Some(0xfffefdfc)))) })]
     fn test_rawproperty(source: &[u8]) -> RawProperty {
         let mut content = Vec::new();
         content.extend_from_slice(source);

@@ -1,5 +1,6 @@
 #[macro_use]
 mod error;
+mod base_array;
 mod byte_size;
 mod count;
 mod delayed;
@@ -12,6 +13,7 @@ mod size;
 mod sized_offset;
 mod specific_types;
 
+pub use base_array::BaseArray;
 pub use byte_size::ByteSize;
 pub use count::Count;
 pub use delayed::{Bound, Generator, Late, Vow, Word};

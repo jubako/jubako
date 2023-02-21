@@ -131,7 +131,7 @@ pub struct ArrayProperty {
     array_size_size: Option<ByteSize>,
     fixed_array_size: u8,
     deported_array_info: Option<(ByteSize, ValueStoreIdx)>,
-    default: Option<(u64, [u8; 31], Option<u64>)>,
+    default: Option<(u64, BaseArray, Option<u64>)>,
 }
 
 impl ArrayProperty {
@@ -140,7 +140,7 @@ impl ArrayProperty {
         array_size_size: Option<ByteSize>,
         fixed_array_size: u8,
         deported_array_info: Option<(ByteSize, ValueStoreIdx)>,
-        default: Option<(u64, [u8; 31], Option<u64>)>,
+        default: Option<(u64, BaseArray, Option<u64>)>,
     ) -> Self {
         Self {
             offset,
@@ -170,7 +170,7 @@ impl PropertyBuilderTrait for ArrayProperty {
         let (array_size, base_array, deported_info) = match self.default {
             Some((array_size, base_array, value_id)) => (
                 Some(array_size.into()),
-                Vec::from(&base_array[..self.fixed_array_size.into()]),
+                base_array,
                 self.deported_array_info
                     .map(|(_, store_id)| Extend::new(store_id, value_id.unwrap().into())),
             ),
@@ -180,11 +180,7 @@ impl PropertyBuilderTrait for ArrayProperty {
                     None => None,
                     Some(size) => Some(flux.read_usized(size)?.into()),
                 };
-                let base_array = if self.fixed_array_size != 0 {
-                    flux.read_vec(self.fixed_array_size.into())?
-                } else {
-                    Vec::new()
-                };
+                let base_array = BaseArray::new_from_flux(self.fixed_array_size, &mut flux)?;
                 let deported_info = match self.deported_array_info {
                     Some((value_size, store_id)) => {
                         let value_id = flux.read_usized(value_size)?.into();
@@ -195,7 +191,12 @@ impl PropertyBuilderTrait for ArrayProperty {
                 (array_size, base_array, deported_info)
             }
         };
-        Ok(Array::new(array_size, base_array, deported_info))
+        Ok(Array::new(
+            array_size,
+            base_array,
+            self.fixed_array_size,
+            deported_info,
+        ))
     }
 }
 

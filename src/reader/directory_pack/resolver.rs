@@ -42,7 +42,7 @@ pub(crate) mod private {
             if let Some(s) = array.size {
                 vec.reserve(s.into_usize());
             } else {
-                vec.reserve(array.base.len());
+                vec.reserve(array.base_len as usize);
             }
             for v in our_iter {
                 vec.push(v?);
@@ -223,8 +223,13 @@ mod tests {
                     (RawValue::I16(5),   Value::Signed(5.into())),
                     (RawValue::I32(5),   Value::Signed(5.into())),
                     (RawValue::I64(5),   Value::Signed(5.into())),
-                    (RawValue::Array(Array{size: Some(Size::new(10)), base:"Bye ".into(), extend:Some(Extend{store_id:0.into(), value_id:ValueIdx::from(10)})}),
-                       Value::Array("Bye Jubako".into())),
+                    (RawValue::Array(Array{
+                       size: Some(Size::new(10)),
+                       base: BaseArray::new(b"Bye "),
+                       base_len: 4,
+                       extend:Some(Extend{store_id:0.into(), value_id:ValueIdx::from(10)})
+                     }),
+                     Value::Array("Bye Jubako".into())),
                     (RawValue::Content(ContentAddress::new(PackId::from(0), ContentIdx::from(50))),
                        Value::Content(ContentAddress::new(PackId::from(0), ContentIdx::from(50)))),
                 ].into_iter()
@@ -282,7 +287,8 @@ mod tests {
             setup(&mut self) {
                 RawValue::Array(Array {
                     size: Some(self.expected.len().into()),
-                    base: self.base.clone(),
+                    base: BaseArray::new(self.base.as_slice()),
+                    base_len: self.base.len() as u8,
                     extend: self.extend.clone()
                 })
             }
@@ -298,9 +304,11 @@ mod tests {
 
         test test_resolver_compare(storage) {
             let resolver = private::Resolver::new(storage.val);
+            let base = BaseArray::new(b"Hello ");
             let raw_value = Array {
                 size: Some(Size::new(12)),
-                base: "Hello ".into(),
+                base,
+                base_len: 6,
                 extend: Some(Extend{store_id:0.into(), value_id:ValueIdx::from(10)})
             };
             assert_eq!(resolver.compare_array(&raw_value, &"Hel".as_bytes()).unwrap(), cmp::Ordering::Greater);

@@ -18,13 +18,19 @@ impl Extend {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Array {
     pub(super) size: Option<Size>,
-    pub(super) base: Vec<u8>,
+    pub(super) base: BaseArray,
+    pub(super) base_len: u8,
     pub(super) extend: Option<Extend>,
 }
 
 impl Array {
-    pub fn new(size: Option<Size>, base: Vec<u8>, extend: Option<Extend>) -> Self {
-        Self { size, base, extend }
+    pub fn new(size: Option<Size>, base: BaseArray, base_len: u8, extend: Option<Extend>) -> Self {
+        Self {
+            size,
+            base,
+            base_len,
+            extend,
+        }
     }
 }
 
@@ -56,20 +62,21 @@ impl<ValueStorage: ValueStorageTrait> Iterator for ArrayIter<'_, ValueStorage> {
             }
         }
         // As far as we know, we are under our known size, so we must return something.
-        if self.idx < self.array.base.len() {
-            let ret = self.array.base[self.idx];
+        let base_len = self.array.base_len as usize;
+        if self.idx < base_len {
+            let ret = self.array.base.data[self.idx];
             self.idx += 1;
             Some(Ok(ret))
         } else if let Some(value_store) = self.value_store {
             let data = value_store.get_data(
                 self.array.extend.as_ref().unwrap().value_id,
-                self.array.size.map(|v| v - self.array.base.len().into()),
+                self.array.size.map(|v| v - base_len.into()),
             );
             match data {
                 Ok(data) => {
-                    self.known_size = Some(self.array.base.len() + data.len());
-                    if self.idx - self.array.base.len() < data.len() {
-                        let ret = data[self.idx - self.array.base.len()];
+                    self.known_size = Some(base_len + data.len());
+                    if self.idx - base_len < data.len() {
+                        let ret = data[self.idx - base_len];
                         self.idx += 1;
                         Some(Ok(ret))
                     } else {
@@ -79,7 +86,7 @@ impl<ValueStorage: ValueStorageTrait> Iterator for ArrayIter<'_, ValueStorage> {
                 Err(e) => Some(Err(e)),
             }
         } else {
-            self.known_size = Some(self.array.base.len());
+            self.known_size = Some(base_len);
             None
         }
     }
