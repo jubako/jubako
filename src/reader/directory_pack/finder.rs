@@ -127,14 +127,12 @@ mod tests {
 
         impl schema::SchemaTrait for Schema {
             type Builder = Builder;
-            fn create_builder<ValueStorage>(
+            type ValueStorage = ValueStorage;
+            fn create_builder(
                 &self,
                 _store: Rc<EntryStore>,
                 _value_storage: &ValueStorage,
-            ) -> Result<Rc<Self::Builder>>
-            where
-                ValueStorage: ValueStorageTrait,
-            {
+            ) -> Result<Rc<Self::Builder>> {
                 unreachable!()
             }
         }
