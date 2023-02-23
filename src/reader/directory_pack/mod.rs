@@ -386,13 +386,11 @@ mod tests {
         let index = directory_pack.get_index(0.into()).unwrap();
         let value_storage = directory_pack.create_value_storage();
         let entry_storage = directory_pack.create_entry_storage();
-        let schema = schema::AnySchema {};
-        let builder = schema
-            .create_builder(
-                index.get_store(&entry_storage).unwrap(),
-                value_storage.as_ref(),
-            )
-            .unwrap();
+        let builder = schema::AnySchema::create_builder(
+            index.get_store(&entry_storage).unwrap(),
+            value_storage.as_ref(),
+        )
+        .unwrap();
         let finder: Finder<schema::AnySchema> = index.get_finder(builder).unwrap();
         assert_eq!(index.entry_count(), 4.into());
         {

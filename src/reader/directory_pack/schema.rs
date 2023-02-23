@@ -10,7 +10,6 @@ pub trait SchemaTrait {
     type ValueStorage: ValueStorageTrait;
 
     fn create_builder(
-        &self,
         store: Rc<EntryStore>,
         value_storage: &Self::ValueStorage,
     ) -> Result<Rc<Self::Builder>>;
@@ -23,7 +22,6 @@ impl SchemaTrait for AnySchema {
     type ValueStorage = ValueStorage;
 
     fn create_builder(
-        &self,
         store: Rc<EntryStore>,
         value_storage: &ValueStorage,
     ) -> Result<Rc<AnyBuilder>> {

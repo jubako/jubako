@@ -129,7 +129,6 @@ mod tests {
             type Builder = Builder;
             type ValueStorage = ValueStorage;
             fn create_builder(
-                &self,
                 _store: Rc<EntryStore>,
                 _value_storage: &ValueStorage,
             ) -> Result<Rc<Self::Builder>> {

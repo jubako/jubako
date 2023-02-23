@@ -481,12 +481,8 @@ test_suite! {
         let container = reader::Container::new(main_path).unwrap();
         assert_eq!(container.pack_count(), 1.into());
         assert!(container.check().unwrap());
-        let directory_pack = container.get_directory_pack();
-        let index = directory_pack.get_index(0.into()).unwrap();
-        let entry_storage = directory_pack.create_entry_storage();
-        let value_storage = directory_pack.create_value_storage();
-        let schema = reader::AnySchema {};
-        let builder = schema.create_builder(index.get_store(&entry_storage).unwrap(), value_storage.as_ref()).unwrap();
+        let index = container.get_index_for_name("Super index").unwrap();
+        let builder = reader::AnySchema::create_builder(index.get_store(&container.get_entry_storage()).unwrap(), container.get_value_storage()).unwrap();
         let finder: reader::Finder<reader::AnySchema> = index.get_finder(builder).unwrap();
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {

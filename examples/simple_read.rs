@@ -6,13 +6,11 @@ use std::error::Error;
 fn main() -> Result<(), Box<dyn Error>> {
     // Let's read our container created in `simple_create.rs`
     let container = jbk::reader::Container::new("test.jbkm")?; // or "test.jbkm"
-    let directory = container.get_directory_pack();
-    let index = directory.get_index_from_name("My own index")?;
-    let entry_storage = directory.create_entry_storage();
-    let value_storage = directory.create_value_storage();
-    let schema = jbk::reader::AnySchema {};
-    let builder =
-        schema.create_builder(index.get_store(&entry_storage)?, value_storage.as_ref())?;
+    let index = container.get_index_for_name("My own index")?;
+    let builder = jbk::reader::AnySchema::create_builder(
+        index.get_store(&container.get_entry_storage())?,
+        container.get_value_storage(),
+    )?;
     let finder: jbk::reader::Finder<jbk::reader::AnySchema> = index.get_finder(builder)?; // To found our entries.
 
     {
