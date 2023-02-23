@@ -21,10 +21,11 @@ impl Producable for ValueStoreKind {
     }
 }
 
-pub trait ValueStoreTrait {
+pub trait ValueStoreTrait: std::fmt::Debug {
     fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]>;
 }
 
+#[derive(Debug)]
 pub enum ValueStore {
     Plain(PlainValueStore),
     Indexed(IndexedValueStore),
@@ -55,6 +56,7 @@ impl ValueStoreTrait for ValueStore {
     }
 }
 
+#[derive(Debug)]
 pub struct PlainValueStore {
     pub reader: MemoryReader,
 }
@@ -79,6 +81,7 @@ impl PlainValueStore {
     }
 }
 
+#[derive(Debug)]
 pub struct IndexedValueStore {
     pub value_offsets: Vec<Offset>,
     pub reader: MemoryReader,

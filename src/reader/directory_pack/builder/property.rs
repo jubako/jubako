@@ -1,7 +1,10 @@
 use crate::bases::*;
 use crate::common::ContentAddress;
 use crate::reader::directory_pack::layout;
+use crate::reader::directory_pack::private::ValueStorageTrait;
 use crate::reader::directory_pack::raw_value::{Array, Extend, RawValue};
+use crate::reader::directory_pack::ValueStoreTrait;
+use std::rc::Rc;
 
 // The properties here are pretty close from the layout::Property.
 // The main difference is that layout::Property is not typed:
@@ -125,12 +128,12 @@ impl PropertyBuilderTrait for SignedProperty {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct ArrayProperty {
     offset: Offset,
     array_size_size: Option<ByteSize>,
     fixed_array_size: u8,
-    deported_array_info: Option<(ByteSize, ValueStoreIdx)>,
+    deported_array_info: Option<(ByteSize, Rc<dyn ValueStoreTrait>)>,
     default: Option<(u64, BaseArray, Option<u64>)>,
 }
 
@@ -139,7 +142,7 @@ impl ArrayProperty {
         offset: Offset,
         array_size_size: Option<ByteSize>,
         fixed_array_size: u8,
-        deported_array_info: Option<(ByteSize, ValueStoreIdx)>,
+        deported_array_info: Option<(ByteSize, Rc<dyn ValueStoreTrait>)>,
         default: Option<(u64, BaseArray, Option<u64>)>,
     ) -> Self {
         Self {
@@ -152,14 +155,32 @@ impl ArrayProperty {
     }
 }
 
-impl TryFrom<&layout::Property> for ArrayProperty {
-    type Error = String;
-    fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
+impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)>
+    for ArrayProperty
+{
+    type Error = Error;
+    fn try_from(
+        p_vs: (&layout::Property, &ValueStorage),
+    ) -> std::result::Result<Self, Self::Error> {
+        let (p, value_storage) = p_vs;
         match p.kind {
-            layout::PropertyKind::Array(size, fixed_array_size, deported, default) => Ok(
-                ArrayProperty::new(p.offset, size, fixed_array_size, deported, default),
-            ),
-            _ => Err("Invalid key".to_string()),
+            layout::PropertyKind::Array(size, fixed_array_size, deported, default) => {
+                let deported = match deported {
+                    None => None,
+                    Some((size, store_id)) => {
+                        let value_store = value_storage.get_value_store(store_id)?;
+                        Some((size, value_store as Rc<dyn ValueStoreTrait>))
+                    }
+                };
+                Ok(ArrayProperty::new(
+                    p.offset,
+                    size,
+                    fixed_array_size,
+                    deported,
+                    default,
+                ))
+            }
+            _ => Err("Invalid key".to_string().into()),
         }
     }
 }
@@ -172,7 +193,8 @@ impl PropertyBuilderTrait for ArrayProperty {
                 Some(array_size.into()),
                 base_array,
                 self.deported_array_info
-                    .map(|(_, store_id)| Extend::new(store_id, value_id.unwrap().into())),
+                    .as_ref()
+                    .map(|(_, store)| Extend::new(Rc::clone(store), value_id.unwrap().into())),
             ),
             None => {
                 let mut flux = reader.create_flux_from(self.offset);
@@ -181,10 +203,10 @@ impl PropertyBuilderTrait for ArrayProperty {
                     Some(size) => Some(flux.read_usized(size)?.into()),
                 };
                 let base_array = BaseArray::new_from_flux(self.fixed_array_size, &mut flux)?;
-                let deported_info = match self.deported_array_info {
-                    Some((value_size, store_id)) => {
-                        let value_id = flux.read_usized(value_size)?.into();
-                        Some(Extend::new(store_id, value_id))
+                let deported_info = match &self.deported_array_info {
+                    Some((value_size, store)) => {
+                        let value_id = flux.read_usized(*value_size)?.into();
+                        Some(Extend::new(Rc::clone(store), value_id))
                     }
                     None => None,
                 };
@@ -248,7 +270,7 @@ impl PropertyBuilderTrait for ContentProperty {
 /// The definition of a property, as we need to parse it.
 /// In opposition to RawProperty, the property is the "final" property.
 /// It describe how to parse te value of a entry.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum AnyProperty {
     ContentAddress(ContentProperty),
     UnsignedInt(IntProperty),
@@ -256,9 +278,13 @@ pub enum AnyProperty {
     Array(ArrayProperty),
 }
 
-impl From<&layout::Property> for AnyProperty {
-    fn from(p: &layout::Property) -> Self {
-        match &p.kind {
+impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)> for AnyProperty {
+    type Error = Error;
+    fn try_from(
+        p_vs: (&layout::Property, &ValueStorage),
+    ) -> std::result::Result<Self, Self::Error> {
+        let (p, value_storage) = p_vs;
+        Ok(match &p.kind {
             &layout::PropertyKind::ContentAddress(content_id_size, pack_id_default) => {
                 Self::ContentAddress(ContentProperty::new(
                     p.offset,
@@ -272,14 +298,27 @@ impl From<&layout::Property> for AnyProperty {
             &layout::PropertyKind::SignedInt(size, default) => {
                 Self::SignedInt(SignedProperty::new(p.offset, size, default))
             }
-            layout::PropertyKind::Array(size, fixed_array_size, deported, default) => Self::Array(
-                ArrayProperty::new(p.offset, *size, *fixed_array_size, *deported, *default),
-            ),
+            layout::PropertyKind::Array(size, fixed_array_size, deported, default) => {
+                let deported = match deported {
+                    None => None,
+                    Some((size, store_id)) => {
+                        let value_store = value_storage.get_value_store(*store_id)?;
+                        Some((*size, value_store as Rc<dyn ValueStoreTrait>))
+                    }
+                };
+                Self::Array(ArrayProperty::new(
+                    p.offset,
+                    *size,
+                    *fixed_array_size,
+                    deported,
+                    *default,
+                ))
+            }
             &layout::PropertyKind::DeportedUnsignedInt(_, _, _) => todo!(),
             &layout::PropertyKind::DeportedSignedInt(_, _, _) => todo!(),
             layout::PropertyKind::Padding => unreachable!(),
             layout::PropertyKind::VariantId => unreachable!(),
-        }
+        })
     }
 }
 

@@ -144,9 +144,8 @@ test_suite! {
         let index = directory_pack.get_index(0.into()).unwrap();
         let entry_storage = directory_pack.create_entry_storage();
         let value_storage = directory_pack.create_value_storage();
-        let resolver = jubako::reader::Resolver::new(value_storage);
         let schema = jubako::reader::AnySchema {};
-        let builder = schema.create_builder(index.get_store(&entry_storage).unwrap()).unwrap();
+        let builder = schema.create_builder(index.get_store(&entry_storage).unwrap(), value_storage.as_ref()).unwrap();
         let finder: jubako::reader::Finder<jubako::reader::AnySchema> = index.get_finder(builder).unwrap();
         println!("Read index");
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
@@ -156,11 +155,14 @@ test_suite! {
             assert_eq!(entry.get_variant_id().unwrap(), None);
             println!("Check value 0");
             let value_0 = entry.get_value(0.into()).unwrap();
-            let value_0 = resolver.resolve_to_vec(&value_0).unwrap();
+            println!("Raw value 0 is {:?}", value_0);
+            let value_0 = value_0.as_vec().unwrap();
             assert_eq!(value_0, articles.val[i.into_usize()].path.as_bytes());
             println!("Check value 1");
             let value_1 = entry.get_value(1.into()).unwrap();
-            let value_1 = resolver.resolve_to_content(&value_1);
+            println!("Raw value 1 is {:?}", value_1);
+            let value_1 = value_1.as_content();
+            println!("Value 1 is {:?}", value_1);
             println!("Get reader");
             let reader = container.get_reader(value_1).unwrap();
             println!("Readir is {:?}", reader);
@@ -172,7 +174,7 @@ test_suite! {
             assert_eq!(read_content, articles.val[i.into_usize()].content);
             println!("Check value 2");
             let value_2 = entry.get_value(2.into()).unwrap();
-            let value_2 = resolver.resolve_to_unsigned(&value_2);
+            let value_2 = value_2.as_unsigned();
             assert_eq!(value_2, articles.val[i.into_usize()].word_count as u64);
         }
     }

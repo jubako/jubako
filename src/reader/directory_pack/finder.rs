@@ -67,7 +67,6 @@ impl<Schema: SchemaTrait> Finder<Schema> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::reader::directory_pack::resolver::private::Resolver;
     use crate::reader::directory_pack::{builder, schema};
     use crate::reader::directory_pack::{EntryStore, EntryTrait};
     use crate::reader::RawValue;
@@ -128,11 +127,19 @@ mod tests {
 
         impl schema::SchemaTrait for Schema {
             type Builder = Builder;
-            fn create_builder(&self, _store: Rc<EntryStore>) -> Result<Rc<Self::Builder>> {
+            fn create_builder<ValueStorage>(
+                &self,
+                _store: Rc<EntryStore>,
+                _value_storage: &ValueStorage,
+            ) -> Result<Rc<Self::Builder>>
+            where
+                ValueStorage: ValueStorageTrait,
+            {
                 unreachable!()
             }
         }
 
+        #[derive(Debug)]
         pub struct ValueStore {}
         impl ValueStoreTrait for ValueStore {
             fn get_data(&self, _id: ValueIdx, _size: Option<Size>) -> Result<&[u8]> {
@@ -143,7 +150,7 @@ mod tests {
         pub struct ValueStorage {}
         impl ValueStorageTrait for ValueStorage {
             type ValueStore = ValueStore;
-            fn get_value_store(&self, _id: ValueStoreIdx) -> Result<&Rc<Self::ValueStore>> {
+            fn get_value_store(&self, _id: ValueStoreIdx) -> Result<Rc<Self::ValueStore>> {
                 unreachable!()
             }
         }
@@ -151,8 +158,6 @@ mod tests {
 
     #[test]
     fn test_finder() {
-        let value_storage = Rc::new(mock::ValueStorage {});
-        let resolver = Resolver::new(Rc::clone(&value_storage));
         let builder = Rc::new(mock::Builder {});
         let finder: Finder<mock::Schema> =
             Finder::new(builder, EntryIdx::from(0), EntryCount::from(10));
@@ -160,7 +165,7 @@ mod tests {
         for i in 0..10 {
             let entry = finder.get_entry(i.into()).unwrap();
             let value0 = entry.get_value(0.into()).unwrap();
-            assert_eq!(resolver.resolve_to_unsigned(&value0), i as u64);
+            assert_eq!(value0.as_unsigned(), i as u64);
         }
 
         for i in 0..10 {
@@ -168,7 +173,7 @@ mod tests {
             let idx = finder.find(&comparator).unwrap().unwrap();
             let entry = finder.get_entry(idx).unwrap();
             let value0 = entry.get_value(0.into()).unwrap();
-            assert_eq!(resolver.resolve_to_unsigned(&value0), i as u64);
+            assert_eq!(value0.as_unsigned(), i as u64);
         }
 
         let comparator = mock::EntryCompare::new(10);

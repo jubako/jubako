@@ -474,8 +474,6 @@ test_suite! {
         Ok("/tmp/mainPack.jbkm".to_string())
     }
 
-
-
     test test_content_pack(compression, articles) {
         let content_info = create_content_pack(compression.val, &articles.val).unwrap();
         let directory_info = create_directory_pack(&articles.val).unwrap();
@@ -487,28 +485,16 @@ test_suite! {
         let index = directory_pack.get_index(0.into()).unwrap();
         let entry_storage = directory_pack.create_entry_storage();
         let value_storage = directory_pack.create_value_storage();
-        let resolver = reader::Resolver::new(value_storage);
         let schema = reader::AnySchema {};
-        let builder = schema.create_builder(index.get_store(&entry_storage).unwrap()).unwrap();
+        let builder = schema.create_builder(index.get_store(&entry_storage).unwrap(), value_storage.as_ref()).unwrap();
         let finder: reader::Finder<reader::AnySchema> = index.get_finder(builder).unwrap();
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {
             let entry = finder.get_entry(i).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             let value_0 = entry.get_value(0.into()).unwrap();
-            if let reader::RawValue::Array(array) = &value_0 {
-                assert_eq!(
-                    array,
-                    &reader::Array::new(
-                        Some(jubako::Size::from(articles.val[i.into_u32() as usize].path.len())),
-                        Default::default(),0,
-                        Some(reader::testing::Extend::new(0.into(), jubako::ValueIdx::from(i.into_u64())))
-                    ));
-                let vec = resolver.resolve_to_vec(&value_0).unwrap();
-                assert_eq!(vec, articles.val[i.into_u32() as usize].path.as_bytes());
-            } else {
-              panic!();
-            }
+            let vec = value_0.as_vec().unwrap();
+            assert_eq!(vec, articles.val[i.into_u32() as usize].path.as_bytes());
             let value_1 = entry.get_value(1.into()).unwrap();
             if let reader::RawValue::Content(content) = value_1 {
                 assert_eq!(

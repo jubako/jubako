@@ -3,8 +3,9 @@ mod property;
 use super::entry_store::EntryStore;
 use super::layout::Property as LProperty;
 use super::raw_value::RawValue;
-use super::{AnyPropertyCompare, LazyEntry, Resolver, Value};
+use super::{LazyEntry, PropertyCompare, Value};
 use crate::bases::*;
+use crate::reader::directory_pack::private::ValueStorageTrait;
 use std::rc::Rc;
 
 pub use self::property::*;
@@ -23,9 +24,17 @@ impl AnyVariantBuilder {
         self.properties[idx.into_usize()].create(reader)
     }
 
-    pub fn new(properties: &[LProperty]) -> Self {
-        let properties = properties.iter().map(|p| p.into()).collect();
-        Self { properties }
+    pub fn new<ValueStorage>(properties: &[LProperty], value_storage: &ValueStorage) -> Result<Self>
+    where
+        ValueStorage: ValueStorageTrait,
+    {
+        let properties: Result<Vec<_>> = properties
+            .iter()
+            .map(|p| (p, value_storage).try_into())
+            .collect();
+        Ok(Self {
+            properties: properties?,
+        })
     }
 
     pub fn count(&self) -> u8 {
@@ -44,40 +53,40 @@ pub struct AnyBuilder {
 }
 
 impl AnyBuilder {
-    pub fn new(store: Rc<EntryStore>) -> Self {
+    pub fn new<ValueStorage>(store: Rc<EntryStore>, value_storage: &ValueStorage) -> Result<Self>
+    where
+        ValueStorage: ValueStorageTrait,
+    {
         let layout = store.layout();
-        let common = AnyVariantBuilder::new(&layout.common);
+        let common = AnyVariantBuilder::new(&layout.common, value_storage)?;
         let variant_part = match &layout.variant_part {
             None => None,
             Some((variant_id_offset, variants)) => {
-                let variants = variants.iter().map(|v| AnyVariantBuilder::new(v)).collect();
+                let variants: Result<Vec<_>> = variants
+                    .iter()
+                    .map(|v| AnyVariantBuilder::new(v, value_storage))
+                    .collect();
                 let variant_id = VariantIdProperty::new(*variant_id_offset);
-                Some((variant_id, variants))
+                Some((variant_id, variants?))
             }
         };
         let properties = Rc::new(LazyEntryProperties {
             common,
             variant_part,
         });
-        Self { properties, store }
+        Ok(Self { properties, store })
     }
 
-    pub fn new_property_compare(
-        &self,
-        resolver: Resolver,
-        property_id: PropertyIdx,
-        value: Value,
-    ) -> AnyPropertyCompare {
-        AnyPropertyCompare::new(resolver, self, vec![property_id], vec![value])
+    pub fn new_property_compare(&self, property_id: PropertyIdx, value: Value) -> PropertyCompare {
+        PropertyCompare::new(self, vec![property_id], vec![value])
     }
 
     pub fn new_multiple_property_compare(
         &self,
-        resolver: Resolver,
         property_ids: Vec<PropertyIdx>,
         values: Vec<Value>,
-    ) -> AnyPropertyCompare {
-        AnyPropertyCompare::new(resolver, self, property_ids, values)
+    ) -> PropertyCompare {
+        PropertyCompare::new(self, property_ids, values)
     }
 }
 
@@ -105,6 +114,29 @@ mod tests {
     use crate::reader::layout::{Layout, Properties};
     use crate::reader::RawValue;
 
+    mod mock {
+        use super::*;
+        use crate::reader::directory_pack::private::ValueStorageTrait;
+        use crate::reader::directory_pack::ValueStoreIdx;
+        use crate::reader::directory_pack::ValueStoreTrait;
+
+        #[derive(Debug)]
+        pub struct ValueStore;
+        impl ValueStoreTrait for ValueStore {
+            fn get_data(&self, _id: ValueIdx, _size: Option<Size>) -> Result<&[u8]> {
+                unreachable!();
+            }
+        }
+
+        pub struct ValueStorage;
+        impl ValueStorageTrait for ValueStorage {
+            type ValueStore = ValueStore;
+            fn get_value_store(&self, _idx: ValueStoreIdx) -> Result<Rc<Self::ValueStore>> {
+                unreachable!();
+            }
+        }
+    }
+
     #[test]
     fn create_entry() {
         let layout = Layout {
@@ -126,7 +158,8 @@ mod tests {
             layout,
             entry_reader,
         }));
-        let builder = AnyBuilder::new(store);
+        let value_storage = mock::ValueStorage {};
+        let builder = AnyBuilder::new(store, &value_storage).unwrap();
 
         {
             let entry = builder.create_entry(0.into()).unwrap();
@@ -200,7 +233,8 @@ mod tests {
             layout,
             entry_reader,
         }));
-        let builder = AnyBuilder::new(store);
+        let value_storage = mock::ValueStorage {};
+        let builder = AnyBuilder::new(store, &value_storage).unwrap();
 
         {
             let entry = builder.create_entry(0.into()).unwrap();
