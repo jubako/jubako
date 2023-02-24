@@ -4,53 +4,26 @@ use crate::reader::directory_pack::layout;
 use crate::reader::directory_pack::raw_value::{Array, Extend, RawValue};
 use std::io::BorrowedBuf;
 use std::io::Read;
-use std::marker::PhantomData;
 
 pub trait PropertyBuilderTrait {
     type Output;
     fn create(&self, reader: &SubReader) -> Result<Self::Output>;
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Property<OutType> {
+pub struct VariantIdProperty {
     offset: Offset,
-    phantom: PhantomData<OutType>,
 }
 
-impl<OutType> Property<OutType> {
+impl VariantIdProperty {
     pub fn new(offset: Offset) -> Self {
-        Self {
-            offset,
-            phantom: PhantomData,
-        }
+        Self { offset }
     }
 }
 
-impl PropertyBuilderTrait for Property<u8> {
-    type Output = u8;
+impl PropertyBuilderTrait for VariantIdProperty {
+    type Output = VariantIdx;
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        reader.read_u8(self.offset)
-    }
-}
-
-impl PropertyBuilderTrait for Property<u16> {
-    type Output = u16;
-    fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        reader.read_u16(self.offset)
-    }
-}
-
-impl PropertyBuilderTrait for Property<u32> {
-    type Output = u32;
-    fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        reader.read_u32(self.offset)
-    }
-}
-
-impl PropertyBuilderTrait for Property<u64> {
-    type Output = u64;
-    fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        reader.read_u64(self.offset)
+        Ok(reader.read_u8(self.offset)?.into())
     }
 }
 
@@ -87,34 +60,6 @@ impl PropertyBuilderTrait for IntProperty {
                 reader.read_usized(self.offset, self.size)?
             }
         })
-    }
-}
-
-impl PropertyBuilderTrait for Property<i8> {
-    type Output = i8;
-    fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        reader.read_i8(self.offset)
-    }
-}
-
-impl PropertyBuilderTrait for Property<i16> {
-    type Output = i16;
-    fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        reader.read_i16(self.offset)
-    }
-}
-
-impl PropertyBuilderTrait for Property<i32> {
-    type Output = i32;
-    fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        reader.read_i32(self.offset)
-    }
-}
-
-impl PropertyBuilderTrait for Property<i64> {
-    type Output = i64;
-    fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        reader.read_i64(self.offset)
     }
 }
 
