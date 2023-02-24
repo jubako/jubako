@@ -253,7 +253,6 @@ test_suite! {
 
     use jubako::reader as reader;
     use jubako::reader::EntryTrait;
-    use jubako::reader::schema::SchemaTrait;
     use std::fs::OpenOptions;
     use std::io::{Write, Seek, SeekFrom, Result, Read};
     use std::io;
@@ -482,7 +481,10 @@ test_suite! {
         assert_eq!(container.pack_count(), 1.into());
         assert!(container.check().unwrap());
         let index = container.get_index_for_name("Super index").unwrap();
-        let builder = reader::AnySchema::create_builder(index.get_store(&container.get_entry_storage()).unwrap(), container.get_value_storage()).unwrap();
+        let builder = reader::builder::AnyBuilder::new(
+            index.get_store(&container.get_entry_storage()).unwrap(),
+            container.get_value_storage().as_ref()
+        ).unwrap();
         let finder = index.get_finder(builder).unwrap();
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {

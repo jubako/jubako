@@ -1,4 +1,4 @@
-use jbk::reader::schema::SchemaTrait;
+use jbk::reader::builder::AnyBuilder;
 use jbk::reader::EntryTrait;
 use jubako as jbk;
 use std::error::Error;
@@ -7,9 +7,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Let's read our container created in `simple_create.rs`
     let container = jbk::reader::Container::new("test.jbkm")?; // or "test.jbkm"
     let index = container.get_index_for_name("My own index")?;
-    let builder = jbk::reader::AnySchema::create_builder(
+    let builder = AnyBuilder::new(
         index.get_store(&container.get_entry_storage())?,
-        container.get_value_storage(),
+        container.get_value_storage().as_ref(),
     )?;
     let finder = index.get_finder(builder)?; // To found our entries.
 

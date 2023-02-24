@@ -63,8 +63,8 @@ impl<Builder: BuilderTrait> Finder<Builder> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::reader::directory_pack::{builder, schema};
-    use crate::reader::directory_pack::{EntryStore, EntryTrait};
+    use crate::reader::directory_pack::builder;
+    use crate::reader::directory_pack::EntryTrait;
     use crate::reader::RawValue;
     use std::rc::Rc;
 
@@ -116,19 +116,6 @@ mod tests {
             type Entry = Entry;
             fn create_entry(&self, idx: EntryIdx) -> Result<Self::Entry> {
                 Ok(Entry::new(idx.into_u16()))
-            }
-        }
-
-        pub struct Schema {}
-
-        impl schema::SchemaTrait for Schema {
-            type Builder = Builder;
-            type ValueStorage = ValueStorage;
-            fn create_builder(
-                _store: Rc<EntryStore>,
-                _value_storage: &ValueStorage,
-            ) -> Result<Rc<Self::Builder>> {
-                unreachable!()
             }
         }
 

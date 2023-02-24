@@ -1,5 +1,4 @@
 use jbk::reader::builder::PropertyBuilderTrait;
-use jbk::reader::schema::SchemaTrait;
 use jubako as jbk;
 use std::error::Error;
 use std::rc::Rc;
@@ -62,39 +61,33 @@ impl jbk::reader::builder::BuilderTrait for Builder {
     }
 }
 
-pub struct Schema {}
-impl jbk::reader::schema::SchemaTrait for Schema {
-    type Builder = Builder;
-    type ValueStorage = jbk::reader::ValueStorage;
-
-    fn create_builder(
-        store: Rc<jbk::reader::EntryStore>,
-        value_storage: &jbk::reader::ValueStorage,
-    ) -> jbk::Result<Rc<Self::Builder>> {
-        let layout = store.layout();
-        let (variant_offset, variants) = layout.variant_part.as_ref().unwrap();
-        assert_eq!(variants.len(), 2);
-        let value0 = (&layout.common[0], value_storage).try_into()?;
-        let value1 = (&layout.common[1], value_storage).try_into()?;
-        let variant0_value2 = (&variants[0][0]).try_into()?;
-        let variant1_value2 = (&variants[1][0], value_storage).try_into()?;
-        let variant_id = jbk::reader::builder::VariantIdProperty::new(*variant_offset);
-        Ok(Rc::new(Builder {
-            store,
-            value0,
-            value1,
-            variant0_value2,
-            variant1_value2,
-            variant_id,
-        }))
-    }
+fn create_builder(
+    store: Rc<jbk::reader::EntryStore>,
+    value_storage: &jbk::reader::ValueStorage,
+) -> jbk::Result<Rc<Builder>> {
+    let layout = store.layout();
+    let (variant_offset, variants) = layout.variant_part.as_ref().unwrap();
+    assert_eq!(variants.len(), 2);
+    let value0 = (&layout.common[0], value_storage).try_into()?;
+    let value1 = (&layout.common[1], value_storage).try_into()?;
+    let variant0_value2 = (&variants[0][0]).try_into()?;
+    let variant1_value2 = (&variants[1][0], value_storage).try_into()?;
+    let variant_id = jbk::reader::builder::VariantIdProperty::new(*variant_offset);
+    Ok(Rc::new(Builder {
+        store,
+        value0,
+        value1,
+        variant0_value2,
+        variant1_value2,
+        variant_id,
+    }))
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Let's read our container created in `simple_create.rs`
     let container = jbk::reader::Container::new("test.jbkm")?; // or "test.jbkm"
     let index = container.get_index_for_name("My own index")?;
-    let builder = Schema::create_builder(
+    let builder = create_builder(
         index.get_store(&container.get_entry_storage())?,
         container.get_value_storage(),
     )?;

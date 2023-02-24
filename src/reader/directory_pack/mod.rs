@@ -7,7 +7,6 @@ mod lazy_entry;
 mod property_compare;
 mod raw_layout;
 mod raw_value;
-pub mod schema;
 mod value_store;
 
 use self::index::IndexHeader;
@@ -26,7 +25,6 @@ pub use self::property_compare::PropertyCompare;
 pub use crate::common::{ContentAddress, Value};
 pub use lazy_entry::LazyEntry;
 pub use raw_value::{Array, ArrayIter, Extend, RawValue};
-pub use schema::AnySchema;
 
 pub trait EntryTrait {
     fn get_variant_id(&self) -> Result<Option<VariantIdx>>;
@@ -207,7 +205,6 @@ mod tests {
     use super::raw_value::*;
     use super::*;
     use crate::common::PackHeader;
-    use crate::reader::schema::SchemaTrait;
 
     #[test]
     fn test_directorypackheader() {
@@ -386,7 +383,7 @@ mod tests {
         let index = directory_pack.get_index(0.into()).unwrap();
         let value_storage = directory_pack.create_value_storage();
         let entry_storage = directory_pack.create_entry_storage();
-        let builder = schema::AnySchema::create_builder(
+        let builder = builder::AnyBuilder::new(
             index.get_store(&entry_storage).unwrap(),
             value_storage.as_ref(),
         )
