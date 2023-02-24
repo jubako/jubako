@@ -131,7 +131,7 @@ impl IndexStore {
             // - The content : a content address(1)
             // - The words counts : a u16
             data.extend(&[entry.path.as_bytes().len() as u8, idx].to_vec());
-            data.extend(&(idx as u16).to_be_bytes().to_vec());
+            data.extend(&(idx as u16 + 0x0100_u16).to_be_bytes().to_vec());
             data.extend(&entry.word_count.to_be_bytes().to_vec());
             idx += 1;
         }
@@ -152,7 +152,7 @@ impl IndexStore {
         data.push(0x00); // variant count
         data.push(0x03); // key count
         data.extend(&[0b0101_0001, 0b001_00000, 0x00]); // The first key, a char1[0] + deported(1) idx 0
-        data.extend(&[0b0001_0100]); // The second key, the content address
+        data.extend(&[0b0001_0100]); // The second key, the content address (1 for the pack_id + 1 for the value_id)
         data.extend(&[0b0010_0001]); // The third key, the u16
         data.extend((self.data.len() as u64).to_be_bytes()); //data size
         self.tail_size = Some(data.len() as u16);
@@ -495,10 +495,9 @@ test_suite! {
             if let reader::RawValue::Content(content) = value_1 {
                 assert_eq!(
                     content,
-                    jubako::ContentAddress{pack_id:0.into(), content_id:jubako::ContentIdx::from(i.into_u32())}
+                    jubako::ContentAddress{pack_id:1.into(), content_id:jubako::ContentIdx::from(i.into_u32())}
                 );
-                let pack = container.get_pack(1.into()).unwrap();
-                let reader = pack.get_content(jubako::ContentIdx::from(i.into_u32())).unwrap();
+                let reader = container.get_reader(content).unwrap();
                 let mut flux = reader.create_flux_all();
                 let mut read_content: String = "".to_string();
                 flux.read_to_string(&mut read_content).unwrap();
