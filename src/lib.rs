@@ -12,9 +12,9 @@ pub mod reader;
 pub mod tools;
 
 pub use crate::bases::{
-    Bound, ContentIdx, End, EntryCount, EntryIdx, EntryStoreIdx, ErrorKind, FreeData31, FreeData40,
-    FreeData63, Generator, Offset, PackId, PropertyCount, PropertyIdx, Reader, Result, Size,
-    ValueIdx, VariantIdx, Vow, Word,
+    Bound, ContentIdx, End, EntryCount, EntryIdx, EntryRange, EntryStoreIdx, ErrorKind, FreeData31,
+    FreeData40, FreeData63, Generator, Offset, PackId, PropertyCount, PropertyIdx, Reader, Result,
+    Size, ValueIdx, VariantIdx, Vow, Word,
 };
 pub use crate::common::{CompressionType, ContentAddress, Value};
 pub use crate::tools::concat;
