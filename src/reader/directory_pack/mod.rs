@@ -391,7 +391,7 @@ mod tests {
             value_storage.as_ref(),
         )
         .unwrap();
-        let finder: Finder<schema::AnySchema> = index.get_finder(builder).unwrap();
+        let finder = index.get_finder(builder).unwrap();
         assert_eq!(index.entry_count(), 4.into());
         {
             let entry = finder.get_entry(0.into()).unwrap();

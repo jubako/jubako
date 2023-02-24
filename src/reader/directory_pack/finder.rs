@@ -1,32 +1,28 @@
 use super::builder::BuilderTrait;
-use super::schema::SchemaTrait;
 use crate::bases::*;
 use std::cmp::Ordering;
-use std::marker::PhantomData;
 use std::rc::Rc;
 
-pub trait CompareTrait<Schema: SchemaTrait> {
+pub trait CompareTrait {
     fn compare_entry(&self, idx: EntryIdx) -> Result<Ordering>;
 }
 
-pub struct Finder<Schema: SchemaTrait> {
-    builder: Rc<Schema::Builder>,
+pub struct Finder<Builder: BuilderTrait> {
+    builder: Rc<Builder>,
     offset: EntryIdx,
     count: EntryCount,
-    phantom_schema: PhantomData<Schema>,
 }
 
-impl<Schema: SchemaTrait> Finder<Schema> {
-    pub fn new(builder: Rc<Schema::Builder>, offset: EntryIdx, count: EntryCount) -> Self {
+impl<Builder: BuilderTrait> Finder<Builder> {
+    pub fn new(builder: Rc<Builder>, offset: EntryIdx, count: EntryCount) -> Self {
         Self {
             builder,
             offset,
             count,
-            phantom_schema: PhantomData,
         }
     }
 
-    fn _get_entry(&self, id: EntryIdx) -> Result<<Schema::Builder as BuilderTrait>::Entry> {
+    fn _get_entry(&self, id: EntryIdx) -> Result<Builder::Entry> {
         self.builder.create_entry(self.offset + id)
     }
 
@@ -38,11 +34,11 @@ impl<Schema: SchemaTrait> Finder<Schema> {
         self.count
     }
 
-    pub fn builder(&self) -> &Rc<Schema::Builder> {
+    pub fn builder(&self) -> &Rc<Builder> {
         &self.builder
     }
 
-    pub fn get_entry(&self, id: EntryIdx) -> Result<<Schema::Builder as BuilderTrait>::Entry> {
+    pub fn get_entry(&self, id: EntryIdx) -> Result<Builder::Entry> {
         if id.is_valid(self.count) {
             self._get_entry(id)
         } else {
@@ -50,7 +46,7 @@ impl<Schema: SchemaTrait> Finder<Schema> {
         }
     }
 
-    pub fn find<Comparator: CompareTrait<Schema>>(
+    pub fn find<Comparator: CompareTrait>(
         &self,
         comparator: &Comparator,
     ) -> Result<Option<EntryIdx>> {
@@ -108,7 +104,7 @@ mod tests {
             }
         }
 
-        impl CompareTrait<Schema> for EntryCompare {
+        impl CompareTrait for EntryCompare {
             fn compare_entry(&self, index: EntryIdx) -> Result<Ordering> {
                 // In our mock schema, the value stored in the entry is equal to the index.
                 Ok(index.into_u32().cmp(&self.reference))
@@ -156,8 +152,7 @@ mod tests {
     #[test]
     fn test_finder() {
         let builder = Rc::new(mock::Builder {});
-        let finder: Finder<mock::Schema> =
-            Finder::new(builder, EntryIdx::from(0), EntryCount::from(10));
+        let finder = Finder::new(builder, EntryIdx::from(0), EntryCount::from(10));
 
         for i in 0..10 {
             let entry = finder.get_entry(i.into()).unwrap();

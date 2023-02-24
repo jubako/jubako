@@ -98,7 +98,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         index.get_store(&container.get_entry_storage())?,
         container.get_value_storage(),
     )?;
-    let finder: jbk::reader::Finder<Schema> = index.get_finder(builder)?; // To found our entries.
+    let finder = index.get_finder(builder)?; // To found our entries.
 
     {
         let entry = finder.get_entry(0.into())?;

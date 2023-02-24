@@ -1,4 +1,4 @@
-use super::schema;
+use super::builder;
 use super::{EntryStorage, EntryStore, Finder};
 use crate::bases::*;
 use crate::common::ContentAddress;
@@ -52,10 +52,10 @@ impl Index {
         self.header.entry_count
     }
 
-    pub fn get_finder<Schema: schema::SchemaTrait>(
+    pub fn get_finder<Builder: builder::BuilderTrait>(
         &self,
-        builder: Rc<Schema::Builder>,
-    ) -> Result<Finder<Schema>> {
+        builder: Rc<Builder>,
+    ) -> Result<Finder<Builder>> {
         Ok(Finder::new(
             builder,
             self.entry_offset(),

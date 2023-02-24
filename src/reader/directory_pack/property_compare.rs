@@ -1,6 +1,5 @@
 use super::builder::{AnyBuilder, BuilderTrait};
 use super::finder::CompareTrait;
-use super::schema::AnySchema;
 use super::{EntryTrait, Value};
 use crate::bases::*;
 use std::cmp::Ordering;
@@ -26,7 +25,7 @@ impl<'builder> PropertyCompare<'builder> {
     }
 }
 
-impl CompareTrait<AnySchema> for PropertyCompare<'_> {
+impl CompareTrait for PropertyCompare<'_> {
     fn compare_entry(&self, idx: EntryIdx) -> Result<Ordering> {
         let entry = self.builder.create_entry(idx)?;
         for (property_id, value) in std::iter::zip(self.property_ids.iter(), self.values.iter()) {

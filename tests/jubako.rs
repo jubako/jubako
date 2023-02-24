@@ -483,7 +483,7 @@ test_suite! {
         assert!(container.check().unwrap());
         let index = container.get_index_for_name("Super index").unwrap();
         let builder = reader::AnySchema::create_builder(index.get_store(&container.get_entry_storage()).unwrap(), container.get_value_storage()).unwrap();
-        let finder: reader::Finder<reader::AnySchema> = index.get_finder(builder).unwrap();
+        let finder = index.get_finder(builder).unwrap();
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {
             let entry = finder.get_entry(i).unwrap();
