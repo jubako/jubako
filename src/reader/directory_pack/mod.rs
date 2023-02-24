@@ -388,7 +388,7 @@ mod tests {
             value_storage.as_ref(),
         )
         .unwrap();
-        let finder = index.get_finder(builder).unwrap();
+        let finder = Finder::new(builder, &index);
         assert_eq!(index.entry_count(), 4.into());
         {
             let entry = finder.get_entry(0.into()).unwrap();

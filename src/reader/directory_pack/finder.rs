@@ -9,29 +9,30 @@ pub trait CompareTrait {
 
 pub struct Finder<Builder: BuilderTrait> {
     builder: Rc<Builder>,
-    offset: EntryIdx,
-    count: EntryCount,
+    range: EntryRange,
 }
 
 impl<Builder: BuilderTrait> Finder<Builder> {
-    pub fn new(builder: Rc<Builder>, offset: EntryIdx, count: EntryCount) -> Self {
+    pub fn new<R>(builder: Rc<Builder>, range: R) -> Self
+    where
+        R: Into<EntryRange>,
+    {
         Self {
             builder,
-            offset,
-            count,
+            range: range.into(),
         }
     }
 
     fn _get_entry(&self, id: EntryIdx) -> Result<Builder::Entry> {
-        self.builder.create_entry(self.offset + id)
+        self.builder.create_entry(self.range.offset + id)
     }
 
     pub fn offset(&self) -> EntryIdx {
-        self.offset
+        self.range.offset
     }
 
     pub fn count(&self) -> EntryCount {
-        self.count
+        self.range.count
     }
 
     pub fn builder(&self) -> &Rc<Builder> {
@@ -39,7 +40,7 @@ impl<Builder: BuilderTrait> Finder<Builder> {
     }
 
     pub fn get_entry(&self, id: EntryIdx) -> Result<Builder::Entry> {
-        if id.is_valid(self.count) {
+        if id.is_valid(self.range.count) {
             self._get_entry(id)
         } else {
             Err("Invalid id".to_string().into())
@@ -50,8 +51,8 @@ impl<Builder: BuilderTrait> Finder<Builder> {
         &self,
         comparator: &Comparator,
     ) -> Result<Option<EntryIdx>> {
-        for idx in self.count {
-            let cmp = comparator.compare_entry(self.offset + idx)?;
+        for idx in self.range.count {
+            let cmp = comparator.compare_entry(self.range.offset + idx)?;
             if cmp.is_eq() {
                 return Ok(Some(idx));
             }
@@ -139,7 +140,10 @@ mod tests {
     #[test]
     fn test_finder() {
         let builder = Rc::new(mock::Builder {});
-        let finder = Finder::new(builder, EntryIdx::from(0), EntryCount::from(10));
+        let finder = Finder::new(
+            builder,
+            EntryRange::new(EntryIdx::from(0), EntryCount::from(10)),
+        );
 
         for i in 0..10 {
             let entry = finder.get_entry(i.into()).unwrap();

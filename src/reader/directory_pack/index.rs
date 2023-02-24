@@ -1,5 +1,4 @@
-use super::builder;
-use super::{EntryStorage, EntryStore, Finder};
+use super::{EntryStorage, EntryStore};
 use crate::bases::*;
 use crate::common::ContentAddress;
 use std::rc::Rc;
@@ -52,17 +51,6 @@ impl Index {
         self.header.entry_count
     }
 
-    pub fn get_finder<Builder: builder::BuilderTrait>(
-        &self,
-        builder: Rc<Builder>,
-    ) -> Result<Finder<Builder>> {
-        Ok(Finder::new(
-            builder,
-            self.entry_offset(),
-            self.entry_count(),
-        ))
-    }
-
     pub fn get_store(&self, entry_storage: &EntryStorage) -> Result<Rc<EntryStore>> {
         Ok(Rc::clone(
             entry_storage.get_entry_store(self.header.store_id)?,
@@ -71,6 +59,12 @@ impl Index {
 
     pub fn get_store_id(&self) -> EntryStoreIdx {
         self.header.store_id
+    }
+}
+
+impl From<&Index> for EntryRange {
+    fn from(index: &Index) -> Self {
+        Self::new(index.entry_offset(), index.entry_count())
     }
 }
 
