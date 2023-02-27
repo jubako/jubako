@@ -477,7 +477,6 @@ impl PropertyBuilderTrait for AnyProperty {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -485,322 +484,438 @@ mod tests {
     #[test]
     fn test_uint() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = BufReader::new(content, End::None);
-        let prop = Property::new(0, PropertyKind::UnsignedInt(1));
-        assert_eq!(prop.create_value(&reader).unwrap(), RawValue::U8(0xFE));
-        let prop = Property::new(2, PropertyKind::UnsignedInt(1));
-        assert_eq!(prop.create_value(&reader).unwrap(), RawValue::U8(0xBA));
+        let reader = Reader::new(content, End::None);
+        let prop = IntProperty::new(Offset::new(0), ByteSize::U1, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xFE);
+        let prop = IntProperty::new(Offset::new(2), ByteSize::U1, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xBA);
 
-        let prop = Property::new(0, PropertyKind::UnsignedInt(2));
-        assert_eq!(prop.create_value(&reader).unwrap(), RawValue::U16(0xFEDC));
-        let prop = Property::new(2, PropertyKind::UnsignedInt(2));
-        assert_eq!(prop.create_value(&reader).unwrap(), RawValue::U16(0xBA98));
+        let prop = IntProperty::new(Offset::new(0), ByteSize::U2, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xFEDC);
+        let prop = IntProperty::new(Offset::new(2), ByteSize::U2, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xBA98);
 
-        let prop = Property::new(0, PropertyKind::UnsignedInt(3));
-        assert_eq!(prop.create_value(&reader).unwrap(), RawValue::U32(0xFEDCBA));
-        let prop = Property::new(2, PropertyKind::UnsignedInt(3));
-        assert_eq!(prop.create_value(&reader).unwrap(), RawValue::U32(0xBA9876));
+        let prop = IntProperty::new(Offset::new(0), ByteSize::U3, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xFEDCBA);
+        let prop = IntProperty::new(Offset::new(2), ByteSize::U3, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xBA9876);
 
-        let prop = Property::new(0, PropertyKind::UnsignedInt(4));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::U32(0xFEDCBA98)
-        );
-        let prop = Property::new(2, PropertyKind::UnsignedInt(4));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::U32(0xBA987654)
-        );
+        let prop = IntProperty::new(Offset::new(0), ByteSize::U4, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xFEDCBA98);
+        let prop = IntProperty::new(Offset::new(2), ByteSize::U4, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xBA987654);
 
-        let prop = Property::new(0, PropertyKind::UnsignedInt(5));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::U64(0xFEDCBA9876)
-        );
-        let prop = Property::new(2, PropertyKind::UnsignedInt(5));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::U64(0xBA98765432)
-        );
+        let prop = IntProperty::new(Offset::new(0), ByteSize::U5, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xFEDCBA9876);
+        let prop = IntProperty::new(Offset::new(2), ByteSize::U5, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xBA98765432);
 
-        let prop = Property::new(0, PropertyKind::UnsignedInt(6));
+        let prop = IntProperty::new(Offset::new(0), ByteSize::U6, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::U64(0xFEDCBA987654)
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            0xFEDCBA987654
         );
-        let prop = Property::new(2, PropertyKind::UnsignedInt(6));
+        let prop = IntProperty::new(Offset::new(2), ByteSize::U6, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::U64(0xBA9876543210)
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            0xBA9876543210
         );
 
-        let prop = Property::new(0, PropertyKind::UnsignedInt(7));
+        let prop = IntProperty::new(Offset::new(0), ByteSize::U7, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::U64(0xFEDCBA98765432)
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            0xFEDCBA98765432
         );
-        let prop = Property::new(2, PropertyKind::UnsignedInt(7));
+        let prop = IntProperty::new(Offset::new(2), ByteSize::U7, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::U64(0xBA9876543210ff)
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            0xBA9876543210ff
         );
 
-        let prop = Property::new(0, PropertyKind::UnsignedInt(8));
+        let prop = IntProperty::new(Offset::new(0), ByteSize::U8, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::U64(0xFEDCBA9876543210)
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            0xFEDCBA9876543210
         );
-        let prop = Property::new(1, PropertyKind::UnsignedInt(8));
+        let prop = IntProperty::new(Offset::new(1), ByteSize::U8, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::U64(0xDCBA9876543210ff)
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            0xDCBA9876543210ff
         );
     }
 
     #[test]
     fn test_sint() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = BufReader::new(content, End::None);
-        let prop = Property::new(0, PropertyKind::SignedInt(1));
-        assert_eq!(prop.create_value(&reader).unwrap(), RawValue::I8(-0x02));
-        let prop = Property::new(2, PropertyKind::SignedInt(1));
-        assert_eq!(prop.create_value(&reader).unwrap(), RawValue::I8(-0x46));
+        let reader = Reader::new(content, End::None);
+        let prop = SignedProperty::new(Offset::new(0), ByteSize::U1, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x02);
+        let prop = SignedProperty::new(Offset::new(2), ByteSize::U1, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x46);
 
-        let prop = Property::new(0, PropertyKind::SignedInt(2));
-        assert_eq!(prop.create_value(&reader).unwrap(), RawValue::I16(-0x0124));
-        let prop = Property::new(2, PropertyKind::SignedInt(2));
-        assert_eq!(prop.create_value(&reader).unwrap(), RawValue::I16(-0x4568));
+        let prop = SignedProperty::new(Offset::new(0), ByteSize::U2, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x0124);
+        let prop = SignedProperty::new(Offset::new(2), ByteSize::U2, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x4568);
 
-        let prop = Property::new(0, PropertyKind::SignedInt(3));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::I32(-0x012346)
-        );
-        let prop = Property::new(2, PropertyKind::SignedInt(3));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::I32(-0x45678a)
-        );
+        let prop = SignedProperty::new(Offset::new(0), ByteSize::U3, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x012346);
+        let prop = SignedProperty::new(Offset::new(2), ByteSize::U3, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x45678a);
 
-        let prop = Property::new(0, PropertyKind::SignedInt(4));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::I32(-0x01234568)
-        );
-        let prop = Property::new(2, PropertyKind::SignedInt(4));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::I32(-0x456789ac)
-        );
+        let prop = SignedProperty::new(Offset::new(0), ByteSize::U4, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x01234568);
+        let prop = SignedProperty::new(Offset::new(2), ByteSize::U4, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x456789ac);
 
-        let prop = Property::new(0, PropertyKind::SignedInt(5));
+        let prop = SignedProperty::new(Offset::new(0), ByteSize::U5, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x012345678a);
+        let prop = SignedProperty::new(Offset::new(2), ByteSize::U5, None, None);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x456789abce);
+
+        let prop = SignedProperty::new(Offset::new(0), ByteSize::U6, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::I64(-0x012345678a)
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            -0x0123456789ac
         );
-        let prop = Property::new(2, PropertyKind::SignedInt(5));
+        let prop = SignedProperty::new(Offset::new(2), ByteSize::U6, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::I64(-0x456789abce)
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            -0x456789abcdf0
         );
 
-        let prop = Property::new(0, PropertyKind::SignedInt(6));
+        let prop = SignedProperty::new(Offset::new(0), ByteSize::U7, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::I64(-0x0123456789ac)
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            -0x0123456789abce
         );
-        let prop = Property::new(2, PropertyKind::SignedInt(6));
+        let prop = SignedProperty::new(Offset::new(2), ByteSize::U7, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::I64(-0x456789abcdf0)
-        );
-
-        let prop = Property::new(0, PropertyKind::SignedInt(7));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::I64(-0x0123456789abce)
-        );
-        let prop = Property::new(2, PropertyKind::SignedInt(7));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::I64(-0x456789abcdef01)
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            -0x456789abcdef01
         );
 
-        let prop = Property::new(0, PropertyKind::SignedInt(8));
+        let prop = SignedProperty::new(Offset::new(0), ByteSize::U8, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::I64(-0x0123456789abcdf0)
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            -0x0123456789abcdf0
         );
-        let prop = Property::new(1, PropertyKind::SignedInt(8));
+        let prop = SignedProperty::new(Offset::new(1), ByteSize::U8, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::I64(-0x23456789abcdef01)
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            -0x23456789abcdef01
         );
+    }
+
+    #[derive(Debug)]
+    struct FakeArray {
+        size: Option<Size>,
+        base: BaseArray,
+        base_len: u8,
+        extend: Option<ValueIdx>,
+    }
+
+    impl FakeArray {
+        fn new(
+            size: Option<Size>,
+            base: BaseArray,
+            base_len: u8,
+            extend: Option<ValueIdx>,
+        ) -> Self {
+            Self {
+                size,
+                base,
+                base_len,
+                extend,
+            }
+        }
+    }
+
+    impl PartialEq<Array> for FakeArray {
+        fn eq(&self, other: &Array) -> bool {
+            let base = self.size == other.size
+                && self.base == other.base
+                && self.base_len == other.base_len;
+            if !base {
+                return false;
+            }
+            if self.extend.is_some() != other.extend.is_some() {
+                return false;
+            }
+            if self.extend.is_none() {
+                return true;
+            }
+            self.extend.unwrap() == other.extend.as_ref().unwrap().value_id
+        }
     }
 
     #[test]
     fn test_array() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = BufReader::new(content, End::None);
-        let prop = Property::new(0, PropertyKind::Array(1));
+        let reader = Reader::new(content, End::None);
+        let prop = ArrayProperty::new(Offset::new(0), Some(ByteSize::U1), 1, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(vec!(0xFE), None))
+            FakeArray::new(Some(Size::new(0xFE)), BaseArray::new(&[0xDC]), 1, None),
+            prop.create(&reader.as_sub_reader()).unwrap()
         );
-        let prop = Property::new(2, PropertyKind::Array(1));
+        let prop = ArrayProperty::new(Offset::new(2), Some(ByteSize::U1), 1, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(vec!(0xBA), None))
-        );
-
-        let prop = Property::new(0, PropertyKind::Array(2));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(vec!(0xFE, 0xDC), None))
-        );
-        let prop = Property::new(2, PropertyKind::Array(2));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(vec!(0xBA, 0x98), None))
+            FakeArray::new(Some(Size::new(0xBA)), BaseArray::new(&[0x98]), 1, None),
+            prop.create(&reader.as_sub_reader()).unwrap(),
         );
 
-        let prop = Property::new(0, PropertyKind::Array(3));
+        let prop = ArrayProperty::new(Offset::new(0), Some(ByteSize::U1), 2, None, None);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(vec!(0xFE, 0xDC, 0xBA), None))
-        );
-        let prop = Property::new(2, PropertyKind::Array(3));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(vec!(0xBA, 0x98, 0x76), None))
-        );
-
-        let prop = Property::new(0, PropertyKind::Array(8));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(
-                vec!(0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10),
+            FakeArray::new(
+                Some(Size::new(0xFE)),
+                BaseArray::new(&[0xDC, 0xBA]),
+                2,
                 None
-            ))
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
+        );
+        let prop = ArrayProperty::new(Offset::new(2), Some(ByteSize::U1), 2, None, None);
+        assert_eq!(
+            FakeArray::new(
+                Some(Size::new(0xBA)),
+                BaseArray::new(&[0x98, 0x76]),
+                2,
+                None
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
+        );
+
+        let prop = ArrayProperty::new(Offset::new(0), Some(ByteSize::U1), 3, None, None);
+        assert_eq!(
+            FakeArray::new(
+                Some(Size::new(0xFE)),
+                BaseArray::new(&[0xDC, 0xBA, 0x98]),
+                3,
+                None
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
+        );
+        let prop = ArrayProperty::new(Offset::new(2), Some(ByteSize::U1), 3, None, None);
+        assert_eq!(
+            FakeArray::new(
+                Some(Size::new(0xBA)),
+                BaseArray::new(&[0x98, 0x76, 0x54]),
+                3,
+                None
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
+        );
+
+        let prop = ArrayProperty::new(Offset::new(0), Some(ByteSize::U1), 8, None, None);
+        assert_eq!(
+            FakeArray::new(
+                Some(Size::new(0xFE)),
+                BaseArray::new(&[0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]),
+                8,
+                None
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
         );
     }
 
+    mod mock {
+        use super::*;
+        use crate::reader::directory_pack::ValueStoreTrait;
+        #[derive(Debug)]
+        pub struct ValueStore {}
+
+        impl ValueStoreTrait for ValueStore {
+            fn get_data(&self, _id: ValueIdx, _size: Option<Size>) -> Result<&[u8]> {
+                unreachable!()
+            }
+        }
+    }
+
     #[test]
-    fn test_vlarray() {
+    fn test_deported_array() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = BufReader::new(content, End::None);
-        let prop = Property::new(0, PropertyKind::VLArray(1, Idx::from(255), None));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(
-                Vec::new(),
-                Some(Extend::new(Idx::from(255), 0xFE))
-            ))
+        let reader = Reader::new(content, End::None);
+        let value_store = Rc::new(mock::ValueStore {}) as Rc<dyn ValueStoreTrait>;
+        let prop = ArrayProperty::new(
+            Offset::new(0),
+            Some(ByteSize::U1),
+            0,
+            Some((ByteSize::U1, Rc::clone(&value_store))),
+            None,
         );
-        let prop = Property::new(2, PropertyKind::VLArray(1, Idx::from(255), None));
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(
-                Vec::new(),
-                Some(Extend::new(Idx::from(255), 0xBA))
-            ))
-        );
-
-        let prop = Property::new(0, PropertyKind::VLArray(2, Idx::from(255), None));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(
-                Vec::new(),
-                Some(Extend::new(Idx::from(255), 0xFEDC))
-            ))
-        );
-        let prop = Property::new(2, PropertyKind::VLArray(2, Idx::from(255), None));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(
-                Vec::new(),
-                Some(Extend::new(Idx::from(255), 0xBA98))
-            ))
+            FakeArray::new(
+                Some(Size::new(0xFE)),
+                BaseArray::default(),
+                0,
+                Some(0xDC.into())
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
         );
 
-        let prop = Property::new(0, PropertyKind::VLArray(1, Idx::from(255), Some(1)));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(
-                vec!(0xDC),
-                Some(Extend::new(Idx::from(255), 0xFE))
-            ))
+        let prop = ArrayProperty::new(
+            Offset::new(2),
+            Some(ByteSize::U1),
+            0,
+            Some((ByteSize::U1, Rc::clone(&value_store))),
+            None,
         );
-        let prop = Property::new(2, PropertyKind::VLArray(1, Idx::from(255), Some(1)));
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(
-                vec!(0x98),
-                Some(Extend::new(Idx::from(255), 0xBA))
-            ))
-        );
-
-        let prop = Property::new(0, PropertyKind::VLArray(1, Idx::from(255), Some(3)));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(
-                vec!(0xDC, 0xBA, 0x98),
-                Some(Extend::new(Idx::from(255), 0xFE))
-            ))
-        );
-        let prop = Property::new(2, PropertyKind::VLArray(1, Idx::from(255), Some(3)));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(
-                vec!(0x98, 0x76, 0x54),
-                Some(Extend::new(Idx::from(255), 0xBA))
-            ))
+            FakeArray::new(
+                Some(Size::new(0xBA)),
+                BaseArray::default(),
+                0,
+                Some(0x98.into())
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
         );
 
-        let prop = Property::new(0, PropertyKind::VLArray(3, Idx::from(255), Some(3)));
-        assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(
-                vec!(0x98, 0x76, 0x54),
-                Some(Extend::new(Idx::from(255), 0xFEDCBA))
-            ))
+        let prop = ArrayProperty::new(
+            Offset::new(0),
+            Some(ByteSize::U1),
+            0,
+            Some((ByteSize::U2, Rc::clone(&value_store))),
+            None,
         );
-        let prop = Property::new(2, PropertyKind::VLArray(3, Idx::from(255), Some(3)));
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Array(Array::new(
-                vec!(0x54, 0x32, 0x10),
-                Some(Extend::new(Idx::from(255), 0xBA9876))
-            ))
+            FakeArray::new(
+                Some(Size::new(0xFE)),
+                BaseArray::default(),
+                0,
+                Some(0xDCBA.into())
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
+        );
+        let prop = ArrayProperty::new(
+            Offset::new(2),
+            Some(ByteSize::U1),
+            0,
+            Some((ByteSize::U2, Rc::clone(&value_store))),
+            None,
+        );
+        assert_eq!(
+            FakeArray::new(
+                Some(Size::new(0xBA)),
+                BaseArray::default(),
+                0,
+                Some(0x9876.into())
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
+        );
+
+        let prop = ArrayProperty::new(
+            Offset::new(0),
+            Some(ByteSize::U1),
+            1,
+            Some((ByteSize::U1, Rc::clone(&value_store))),
+            None,
+        );
+        assert_eq!(
+            FakeArray::new(
+                Some(Size::new(0xFE)),
+                BaseArray::new(&[0xDC]),
+                1,
+                Some(0xBA.into())
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
+        );
+        let prop = ArrayProperty::new(
+            Offset::new(2),
+            Some(ByteSize::U1),
+            1,
+            Some((ByteSize::U1, Rc::clone(&value_store))),
+            None,
+        );
+        assert_eq!(
+            FakeArray::new(
+                Some(Size::new(0xBA)),
+                BaseArray::new(&[0x98]),
+                1,
+                Some(0x76.into())
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
+        );
+
+        let prop = ArrayProperty::new(
+            Offset::new(0),
+            Some(ByteSize::U1),
+            3,
+            Some((ByteSize::U1, Rc::clone(&value_store))),
+            None,
+        );
+        assert_eq!(
+            FakeArray::new(
+                Some(Size::new(0xFE)),
+                BaseArray::new(&[0xDC, 0xBA, 0x98]),
+                3,
+                Some(0x76.into())
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
+        );
+        let prop = ArrayProperty::new(
+            Offset::new(2),
+            Some(ByteSize::U1),
+            3,
+            Some((ByteSize::U1, Rc::clone(&value_store))),
+            None,
+        );
+        assert_eq!(
+            FakeArray::new(
+                Some(Size::new(0xBA)),
+                BaseArray::new(&[0x98, 0x76, 0x54]),
+                3,
+                Some(0x32.into())
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
+        );
+
+        let prop = ArrayProperty::new(
+            Offset::new(0),
+            Some(ByteSize::U1),
+            3,
+            Some((ByteSize::U3, Rc::clone(&value_store))),
+            None,
+        );
+        assert_eq!(
+            FakeArray::new(
+                Some(Size::new(0xFE)),
+                BaseArray::new(&[0xDC, 0xBA, 0x98]),
+                3,
+                Some(0x765432.into())
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
+        );
+        let prop = ArrayProperty::new(
+            Offset::new(2),
+            Some(ByteSize::U1),
+            3,
+            Some((ByteSize::U3, Rc::clone(&value_store))),
+            None,
+        );
+        assert_eq!(
+            FakeArray::new(
+                Some(Size::new(0xBA)),
+                BaseArray::new(&[0x98, 0x76, 0x54]),
+                3,
+                Some(0x3210ff.into())
+            ),
+            prop.create(&reader.as_sub_reader()).unwrap(),
         );
     }
 
     #[test]
     fn test_content() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = BufReader::new(content, End::None);
-        let prop = Property::new(0, PropertyKind::ContentAddress(0));
+        let reader = Reader::new(content, End::None);
+        let prop = ContentProperty::new(Offset::new(0), None, ByteSize::U3);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Content(Content::new(
-                ContentAddress {
-                    pack_id: Id(0xFE),
-                    content_id: Idx(0xDCBA98)
-                },
-                None
-            ))
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            ContentAddress::new(PackId::from(0xFE), ContentIdx::from(0xDCBA98))
         );
-        let prop = Property::new(2, PropertyKind::ContentAddress(0));
+        let prop = ContentProperty::new(Offset::new(2), None, ByteSize::U3);
         assert_eq!(
-            prop.create_value(&reader).unwrap(),
-            RawValue::Content(Content::new(
-                ContentAddress {
-                    pack_id: Id(0xBA),
-                    content_id: Idx(0x987654)
-                },
-                None
-            ))
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            ContentAddress::new(PackId::from(0xBA), ContentIdx::from(0x987654))
         );
     }
 }
-*/
