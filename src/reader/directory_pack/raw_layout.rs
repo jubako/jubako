@@ -186,7 +186,7 @@ impl Producable for RawProperty {
                     let key_value = flux.read_usized(key_id_size)?;
                     (
                         0,
-                        if proptype == 0b0010 {
+                        if proptype == 0b1010 {
                             PropertyKind::DeportedUnsignedInt(
                                 int_size,
                                 key_store_id,
@@ -202,8 +202,8 @@ impl Producable for RawProperty {
                     )
                 } else {
                     (
-                        (int_size as usize) as u16,
-                        if proptype == 0b0010 {
+                        (key_id_size as usize) as u16,
+                        if proptype == 0b1010 {
                             PropertyKind::DeportedUnsignedInt(
                                 int_size,
                                 key_store_id,
@@ -264,12 +264,15 @@ mod tests {
     #[test_case(&[0b0000_0000] => RawProperty{size:1, kind:PropertyKind::Padding })]
     #[test_case(&[0b0000_0111] => RawProperty{size:8, kind:PropertyKind::Padding })]
     #[test_case(&[0b0000_1111] => RawProperty{size:16, kind:PropertyKind::Padding })]
+    // ContentAddress
     #[test_case(&[0b0001_0100] => RawProperty{size:2, kind:PropertyKind::ContentAddress(ByteSize::U1, None) })]
     #[test_case(&[0b0001_0101] => RawProperty{size:3, kind:PropertyKind::ContentAddress(ByteSize::U2, None) })]
     #[test_case(&[0b0001_0110] => RawProperty{size:4, kind:PropertyKind::ContentAddress(ByteSize::U3, None) })]
+    // ContentAddress with default pack_id
     #[test_case(&[0b0001_0000, 0x01] => RawProperty{size:1, kind:PropertyKind::ContentAddress(ByteSize::U1, Some(1.into())) })]
     #[test_case(&[0b0001_0001, 0x01] => RawProperty{size:2, kind:PropertyKind::ContentAddress(ByteSize::U2, Some(1.into())) })]
     #[test_case(&[0b0001_0010, 0x01] => RawProperty{size:3, kind:PropertyKind::ContentAddress(ByteSize::U3, Some(1.into())) })]
+    // Plain integer
     #[test_case(&[0b0010_0000] => RawProperty{size:1, kind:PropertyKind::UnsignedInt(ByteSize::U1, None) })]
     #[test_case(&[0b0010_0010] => RawProperty{size:3, kind:PropertyKind::UnsignedInt(ByteSize::U3, None) })]
     #[test_case(&[0b0010_0111] => RawProperty{size:8, kind:PropertyKind::UnsignedInt(ByteSize::U8, None) })]
@@ -283,6 +286,20 @@ mod tests {
     #[test_case(&[0b0011_1000, 0xff] => RawProperty{size:0, kind:PropertyKind::SignedInt(ByteSize::U1, Some(-1_i64)) })]
     #[test_case(&[0b0011_1010, 0x01, 0x02, 0x03] => RawProperty{size:0, kind:PropertyKind::SignedInt(ByteSize::U3, Some(0x010203_i64)) })]
     #[test_case(&[0b0011_1111, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08] => RawProperty{size:0, kind:PropertyKind::SignedInt(ByteSize::U8, Some(0x0102030405060708_i64)) })]
+    // Deported integer
+    #[test_case(&[0b1010_0000, 0b0000_0000, 0xff] => RawProperty{size:1, kind:PropertyKind::DeportedUnsignedInt(ByteSize::U1, 0xff.into(), DeportedDefault::KeySize(ByteSize::U1)) })]
+    #[test_case(&[0b1010_0010, 0b0000_0001, 0xff] => RawProperty{size:2, kind:PropertyKind::DeportedUnsignedInt(ByteSize::U3, 0xff.into(), DeportedDefault::KeySize(ByteSize::U2)) })]
+    #[test_case(&[0b1010_0111, 0b0000_0111, 0xff] => RawProperty{size:8, kind:PropertyKind::DeportedUnsignedInt(ByteSize::U8, 0xff.into(), DeportedDefault::KeySize(ByteSize::U8)) })]
+    #[test_case(&[0b1011_0000, 0b0000_0111, 0xff] => RawProperty{size:8, kind:PropertyKind::DeportedSignedInt(ByteSize::U1, 0xff.into(), DeportedDefault::KeySize(ByteSize::U8)) })]
+    #[test_case(&[0b1011_0010, 0b0000_0001, 0xff] => RawProperty{size:2, kind:PropertyKind::DeportedSignedInt(ByteSize::U3, 0xff.into(), DeportedDefault::KeySize(ByteSize::U2)) })]
+    #[test_case(&[0b1011_0111, 0b0000_0010, 0xff] => RawProperty{size:3, kind:PropertyKind::DeportedSignedInt(ByteSize::U8, 0xff.into(), DeportedDefault::KeySize(ByteSize::U3)) })]
+    // Deported integer with default index
+    #[test_case(&[0b1010_1000, 0b0000_0000, 0xff, 0xff] => RawProperty{size:0, kind:PropertyKind::DeportedUnsignedInt(ByteSize::U1, 0xff.into(), DeportedDefault::Value(0xff_u64)) })]
+    #[test_case(&[0b1010_1010, 0b0000_0001, 0xff, 0xff, 0xfe] => RawProperty{size:0, kind:PropertyKind::DeportedUnsignedInt(ByteSize::U3, 0xff.into(), DeportedDefault::Value(0xfffe_u64)) })]
+    #[test_case(&[0b1010_1111, 0b0000_0010, 0xff, 0x01, 0x02, 0x03] => RawProperty{size:0, kind:PropertyKind::DeportedUnsignedInt(ByteSize::U8, 0xff.into(), DeportedDefault::Value(0x010203_u64)) })]
+    #[test_case(&[0b1011_1000, 0b0000_0011, 0xff, 0xff, 0xff, 0xff, 0xff] => RawProperty{size:0, kind:PropertyKind::DeportedSignedInt(ByteSize::U1, 0xff.into(), DeportedDefault::Value(0xffffffff_u64)) })]
+    #[test_case(&[0b1011_1010, 0b0000_0001, 0xff, 0xff, 0xff] => RawProperty{size:0, kind:PropertyKind::DeportedSignedInt(ByteSize::U3, 0xff.into(), DeportedDefault::Value(0xffff_u64)) })]
+    #[test_case(&[0b1011_1111, 0b0000_0010, 0xff, 0xff, 0xff, 0xff] => RawProperty{size:0, kind:PropertyKind::DeportedSignedInt(ByteSize::U8, 0xff.into(), DeportedDefault::Value(0xffffff_u64)) })]
     // Char[] without deported part :
     #[test_case(&[0b0101_0001, 0b000_00000] => RawProperty{size:1+0+0, kind:PropertyKind::Array(Some(ByteSize::U1), 0, None, None) })]
     #[test_case(&[0b0101_0001, 0b000_00001] => RawProperty{size:1+1+0, kind:PropertyKind::Array(Some(ByteSize::U1), 1, None, None) })]

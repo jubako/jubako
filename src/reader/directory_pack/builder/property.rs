@@ -2,6 +2,7 @@ use crate::bases::*;
 use crate::common::ContentAddress;
 use crate::reader::directory_pack::layout;
 use crate::reader::directory_pack::private::ValueStorageTrait;
+use crate::reader::directory_pack::raw_layout::{DeportedDefault, PropertyKind};
 use crate::reader::directory_pack::raw_value::{Array, Extend, RawValue};
 use crate::reader::directory_pack::ValueStoreTrait;
 use std::rc::Rc;
@@ -36,31 +37,68 @@ impl PropertyBuilderTrait for VariantIdProperty {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct IntProperty {
     offset: Offset,
     size: ByteSize,
     default: Option<u64>,
+    deported: Option<(ByteSize, Rc<dyn ValueStoreTrait>)>,
 }
 
 impl IntProperty {
-    pub fn new(offset: Offset, size: ByteSize, default: Option<u64>) -> Self {
+    pub fn new(
+        offset: Offset,
+        size: ByteSize,
+        default: Option<u64>,
+        deported: Option<(ByteSize, Rc<dyn ValueStoreTrait>)>,
+    ) -> Self {
         Self {
             offset,
             size,
             default,
+            deported,
+        }
+    }
+
+    fn new_from_deported(
+        offset: Offset,
+        size: ByteSize,
+        store: Rc<dyn ValueStoreTrait>,
+        deported_default: DeportedDefault,
+    ) -> Result<Self> {
+        match deported_default {
+            DeportedDefault::Value(default) => {
+                use crate::bases::primitive::read_to_u64;
+                let default_data =
+                    store.get_data(default.into(), Some(Size::from(size as u8 as usize)))?;
+                let default = read_to_u64(size as u8 as usize, default_data);
+                Ok(IntProperty::new(offset, size, Some(default), None))
+            }
+            DeportedDefault::KeySize(key_size) => Ok(IntProperty::new(
+                offset,
+                size,
+                None,
+                Some((key_size, store)),
+            )),
         }
     }
 }
 
-impl TryFrom<&layout::Property> for IntProperty {
-    type Error = String;
-    fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
+impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)> for IntProperty {
+    type Error = Error;
+    fn try_from(
+        p_vs: (&layout::Property, &ValueStorage),
+    ) -> std::result::Result<Self, Self::Error> {
+        let (p, value_storage) = p_vs;
         match p.kind {
-            layout::PropertyKind::UnsignedInt(size, default) => {
-                Ok(IntProperty::new(p.offset, size, default))
+            PropertyKind::UnsignedInt(size, default) => {
+                Ok(IntProperty::new(p.offset, size, default, None))
             }
-            _ => Err("Invalid key".to_string()),
+            PropertyKind::DeportedUnsignedInt(size, store_idx, deported_default) => {
+                let store = value_storage.get_value_store(store_idx)?;
+                IntProperty::new_from_deported(p.offset, size, store, deported_default)
+            }
+            _ => Err("Invalid key".to_string().into()),
         }
     }
 }
@@ -70,43 +108,100 @@ impl PropertyBuilderTrait for IntProperty {
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
         Ok(match self.default {
             Some(v) => v,
-            None => match self.size {
-                ByteSize::U1 => reader.read_u8(self.offset)? as u64,
-                ByteSize::U2 => reader.read_u16(self.offset)? as u64,
-                ByteSize::U3 | ByteSize::U4 => reader.read_usized(self.offset, self.size)?,
-                ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
-                    reader.read_usized(self.offset, self.size)?
+            None => match &self.deported {
+                Some((key_size, value_store)) => {
+                    use crate::bases::primitive::read_to_u64;
+                    let key = match key_size {
+                        ByteSize::U1 => reader.read_u8(self.offset)? as u64,
+                        ByteSize::U2 => reader.read_u16(self.offset)? as u64,
+                        ByteSize::U3 | ByteSize::U4 => {
+                            reader.read_usized(self.offset, self.size)?
+                        }
+                        ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
+                            reader.read_usized(self.offset, self.size)?
+                        }
+                    };
+                    let value_data = value_store
+                        .get_data(key.into(), Some(Size::from(self.size as u8 as usize)))?;
+                    read_to_u64(self.size as u8 as usize, value_data)
                 }
+                None => match self.size {
+                    ByteSize::U1 => reader.read_u8(self.offset)? as u64,
+                    ByteSize::U2 => reader.read_u16(self.offset)? as u64,
+                    ByteSize::U3 | ByteSize::U4 => reader.read_usized(self.offset, self.size)?,
+                    ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
+                        reader.read_usized(self.offset, self.size)?
+                    }
+                },
             },
         })
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct SignedProperty {
     offset: Offset,
     size: ByteSize,
     default: Option<i64>,
+    deported: Option<(ByteSize, Rc<dyn ValueStoreTrait>)>,
 }
 
 impl SignedProperty {
-    pub fn new(offset: Offset, size: ByteSize, default: Option<i64>) -> Self {
+    pub fn new(
+        offset: Offset,
+        size: ByteSize,
+        default: Option<i64>,
+        deported: Option<(ByteSize, Rc<dyn ValueStoreTrait>)>,
+    ) -> Self {
         Self {
             offset,
             size,
             default,
+            deported,
+        }
+    }
+
+    fn new_from_deported(
+        offset: Offset,
+        size: ByteSize,
+        store: Rc<dyn ValueStoreTrait>,
+        deported_default: DeportedDefault,
+    ) -> Result<Self> {
+        match deported_default {
+            DeportedDefault::Value(default) => {
+                use crate::bases::primitive::read_to_i64;
+                let default_data =
+                    store.get_data(default.into(), Some(Size::from(size as u8 as usize)))?;
+                let default = read_to_i64(size as u8 as usize, default_data);
+                Ok(SignedProperty::new(offset, size, Some(default), None))
+            }
+            DeportedDefault::KeySize(key_size) => Ok(SignedProperty::new(
+                offset,
+                size,
+                None,
+                Some((key_size, store)),
+            )),
         }
     }
 }
 
-impl TryFrom<&layout::Property> for SignedProperty {
-    type Error = String;
-    fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
+impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)>
+    for SignedProperty
+{
+    type Error = Error;
+    fn try_from(
+        p_vs: (&layout::Property, &ValueStorage),
+    ) -> std::result::Result<Self, Self::Error> {
+        let (p, value_storage) = p_vs;
         match p.kind {
             layout::PropertyKind::SignedInt(size, default) => {
-                Ok(SignedProperty::new(p.offset, size, default))
+                Ok(SignedProperty::new(p.offset, size, default, None))
             }
-            _ => Err("Invalid key".to_string()),
+            PropertyKind::DeportedSignedInt(size, store_idx, deported_default) => {
+                let store = value_storage.get_value_store(store_idx)?;
+                SignedProperty::new_from_deported(p.offset, size, store, deported_default)
+            }
+            _ => Err("Invalid key".to_string().into()),
         }
     }
 }
@@ -116,13 +211,31 @@ impl PropertyBuilderTrait for SignedProperty {
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
         Ok(match self.default {
             Some(v) => v,
-            None => match self.size {
-                ByteSize::U1 => reader.read_i8(self.offset)? as i64,
-                ByteSize::U2 => reader.read_i16(self.offset)? as i64,
-                ByteSize::U3 | ByteSize::U4 => reader.read_isized(self.offset, self.size)?,
-                ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
-                    reader.read_isized(self.offset, self.size)?
+            None => match &self.deported {
+                Some((key_size, value_store)) => {
+                    use crate::bases::primitive::read_to_i64;
+                    let key = match key_size {
+                        ByteSize::U1 => reader.read_u8(self.offset)? as u64,
+                        ByteSize::U2 => reader.read_u16(self.offset)? as u64,
+                        ByteSize::U3 | ByteSize::U4 => {
+                            reader.read_usized(self.offset, self.size)?
+                        }
+                        ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
+                            reader.read_usized(self.offset, self.size)?
+                        }
+                    };
+                    let value_data = value_store
+                        .get_data(key.into(), Some(Size::from(self.size as u8 as usize)))?;
+                    read_to_i64(self.size as u8 as usize, value_data)
                 }
+                None => match self.size {
+                    ByteSize::U1 => reader.read_i8(self.offset)? as i64,
+                    ByteSize::U2 => reader.read_i16(self.offset)? as i64,
+                    ByteSize::U3 | ByteSize::U4 => reader.read_isized(self.offset, self.size)?,
+                    ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
+                        reader.read_isized(self.offset, self.size)?
+                    }
+                },
             },
         })
     }
@@ -293,10 +406,10 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
                 ))
             }
             &layout::PropertyKind::UnsignedInt(size, default) => {
-                Self::UnsignedInt(IntProperty::new(p.offset, size, default))
+                Self::UnsignedInt(IntProperty::new(p.offset, size, default, None))
             }
             &layout::PropertyKind::SignedInt(size, default) => {
-                Self::SignedInt(SignedProperty::new(p.offset, size, default))
+                Self::SignedInt(SignedProperty::new(p.offset, size, default, None))
             }
             layout::PropertyKind::Array(size, fixed_array_size, deported, default) => {
                 let deported = match deported {
@@ -314,8 +427,24 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
                     *default,
                 ))
             }
-            &layout::PropertyKind::DeportedUnsignedInt(_, _, _) => todo!(),
-            &layout::PropertyKind::DeportedSignedInt(_, _, _) => todo!(),
+            &PropertyKind::DeportedUnsignedInt(size, store_id, deported_default) => {
+                let store = value_storage.get_value_store(store_id)?;
+                Self::UnsignedInt(IntProperty::new_from_deported(
+                    p.offset,
+                    size,
+                    store,
+                    deported_default,
+                )?)
+            }
+            &PropertyKind::DeportedSignedInt(size, store_id, deported_default) => {
+                let store = value_storage.get_value_store(store_id)?;
+                Self::SignedInt(SignedProperty::new_from_deported(
+                    p.offset,
+                    size,
+                    store,
+                    deported_default,
+                )?)
+            }
             layout::PropertyKind::Padding => unreachable!(),
             layout::PropertyKind::VariantId => unreachable!(),
         })
