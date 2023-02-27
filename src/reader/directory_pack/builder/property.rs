@@ -398,20 +398,20 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
     ) -> std::result::Result<Self, Self::Error> {
         let (p, value_storage) = p_vs;
         Ok(match &p.kind {
-            &layout::PropertyKind::ContentAddress(content_id_size, pack_id_default) => {
+            &PropertyKind::ContentAddress(content_id_size, pack_id_default) => {
                 Self::ContentAddress(ContentProperty::new(
                     p.offset,
                     pack_id_default,
                     content_id_size,
                 ))
             }
-            &layout::PropertyKind::UnsignedInt(size, default) => {
+            &PropertyKind::UnsignedInt(size, default) => {
                 Self::UnsignedInt(IntProperty::new(p.offset, size, default, None))
             }
-            &layout::PropertyKind::SignedInt(size, default) => {
+            &PropertyKind::SignedInt(size, default) => {
                 Self::SignedInt(SignedProperty::new(p.offset, size, default, None))
             }
-            layout::PropertyKind::Array(size, fixed_array_size, deported, default) => {
+            PropertyKind::Array(size, fixed_array_size, deported, default) => {
                 let deported = match deported {
                     None => None,
                     Some((size, store_id)) => {
@@ -445,8 +445,8 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
                     deported_default,
                 )?)
             }
-            layout::PropertyKind::Padding => unreachable!(),
-            layout::PropertyKind::VariantId => unreachable!(),
+            PropertyKind::Padding => unreachable!(),
+            PropertyKind::VariantId => unreachable!(),
         })
     }
 }
