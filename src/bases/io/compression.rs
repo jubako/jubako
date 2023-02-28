@@ -17,19 +17,23 @@ fn decode_to_end<T: Read + Send>(
     buffer: Arc<RwLock<Vec<u8>>>,
     decoded: Arc<AtomicUsize>,
     mut decoder: T,
+    chunk_size: usize,
 ) -> Result<()> {
     let mut uncompressed = 0;
     let total_size = buffer.read().unwrap().capacity();
+    let mut chunk = vec![0; chunk_size];
+    let chunk = chunk.as_mut_slice();
     //println!("Decompressing to {total_size}");
     while uncompressed < total_size {
-        let size = std::cmp::min(total_size - uncompressed, 64 * 1024);
-        //  println!("decompress {size}");
+        let size = std::cmp::min(total_size - uncompressed, chunk_size);
+        //println!("decompress {size}");
+        decoder.read_exact(&mut chunk[0..size])?;
+        uncompressed += size;
         {
             let mut buffer = buffer.write().unwrap();
             let uninit = buffer.spare_capacity_mut();
             let mut uninit = BorrowedBuf::from(&mut uninit[0..size]);
-            decoder.read_buf_exact(uninit.unfilled())?;
-            uncompressed += size;
+            uninit.unfilled().append(&chunk[0..size]);
             unsafe {
                 buffer.set_len(uncompressed);
             };
@@ -47,7 +51,7 @@ impl SeekableDecoder {
         let decoded = Arc::new(AtomicUsize::new(0));
         let write_decoded = Arc::clone(&decoded);
         spawn(move || {
-            decode_to_end(write_buffer, write_decoded, decoder).unwrap();
+            decode_to_end(write_buffer, write_decoded, decoder, 4 * 1024).unwrap();
         });
         Self { buffer, decoded }
     }
