@@ -20,7 +20,7 @@ pub struct Cluster {
 
 #[cfg(feature = "lz4")]
 fn lz4_source(raw_stream: Stream, data_size: Size) -> Result<Arc<dyn Source>> {
-    Ok(Arc::new(Lz4Source::new(
+    Ok(Arc::new(SeekableDecoder::new(
         lz4::Decoder::new(raw_stream)?,
         data_size,
     )))
@@ -35,7 +35,7 @@ fn lz4_source(_raw_stream: Stream, _data_size: Size) -> Result<Arc<dyn Source>> 
 
 #[cfg(feature = "lzma")]
 fn lzma_source(raw_stream: Stream, data_size: Size) -> Result<Arc<dyn Source>> {
-    Ok(Arc::new(LzmaSource::new(
+    Ok(Arc::new(SeekableDecoder::new(
         lzma::LzmaReader::new_decompressor(raw_stream)?,
         data_size,
     )))
@@ -50,7 +50,7 @@ fn lzma_source(_raw_stream: Stream, _data_size: Size) -> Result<Arc<dyn Source>>
 
 #[cfg(feature = "zstd")]
 fn zstd_source(raw_stream: Stream, data_size: Size) -> Result<Arc<dyn Source>> {
-    Ok(Arc::new(ZstdSource::new(
+    Ok(Arc::new(SeekableDecoder::new(
         zstd::Decoder::new(raw_stream)?,
         data_size,
     )))

@@ -1,41 +1,88 @@
 use crate::bases::*;
 use primitive::*;
 use std::io::{BorrowedBuf, Read};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, RwLock};
+use std::thread::{spawn, yield_now};
 
 // A intermediate object acting as source for ReaderWrapper and FluxWrapper.
 // It wrapper a Read object (a decoder) and decode in a internal buffer.
 // It allow implementation of Reader and Flux.
-pub struct SeekableDecoder<T> {
-    decoder: Mutex<T>,
-    buffer: RwLock<Vec<u8>>,
+pub struct SeekableDecoder {
+    buffer: Arc<RwLock<Vec<u8>>>,
+    decoded: Arc<AtomicUsize>,
 }
 
-impl<T: Read + Send> SeekableDecoder<T> {
-    pub fn new(decoder: T, size: Size) -> Self {
-        let buffer = Vec::with_capacity(size.into_usize());
-        Self {
-            decoder: Mutex::new(decoder),
-            buffer: RwLock::new(buffer),
+fn decode_to_end<T: Read + Send>(
+    buffer: Arc<RwLock<Vec<u8>>>,
+    decoded: Arc<AtomicUsize>,
+    mut decoder: T,
+) -> Result<()> {
+    let mut uncompressed = 0;
+    let total_size = buffer.read().unwrap().capacity();
+    //println!("Decompressing to {total_size}");
+    while uncompressed < total_size {
+        let size = std::cmp::min(total_size - uncompressed, 64 * 1024);
+        //  println!("decompress {size}");
+        {
+            let mut buffer = buffer.write().unwrap();
+            let uninit = buffer.spare_capacity_mut();
+            let mut uninit = BorrowedBuf::from(&mut uninit[0..size]);
+            decoder.read_buf_exact(uninit.unfilled())?;
+            uncompressed += size;
+            unsafe {
+                buffer.set_len(uncompressed);
+            };
+        }
+        decoded.store(uncompressed, Ordering::SeqCst);
+        yield_now();
+    }
+    Ok(())
+}
+
+impl SeekableDecoder {
+    pub fn new<T: Read + Send + 'static>(decoder: T, size: Size) -> Self {
+        let buffer = Arc::new(RwLock::new(Vec::with_capacity(size.into_usize())));
+        let write_buffer = Arc::clone(&buffer);
+        let decoded = Arc::new(AtomicUsize::new(0));
+        let write_decoded = Arc::clone(&decoded);
+        spawn(move || {
+            decode_to_end(write_buffer, write_decoded, decoder).unwrap();
+        });
+        Self { buffer, decoded }
+    }
+    /*
+        pub fn decode_to(&self, end: Offset) -> std::result::Result<(), std::io::Error> {
+            let mut buffer = self.buffer.write().unwrap();
+            if end.into_usize() >= buffer.len() {
+                let e = std::cmp::min(end.into_usize(), buffer.capacity());
+                let s = e - buffer.len();
+                let uninit = buffer.spare_capacity_mut();
+                let mut uninit = BorrowedBuf::from(&mut uninit[0..s]);
+                self.decoder
+                    .lock()
+                    .unwrap()
+                    .read_buf_exact(uninit.unfilled())?;
+                unsafe {
+                    buffer.set_len(e);
+                };
+            }
+            Ok(())
+        }
+    */
+
+    #[inline]
+    pub fn decode_to(&self, end: Offset) {
+        let end = end.into_usize();
+        while end > self.decoded() {
+            //println!("Have to wait {end} > {decoded}");
+            yield_now();
         }
     }
 
-    pub fn decode_to(&self, end: Offset) -> std::result::Result<(), std::io::Error> {
-        let mut buffer = self.buffer.write().unwrap();
-        if end.into_usize() >= buffer.len() {
-            let e = std::cmp::min(end.into_usize(), buffer.capacity());
-            let s = e - buffer.len();
-            let uninit = buffer.spare_capacity_mut();
-            let mut uninit = BorrowedBuf::from(&mut uninit[0..s]);
-            self.decoder
-                .lock()
-                .unwrap()
-                .read_buf_exact(uninit.unfilled())?;
-            unsafe {
-                buffer.set_len(e);
-            };
-        }
-        Ok(())
+    #[inline]
+    pub fn decoded(&self) -> usize {
+        self.decoded.load(Ordering::SeqCst)
     }
 
     pub fn decoded_slice(&self) -> &[u8] {
@@ -46,13 +93,13 @@ impl<T: Read + Send> SeekableDecoder<T> {
     }
 }
 
-impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
+impl Source for SeekableDecoder {
     fn size(&self) -> Size {
         self.buffer.read().unwrap().capacity().into()
     }
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize> {
         let end = offset + buf.len();
-        self.decode_to(end)?;
+        self.decode_to(end);
         let mut slice = &self.decoded_slice()[offset.into_usize()..];
         match Read::read(&mut slice, buf) {
             Err(e) => Err(e.into()),
@@ -63,7 +110,7 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
         let end = offset + buf.len();
         let o = offset.into_usize();
         let e = end.into_usize();
-        self.decode_to(end)?;
+        self.decode_to(end);
         let slice = self.decoded_slice();
         if e > slice.len() {
             return Err(String::from("Out of slice").into());
@@ -78,7 +125,7 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
         size: usize,
     ) -> Result<(Arc<dyn Source>, Offset, End)> {
         debug_assert!((offset + size).is_valid(self.size()));
-        self.decode_to(offset + size)?;
+        self.decode_to(offset + size);
         Ok((self, offset, End::new_size(size as u64)))
     }
 
@@ -88,7 +135,7 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
         size: usize,
     ) -> Result<(Arc<dyn MemorySource>, Offset, End)> {
         debug_assert!((offset + size).is_valid(self.size()));
-        self.decode_to(offset + size)?;
+        self.decode_to(offset + size);
         Ok((self, offset, End::new_size(size as u64)))
     }
 
@@ -97,7 +144,7 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        self.decode_to(end)?;
+        self.decode_to(end);
         let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
         Ok(read_u8(slice))
     }
@@ -107,7 +154,7 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        self.decode_to(end)?;
+        self.decode_to(end);
         let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
         Ok(read_u16(slice))
     }
@@ -117,7 +164,7 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        self.decode_to(end)?;
+        self.decode_to(end);
         let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
         Ok(read_u32(slice))
     }
@@ -127,7 +174,7 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        self.decode_to(end)?;
+        self.decode_to(end);
         let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
         Ok(read_u64(slice))
     }
@@ -137,7 +184,7 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        self.decode_to(end)?;
+        self.decode_to(end);
         let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
         Ok(read_to_u64(size as usize, slice))
     }
@@ -147,7 +194,7 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        self.decode_to(end)?;
+        self.decode_to(end);
         let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
         Ok(read_i8(slice))
     }
@@ -157,7 +204,7 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        self.decode_to(end)?;
+        self.decode_to(end);
         let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
         Ok(read_i16(slice))
     }
@@ -167,7 +214,7 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        self.decode_to(end)?;
+        self.decode_to(end);
         let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
         Ok(read_i32(slice))
     }
@@ -177,7 +224,7 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        self.decode_to(end)?;
+        self.decode_to(end);
         let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
         Ok(read_i64(slice))
     }
@@ -187,21 +234,22 @@ impl<T: Read + 'static + Send> Source for SeekableDecoder<T> {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        self.decode_to(end)?;
+        self.decode_to(end);
         let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
         Ok(read_to_i64(size as usize, slice))
     }
 }
 
-impl<T: Read + 'static + Send> MemorySource for SeekableDecoder<T> {
+impl MemorySource for SeekableDecoder {
     fn get_slice(&self, offset: Offset, end: Offset) -> Result<&[u8]> {
         debug_assert!(offset <= end);
         debug_assert!(end.is_valid(self.size()));
-        self.decode_to(end)?;
+        self.decode_to(end);
         Ok(&self.decoded_slice()[offset.into_usize()..end.into_usize()])
     }
 }
 
+/*
 #[cfg(feature = "lz4")]
 pub type Lz4Source<T> = SeekableDecoder<lz4::Decoder<T>>;
 
@@ -210,3 +258,4 @@ pub type LzmaSource<T> = SeekableDecoder<lzma::LzmaReader<T>>;
 
 #[cfg(feature = "zstd")]
 pub type ZstdSource<'a, T> = SeekableDecoder<zstd::Decoder<'a, T>>;
+*/

@@ -96,7 +96,7 @@ mod tests {
         };
         let decoder = lz4::Decoder::new(Cursor::new(compressed_content)).unwrap();
         Some(Reader::new(
-            Lz4Source::new(decoder, Size::from(data.len())),
+            SeekableDecoder::new(decoder, Size::from(data.len())),
             End::Size(Size::from(data.len())),
         ))
     }
@@ -118,7 +118,7 @@ mod tests {
         };
         let decoder = lzma::LzmaReader::new_decompressor(Cursor::new(compressed_content)).unwrap();
         Some(Reader::new(
-            LzmaSource::new(decoder, Size::from(data.len())),
+            SeekableDecoder::new(decoder, Size::from(data.len())),
             End::Size(Size::from(data.len())),
         ))
     }
@@ -139,7 +139,7 @@ mod tests {
         };
         let decoder = zstd::Decoder::new(Cursor::new(compressed_content)).unwrap();
         Some(Reader::new(
-            ZstdSource::new(decoder, Size::from(data.len())),
+            SeekableDecoder::new(decoder, Size::from(data.len())),
             End::Size(Size::from(data.len())),
         ))
     }
