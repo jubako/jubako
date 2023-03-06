@@ -2,78 +2,96 @@ use crate::bases::*;
 use primitive::*;
 use std::io::{BorrowedBuf, Read};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::thread::{spawn, yield_now};
+
+/*
+SyncVec is mostly a Arc<Vec<u8>> where the only protected part is its length
+(decoded).
+The data itself is accessed without race protection.
+This is valid as we have:
+- Only one writer writting only after decoded.
+- Several reader reading only before decoded.
+- No reallocation
+
+As we don't want the Vec<u8> to be dropped as we are writting in it,
+we must create it through a Arc<Vec<u8>>.
+
+At SyncVec drop, we recreate the Arc and let it being drop.
+*/
+
+struct SyncVec {
+    pub arc_ptr: *const Vec<u8>,
+    pub data: *mut u8,
+    pub total_size: usize,
+    pub decoded: Arc<AtomicUsize>,
+}
+
+impl Drop for SyncVec {
+    fn drop(&mut self) {
+        let _arc = unsafe { Arc::from_raw(self.arc_ptr) };
+        // Let rust drop the arc
+    }
+}
+
+unsafe impl Send for SyncVec {}
 
 // A intermediate object acting as source for ReaderWrapper and FluxWrapper.
 // It wrapper a Read object (a decoder) and decode in a internal buffer.
 // It allow implementation of Reader and Flux.
 pub struct SeekableDecoder {
-    buffer: Arc<RwLock<Vec<u8>>>,
+    buffer: Arc<Vec<u8>>,
     decoded: Arc<AtomicUsize>,
 }
 
-fn decode_to_end<T: Read + Send>(
-    buffer: Arc<RwLock<Vec<u8>>>,
-    decoded: Arc<AtomicUsize>,
-    mut decoder: T,
-    chunk_size: usize,
-) -> Result<()> {
+fn decode_to_end<T: Read + Send>(mut decoder: T, buffer: SyncVec, chunk_size: usize) -> Result<()> {
+    let total_size = buffer.total_size;
     let mut uncompressed = 0;
-    let total_size = buffer.read().unwrap().capacity();
-    let mut chunk = vec![0; chunk_size];
-    let chunk = chunk.as_mut_slice();
     //println!("Decompressing to {total_size}");
     while uncompressed < total_size {
         let size = std::cmp::min(total_size - uncompressed, chunk_size);
-        //println!("decompress {size}");
-        decoder.read_exact(&mut chunk[0..size])?;
-        uncompressed += size;
-        {
-            let mut buffer = buffer.write().unwrap();
-            let uninit = buffer.spare_capacity_mut();
-            let mut uninit = BorrowedBuf::from(&mut uninit[0..size]);
-            uninit.unfilled().append(&chunk[0..size]);
-            unsafe {
-                buffer.set_len(uncompressed);
-            };
+        //  println!("decompress {size}");
+
+        let slice = std::ptr::slice_from_raw_parts_mut(buffer.data, total_size);
+        let uninit_slice = unsafe { slice.as_uninit_slice_mut() }.unwrap();
+        let mut uninit = BorrowedBuf::from(&mut uninit_slice[uncompressed..uncompressed + size]);
+        decoder.read_buf_exact(uninit.unfilled())?;
+        unsafe {
+            let mut vec = Vec::from_raw_parts(buffer.data, uncompressed, buffer.total_size);
+            vec.set_len(uncompressed + size);
+            vec.into_raw_parts();
         }
-        decoded.store(uncompressed, Ordering::SeqCst);
+        uncompressed += size;
+        buffer.decoded.store(uncompressed, Ordering::SeqCst);
         yield_now();
     }
+    //println!("Decompress done");
     Ok(())
 }
 
 impl SeekableDecoder {
     pub fn new<T: Read + Send + 'static>(decoder: T, size: Size) -> Self {
-        let buffer = Arc::new(RwLock::new(Vec::with_capacity(size.into_usize())));
-        let write_buffer = Arc::clone(&buffer);
+        let buffer = Arc::new(Vec::with_capacity(size.into_usize()));
         let decoded = Arc::new(AtomicUsize::new(0));
-        let write_decoded = Arc::clone(&decoded);
+        let us = Self {
+            buffer: Arc::clone(&buffer),
+            decoded: Arc::clone(&decoded),
+        };
+
+        // This create a raw *mut [u8] on the allocated buffer
+        let buffer_ptr = buffer.as_ptr();
+        let ptr = SyncVec {
+            arc_ptr: Arc::into_raw(buffer),
+            data: buffer_ptr as *mut u8,
+            total_size: size.into_usize(),
+            decoded,
+        };
+
         spawn(move || {
-            decode_to_end(write_buffer, write_decoded, decoder, 4 * 1024).unwrap();
+            decode_to_end(decoder, ptr, 4 * 1024).unwrap();
         });
-        Self { buffer, decoded }
+        us
     }
-    /*
-        pub fn decode_to(&self, end: Offset) -> std::result::Result<(), std::io::Error> {
-            let mut buffer = self.buffer.write().unwrap();
-            if end.into_usize() >= buffer.len() {
-                let e = std::cmp::min(end.into_usize(), buffer.capacity());
-                let s = e - buffer.len();
-                let uninit = buffer.spare_capacity_mut();
-                let mut uninit = BorrowedBuf::from(&mut uninit[0..s]);
-                self.decoder
-                    .lock()
-                    .unwrap()
-                    .read_buf_exact(uninit.unfilled())?;
-                unsafe {
-                    buffer.set_len(e);
-                };
-            }
-            Ok(())
-        }
-    */
 
     #[inline]
     pub fn decode_to(&self, end: Offset) {
@@ -90,16 +108,15 @@ impl SeekableDecoder {
     }
 
     pub fn decoded_slice(&self) -> &[u8] {
-        let buffer = self.buffer.read().unwrap();
-        let ptr = buffer.as_ptr();
-        let size = buffer.len();
+        let size = self.decoded();
+        let ptr = self.buffer.as_ptr();
         unsafe { std::slice::from_raw_parts(ptr, size) }
     }
 }
 
 impl Source for SeekableDecoder {
     fn size(&self) -> Size {
-        self.buffer.read().unwrap().capacity().into()
+        self.buffer.capacity().into()
     }
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize> {
         let end = offset + buf.len();

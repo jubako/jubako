@@ -3,6 +3,10 @@
 #![feature(provide_any)]
 #![feature(error_generic_member_access)]
 #![feature(step_trait)]
+#![feature(slice_ptr_len)]
+#![feature(ptr_as_uninit)]
+#![feature(nonnull_slice_from_raw_parts)]
+#![feature(vec_into_raw_parts)]
 
 #[macro_use]
 mod bases;
