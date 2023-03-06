@@ -64,7 +64,7 @@ impl jbk::reader::builder::BuilderTrait for Builder {
 fn create_builder(
     store: Rc<jbk::reader::EntryStore>,
     value_storage: &jbk::reader::ValueStorage,
-) -> jbk::Result<Rc<Builder>> {
+) -> jbk::Result<Builder> {
     let layout = store.layout();
     let (variant_offset, variants) = layout.variant_part.as_ref().unwrap();
     assert_eq!(variants.len(), 2);
@@ -73,14 +73,14 @@ fn create_builder(
     let variant0_value2 = (&variants[0][0]).try_into()?;
     let variant1_value2 = (&variants[1][0], value_storage).try_into()?;
     let variant_id = jbk::reader::builder::VariantIdProperty::new(*variant_offset);
-    Ok(Rc::new(Builder {
+    Ok(Builder {
         store,
         value0,
         value1,
         variant0_value2,
         variant1_value2,
         variant_id,
-    }))
+    })
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -91,10 +91,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         index.get_store(&container.get_entry_storage())?,
         container.get_value_storage(),
     )?;
-    let finder = jbk::reader::Finder::new(builder, &index); // To found our entries.
+    let finder = jbk::reader::Finder::new(&index); // To found our entries.
 
     {
-        let entry = finder.get_entry(0.into())?;
+        let entry = finder.get_entry(&builder, 0.into())?;
         if let Entry::Variant0(entry) = entry {
             assert_eq!(entry.value0, Vec::from("Super"));
             assert_eq!(entry.value1, 50);
@@ -107,7 +107,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     {
-        let entry = finder.get_entry(1.into())?;
+        let entry = finder.get_entry(&builder, 1.into())?;
         if let Entry::Variant1(entry) = entry {
             assert_eq!(entry.value0, Vec::from("Mega"));
             assert_eq!(entry.value1, 42);
@@ -118,7 +118,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     {
-        let entry = finder.get_entry(2.into())?;
+        let entry = finder.get_entry(&builder, 2.into())?;
         if let Entry::Variant1(entry) = entry {
             assert_eq!(entry.value0, Vec::from("Hyper"));
             assert_eq!(entry.value1, 45);

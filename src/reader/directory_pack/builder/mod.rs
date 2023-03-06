@@ -53,10 +53,7 @@ pub struct AnyBuilder {
 }
 
 impl AnyBuilder {
-    pub fn new<ValueStorage>(
-        store: Rc<EntryStore>,
-        value_storage: &ValueStorage,
-    ) -> Result<Rc<Self>>
+    pub fn new<ValueStorage>(store: Rc<EntryStore>, value_storage: &ValueStorage) -> Result<Self>
     where
         ValueStorage: ValueStorageTrait,
     {
@@ -77,7 +74,7 @@ impl AnyBuilder {
             common,
             variant_part,
         });
-        Ok(Rc::new(Self { properties, store }))
+        Ok(Self { properties, store })
     }
 
     pub fn new_property_compare(&self, property_id: PropertyIdx, value: Value) -> PropertyCompare {

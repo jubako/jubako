@@ -388,10 +388,10 @@ mod tests {
             value_storage.as_ref(),
         )
         .unwrap();
-        let finder = Finder::new(builder, &index);
+        let finder = Finder::new(&index);
         assert_eq!(index.entry_count(), 4.into());
         {
-            let entry = finder.get_entry(0.into()).unwrap();
+            let entry = finder.get_entry(&builder, 0.into()).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
@@ -436,7 +436,7 @@ mod tests {
             );
         }
         {
-            let entry = finder.get_entry(1.into()).unwrap();
+            let entry = finder.get_entry(&builder, 1.into()).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
@@ -478,7 +478,7 @@ mod tests {
             );
         }
         {
-            let entry = finder.get_entry(2.into()).unwrap();
+            let entry = finder.get_entry(&builder, 2.into()).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
@@ -520,7 +520,7 @@ mod tests {
             );
         }
         {
-            let entry = finder.get_entry(3.into()).unwrap();
+            let entry = finder.get_entry(&builder, 3.into()).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {

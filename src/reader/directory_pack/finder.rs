@@ -1,30 +1,23 @@
 use super::builder::BuilderTrait;
 use crate::bases::*;
 use std::cmp::Ordering;
-use std::rc::Rc;
 
 pub trait CompareTrait {
     fn compare_entry(&self, idx: EntryIdx) -> Result<Ordering>;
 }
 
-pub struct Finder<Builder: BuilderTrait> {
-    builder: Rc<Builder>,
+pub struct Finder {
     range: EntryRange,
 }
 
-impl<Builder: BuilderTrait> Finder<Builder> {
-    pub fn new<R>(builder: Rc<Builder>, range: R) -> Self
+impl Finder {
+    pub fn new<R>(range: R) -> Self
     where
         R: Into<EntryRange>,
     {
         Self {
-            builder,
             range: range.into(),
         }
-    }
-
-    fn _get_entry(&self, id: EntryIdx) -> Result<Builder::Entry> {
-        self.builder.create_entry(self.range.offset + id)
     }
 
     pub fn offset(&self) -> EntryIdx {
@@ -35,13 +28,13 @@ impl<Builder: BuilderTrait> Finder<Builder> {
         self.range.count
     }
 
-    pub fn builder(&self) -> &Rc<Builder> {
-        &self.builder
-    }
-
-    pub fn get_entry(&self, id: EntryIdx) -> Result<Builder::Entry> {
+    pub fn get_entry<Builder: BuilderTrait>(
+        &self,
+        builder: &Builder,
+        id: EntryIdx,
+    ) -> Result<Builder::Entry> {
         if id.is_valid(self.range.count) {
-            self._get_entry(id)
+            builder.create_entry(self.range.offset + id)
         } else {
             Err("Invalid id".to_string().into())
         }
@@ -139,14 +132,11 @@ mod tests {
 
     #[test]
     fn test_finder() {
-        let builder = Rc::new(mock::Builder {});
-        let finder = Finder::new(
-            builder,
-            EntryRange::new(EntryIdx::from(0), EntryCount::from(10)),
-        );
+        let builder = mock::Builder {};
+        let finder = Finder::new(EntryRange::new(EntryIdx::from(0), EntryCount::from(10)));
 
         for i in 0..10 {
-            let entry = finder.get_entry(i.into()).unwrap();
+            let entry = finder.get_entry(&builder, i.into()).unwrap();
             let value0 = entry.get_value(0.into()).unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }
@@ -154,7 +144,7 @@ mod tests {
         for i in 0..10 {
             let comparator = mock::EntryCompare::new(i);
             let idx = finder.find(&comparator).unwrap().unwrap();
-            let entry = finder.get_entry(idx).unwrap();
+            let entry = finder.get_entry(&builder, idx).unwrap();
             let value0 = entry.get_value(0.into()).unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }

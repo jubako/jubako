@@ -147,12 +147,12 @@ test_suite! {
             index.get_store(&entry_storage).unwrap(),
             value_storage.as_ref()
         ).unwrap();
-        let finder = jubako::reader::Finder::new(builder, &index);
+        let finder = jubako::reader::Finder::new(&index);
         println!("Read index");
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {
             println!("Check entry count {:?}", i);
-            let entry = finder.get_entry(i.into()).unwrap();
+            let entry = finder.get_entry(&builder, i.into()).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             println!("Check value 0");
             let value_0 = entry.get_value(0.into()).unwrap();

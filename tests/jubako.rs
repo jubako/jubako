@@ -485,10 +485,10 @@ test_suite! {
             index.get_store(&container.get_entry_storage()).unwrap(),
             container.get_value_storage().as_ref()
         ).unwrap();
-        let finder = reader::Finder::new(builder, &index);
+        let finder = reader::Finder::new(&index);
         assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
         for i in index.entry_count() {
-            let entry = finder.get_entry(i).unwrap();
+            let entry = finder.get_entry(&builder, i).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             let value_0 = entry.get_value(0.into()).unwrap();
             let vec = value_0.as_vec().unwrap();
