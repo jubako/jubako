@@ -1,5 +1,5 @@
 use jbk::reader::builder::AnyBuilder;
-use jbk::reader::EntryTrait;
+use jbk::reader::{EntryTrait, Range};
 use jubako as jbk;
 use std::error::Error;
 
@@ -11,10 +11,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         index.get_store(&container.get_entry_storage())?,
         container.get_value_storage().as_ref(),
     )?;
-    let finder = jbk::reader::Finder::new(&index); // To found our entries.
 
     {
-        let entry = finder.get_entry(&builder, 0.into())?;
+        let entry = index.get_entry(&builder, 0.into())?;
         assert_eq!(entry.get_variant_id().unwrap(), Some(0.into())); // We correctly have variant 0
         assert_eq!(entry.get_value(0.into())?.as_vec()?, Vec::from("Super"));
         assert_eq!(entry.get_value(1.into())?.as_unsigned(), 50);
@@ -26,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     {
-        let entry = finder.get_entry(&builder, 1.into())?;
+        let entry = index.get_entry(&builder, 1.into())?;
         assert_eq!(entry.get_variant_id().unwrap(), Some(1.into()));
         assert_eq!(entry.get_value(0.into())?.as_vec()?, Vec::from("Mega"));
         assert_eq!(entry.get_value(1.into())?.as_unsigned(), 42);
@@ -34,7 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     {
-        let entry = finder.get_entry(&builder, 2.into())?;
+        let entry = index.get_entry(&builder, 2.into())?;
         assert_eq!(entry.get_variant_id().unwrap(), Some(1.into()));
         assert_eq!(entry.get_value(0.into())?.as_vec()?, Vec::from("Hyper"));
         assert_eq!(entry.get_value(1.into())?.as_unsigned(), 45);

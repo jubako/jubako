@@ -6,51 +6,40 @@ pub trait CompareTrait {
     fn compare_entry(&self, idx: EntryIdx) -> Result<Ordering>;
 }
 
-pub struct Finder {
-    range: EntryRange,
-}
+pub trait Range {
+    fn count(&self) -> EntryCount;
+    fn offset(&self) -> EntryIdx;
 
-impl Finder {
-    pub fn new<R>(range: R) -> Self
-    where
-        R: Into<EntryRange>,
-    {
-        Self {
-            range: range.into(),
-        }
-    }
-
-    pub fn offset(&self) -> EntryIdx {
-        self.range.offset
-    }
-
-    pub fn count(&self) -> EntryCount {
-        self.range.count
-    }
-
-    pub fn get_entry<Builder: BuilderTrait>(
+    fn get_entry<Builder: BuilderTrait>(
         &self,
         builder: &Builder,
         id: EntryIdx,
     ) -> Result<Builder::Entry> {
-        if id.is_valid(self.range.count) {
-            builder.create_entry(self.range.offset + id)
+        if id.is_valid(self.count()) {
+            builder.create_entry(self.offset() + id)
         } else {
             Err("Invalid id".to_string().into())
         }
     }
 
-    pub fn find<Comparator: CompareTrait>(
-        &self,
-        comparator: &Comparator,
-    ) -> Result<Option<EntryIdx>> {
-        for idx in self.range.count {
-            let cmp = comparator.compare_entry(self.range.offset + idx)?;
+    fn find<Comparator: CompareTrait>(&self, comparator: &Comparator) -> Result<Option<EntryIdx>> {
+        for idx in self.count() {
+            let cmp = comparator.compare_entry(self.offset() + idx)?;
             if cmp.is_eq() {
                 return Ok(Some(idx));
             }
         }
         Ok(None)
+    }
+}
+
+impl Range for EntryRange {
+    fn count(&self) -> EntryCount {
+        self.count
+    }
+
+    fn offset(&self) -> EntryIdx {
+        self.offset
     }
 }
 
@@ -133,24 +122,24 @@ mod tests {
     #[test]
     fn test_finder() {
         let builder = mock::Builder {};
-        let finder = Finder::new(EntryRange::new(EntryIdx::from(0), EntryCount::from(10)));
+        let range = EntryRange::new(EntryIdx::from(0), EntryCount::from(10));
 
         for i in 0..10 {
-            let entry = finder.get_entry(&builder, i.into()).unwrap();
+            let entry = range.get_entry(&builder, i.into()).unwrap();
             let value0 = entry.get_value(0.into()).unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }
 
         for i in 0..10 {
             let comparator = mock::EntryCompare::new(i);
-            let idx = finder.find(&comparator).unwrap().unwrap();
-            let entry = finder.get_entry(&builder, idx).unwrap();
+            let idx = range.find(&comparator).unwrap().unwrap();
+            let entry = range.get_entry(&builder, idx).unwrap();
             let value0 = entry.get_value(0.into()).unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }
 
         let comparator = mock::EntryCompare::new(10);
-        let result = finder.find(&comparator).unwrap();
+        let result = range.find(&comparator).unwrap();
         assert_eq!(result, None);
     }
 }

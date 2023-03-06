@@ -1,4 +1,4 @@
-use super::{EntryStorage, EntryStore};
+use super::{EntryStorage, EntryStore, Range};
 use crate::bases::*;
 use crate::common::ContentAddress;
 use std::rc::Rc;
@@ -43,14 +43,6 @@ impl Index {
         Self { header }
     }
 
-    fn entry_offset(&self) -> EntryIdx {
-        self.header.entry_offset
-    }
-
-    pub fn entry_count(&self) -> EntryCount {
-        self.header.entry_count
-    }
-
     pub fn get_store(&self, entry_storage: &EntryStorage) -> Result<Rc<EntryStore>> {
         Ok(Rc::clone(
             entry_storage.get_entry_store(self.header.store_id)?,
@@ -64,7 +56,17 @@ impl Index {
 
 impl From<&Index> for EntryRange {
     fn from(index: &Index) -> Self {
-        Self::new(index.entry_offset(), index.entry_count())
+        Self::new(index.offset(), index.count())
+    }
+}
+
+impl Range for Index {
+    fn offset(&self) -> EntryIdx {
+        self.header.entry_offset
+    }
+
+    fn count(&self) -> EntryCount {
+        self.header.entry_count
     }
 }
 

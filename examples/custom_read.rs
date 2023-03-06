@@ -1,4 +1,5 @@
 use jbk::reader::builder::PropertyBuilderTrait;
+use jbk::reader::Range;
 use jubako as jbk;
 use std::error::Error;
 use std::rc::Rc;
@@ -91,10 +92,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         index.get_store(&container.get_entry_storage())?,
         container.get_value_storage(),
     )?;
-    let finder = jbk::reader::Finder::new(&index); // To found our entries.
 
     {
-        let entry = finder.get_entry(&builder, 0.into())?;
+        let entry = index.get_entry(&builder, 0.into())?;
         if let Entry::Variant0(entry) = entry {
             assert_eq!(entry.value0, Vec::from("Super"));
             assert_eq!(entry.value1, 50);
@@ -107,7 +107,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     {
-        let entry = finder.get_entry(&builder, 1.into())?;
+        let entry = index.get_entry(&builder, 1.into())?;
         if let Entry::Variant1(entry) = entry {
             assert_eq!(entry.value0, Vec::from("Mega"));
             assert_eq!(entry.value1, 42);
@@ -118,7 +118,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     {
-        let entry = finder.get_entry(&builder, 2.into())?;
+        let entry = index.get_entry(&builder, 2.into())?;
         if let Entry::Variant1(entry) = entry {
             assert_eq!(entry.value0, Vec::from("Hyper"));
             assert_eq!(entry.value1, 45);

@@ -1,10 +1,10 @@
 pub mod builder;
 mod entry_store;
-mod finder;
 mod index;
 pub mod layout;
 mod lazy_entry;
 mod property_compare;
+mod range;
 mod raw_layout;
 mod raw_value;
 mod value_store;
@@ -19,9 +19,9 @@ use std::rc::Rc;
 use uuid::Uuid;
 
 pub use self::entry_store::EntryStore;
-pub use self::finder::{CompareTrait, Finder};
 pub use self::index::Index;
 pub use self::property_compare::PropertyCompare;
+pub use self::range::{CompareTrait, Range};
 pub use crate::common::{ContentAddress, Value};
 pub use lazy_entry::LazyEntry;
 pub use raw_value::{Array, ArrayIter, Extend, RawValue};
@@ -388,10 +388,9 @@ mod tests {
             value_storage.as_ref(),
         )
         .unwrap();
-        let finder = Finder::new(&index);
-        assert_eq!(index.entry_count(), 4.into());
+        assert_eq!(index.count(), 4.into());
         {
-            let entry = finder.get_entry(&builder, 0.into()).unwrap();
+            let entry = index.get_entry(&builder, 0.into()).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
@@ -436,7 +435,7 @@ mod tests {
             );
         }
         {
-            let entry = finder.get_entry(&builder, 1.into()).unwrap();
+            let entry = index.get_entry(&builder, 1.into()).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
@@ -478,7 +477,7 @@ mod tests {
             );
         }
         {
-            let entry = finder.get_entry(&builder, 2.into()).unwrap();
+            let entry = index.get_entry(&builder, 2.into()).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {
@@ -520,7 +519,7 @@ mod tests {
             );
         }
         {
-            let entry = finder.get_entry(&builder, 3.into()).unwrap();
+            let entry = index.get_entry(&builder, 3.into()).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             let value0 = entry.get_value(0.into()).unwrap();
             if let RawValue::Array(a) = &value0 {

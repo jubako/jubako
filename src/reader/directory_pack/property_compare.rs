@@ -1,5 +1,5 @@
 use super::builder::{AnyBuilder, BuilderTrait};
-use super::finder::CompareTrait;
+use super::range::CompareTrait;
 use super::{EntryTrait, Value};
 use crate::bases::*;
 use std::cmp::Ordering;
