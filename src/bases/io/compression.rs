@@ -1,9 +1,8 @@
 use crate::bases::*;
 use primitive::*;
 use std::io::{BorrowedBuf, Read};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
-use std::thread::{spawn, yield_now};
+use std::sync::{Arc, Condvar, Mutex};
+use std::thread::spawn;
 
 /*
 SyncVec is mostly a Arc<Vec<u8>> where the only protected part is its length
@@ -24,7 +23,7 @@ struct SyncVec {
     pub arc_ptr: *const Vec<u8>,
     pub data: *mut u8,
     pub total_size: usize,
-    pub decoded: Arc<AtomicUsize>,
+    pub decoded: Arc<(Mutex<usize>, Condvar)>,
 }
 
 impl Drop for SyncVec {
@@ -41,7 +40,7 @@ unsafe impl Send for SyncVec {}
 // It allow implementation of Reader and Flux.
 pub struct SeekableDecoder {
     buffer: Arc<Vec<u8>>,
-    decoded: Arc<AtomicUsize>,
+    decoded: Arc<(Mutex<usize>, Condvar)>,
 }
 
 fn decode_to_end<T: Read + Send>(mut decoder: T, buffer: SyncVec, chunk_size: usize) -> Result<()> {
@@ -62,8 +61,10 @@ fn decode_to_end<T: Read + Send>(mut decoder: T, buffer: SyncVec, chunk_size: us
             vec.into_raw_parts();
         }
         uncompressed += size;
-        buffer.decoded.store(uncompressed, Ordering::SeqCst);
-        yield_now();
+        let (lock, cvar) = &*buffer.decoded;
+        let mut decoded = lock.lock().unwrap();
+        *decoded = uncompressed;
+        cvar.notify_all();
     }
     //println!("Decompress done");
     Ok(())
@@ -72,7 +73,7 @@ fn decode_to_end<T: Read + Send>(mut decoder: T, buffer: SyncVec, chunk_size: us
 impl SeekableDecoder {
     pub fn new<T: Read + Send + 'static>(decoder: T, size: Size) -> Self {
         let buffer = Arc::new(Vec::with_capacity(size.into_usize()));
-        let decoded = Arc::new(AtomicUsize::new(0));
+        let decoded = Arc::new((Mutex::new(0), Condvar::new()));
         let us = Self {
             buffer: Arc::clone(&buffer),
             decoded: Arc::clone(&decoded),
@@ -96,15 +97,14 @@ impl SeekableDecoder {
     #[inline]
     pub fn decode_to(&self, end: Offset) {
         let end = end.into_usize();
-        while end > self.decoded() {
-            //println!("Have to wait {end} > {decoded}");
-            yield_now();
-        }
+        let (lock, cvar) = &*self.decoded;
+        let _decoded = cvar.wait_while(lock.lock().unwrap(), |d| *d < end).unwrap();
     }
 
     #[inline]
     pub fn decoded(&self) -> usize {
-        self.decoded.load(Ordering::SeqCst)
+        let (lock, _cvar) = &*self.decoded;
+        *lock.lock().unwrap()
     }
 
     pub fn decoded_slice(&self) -> &[u8] {
