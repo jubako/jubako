@@ -20,6 +20,7 @@ pub trait PropertyBuilderTrait {
     fn create(&self, reader: &SubReader) -> Result<Self::Output>;
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct VariantIdProperty {
     offset: Offset,
 }
@@ -37,7 +38,7 @@ impl PropertyBuilderTrait for VariantIdProperty {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IntProperty {
     offset: Offset,
     size: ByteSize,
@@ -138,7 +139,7 @@ impl PropertyBuilderTrait for IntProperty {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SignedProperty {
     offset: Offset,
     size: ByteSize,
@@ -241,7 +242,7 @@ impl PropertyBuilderTrait for SignedProperty {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ArrayProperty {
     offset: Offset,
     array_size_size: Option<ByteSize>,
@@ -335,7 +336,7 @@ impl PropertyBuilderTrait for ArrayProperty {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct ContentProperty {
     offset: Offset,
     pack_id_default: Option<PackId>,
