@@ -23,7 +23,7 @@ impl<'s> std::fmt::Debug for Flux<'s> {
 }
 
 impl<'s> Flux<'s> {
-    pub fn to_owned(self) -> Stream {
+    pub fn to_owned(&self) -> Stream {
         Stream::new_from_parts(Arc::clone(self.source), self.origin, self.end, self.offset)
     }
 
@@ -89,8 +89,34 @@ impl<'s> Flux<'s> {
         self.offset += 8;
         Ok(ret)
     }
-    pub fn read_sized(&mut self, size: ByteSize) -> Result<u64> {
+    pub fn read_usized(&mut self, size: ByteSize) -> Result<u64> {
         let ret = self.source.read_usized(self.offset, size)?;
+        self.offset += size as usize;
+        Ok(ret)
+    }
+
+    pub fn read_i8(&mut self) -> Result<i8> {
+        let ret = self.source.read_i8(self.offset)?;
+        self.offset += 1;
+        Ok(ret)
+    }
+    pub fn read_i16(&mut self) -> Result<i16> {
+        let ret = self.source.read_i16(self.offset)?;
+        self.offset += 2;
+        Ok(ret)
+    }
+    pub fn read_i32(&mut self) -> Result<i32> {
+        let ret = self.source.read_i32(self.offset)?;
+        self.offset += 4;
+        Ok(ret)
+    }
+    pub fn read_i64(&mut self) -> Result<i64> {
+        let ret = self.source.read_i64(self.offset)?;
+        self.offset += 8;
+        Ok(ret)
+    }
+    pub fn read_isized(&mut self, size: ByteSize) -> Result<i64> {
+        let ret = self.source.read_isized(self.offset, size)?;
         self.offset += size as usize;
         Ok(ret)
     }

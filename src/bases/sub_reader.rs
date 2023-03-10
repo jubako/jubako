@@ -87,7 +87,7 @@ impl<'s> SubReader<'s> {
             End::Size(s) => s,
         };
         let (source, origin, end) =
-            Arc::clone(&self.source).into_memory(origin, size.into_usize())?;
+            Arc::clone(self.source).into_memory(origin, size.into_usize())?;
         let end = match end {
             End::None => source.size().into(),
             End::Offset(o) => origin + o,

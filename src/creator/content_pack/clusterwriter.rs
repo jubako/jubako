@@ -3,7 +3,7 @@ use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
 use std::fs::File;
 use std::io::Write;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, Condvar, Mutex};
 use std::thread::{spawn, JoinHandle};
 
 #[cfg(feature = "lz4")]
@@ -84,6 +84,7 @@ pub struct ClusterCompressor {
     compression: CompressionType,
     input: spmc::Receiver<ClusterCreator>,
     output: mpsc::Sender<WriteTask>,
+    nb_cluster_in_queue: Arc<(Mutex<usize>, Condvar)>,
 }
 
 impl ClusterCompressor {
@@ -91,11 +92,13 @@ impl ClusterCompressor {
         compression: CompressionType,
         input: spmc::Receiver<ClusterCreator>,
         output: mpsc::Sender<WriteTask>,
+        nb_cluster_in_queue: Arc<(Mutex<usize>, Condvar)>,
     ) -> Self {
         Self {
             compression,
             input,
             output,
+            nb_cluster_in_queue,
         }
     }
 
@@ -159,6 +162,10 @@ impl ClusterCompressor {
             self.output
                 .send(WriteTask::Compressed(data, sized_offset, cluster_idx))
                 .unwrap();
+            let (count, cvar) = &*self.nb_cluster_in_queue;
+            let mut count = count.lock().unwrap();
+            *count -= 1;
+            cvar.notify_one();
         }
         drop(self.output);
         Ok(())
@@ -267,6 +274,8 @@ pub struct ClusterWriterProxy {
     thread_handle: JoinHandle<Result<(File, Vec<Late<SizedOffset>>)>>,
     dispatch_tx: spmc::Sender<ClusterCreator>,
     fusion_tx: mpsc::Sender<WriteTask>,
+    nb_cluster_in_queue: Arc<(Mutex<usize>, Condvar)>,
+    max_queue_size: usize,
     compression: CompressionType,
 }
 
@@ -275,13 +284,20 @@ impl ClusterWriterProxy {
         let (dispatch_tx, dispatch_rx) = spmc::channel();
         let (fusion_tx, fusion_rx) = mpsc::channel();
 
+        let nb_cluster_in_queue = Arc::new((Mutex::new(0), Condvar::new()));
+
         let worker_threads = (0..nb_thread)
-            .into_iter()
             .map(|_| {
                 let dispatch_rx = dispatch_rx.clone();
                 let fusion_tx = fusion_tx.clone();
+                let nb_cluster_in_queue = Arc::clone(&nb_cluster_in_queue);
                 spawn(move || {
-                    let worker = ClusterCompressor::new(compression, dispatch_rx, fusion_tx);
+                    let worker = ClusterCompressor::new(
+                        compression,
+                        dispatch_rx,
+                        fusion_tx,
+                        nb_cluster_in_queue,
+                    );
                     worker.run()
                 })
             })
@@ -296,12 +312,19 @@ impl ClusterWriterProxy {
             worker_threads,
             dispatch_tx,
             fusion_tx,
+            nb_cluster_in_queue,
+            max_queue_size: nb_thread * 2,
             compression,
         }
     }
 
     pub fn write_cluster(&mut self, cluster: ClusterCreator, compressed: bool) {
         if compressed && self.compression != CompressionType::None {
+            let (count, cvar) = &*self.nb_cluster_in_queue;
+            let mut count = cvar
+                .wait_while(count.lock().unwrap(), |c| *c >= self.max_queue_size)
+                .unwrap();
+            *count += 1;
             self.dispatch_tx.send(cluster).unwrap();
         } else {
             self.fusion_tx.send(cluster.into()).unwrap();

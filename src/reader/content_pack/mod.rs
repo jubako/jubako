@@ -79,7 +79,7 @@ impl ContentPack {
             )));
         }
         let cluster = self.get_cluster(content_info.cluster_index)?;
-        Ok(cluster.get_reader(content_info.blob_index)?.into())
+        cluster.get_reader(content_info.blob_index)
     }
 
     pub fn get_free_data(&self) -> &[u8] {

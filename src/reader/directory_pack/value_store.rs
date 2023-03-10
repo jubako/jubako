@@ -86,7 +86,7 @@ impl IndexedValueStore {
     fn new(flux: &mut Flux, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
         let value_count: ValueCount = Count::<u64>::produce(flux)?.into();
         let offset_size = ByteSize::produce(flux)?;
-        let data_size: Size = flux.read_sized(offset_size)?.into();
+        let data_size: Size = flux.read_usized(offset_size)?.into();
         let value_count = value_count.into_usize();
         let mut value_offsets: Vec<Offset> = Vec::with_capacity(value_count + 1);
         // [TODO] Handle 32 and 16 bits
@@ -97,7 +97,7 @@ impl IndexedValueStore {
                 first = false;
                 Offset::zero()
             } else {
-                flux.read_sized(offset_size)?.into()
+                flux.read_usized(offset_size)?.into()
             };
             assert!(value.is_valid(data_size));
             elem.write(value);
