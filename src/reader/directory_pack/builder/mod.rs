@@ -19,7 +19,7 @@ pub struct AnyVariantBuilder {
 }
 
 impl AnyVariantBuilder {
-    pub fn create_value(&self, idx: PropertyIdx, reader: SubReader) -> Result<RawValue> {
+    pub fn create_value(&self, idx: PropertyIdx, reader: &SubReader) -> Result<RawValue> {
         self.properties[idx.into_usize()].create(reader)
     }
 
