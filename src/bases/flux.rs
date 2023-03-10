@@ -23,7 +23,7 @@ impl<'s> std::fmt::Debug for Flux<'s> {
 }
 
 impl<'s> Flux<'s> {
-    pub fn to_owned(self) -> Stream {
+    pub fn to_owned(&self) -> Stream {
         Stream::new_from_parts(Arc::clone(self.source), self.origin, self.end, self.offset)
     }
 
