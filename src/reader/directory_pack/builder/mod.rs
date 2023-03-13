@@ -35,7 +35,7 @@ impl AnyVariantBuilder {
 
 pub struct LazyEntryProperties {
     pub common: AnyVariantBuilder,
-    pub variant_part: Option<(Property<u8>, Vec<AnyVariantBuilder>)>,
+    pub variant_part: Option<(VariantIdProperty, Vec<AnyVariantBuilder>)>,
 }
 
 pub struct AnyBuilder {
@@ -51,7 +51,7 @@ impl AnyBuilder {
             None => None,
             Some((variant_id_offset, variants)) => {
                 let variants = variants.iter().map(|v| AnyVariantBuilder::new(v)).collect();
-                let variant_id = Property::<u8>::new(*variant_id_offset);
+                let variant_id = VariantIdProperty::new(*variant_id_offset);
                 Some((variant_id, variants))
             }
         };

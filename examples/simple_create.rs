@@ -28,8 +28,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Our entry kind will have two variants.
     let entry_def = schema::Schema::new(
         schema::CommonProperties::new(vec![
-            schema::Property::VLArray(0, Rc::clone(&value_store)), // One string, will be stored in value_store
-            schema::Property::new_int(),                           // A integer
+            schema::Property::new_array(0, Rc::clone(&value_store)), // One string, will be stored in value_store
+            schema::Property::new_int(),                             // A integer
         ]),
         vec![
             schema::VariantProperties::new(vec![

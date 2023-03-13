@@ -88,7 +88,7 @@ test_suite! {
         let key_store_handle = creator.create_value_store(key_store_kind);
         let entry_def = schema::Schema::new(
             schema::CommonProperties::new(vec![
-                schema::Property::VLArray(0, key_store_handle),
+                schema::Property::new_array(0, key_store_handle),
                 schema::Property::ContentAddress,
                 schema::Property::new_int()
             ]),

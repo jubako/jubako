@@ -60,13 +60,17 @@ impl Property {
         Property::UnsignedInt(Default::default())
     }
 
+    pub fn new_array(fixed_array_size: usize, store_handle: Rc<RefCell<ValueStore>>) -> Self {
+        Property::VLArray(fixed_array_size, store_handle)
+    }
+
     pub fn process<'a>(&mut self, values: &mut impl Iterator<Item = &'a Value>) {
         match self {
             Self::UnsignedInt(size) => {
                 if let Value::Unsigned(value) = values.next().unwrap() {
                     match size {
                         PropertySize::Fixed(size) => {
-                            assert!(*size <= needed_bytes(value.get()));
+                            assert!(*size >= needed_bytes(value.get()));
                         }
                         PropertySize::Auto(max) => {
                             *max = cmp::max(*max, value.get());

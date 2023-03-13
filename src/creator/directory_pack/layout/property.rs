@@ -4,7 +4,6 @@ use crate::bases::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Debug)]
 pub enum Property {
     VariantId,
     VLArray(
@@ -14,6 +13,36 @@ pub enum Property {
     ContentAddress,
     UnsignedInt(ByteSize),
     Padding(/*size*/ u8),
+}
+
+impl std::fmt::Debug for Property {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use Property::*;
+        match self {
+            VariantId => f
+                .debug_struct("VariantId")
+                .field("size", &self.size())
+                .finish(),
+            VLArray(flookup_size, _store_handle) => f
+                .debug_struct("Array")
+                .field("flookup_size", &flookup_size)
+                .field("size", &self.size())
+                .finish(),
+            ContentAddress => f
+                .debug_struct("ContentAddress")
+                .field("size", &self.size())
+                .finish(),
+            UnsignedInt(size) => f
+                .debug_struct("UnsignedInt")
+                .field("size", &size)
+                .field("size", &self.size())
+                .finish(),
+            Padding(_size) => f
+                .debug_struct("Padding")
+                .field("size", &self.size())
+                .finish(),
+        }
+    }
 }
 
 impl Property {
