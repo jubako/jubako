@@ -79,11 +79,34 @@ where
 }
 
 #[derive(Clone)]
-pub struct DynBound<V: Copy>(Rc<dyn MyCell<V>>);
+pub struct Generator<S: Copy, V>(Rc<Cell<S>>, fn(V) -> V);
+
+impl<S, V> From<(Bound<S>, fn(V) -> V)> for Generator<S, V>
+where
+    S: Copy,
+{
+    fn from(other: (Bound<S>, fn(V) -> V)) -> Self {
+        let (bound, func) = other;
+        Self(Rc::clone(&bound.0), func)
+    }
+}
+
+impl<T, U> MyCell<T> for (Cell<U>, fn(U) -> U)
+where
+    U: Copy + Into<T>,
+{
+    fn get(&self) -> T {
+        let (cell, func) = self;
+        func(Cell::get(cell)).into()
+    }
+}
+
+#[derive(Clone)]
+pub struct DynBound<V: Copy>(Rc<dyn MyCell<V>>, fn(V) -> V);
 
 impl<V: Copy> DynBound<V> {
     pub fn get(&self) -> V {
-        self.0.as_ref().get()
+        self.1(self.0.as_ref().get())
     }
 }
 
@@ -111,7 +134,17 @@ where
     V: Copy,
 {
     fn from(other: Bound<S>) -> DynBound<V> {
-        DynBound(Rc::clone(&other.0) as Rc<dyn MyCell<V>>)
+        DynBound(other.0 as Rc<dyn MyCell<V>>, std::convert::identity)
+    }
+}
+
+impl<S, V> From<Generator<S, V>> for DynBound<V>
+where
+    S: Copy + Into<V> + 'static,
+    V: Copy,
+{
+    fn from(other: Generator<S, V>) -> DynBound<V> {
+        DynBound(other.0 as Rc<dyn MyCell<V>>, other.1)
     }
 }
 
@@ -143,6 +176,16 @@ where
 {
     fn from(b: Bound<S>) -> Self {
         Self::Later(b.into())
+    }
+}
+
+impl<S, V> From<Generator<S, V>> for Word<V>
+where
+    S: Copy + Into<V> + 'static,
+    V: Copy,
+{
+    fn from(my_cell: Generator<S, V>) -> Self {
+        Self::Later(my_cell.into())
     }
 }
 
