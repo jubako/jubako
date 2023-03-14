@@ -40,31 +40,66 @@ impl Properties {
         let mut value_iter = EntryIter::new(entry);
         for key in keys {
             match key {
-                Property::VLArray(flookup_size, store_handle) => {
+                Property::Array {
+                    array_size_size,
+                    fixed_array_size,
+                    deported_info,
+                } => {
                     let value = value_iter.next().unwrap();
-                    if let Value::Array { data, value_id } = value {
-                        written +=
-                            stream.write_sized(value_id.get(), store_handle.borrow().key_size())?;
+                    if let Value::Array {
+                        size,
+                        data,
+                        value_id,
+                    } = value
+                    {
+                        if let Some(array_size_size) = array_size_size {
+                            written += stream.write_usized(*size as u64, *array_size_size)?;
+                        }
                         written += stream.write_data(data)?;
-                        // Data is truncate at flookup_size. We just want to write 0 if data is shorter than flookup_size
-                        written +=
-                            stream.write_data(vec![0; *flookup_size - data.len()].as_slice())?;
+                        // Data is truncate at fixed_array_size. We just want to write 0 if data is shorter than fixed_array_size
+                        written += stream.write_data(
+                            vec![0; *fixed_array_size as usize - data.len()].as_slice(),
+                        )?;
+                        if let Some((key_size, _)) = deported_info {
+                            written += stream.write_usized(value_id.get(), *key_size)?;
+                        }
                     } else {
                         return Err("Not a Array".to_string().into());
                     }
                 }
-                Property::ContentAddress => {
+                Property::ContentAddress { size, default } => {
                     let value = value_iter.next().unwrap();
                     if let Value::Content(value) = value {
-                        written += value.write(stream)?;
+                        if let Some(d) = default {
+                            assert_eq!(*d, value.pack_id.into_u8());
+                        } else {
+                            written += stream.write_u8(value.pack_id.into_u8())?;
+                        }
+                        written += stream.write_usized(value.content_id.into_u64(), *size)?;
                     } else {
                         return Err("Not a Content".to_string().into());
                     }
                 }
-                Property::UnsignedInt(size) => {
+                Property::UnsignedInt { size, default } => {
                     let value = value_iter.next().unwrap();
                     if let Value::Unsigned(value) = value {
-                        written += stream.write_sized(value.get(), *size)?;
+                        if let Some(d) = default {
+                            assert_eq!(*d, value.get());
+                        } else {
+                            written += stream.write_usized(value.get(), *size)?;
+                        }
+                    } else {
+                        return Err("Not a unsigned".to_string().into());
+                    }
+                }
+                Property::SignedInt { size, default } => {
+                    let value = value_iter.next().unwrap();
+                    if let Value::Signed(value) = value {
+                        if let Some(d) = default {
+                            assert_eq!(*d, value.get());
+                        } else {
+                            written += stream.write_isized(value.get(), *size)?;
+                        }
                     } else {
                         return Err("Not a unsigned".to_string().into());
                     }
@@ -83,10 +118,6 @@ impl Properties {
 
     pub(crate) fn entry_size(&self) -> u16 {
         self.iter().map(|k| k.size()).sum::<u16>()
-    }
-
-    pub(crate) fn key_count(&self) -> u8 {
-        self.iter().map(|k| k.key_count()).sum::<u8>()
     }
 
     pub(crate) fn fill_to_size(&mut self, size: u16) {

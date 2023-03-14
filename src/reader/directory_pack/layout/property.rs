@@ -1,15 +1,5 @@
+use super::PropertyKind;
 use crate::bases::*;
-
-// The kind of the property. This will be the descriminant to how parse the value.
-#[derive(Debug, PartialEq, Eq)]
-pub enum PropertyKind {
-    ContentAddress,
-    UnsignedInt(ByteSize),
-    SignedInt(ByteSize),
-    Array(usize),
-    VLArray(ByteSize, ValueStoreIdx, Option<usize>),
-    None,
-}
 
 /// The definition of a property, as we need to parse it.
 /// In opposition to RawProperty, the property is the "final" property.

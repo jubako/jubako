@@ -1,8 +1,10 @@
 #[macro_use]
 mod error;
+mod base_array;
 mod byte_size;
 mod count;
 mod delayed;
+mod entry_range;
 mod free_data;
 mod id;
 mod idx;
@@ -12,9 +14,11 @@ mod size;
 mod sized_offset;
 mod specific_types;
 
+pub use base_array::BaseArray;
 pub use byte_size::ByteSize;
 pub use count::Count;
 pub use delayed::{Bound, Generator, Late, Vow, Word};
+pub use entry_range::EntryRange;
 pub use error::{Error, ErrorKind, FormatError, Result};
 pub use free_data::{FreeData103, FreeData31, FreeData40, FreeData63};
 pub use id::Id;

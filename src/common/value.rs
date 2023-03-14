@@ -5,6 +5,6 @@ use crate::bases::*;
 pub enum Value {
     Content(ContentAddress),
     Unsigned(Word<u64>),
-    Signed(i64),
+    Signed(Word<i64>),
     Array(Vec<u8>),
 }

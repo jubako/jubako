@@ -6,12 +6,23 @@ use std::rc::Rc;
 
 pub enum Property {
     VariantId,
-    VLArray(
-        /*flookup_size:*/ usize,
-        /*store_handle:*/ Rc<RefCell<ValueStore>>,
-    ),
-    ContentAddress,
-    UnsignedInt(ByteSize),
+    Array {
+        array_size_size: Option<ByteSize>,
+        fixed_array_size: u8,
+        deported_info: Option<(ByteSize, Rc<RefCell<ValueStore>>)>,
+    },
+    ContentAddress {
+        size: ByteSize,
+        default: Option<u8>,
+    },
+    UnsignedInt {
+        size: ByteSize,
+        default: Option<u64>,
+    },
+    SignedInt {
+        size: ByteSize,
+        default: Option<i64>,
+    },
     Padding(/*size*/ u8),
 }
 
@@ -23,18 +34,33 @@ impl std::fmt::Debug for Property {
                 .debug_struct("VariantId")
                 .field("size", &self.size())
                 .finish(),
-            VLArray(flookup_size, _store_handle) => f
+            Array {
+                array_size_size,
+                fixed_array_size,
+                deported_info,
+            } => f
                 .debug_struct("Array")
-                .field("flookup_size", &flookup_size)
+                .field("array_size_size", &array_size_size)
+                .field("fixed_array_size", &fixed_array_size)
+                .field("deported_info", &deported_info)
                 .field("size", &self.size())
                 .finish(),
-            ContentAddress => f
+            ContentAddress { size, default } => f
                 .debug_struct("ContentAddress")
+                .field("size", &size)
+                .field("default", &default)
                 .field("size", &self.size())
                 .finish(),
-            UnsignedInt(size) => f
+            UnsignedInt { size, default } => f
                 .debug_struct("UnsignedInt")
                 .field("size", &size)
+                .field("default", &default)
+                .field("size", &self.size())
+                .finish(),
+            SignedInt { size, default } => f
+                .debug_struct("SignedInt")
+                .field("size", &size)
+                .field("default", &default)
                 .field("size", &self.size())
                 .finish(),
             Padding(_size) => f
@@ -49,28 +75,38 @@ impl Property {
     pub(crate) fn size(&self) -> u16 {
         match self {
             Property::VariantId => 1,
-            Property::VLArray(flookup_size, store_handle) => {
-                (*flookup_size as u16) + store_handle.borrow().key_size() as u16
+            Property::Array {
+                array_size_size,
+                fixed_array_size,
+                deported_info,
+            } => {
+                (match array_size_size {
+                    None => 0,
+                    Some(s) => *s as usize as u16,
+                }) + *fixed_array_size as u16
+                    + match deported_info {
+                        None => 0,
+                        Some((s, _)) => *s as usize as u16,
+                    }
             }
-            Property::ContentAddress => 4,
-            Property::UnsignedInt(size) => *size as u16,
-            Property::Padding(size) => *size as u16,
-        }
-    }
-
-    pub(crate) fn key_count(&self) -> u8 {
-        match self {
-            Property::VLArray(flookup_size, _) => {
-                if *flookup_size > 0 {
-                    2
+            Property::ContentAddress { size, default } => {
+                (if default.is_some() { 0 } else { 1 }) + *size as usize as u16
+            }
+            Property::UnsignedInt { size, default } => {
+                if default.is_some() {
+                    0
                 } else {
-                    1
+                    *size as u16
                 }
             }
-            Property::VariantId => 1,
-            Property::ContentAddress => 1,
-            Property::UnsignedInt(_) => 1,
-            Property::Padding(_) => 1,
+            Property::SignedInt { size, default } => {
+                if default.is_some() {
+                    0
+                } else {
+                    *size as u16
+                }
+            }
+            Property::Padding(size) => *size as u16,
         }
     }
 }
@@ -79,36 +115,66 @@ impl Writable for Property {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         match self {
             Property::VariantId => stream.write_u8(0b1000_0000),
-            Property::VLArray(flookup_size, store_handle) => {
-                let mut flookup_size = *flookup_size;
-                let keytype = if flookup_size > 0 {
-                    0b0111_0000
-                } else {
-                    0b0110_0000
-                };
-                let key_size = store_handle.borrow().key_size() as u8 - 1;
+            Property::Array {
+                array_size_size,
+                fixed_array_size,
+                deported_info,
+            } => {
                 let mut written = 0;
-                written += stream.write_u8(keytype + key_size)?;
-                written += store_handle.borrow().get_idx().write(stream)?;
-                if flookup_size > 0 {
-                    let keytype: u8 = 0b0100_0000;
-                    if flookup_size <= 8 {
-                        written += stream.write_u8(keytype + (flookup_size - 1) as u8)?;
-                    } else if flookup_size <= 2056 {
-                        flookup_size -= 9;
-                        written += stream
-                            .write_u8(keytype + ((flookup_size >> 8) & 0x03) as u8 + 0b1000)?;
-                        written += stream.write_u8(flookup_size as u8)?;
-                    } else {
-                        panic!()
-                    }
+                let keytype = 0b0101_0000
+                    + match array_size_size {
+                        None => 0,
+                        Some(s) => *s as usize as u8,
+                    };
+                written += stream.write_u8(keytype)?;
+                let key_size = match deported_info {
+                    None => 0,
+                    Some((s, _)) => *s as usize as u8,
+                } << 5;
+                written += stream.write_u8(key_size + fixed_array_size)?;
+                if let Some((_, store)) = deported_info {
+                    written += store.borrow().get_idx().write(stream)?;
                 }
                 Ok(written)
             }
-            Property::ContentAddress => stream.write_u8(0b0001_0000),
-            Property::UnsignedInt(size) => {
-                let key_type = 0b0010_0000;
-                stream.write_u8(key_type + (*size as u8 - 1))
+            Property::ContentAddress { size, default } => {
+                let mut key_type = 0b0001_0000;
+                key_type += *size as u8 - 1;
+                match default {
+                    None => stream.write_u8(key_type + 0b0000_0100),
+                    Some(d) => {
+                        let mut written = 0;
+                        written += stream.write_u8(key_type)?;
+                        written += stream.write_u8(*d)?;
+                        Ok(written)
+                    }
+                }
+            }
+            Property::UnsignedInt { size, default } => {
+                let mut key_type = 0b0010_0000;
+                key_type += *size as u8 - 1;
+                match default {
+                    None => stream.write_u8(key_type),
+                    Some(d) => {
+                        let mut written = 0;
+                        written += stream.write_u8(key_type + 0b0000_1000)?;
+                        written += stream.write_usized(*d, *size)?;
+                        Ok(written)
+                    }
+                }
+            }
+            Property::SignedInt { size, default } => {
+                let mut key_type = 0b0011_0000;
+                key_type += *size as u8 - 1;
+                match default {
+                    None => stream.write_u8(key_type),
+                    Some(d) => {
+                        let mut written = 0;
+                        written += stream.write_u8(key_type + 0b0000_1000)?;
+                        written += stream.write_isized(*d, *size)?;
+                        Ok(written)
+                    }
+                }
             }
             Property::Padding(size) => {
                 let key_type = 0b0000_0000;

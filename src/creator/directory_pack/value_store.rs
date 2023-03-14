@@ -62,7 +62,7 @@ impl PlainValueStore {
             if starting_point != 0 {
                 // We are not at the begining
                 let (idx, vow) = &s.sorted_indirect[starting_point - 1];
-                let offset = vow.get() + 1 + s.data[*idx].len() as u64;
+                let offset = vow.get() + s.data[*idx].len() as u64;
                 s.sorted_indirect[starting_point].1.fulfil(offset);
             }
             // If we are at end and beggining, we have only one element, nothing to do
@@ -73,7 +73,7 @@ impl PlainValueStore {
             for (idx, vow) in s.sorted_indirect.iter().skip(starting_point) {
                 vow.fulfil(offset);
                 let data = &s.data[*idx];
-                offset += 1 + data.len() as u64;
+                offset += data.len() as u64;
             }
         }
     }
@@ -83,7 +83,7 @@ impl PlainValueStore {
     }
 
     pub fn size(&self) -> Size {
-        self.0.size + Size::from(self.0.data.len())
+        self.0.size
     }
 
     pub fn key_size(&self) -> ByteSize {
@@ -98,7 +98,7 @@ impl PlainValueStore {
 impl WritableTell for PlainValueStore {
     fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
         for (idx, _) in &self.0.sorted_indirect {
-            PString::write_string(&self.0.data[*idx], stream)?;
+            stream.write_data(&self.0.data[*idx])?;
         }
         Ok(())
     }
@@ -159,12 +159,12 @@ impl WritableTell for IndexedValueStore {
         let data_size = self.0.size.into_u64();
         let offset_size = needed_bytes(data_size);
         offset_size.write(stream)?; // offset_size
-        stream.write_sized(data_size, offset_size)?; // data size
+        stream.write_usized(data_size, offset_size)?; // data size
         let mut offset = 0;
         for (idx, _) in &self.0.sorted_indirect[..(self.0.sorted_indirect.len() - 1)] {
             let data = &self.0.data[*idx];
             offset += data.len() as u64;
-            stream.write_sized(offset, offset_size)?;
+            stream.write_usized(offset, offset_size)?;
         }
         Ok(())
     }

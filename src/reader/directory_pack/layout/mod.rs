@@ -5,8 +5,9 @@ mod property;
 use super::raw_layout::RawLayout;
 use crate::bases::*;
 
+pub use super::raw_layout::PropertyKind;
 pub use properties::{Properties, SharedProperties};
-pub use property::{Property, PropertyKind};
+pub use property::Property;
 
 use std::cmp::Ordering;
 

@@ -127,11 +127,11 @@ impl IndexStore {
         for entry in entries {
             // We are creating entry data.
             // Each entry has 3 keys :
-            // - The path : A 0Array/PString
-            // - The content : a content address
+            // - The path : A char1[0] + deported(1)
+            // - The content : a content address(1)
             // - The words counts : a u16
-            data.extend(&[idx].to_vec());
-            data.extend(&(idx as u32).to_be_bytes().to_vec());
+            data.extend(&[entry.path.as_bytes().len() as u8, idx].to_vec());
+            data.extend(&(idx as u16 + 0x0100_u16).to_be_bytes().to_vec());
             data.extend(&entry.word_count.to_be_bytes().to_vec());
             idx += 1;
         }
@@ -148,11 +148,11 @@ impl IndexStore {
     pub fn tail_bytes(&mut self) -> Vec<u8> {
         let mut data = vec![];
         data.push(0x00); // kind
-        data.extend(7_u16.to_be_bytes()); // entry_size
+        data.extend(6_u16.to_be_bytes()); // entry_size
         data.push(0x00); // variant count
         data.push(0x03); // key count
-        data.extend(&[0b0110_0000, 0x00]); // The first key, a PString(1) idx 0
-        data.extend(&[0b0001_0000]); // The second key, the content address
+        data.extend(&[0b0101_0001, 0b001_00000, 0x00]); // The first key, a char1[0] + deported(1) idx 0
+        data.extend(&[0b0001_0100]); // The second key, the content address (1 for the pack_id + 1 for the value_id)
         data.extend(&[0b0010_0001]); // The third key, the u16
         data.extend((self.data.len() as u64).to_be_bytes()); //data size
         self.tail_size = Some(data.len() as u16);
@@ -252,8 +252,7 @@ test_suite! {
     name basic_reading;
 
     use jubako::reader as reader;
-    use jubako::reader::EntryTrait;
-    use jubako::reader::schema::SchemaTrait;
+    use jubako::reader::{Range, EntryTrait};
     use std::fs::OpenOptions;
     use std::io::{Write, Seek, SeekFrom, Result, Read};
     use std::io;
@@ -474,8 +473,6 @@ test_suite! {
         Ok("/tmp/mainPack.jbkm".to_string())
     }
 
-
-
     test test_content_pack(compression, articles) {
         let content_info = create_content_pack(compression.val, &articles.val).unwrap();
         let directory_info = create_directory_pack(&articles.val).unwrap();
@@ -483,39 +480,25 @@ test_suite! {
         let container = reader::Container::new(main_path).unwrap();
         assert_eq!(container.pack_count(), 1.into());
         assert!(container.check().unwrap());
-        let directory_pack = container.get_directory_pack();
-        let index = directory_pack.get_index(0.into()).unwrap();
-        let entry_storage = directory_pack.create_entry_storage();
-        let value_storage = directory_pack.create_value_storage();
-        let resolver = reader::Resolver::new(value_storage);
-        let schema = reader::AnySchema {};
-        let builder = schema.create_builder(index.get_store(&entry_storage).unwrap()).unwrap();
-        let finder: reader::Finder<reader::AnySchema> = index.get_finder(builder).unwrap();
-        assert_eq!(index.entry_count(), (articles.val.len() as u32).into());
-        for i in index.entry_count() {
-            let entry = finder.get_entry(i).unwrap();
+        let index = container.get_index_for_name("Super index").unwrap();
+        let builder = reader::builder::AnyBuilder::new(
+            index.get_store(&container.get_entry_storage()).unwrap(),
+            container.get_value_storage().as_ref()
+        ).unwrap();
+        assert_eq!(index.count(), (articles.val.len() as u32).into());
+        for i in index.count() {
+            let entry = index.get_entry(&builder, i).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             let value_0 = entry.get_value(0.into()).unwrap();
-            if let reader::RawValue::Array(array) = &value_0 {
-                assert_eq!(
-                    array,
-                    &reader::Array::new(
-                        vec!(),
-                        Some(reader::testing::Extend::new(0.into(), jubako::ValueIdx::from(i.into_u64())))
-                    ));
-                let vec = resolver.resolve_to_vec(&value_0).unwrap();
-                assert_eq!(vec, articles.val[i.into_u32() as usize].path.as_bytes());
-            } else {
-              panic!();
-            }
+            let vec = value_0.as_vec().unwrap();
+            assert_eq!(vec, articles.val[i.into_u32() as usize].path.as_bytes());
             let value_1 = entry.get_value(1.into()).unwrap();
             if let reader::RawValue::Content(content) = value_1 {
                 assert_eq!(
                     content,
-                    jubako::ContentAddress{pack_id:0.into(), content_id:jubako::ContentIdx::from(i.into_u32())}
+                    jubako::ContentAddress{pack_id:1.into(), content_id:jubako::ContentIdx::from(i.into_u32())}
                 );
-                let pack = container.get_pack(1.into()).unwrap();
-                let reader = pack.get_content(jubako::ContentIdx::from(i.into_u32())).unwrap();
+                let reader = container.get_reader(content).unwrap();
                 let mut flux = reader.create_flux_all();
                 let mut read_content: String = "".to_string();
                 flux.read_to_string(&mut read_content).unwrap();
