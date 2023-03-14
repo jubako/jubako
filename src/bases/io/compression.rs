@@ -19,31 +19,88 @@ we must create it through a Arc<Vec<u8>>.
 At SyncVec drop, we recreate the Arc and let it being drop.
 */
 
-struct SyncVec {
-    pub arc_ptr: *const Vec<u8>,
-    pub data: *mut u8,
-    pub total_size: usize,
-    pub decoded: Arc<(Mutex<usize>, Condvar)>,
+struct SyncVecWr {
+    arc_ptr: *const Vec<u8>,
+    data: *mut u8,
+    total_size: usize,
+    decoded: Arc<(Mutex<usize>, Condvar)>,
 }
 
-impl Drop for SyncVec {
+impl Drop for SyncVecWr {
     fn drop(&mut self) {
         let _arc = unsafe { Arc::from_raw(self.arc_ptr) };
         // Let rust drop the arc
     }
 }
 
-unsafe impl Send for SyncVec {}
+unsafe impl Send for SyncVecWr {}
+
+struct SyncVecRd {
+    buffer: Arc<Vec<u8>>,
+    total_size: usize,
+    decoded: Arc<(Mutex<usize>, Condvar)>,
+}
+
+impl SyncVecRd {
+    #[inline]
+    pub fn wait_while<F>(&self, function: F) -> usize
+    where
+        F: Fn(&mut usize) -> bool,
+    {
+        let (lock, cvar) = &*self.decoded;
+        let decoded = cvar.wait_while(lock.lock().unwrap(), function).unwrap();
+        *decoded
+    }
+
+    #[inline]
+    pub fn current_size(&self) -> usize {
+        let (lock, _cvar) = &*self.decoded;
+        *lock.lock().unwrap()
+    }
+
+    #[inline]
+    pub fn total_size(&self) -> usize {
+        self.total_size
+    }
+
+    #[inline]
+    fn slice(&self) -> &[u8] {
+        let size = self.current_size();
+        let ptr = self.buffer.as_ptr();
+        unsafe { std::slice::from_raw_parts(ptr, size) }
+    }
+}
+
+fn create_sync_vec(size: usize) -> (SyncVecWr, SyncVecRd) {
+    let buffer = Arc::new(Vec::with_capacity(size));
+    let decoded = Arc::new((Mutex::new(0), Condvar::new()));
+    let rd = SyncVecRd {
+        buffer: Arc::clone(&buffer),
+        total_size: size,
+        decoded: Arc::clone(&decoded),
+    };
+    let buffer_ptr = buffer.as_ptr();
+    let rw = SyncVecWr {
+        arc_ptr: Arc::into_raw(buffer),
+        data: buffer_ptr as *mut u8,
+        total_size: size,
+        decoded,
+    };
+    (rw, rd)
+}
 
 // A intermediate object acting as source for ReaderWrapper and FluxWrapper.
 // It wrapper a Read object (a decoder) and decode in a internal buffer.
 // It allow implementation of Reader and Flux.
 pub struct SeekableDecoder {
-    buffer: Arc<Vec<u8>>,
-    decoded: Arc<(Mutex<usize>, Condvar)>,
+    buffer: SyncVecRd,
 }
 
-fn decode_to_end<T: Read + Send>(mut decoder: T, buffer: SyncVec, chunk_size: usize) -> Result<()> {
+fn decode_to_end<T: Read + Send>(
+    mut decoder: T,
+    buffer: SyncVecWr,
+    chunk_size: usize,
+) -> Result<()> {
     let total_size = buffer.total_size;
     let mut uncompressed = 0;
     //println!("Decompressing to {total_size}");
@@ -72,51 +129,29 @@ fn decode_to_end<T: Read + Send>(mut decoder: T, buffer: SyncVec, chunk_size: us
 
 impl SeekableDecoder {
     pub fn new<T: Read + Send + 'static>(decoder: T, size: Size) -> Self {
-        let buffer = Arc::new(Vec::with_capacity(size.into_usize()));
-        let decoded = Arc::new((Mutex::new(0), Condvar::new()));
-        let us = Self {
-            buffer: Arc::clone(&buffer),
-            decoded: Arc::clone(&decoded),
-        };
-
-        // This create a raw *mut [u8] on the allocated buffer
-        let buffer_ptr = buffer.as_ptr();
-        let ptr = SyncVec {
-            arc_ptr: Arc::into_raw(buffer),
-            data: buffer_ptr as *mut u8,
-            total_size: size.into_usize(),
-            decoded,
-        };
+        let (write_hand, read_hand) = create_sync_vec(size.into_usize());
 
         spawn(move || {
-            decode_to_end(decoder, ptr, 4 * 1024).unwrap();
+            decode_to_end(decoder, write_hand, 4 * 1024).unwrap();
         });
-        us
+        Self { buffer: read_hand }
     }
 
     #[inline]
     pub fn decode_to(&self, end: Offset) {
         let end = end.into_usize();
-        let (lock, cvar) = &*self.decoded;
-        let _decoded = cvar.wait_while(lock.lock().unwrap(), |d| *d < end).unwrap();
+        self.buffer.wait_while(|d: &mut usize| *d < end);
     }
 
     #[inline]
-    pub fn decoded(&self) -> usize {
-        let (lock, _cvar) = &*self.decoded;
-        *lock.lock().unwrap()
-    }
-
     pub fn decoded_slice(&self) -> &[u8] {
-        let size = self.decoded();
-        let ptr = self.buffer.as_ptr();
-        unsafe { std::slice::from_raw_parts(ptr, size) }
+        self.buffer.slice()
     }
 }
 
 impl Source for SeekableDecoder {
     fn size(&self) -> Size {
-        self.buffer.capacity().into()
+        self.buffer.total_size().into()
     }
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize> {
         let end = offset + buf.len();
