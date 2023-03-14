@@ -264,13 +264,16 @@ Content Address
 
 ``contentAddress`` is used to point to a specific blob.
 
-It's size is always between 2 and 4:
-``0b00SS + 2`` is the size of the ``contentAddress``
 A ``contentAddress`` is composed of two parts :
 - The first byte is the ``pack_id`` (The pack in which find the content)
 - The last bytes (1, 2 or 3. Equal to ``0b00SS+1``) are the ``content_id`` (The identifier of the content in the pack)
 
-The ``pack_id`` is the id of the pack in the ``PackInfo`` in the manifest file.
+``0b0PCC`` describes the size of the pack_id:
+- ``P`` is the size of the pack_id.
+  If it is 1, the pack_id is present in the entry.
+  If it is 0, the pack_id is described as a complement byte.
+- ``CC + 1`` is the size of the ``content_id``
+
 
 Unsigned and Signed Integer
 ...........................
