@@ -164,9 +164,7 @@ Field Name    Type               Offset            Description
 indexType     u8                 0                 0
 entrySize     u16                1                 The size of one entry.
 variantCount  u8                 3                 The number of variants in this index.
-keyCount      u8                 4                 The number of key info.
-                                                   (May differs from the number of key
-                                                    as key may be composed of several key info)
+keyCount (N)  u8                 4                 The number of key info.
 keyInfo0                                           The type of the key0
 keyInfo1                                           The type of the key1
 ...                                                ...
@@ -226,13 +224,23 @@ It may be followed by a complement byte, depending of the key type.
 
 If 0bTTTT is :
 
-- 0b1000 : Variant identifier
-- 0b0000 : Padding. The value is ignored but the size is taken into account.
-- 0b0001 : Content address. The size is always 4.
-- 0b0010 : Integer. Signed or not depends of the value of 0bSSSS
-- 0b0100 : char[]
-- 0b0110 : PString
-- 0b0111 : PString + fast lookup
+- 0b0000 : Padding
+- 0b0001 : ContentAddress
+- 0b0010 : Unsigned Integer
+- 0b0011 : Signed Integer
+- 0b0100 : ...
+- 0b0101 : Char[]
+- 0b0110 : ..
+- 0b0111 : ..
+
+- 0b1000 : VariantId
+- 0b1001 : ..
+- 0b1010 : Deported Unsigned Integer
+- 0b1011 : Deported Signed Integer
+- 0b1100 : ..
+- 0b1101 : ..
+- 0b1110 : ..
+- 0b1111 : ..
 
 Variant identifier
 ..................
@@ -256,60 +264,91 @@ Content Address
 
 ``contentAddress`` is used to point to a specific blob.
 
-It's size is always 4.
 A ``contentAddress`` is composed of two parts :
 - The first byte is the ``pack_id`` (The pack in which find the content)
-- The last three bytes are the ``content_id`` (The identifier of the content in the pack)
+- The last bytes (1, 2 or 3. Equal to ``0b00SS+1``) are the ``content_id`` (The identifier of the content in the pack)
 
-The ``pack_id`` is the id of the pack in the ``PackInfo`` in the manifest file.
+``0b0PCC`` describes the size of the pack_id:
+- ``P`` is the size of the pack_id.
+  If it is 1, the pack_id is present in the entry.
+  If it is 0, the pack_id is described as a complement byte.
+- ``CC + 1`` is the size of the ``content_id``
 
-Integer
-.......
+
+Unsigned and Signed Integer
+...........................
 
 Integer may be signed or not.
-The highest bit of 0bSSSS is 1 if signed (0b1SSS) or 0 if not (0b0SSS).
-Integer size must be between 1 and 8 bytes.
-The size of the integer is ``0b0SSS + 1``.
+The keyInfo is ``0bDSSS``.
+- ``SSS + 1`` is the size of the integer.
+- ``D`` tell is a default value is provided.
+
+If ``D`` is 1, the key info is followed by ``SSS + 1`` bytes which are the value of the integer.
+The entry doesn't contain the integer and reader must use the default value as value for the property.
+
 Implementation are free to provide api returning integer using standard size highest
 than what is stored.
 (They can all the time return a u64 or s64. Or they can return a u32 if a u24 is stored).
 
+If the integer is deported ``0b1010``, two complement bytes follow:
+- ``0b00000KKK + 1`` is the size of the key_id in the value store.
+- ``0xXX`` the id of the value store.
 
-Byte array and PString
-......................
+The value is stored in a value store using a ``0b0SSS + `` size.
+
+If ``D`` is 1, the key is followed by ``KKK + 1`` bytes which are the value of the key_id.
+
+
+Char[]
+......
 
 Byte array can be stored (embedded) in the entry or deported in another store.
 As entries in an index must always have the same size, an embedded array must always be the same size.
-
 If the key needs variable array size, the array must be deported.
 
-Embedded bytes use a ``char[]`` (0b0100).
-``0b0SSS + 1``  defined the size of the char (0 size array are impossible).
-If the key data starts with a 10 (``0b10SS``), the key info is followed by a complement
-byte (``0bssssssss``). The size of the array is ``0b00SS<<8 + 0bssssssss + 9`` (maximum size is 1024 bytes)
-The third lower bit of ``0bSXSS`` MUST be 0 and is reserved for future use.
+The keyInfo is ``0bDSSS``.
+- ``SSS``  defined the size of the integer in the entry to indicate store the actual size of the char[].
+- ``D`` tell is a default value is provided.
 
-Deported bytes use a ``PString`` (``0b0110``)
-``0bSSSS + 1`` define the size of the key.
-The key info is followed by a complement byte giving the index of the key store to use.
-The header of the extra store will define the nature of the key (offset or index).
-The size of the key doesn't have to be the same size of the index in the key store.
-A key store may store a lot of keys (and so have big index) and the index may only use the first ones and so have smaller key.
+The actual data of the byte array can be stored in two way:
+- Directly in the entry in a fixed_array. By definition, as entry must have a fixed size,
+  this fixed_array is always the same size in all entries.
+  If the data is smaller than the fixed_array, the fixed_array is filled with 0.
+  If the data is bigger than the fixed_array, the left over part must be put in a variable_array.
+- In a variable_array. The variable array is stored in a ValueStore.
+  The entry store a pointer (a key/id) to the value in the ValueStore.
 
-"Deported bytes" keys may also include a fast lookup (``0b0111``).
-The key info must be parsed the same way than for ``0b0110``.
-The next keyInfo MUST be a ``char[]`` key info.
+A complement byte (``0bKKKZZZZZ``) follows the key info to describe how the data is stored:
+- ``KKK`` is the size of the key_id to the variable_array. If ``KKK`` == ``000``, no variable_array is used.
+- ``ZZZZZ`` is the size of the fixed_array.
 
-The following ``char[]`` is part of the PString.
-This char is the beginning of the PString.
-The full array is composed of ``concat(<embedded char[]> + <data stored in the keystore>)``
-The bytes array stored in the deported store does NOT contains the first byte.
+If we use a variable_array (``KKK`` != ``000``), another complement byte follow giving the index of the key store to use.
+
+The data in the entry is composed:
+- ``SSS`` bytes telling the size of the char[].
+- ``ZZZZZ`` bytes being the first part of the data. May be padded with 0 if size of char[] < ``ZZZZZ``.
+- ``KKK`` byte being the key_id of the variable array (if ``KKK`` != ``000``)
+
+If ``D`` is 1, the key info is followed by ``SSS + ZZZZZ + KKK`` bytes which are the value of the char[] as
+describe above.
+The entry doesn't contain the char[] and reader must use the default value as value for the property.
+
+Unsized char[]
+
+``SSS`` can be zero ``000``. In this case the char[] is unsized. It make sens only in case of :
+- ``KKK`` is zero. In this case, the size of the char[] is always ``ZZZZZ``.
+- The used value store is a indexed value store. In this case, the size of the data is computed as
+  ``ZZZZZ + value_store_offsets[index+1] - value_store_offsets[index]``.
+
+It is not possible to store data smaller than ``ZZZZZ`` without a explicit size.
+
 
 Ref EntryStore [TODO]
 =====================
 
 Overlay EntryStore [TODO]
 =========================
+
 
 Index
 =====
