@@ -3,6 +3,7 @@ mod cluster;
 use crate::bases::*;
 use crate::common::{CheckInfo, ContentInfo, ContentPackHeader, Pack, PackKind};
 use cluster::Cluster;
+use fxhash::FxBuildHasher;
 use lru::LruCache;
 use std::io::Read;
 use std::num::NonZeroUsize;
@@ -13,7 +14,7 @@ pub struct ContentPack {
     header: ContentPackHeader,
     content_infos: ArrayReader<ContentInfo, u32>,
     cluster_ptrs: ArrayReader<SizedOffset, u32>,
-    cluster_cache: Mutex<LruCache<ClusterIdx, Arc<Cluster>>>,
+    cluster_cache: Mutex<LruCache<ClusterIdx, Arc<Cluster>, FxBuildHasher>>,
     reader: Reader,
     check_info: OnceLock<CheckInfo>,
 }
@@ -35,7 +36,10 @@ impl ContentPack {
             header,
             content_infos,
             cluster_ptrs,
-            cluster_cache: Mutex::new(LruCache::new(NonZeroUsize::new(40).unwrap())),
+            cluster_cache: Mutex::new(LruCache::with_hasher(
+                NonZeroUsize::new(40).unwrap(),
+                FxBuildHasher::default(),
+            )),
             reader,
             check_info: OnceLock::new(),
         })
