@@ -21,7 +21,7 @@ use uuid::Uuid;
 pub use self::entry_store::EntryStore;
 pub use self::index::Index;
 pub use self::property_compare::PropertyCompare;
-pub use self::range::{CompareTrait, Range};
+pub use self::range::{CompareTrait, RangeTrait};
 pub use crate::common::{ContentAddress, Value};
 pub use lazy_entry::LazyEntry;
 pub use raw_value::{Array, ArrayIter, Extend, RawValue};

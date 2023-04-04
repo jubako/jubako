@@ -6,7 +6,7 @@ pub trait CompareTrait {
     fn compare_entry(&self, idx: EntryIdx) -> Result<Ordering>;
 }
 
-pub trait Range {
+pub trait RangeTrait {
     fn count(&self) -> EntryCount;
     fn offset(&self) -> EntryIdx;
 
@@ -33,13 +33,13 @@ pub trait Range {
     }
 }
 
-impl Range for EntryRange {
+impl RangeTrait for EntryRange {
     fn count(&self) -> EntryCount {
-        self.count
+        self.size()
     }
 
     fn offset(&self) -> EntryIdx {
-        self.offset
+        self.begin()
     }
 }
 
@@ -122,7 +122,7 @@ mod tests {
     #[test]
     fn test_finder() {
         let builder = mock::Builder {};
-        let range = EntryRange::new(EntryIdx::from(0), EntryCount::from(10));
+        let range = EntryRange::new_from_size(EntryIdx::from(0), EntryCount::from(10));
 
         for i in 0..10 {
             let entry = range.get_entry(&builder, i.into()).unwrap();

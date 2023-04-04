@@ -1,4 +1,4 @@
-use super::{EntryStorage, EntryStore, Range};
+use super::{EntryRange, EntryStorage, EntryStore, RangeTrait};
 use crate::bases::*;
 use crate::common::ContentAddress;
 use std::rc::Rc;
@@ -56,11 +56,11 @@ impl Index {
 
 impl From<&Index> for EntryRange {
     fn from(index: &Index) -> Self {
-        Self::new(index.offset(), index.count())
+        Self::new_from_size(index.offset(), index.count())
     }
 }
 
-impl Range for Index {
+impl RangeTrait for Index {
     fn offset(&self) -> EntryIdx {
         self.header.entry_offset
     }

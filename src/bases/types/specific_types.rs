@@ -154,6 +154,13 @@ macro_rules! impl_add {
             }
         }
 
+        impl std::ops::Sub for $idx_name {
+            type Output = $count_name;
+            fn sub(self, other: $idx_name) -> Self::Output {
+                $count_name::from(self.0 .0 - other.0 .0)
+            }
+        }
+
         impl $idx_name {
             pub fn is_valid(&self, c: $count_name) -> bool {
                 self.0.is_valid(*c)
