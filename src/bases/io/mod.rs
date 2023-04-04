@@ -3,7 +3,7 @@ mod compression;
 mod file;
 
 use crate::bases::types::*;
-use crate::bases::Flux;
+use crate::bases::{Flux, Region};
 pub use buffer::*;
 pub use compression::*;
 pub use file::*;
@@ -14,17 +14,12 @@ pub trait Source: Sync + Send {
     fn size(&self) -> Size;
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()>;
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize>;
-    fn into_memory(
-        self: Arc<Self>,
-        offset: Offset,
-        size: usize,
-    ) -> Result<(Arc<dyn Source>, Offset, End)>;
+    fn into_memory(self: Arc<Self>, region: Region) -> Result<(Arc<dyn Source>, Region)>;
 
     fn into_memory_source(
         self: Arc<Self>,
-        offset: Offset,
-        size: usize,
-    ) -> Result<(Arc<dyn MemorySource>, Offset, End)>;
+        region: Region,
+    ) -> Result<(Arc<dyn MemorySource>, Region)>;
 
     fn read_u8(&self, offset: Offset) -> Result<u8>;
     fn read_u16(&self, offset: Offset) -> Result<u16>;
@@ -39,7 +34,7 @@ pub trait Source: Sync + Send {
 }
 
 pub trait MemorySource: Source {
-    fn get_slice(&self, offset: Offset, end: Offset) -> Result<&[u8]>;
+    fn get_slice(&self, region: Region) -> Result<&[u8]>;
 }
 
 impl fmt::Debug for dyn Source {

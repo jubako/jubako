@@ -104,49 +104,62 @@ impl Source for FileSource {
             Ok(v) => Ok(v),
         }
     }
-    fn into_memory(
-        self: Arc<Self>,
-        offset: Offset,
-        size: usize,
-    ) -> Result<(Arc<dyn Source>, Offset, End)> {
-        if size < 1024 {
+    fn into_memory(self: Arc<Self>, region: Region) -> Result<(Arc<dyn Source>, Region)> {
+        if region.size().into_u64() < 1024 {
             let mut f = self.lock().unwrap();
-            let mut buf = Vec::with_capacity(size);
+            let mut buf = Vec::with_capacity(region.size().into_usize());
             let mut uninit: BorrowedBuf = buf.spare_capacity_mut().into();
-            f.seek(SeekFrom::Start(offset.into_u64()))?;
+            f.seek(SeekFrom::Start(region.begin().into_u64()))?;
             f.read_buf_exact(uninit.unfilled())?;
             unsafe {
-                buf.set_len(size);
+                buf.set_len(region.size().into_usize());
             }
-            Ok((Arc::new(buf), Offset::zero(), End::None))
+            Ok((
+                Arc::new(buf),
+                Region::new_from_size(Offset::zero(), region.size()),
+            ))
         } else {
             let mut mmap_options = MmapOptions::new();
-            mmap_options.offset(offset.into_u64()).len(size).populate();
+            mmap_options
+                .offset(region.begin().into_u64())
+                .len(region.size().into_usize())
+                .populate();
             let mmap = unsafe { mmap_options.map(&self.lock().unwrap().deref())? };
-            Ok((Arc::new(mmap), Offset::zero(), End::None))
+            Ok((
+                Arc::new(mmap),
+                Region::new_from_size(Offset::zero(), region.size()),
+            ))
         }
     }
 
     fn into_memory_source(
         self: Arc<Self>,
-        offset: Offset,
-        size: usize,
-    ) -> Result<(Arc<dyn MemorySource>, Offset, End)> {
-        if size < 1024 {
+        region: Region,
+    ) -> Result<(Arc<dyn MemorySource>, Region)> {
+        if region.size().into_u64() < 1024 {
             let mut f = self.lock().unwrap();
-            let mut buf = Vec::with_capacity(size);
+            let mut buf = Vec::with_capacity(region.size().into_usize());
             let mut uninit: BorrowedBuf = buf.spare_capacity_mut().into();
-            f.seek(SeekFrom::Start(offset.into_u64()))?;
+            f.seek(SeekFrom::Start(region.begin().into_u64()))?;
             f.read_buf_exact(uninit.unfilled())?;
             unsafe {
-                buf.set_len(size);
+                buf.set_len(region.size().into_usize());
             }
-            Ok((Arc::new(buf), Offset::zero(), End::None))
+            Ok((
+                Arc::new(buf),
+                Region::new_from_size(Offset::zero(), region.size()),
+            ))
         } else {
             let mut mmap_options = MmapOptions::new();
-            mmap_options.offset(offset.into_u64()).len(size).populate();
+            mmap_options
+                .offset(region.begin().into_u64())
+                .len(region.size().into_usize())
+                .populate();
             let mmap = unsafe { mmap_options.map(&self.lock().unwrap().deref())? };
-            Ok((Arc::new(mmap), Offset::zero(), End::None))
+            Ok((
+                Arc::new(mmap),
+                Region::new_from_size(Offset::zero(), region.size()),
+            ))
         }
     }
 

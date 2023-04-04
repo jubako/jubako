@@ -169,11 +169,21 @@ macro_rules! impl_add {
     };
 }
 
+macro_rules! def_type {
+    ( Id, $base:ty, $idx_name:ident, $count_name:ident ) => {
+        #[derive(PartialEq, Eq, Copy, Clone, Hash, Default)]
+        pub struct $idx_name(pub Id<$base>);
+    };
+    ( Idx, $base:ty, $idx_name:ident, $count_name:ident ) => {
+        #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Default)]
+        pub struct $idx_name(pub Idx<$base>);
+    };
+}
+
 macro_rules! specific {
     ( $base: ty, $idx_name:ident($inner_idx:ident), $count_name:ident, $base_name: expr ) => {
         // Declare our Index
-        #[derive(PartialEq, Eq, Copy, Clone, Hash, Default)]
-        pub struct $idx_name(pub $inner_idx<$base>);
+        def_type! {$inner_idx, $base, $idx_name, $count_name}
 
         impl $idx_name {
             to_usize!($base);

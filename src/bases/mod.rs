@@ -23,6 +23,34 @@ use typenum::Unsigned;
 pub use types::*;
 pub use write::*;
 
+pub type Region = Range<Offset>;
+
+impl Region {
+    #[inline]
+    pub fn new_to_end(begin: Offset, end: End, size: Size) -> Self {
+        let end = match end {
+            End::None => size.into(),
+            End::Offset(o) => o,
+            End::Size(s) => s.into(),
+        };
+        Self::new(begin, end)
+    }
+
+    /// Relative cut.
+    /// offset and end are relative to the current region
+    #[inline]
+    pub fn cut_rel(&self, offset: Offset, end: End) -> Self {
+        let begin = self.begin() + offset;
+        let end = match end {
+            End::None => self.end(),
+            End::Offset(o) => self.begin() + o,
+            End::Size(s) => begin + s,
+        };
+        debug_assert!(end <= self.end());
+        Self::new(begin, end)
+    }
+}
+
 pub trait SizedProducable: Producable {
     type Size;
 }

@@ -7,66 +7,57 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub struct Stream {
     source: Arc<dyn Source>,
-    origin: Offset,
-    end: Offset,
+    region: Region,
     offset: Offset,
 }
 
 impl Stream {
     pub fn new<T: Source + 'static + Sync>(source: T, end: End) -> Self {
-        let end = match end {
-            End::None => source.size().into(),
-            End::Offset(o) => o,
-            End::Size(s) => s.into(),
-        };
+        let region = Region::new_to_end(Offset::zero(), end, source.size());
         Self {
             source: Arc::new(source),
-            origin: Offset::zero(),
+            region,
             offset: Offset::zero(),
-            end,
         }
     }
 
-    pub fn new_from_parts(
-        source: Arc<dyn Source>,
-        origin: Offset,
-        end: Offset,
-        offset: Offset,
-    ) -> Self {
+    pub fn new_from_parts(source: Arc<dyn Source>, region: Region, offset: Offset) -> Self {
         Self {
             source,
-            origin,
-            end,
+            region,
             offset,
         }
     }
 
     pub fn as_flux(&self) -> Flux {
-        Flux::new_from_parts(&self.source, self.origin, self.end, self.offset)
+        Flux::new_from_parts(&self.source, self.region, self.offset)
     }
 
     pub fn tell(&self) -> Offset {
-        (self.offset - self.origin).into()
+        (self.offset - self.region.begin()).into()
     }
     pub fn size(&self) -> Size {
-        self.end - self.origin
+        self.region.size()
     }
     pub fn seek(&mut self, pos: Offset) {
-        self.offset = self.origin + pos;
-        assert!(self.offset <= self.end);
+        self.offset = self.region.begin() + pos;
+        assert!(self.offset <= self.region.end());
     }
     pub fn reset(&mut self) {
         self.seek(Offset::zero())
     }
     pub fn skip(&mut self, size: Size) -> Result<()> {
         let new_offset = self.offset + size;
-        if new_offset <= self.end {
+        if new_offset <= self.region.end() {
             self.offset = new_offset;
             Ok(())
         } else {
             Err(format_error!(&format!(
                 "Cannot skip at offset {} ({}+{}) after end of stream ({}).",
-                new_offset, self.offset, size, self.end
+                new_offset,
+                self.offset,
+                size,
+                self.region.end()
             )))
         }
     }
@@ -117,7 +108,7 @@ impl Stream {
 
 impl Read for Stream {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let max_len = std::cmp::min(buf.len(), (self.end - self.offset).into_usize());
+        let max_len = std::cmp::min(buf.len(), (self.region.end() - self.offset).into_usize());
         let buf = &mut buf[..max_len];
         match self.source.read(self.offset, buf) {
             Ok(s) => {

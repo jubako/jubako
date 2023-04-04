@@ -1,56 +1,37 @@
 use super::flux::*;
 use super::reader::*;
 use super::types::*;
-use super::Source;
+use super::{Region, Source};
 use std::sync::Arc;
 
 // A wrapper around a source. Allowing access only on a region of the source
 #[derive(Debug, Copy, Clone)]
 pub struct SubReader<'s> {
     source: &'s Arc<dyn Source>,
-    origin: Offset,
-    end: Offset,
+    region: Region,
 }
 
 impl<'s> SubReader<'s> {
     pub fn new_from_arc(source: &'s Arc<dyn Source>, end: End) -> Self {
-        let end = match end {
-            End::None => source.size().into(),
-            End::Offset(o) => o,
-            End::Size(s) => s.into(),
-        };
-        Self {
-            source,
-            origin: Offset::zero(),
-            end,
-        }
+        let region = Region::new_to_end(Offset::zero(), end, source.size());
+        Self { source, region }
     }
 
-    pub fn new_from_parts(source: &'s Arc<dyn Source>, origin: Offset, end: Offset) -> Self {
-        Self {
-            source,
-            origin,
-            end,
-        }
+    pub fn new_from_parts(source: &'s Arc<dyn Source>, region: Region) -> Self {
+        Self { source, region }
     }
 
     pub fn to_owned(self) -> Reader {
-        Reader::new_from_parts(Arc::clone(self.source), self.origin, self.end)
+        Reader::new_from_parts(Arc::clone(self.source), self.region)
     }
 
     pub fn size(&self) -> Size {
-        self.end - self.origin
+        self.region.size()
     }
 
     pub fn create_flux(&self, offset: Offset, end: End) -> Flux<'s> {
-        let origin = self.origin + offset;
-        let end = match end {
-            End::None => self.end,
-            End::Offset(o) => self.origin + o,
-            End::Size(s) => origin + s,
-        };
-        debug_assert!(end <= self.end);
-        Flux::new_from_parts(self.source, origin, end, origin)
+        let region = self.region.cut_rel(offset, end);
+        Flux::new_from_parts(self.source, region, region.begin())
     }
     pub fn create_flux_for(&self, size_offset: SizedOffset) -> Flux<'s> {
         self.create_flux(size_offset.offset, End::Size(size_offset.size))
@@ -65,35 +46,17 @@ impl<'s> SubReader<'s> {
         self.create_flux(Offset::zero(), End::None)
     }
     pub fn create_sub_reader(&self, offset: Offset, end: End) -> SubReader<'s> {
-        let origin = self.origin + offset;
-        let end = match end {
-            End::None => self.end,
-            End::Offset(o) => self.origin + o,
-            End::Size(s) => origin + s,
-        };
-        debug_assert!(end <= self.end);
+        let region = self.region.cut_rel(offset, end);
         SubReader {
             source: self.source,
-            origin,
-            end,
+            region,
         }
     }
 
     pub fn create_sub_memory_reader(&self, offset: Offset, end: End) -> Result<Reader> {
-        let origin = self.origin + offset;
-        let size = match end {
-            End::None => self.end - origin,
-            End::Offset(o) => o - offset,
-            End::Size(s) => s,
-        };
-        let (source, origin, end) =
-            Arc::clone(self.source).into_memory(origin, size.into_usize())?;
-        let end = match end {
-            End::None => source.size().into(),
-            End::Offset(o) => origin + o,
-            End::Size(s) => origin + s,
-        };
-        Ok(Reader::new_from_parts(source, origin, end))
+        let region = self.region.cut_rel(offset, end);
+        let (source, region) = Arc::clone(self.source).into_memory(region)?;
+        Ok(Reader::new_from_parts(source, region))
     }
 
     /// Get a slice from the reader.
@@ -110,34 +73,34 @@ impl<'s> SubReader<'s> {
     }*/
 
     pub fn read_u8(&self, offset: Offset) -> Result<u8> {
-        self.source.read_u8(self.origin + offset)
+        self.source.read_u8(self.region.begin() + offset)
     }
     pub fn read_u16(&self, offset: Offset) -> Result<u16> {
-        self.source.read_u16(self.origin + offset)
+        self.source.read_u16(self.region.begin() + offset)
     }
     pub fn read_u32(&self, offset: Offset) -> Result<u32> {
-        self.source.read_u32(self.origin + offset)
+        self.source.read_u32(self.region.begin() + offset)
     }
     pub fn read_u64(&self, offset: Offset) -> Result<u64> {
-        self.source.read_u64(self.origin + offset)
+        self.source.read_u64(self.region.begin() + offset)
     }
     pub fn read_usized(&self, offset: Offset, size: ByteSize) -> Result<u64> {
-        self.source.read_usized(self.origin + offset, size)
+        self.source.read_usized(self.region.begin() + offset, size)
     }
 
     pub fn read_i8(&self, offset: Offset) -> Result<i8> {
-        self.source.read_i8(self.origin + offset)
+        self.source.read_i8(self.region.begin() + offset)
     }
     pub fn read_i16(&self, offset: Offset) -> Result<i16> {
-        self.source.read_i16(self.origin + offset)
+        self.source.read_i16(self.region.begin() + offset)
     }
     pub fn read_i32(&self, offset: Offset) -> Result<i32> {
-        self.source.read_i32(self.origin + offset)
+        self.source.read_i32(self.region.begin() + offset)
     }
     pub fn read_i64(&self, offset: Offset) -> Result<i64> {
-        self.source.read_i64(self.origin + offset)
+        self.source.read_i64(self.region.begin() + offset)
     }
     pub fn read_isized(&self, offset: Offset, size: ByteSize) -> Result<i64> {
-        self.source.read_isized(self.origin + offset, size)
+        self.source.read_isized(self.region.begin() + offset, size)
     }
 }
