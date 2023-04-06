@@ -6,6 +6,7 @@
 #![feature(slice_ptr_len)]
 #![feature(ptr_as_uninit)]
 #![feature(vec_into_raw_parts)]
+#![feature(is_sorted)]
 
 #[macro_use]
 mod bases;
@@ -16,8 +17,8 @@ pub mod tools;
 
 pub use crate::bases::{
     Bound, ContentIdx, End, EntryCount, EntryIdx, EntryRange, EntryStoreIdx, ErrorKind, FreeData31,
-    FreeData40, FreeData63, Generator, MemoryReader, Offset, PackId, PropertyCount, PropertyIdx,
-    Reader, Result, Size, ValueIdx, VariantIdx, Vow, Word,
+    FreeData40, FreeData63, MemoryReader, Offset, PackId, PropertyCount, PropertyIdx, Reader,
+    Result, Size, ValueIdx, VariantIdx, Vow, Word,
 };
 pub use crate::common::{CompressionType, ContentAddress, Value};
 pub use crate::tools::concat;

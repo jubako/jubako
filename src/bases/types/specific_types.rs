@@ -277,6 +277,13 @@ macro_rules! specific {
             }
         }
 
+        impl std::ops::Div<$base> for $count_name {
+            type Output = Self;
+            fn div(self, div: $base) -> Self {
+                $count_name::from(self.0 .0 / div)
+            }
+        }
+
         impl std::ops::Deref for $count_name {
             type Target = Count<$base>;
             fn deref(&self) -> &Self::Target {

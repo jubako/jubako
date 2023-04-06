@@ -3,6 +3,7 @@ use crate::bases::*;
 use std::cmp::Ordering;
 
 pub trait CompareTrait {
+    fn ordered(&self) -> bool;
     fn compare_entry(&self, idx: EntryIdx) -> Result<Ordering>;
 }
 
@@ -23,13 +24,46 @@ pub trait RangeTrait {
     }
 
     fn find<Comparator: CompareTrait>(&self, comparator: &Comparator) -> Result<Option<EntryIdx>> {
-        for idx in self.count() {
-            let cmp = comparator.compare_entry(self.offset() + idx)?;
-            if cmp.is_eq() {
-                return Ok(Some(idx));
+        if comparator.ordered() {
+            // INVARIANTS:
+            // - 0 <= left <= left + size = right <= self.count()
+            // - comparator returns Less for everything in self[..left]
+            // - comparator returns Greater for everything in self[right..]
+            let mut size = self.count();
+            let mut left = EntryIdx::from(0);
+            let mut right = left + size;
+            while left < right {
+                let mid = left + size / 2;
+
+                // SAFETY: the while condition means `size` is strictly positive, so
+                // `size/2 < size`. Thus `left + size/2 < left + size`, which
+                // coupled with the `left + size <= self.len()` invariant means
+                // we have `left + size/2 < self.len()`, and this is in-bounds.
+                let cmp = comparator.compare_entry(self.offset() + mid)?;
+
+                // The reason why we use if/else control flow rather than match
+                // is because match reorders comparison operations, which is perf sensitive.
+                // This is x86 asm for u8: https://rust.godbolt.org/z/8Y8Pra.
+                if cmp == Ordering::Less {
+                    left = mid + EntryCount::from(1);
+                } else if cmp == Ordering::Greater {
+                    right = mid;
+                } else {
+                    return Ok(Some(mid));
+                }
+
+                size = right - left;
             }
+            Ok(None)
+        } else {
+            for idx in self.count() {
+                let cmp = comparator.compare_entry(self.offset() + idx)?;
+                if cmp.is_eq() {
+                    return Ok(Some(idx));
+                }
+            }
+            Ok(None)
         }
-        Ok(None)
     }
 }
 
@@ -79,11 +113,12 @@ mod tests {
 
         pub struct EntryCompare {
             reference: u32,
+            ordered: bool,
         }
 
         impl EntryCompare {
-            pub fn new(reference: u32) -> Self {
-                Self { reference }
+            pub fn new(reference: u32, ordered: bool) -> Self {
+                Self { reference, ordered }
             }
         }
 
@@ -91,6 +126,9 @@ mod tests {
             fn compare_entry(&self, index: EntryIdx) -> Result<Ordering> {
                 // In our mock schema, the value stored in the entry is equal to the index.
                 Ok(index.into_u32().cmp(&self.reference))
+            }
+            fn ordered(&self) -> bool {
+                self.ordered
             }
         }
 
@@ -129,16 +167,40 @@ mod tests {
             let value0 = entry.get_value(0.into()).unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }
+    }
+
+    #[test]
+    fn test_comparator_false() {
+        let builder = mock::Builder {};
+        let range = EntryRange::new_from_size(EntryIdx::from(0), EntryCount::from(10));
 
         for i in 0..10 {
-            let comparator = mock::EntryCompare::new(i);
+            let comparator = mock::EntryCompare::new(i, false);
             let idx = range.find(&comparator).unwrap().unwrap();
             let entry = range.get_entry(&builder, idx).unwrap();
             let value0 = entry.get_value(0.into()).unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }
 
-        let comparator = mock::EntryCompare::new(10);
+        let comparator = mock::EntryCompare::new(10, false);
+        let result = range.find(&comparator).unwrap();
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_comparator_true() {
+        let builder = mock::Builder {};
+        let range = EntryRange::new_from_size(EntryIdx::from(0), EntryCount::from(10));
+
+        for i in 0..10 {
+            let comparator = mock::EntryCompare::new(i, true);
+            let idx = range.find(&comparator).unwrap().unwrap();
+            let entry = range.get_entry(&builder, idx).unwrap();
+            let value0 = entry.get_value(0.into()).unwrap();
+            assert_eq!(value0.as_unsigned(), i as u64);
+        }
+
+        let comparator = mock::EntryCompare::new(10, true);
         let result = range.find(&comparator).unwrap();
         assert_eq!(result, None);
     }

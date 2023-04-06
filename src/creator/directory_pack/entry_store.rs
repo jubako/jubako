@@ -11,6 +11,15 @@ struct EntryCompare<'e, Entry: FullEntryTrait> {
 impl<'e, Entry: FullEntryTrait> EntryCompare<'e, Entry> {
     fn compare(&self, other_entry: &Entry) -> bool {
         other_entry.compare(&mut self.property_ids.iter(), self.ref_entry)
+            != std::cmp::Ordering::Greater
+    }
+}
+
+fn set_entry_idx<Entry: FullEntryTrait>(entries: &mut Vec<Entry>) {
+    let mut idx: EntryIdx = 0.into();
+    for entry in entries {
+        entry.set_idx(idx);
+        idx += 1;
     }
 }
 
@@ -29,10 +38,13 @@ impl<Entry: FullEntryTrait> EntryStore<Entry> {
         }
     }
 
-    pub fn add_entry(&mut self, entry: Entry) -> Bound<EntryIdx> {
+    pub fn add_entry(&mut self, mut entry: Entry) -> Bound<EntryIdx> {
         let entry_idx = entry.get_idx();
         match &self.schema.sort_keys {
-            None => self.entries.push(entry),
+            None => {
+                entry.set_idx(EntryIdx::from(self.entries.len() as u32));
+                self.entries.push(entry);
+            }
             Some(keys) => {
                 let comparator = EntryCompare {
                     ref_entry: &entry,
@@ -40,6 +52,7 @@ impl<Entry: FullEntryTrait> EntryStore<Entry> {
                 };
                 let idx = self.entries.partition_point(|e| comparator.compare(e));
                 self.entries.insert(idx, entry);
+                set_entry_idx(&mut self.entries);
             }
         };
         entry_idx
@@ -61,10 +74,14 @@ impl<Entry: FullEntryTrait> EntryStoreTrait for EntryStore<Entry> {
     }
 
     fn finalize(&mut self) {
-        let mut idx: EntryIdx = 0.into();
-        for entry in &mut self.entries {
-            entry.set_idx(idx);
-            idx += 1;
+        set_entry_idx(&mut self.entries);
+        if let Some(keys) = &self.schema.sort_keys {
+            let compare = |a: &Entry, b: &Entry| a.compare(&mut keys.iter(), b);
+            let compare_opt = |a: &Entry, b: &Entry| Some(a.compare(&mut keys.iter(), b));
+            while !self.entries.is_sorted_by(compare_opt) {
+                self.entries.sort_by(compare);
+                set_entry_idx(&mut self.entries);
+            }
         }
 
         for entry in &self.entries {

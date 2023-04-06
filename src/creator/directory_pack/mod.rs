@@ -14,7 +14,7 @@ use std::cmp;
 use value_store::ValueStore;
 pub use value_store::ValueStoreKind;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Value {
     Content(ContentAddress),
     Unsigned(Word<u64>),
@@ -67,7 +67,11 @@ pub trait EntryTrait {
 }
 
 pub trait FullEntryTrait: EntryTrait {
-    fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PropertyIdx>, other: &Self) -> bool;
+    fn compare(
+        &self,
+        sort_keys: &mut dyn Iterator<Item = &PropertyIdx>,
+        other: &Self,
+    ) -> std::cmp::Ordering;
 }
 
 struct EntryIter<'e> {
@@ -205,8 +209,17 @@ impl BasicEntry {
         variant_id: Option<VariantIdx>,
         values: Vec<common::Value>,
     ) -> Self {
+        Self::new_from_schema_idx(schema, Default::default(), variant_id, values)
+    }
+
+    pub fn new_from_schema_idx(
+        schema: &schema::Schema,
+        idx: Vow<EntryIdx>,
+        variant_id: Option<VariantIdx>,
+        values: Vec<common::Value>,
+    ) -> Self {
         let value_transformer = ValueTransformer::new(schema, variant_id, values);
-        Self::new(variant_id, value_transformer.collect())
+        Self::new_idx(variant_id, value_transformer.collect(), idx)
     }
 
     pub fn new(variant_id: Option<VariantIdx>, values: Vec<Value>) -> Self {
@@ -214,6 +227,14 @@ impl BasicEntry {
             variant_id,
             values,
             idx: Default::default(),
+        }
+    }
+
+    pub fn new_idx(variant_id: Option<VariantIdx>, values: Vec<Value>, idx: Vow<EntryIdx>) -> Self {
+        Self {
+            variant_id,
+            values,
+            idx,
         }
     }
 }
@@ -262,20 +283,20 @@ impl FullEntryTrait for BasicEntry {
         &self,
         sort_keys: &mut dyn Iterator<Item = &PropertyIdx>,
         other: &BasicEntry,
-    ) -> bool {
+    ) -> cmp::Ordering {
         for &property_id in sort_keys {
             let self_value = self.value(property_id);
             let other_value = other.value(property_id);
             match self_value.partial_cmp(other_value) {
-                None => return false,
+                None => return cmp::Ordering::Greater,
                 Some(c) => match c {
-                    cmp::Ordering::Less => return true,
-                    cmp::Ordering::Greater => return false,
+                    cmp::Ordering::Less => return cmp::Ordering::Less,
+                    cmp::Ordering::Greater => return cmp::Ordering::Greater,
                     cmp::Ordering::Equal => continue,
                 },
             }
         }
-        false
+        cmp::Ordering::Greater
     }
 }
 
@@ -283,7 +304,11 @@ impl<T> FullEntryTrait for Box<T>
 where
     T: FullEntryTrait,
 {
-    fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PropertyIdx>, other: &Self) -> bool {
+    fn compare(
+        &self,
+        sort_keys: &mut dyn Iterator<Item = &PropertyIdx>,
+        other: &Self,
+    ) -> cmp::Ordering {
         T::compare(self, sort_keys, other)
     }
 }

@@ -39,6 +39,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 schema::Property::new_uint(), //
             ]),
         ],
+        None,
     );
 
     // The store for our entries.

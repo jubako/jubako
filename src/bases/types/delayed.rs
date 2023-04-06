@@ -45,7 +45,6 @@ impl<S: Copy + 'static + std::fmt::Debug> Vow<S> {
     }
 
     pub fn fulfil(&self, value: S) {
-        //        println!("Fulfil vow with {value:?}");
         self.0.set(value);
     }
 
@@ -56,14 +55,6 @@ impl<S: Copy + 'static + std::fmt::Debug> Vow<S> {
     pub fn bind(&self) -> Bound<S> {
         Bound(Rc::clone(&self.0))
     }
-
-    /*pub fn bind(&self) -> Bound<S>
-    where
-        S: Into<V>,
-        V: Copy,
-    {
-        Bound(Rc::clone(&self.0) as Rc<dyn MyCell<V>>)
-    }*/
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -78,94 +69,26 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct Generator<S: Copy, V>(Rc<Cell<S>>, fn(V) -> V);
+pub struct Word<T: Copy>(Box<dyn Fn() -> T>);
 
-impl<S, V> From<(Bound<S>, fn(V) -> V)> for Generator<S, V>
+impl<T> std::fmt::Debug for Word<T>
 where
-    S: Copy,
-{
-    fn from(other: (Bound<S>, fn(V) -> V)) -> Self {
-        let (bound, func) = other;
-        Self(Rc::clone(&bound.0), func)
-    }
-}
-
-impl<T, U> MyCell<T> for (Cell<U>, fn(U) -> U)
-where
-    U: Copy + Into<T>,
-{
-    fn get(&self) -> T {
-        let (cell, func) = self;
-        func(Cell::get(cell)).into()
-    }
-}
-
-#[derive(Clone)]
-pub struct DynBound<V: Copy>(Rc<dyn MyCell<V>>, fn(V) -> V);
-
-impl<V: Copy> DynBound<V> {
-    pub fn get(&self) -> V {
-        self.1(self.0.as_ref().get())
-    }
-}
-
-impl<V> std::fmt::Debug for DynBound<V>
-where
-    V: Copy + std::fmt::Debug,
+    T: Copy + std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("DynBound").field(&self.get()).finish()
+        f.debug_tuple("Word").field(&self.get()).finish()
     }
-}
-
-impl<V> PartialEq for DynBound<V>
-where
-    V: Copy + std::cmp::PartialEq,
-{
-    fn eq(&self, other: &DynBound<V>) -> bool {
-        self.get() == other.get()
-    }
-}
-
-impl<S, V> From<Bound<S>> for DynBound<V>
-where
-    S: Copy + Into<V> + 'static,
-    V: Copy,
-{
-    fn from(other: Bound<S>) -> DynBound<V> {
-        DynBound(other.0 as Rc<dyn MyCell<V>>, std::convert::identity)
-    }
-}
-
-impl<S, V> From<Generator<S, V>> for DynBound<V>
-where
-    S: Copy + Into<V> + 'static,
-    V: Copy,
-{
-    fn from(other: Generator<S, V>) -> DynBound<V> {
-        DynBound(other.0 as Rc<dyn MyCell<V>>, other.1)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Word<T: Copy> {
-    Now(T),
-    Later(DynBound<T>),
 }
 
 impl<T: Copy> Word<T> {
     pub fn get(&self) -> T {
-        match self {
-            Self::Now(v) => *v,
-            Self::Later(b) => b.get(),
-        }
+        self.0()
     }
 }
 
-impl<T: Copy> From<T> for Word<T> {
+impl<T: Copy + 'static> From<T> for Word<T> {
     fn from(v: T) -> Self {
-        Self::Now(v)
+        Self(Box::new(move || v))
     }
 }
 
@@ -175,17 +98,25 @@ where
     V: Copy,
 {
     fn from(b: Bound<S>) -> Self {
-        Self::Later(b.into())
+        Self(Box::new(move || b.get().into()))
     }
 }
 
-impl<S, V> From<Generator<S, V>> for Word<V>
+impl<V> From<Box<dyn Fn() -> V>> for Word<V>
 where
-    S: Copy + Into<V> + 'static,
     V: Copy,
 {
-    fn from(my_cell: Generator<S, V>) -> Self {
-        Self::Later(my_cell.into())
+    fn from(f: Box<dyn Fn() -> V>) -> Self {
+        Self(f)
+    }
+}
+
+impl<V> From<fn() -> V> for Word<V>
+where
+    V: Copy + 'static,
+{
+    fn from(f: fn() -> V) -> Self {
+        Self(Box::new(f))
     }
 }
 

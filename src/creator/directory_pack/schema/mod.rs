@@ -16,11 +16,15 @@ pub struct Schema {
 }
 
 impl Schema {
-    pub fn new(common: CommonProperties, variants: Vec<VariantProperties>) -> Self {
+    pub fn new(
+        common: CommonProperties,
+        variants: Vec<VariantProperties>,
+        sort_keys: Option<Vec<PropertyIdx>>,
+    ) -> Self {
         Self {
             common,
             variants: variants.into_iter().map(Properties::from).collect(),
-            sort_keys: None,
+            sort_keys,
         }
     }
 
