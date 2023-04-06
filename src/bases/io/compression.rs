@@ -297,6 +297,11 @@ impl MemorySource for SeekableDecoder {
         self.decode_to(region.end());
         Ok(&self.decoded_slice()[region.begin().into_usize()..region.end().into_usize()])
     }
+
+    unsafe fn get_slice_unchecked(&self, region: Region) -> Result<&[u8]> {
+        debug_assert!(region.end().is_valid(self.size()));
+        Ok(&self.decoded_slice()[region.begin().into_usize()..region.end().into_usize()])
+    }
 }
 
 /*

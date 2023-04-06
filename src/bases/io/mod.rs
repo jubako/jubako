@@ -35,6 +35,7 @@ pub trait Source: Sync + Send {
 
 pub trait MemorySource: Source {
     fn get_slice(&self, region: Region) -> Result<&[u8]>;
+    unsafe fn get_slice_unchecked(&self, region: Region) -> Result<&[u8]>;
 }
 
 impl fmt::Debug for dyn Source {
