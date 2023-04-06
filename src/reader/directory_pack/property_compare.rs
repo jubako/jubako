@@ -8,6 +8,7 @@ pub struct PropertyCompare<'builder> {
     builder: &'builder AnyBuilder,
     property_ids: Box<[PropertyIdx]>,
     values: Box<[Value]>,
+    ordered: bool,
 }
 
 impl<'builder> PropertyCompare<'builder> {
@@ -21,6 +22,7 @@ impl<'builder> PropertyCompare<'builder> {
             builder,
             property_ids: property_ids.into(),
             values: values.into(),
+            ordered: false,
         }
     }
 }
@@ -35,5 +37,9 @@ impl CompareTrait for PropertyCompare<'_> {
             }
         }
         Ok(Ordering::Equal)
+    }
+
+    fn ordered(&self) -> bool {
+        self.ordered
     }
 }
