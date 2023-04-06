@@ -67,7 +67,11 @@ pub trait EntryTrait {
 }
 
 pub trait FullEntryTrait: EntryTrait {
-    fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PropertyIdx>, other: &Self) -> bool;
+    fn compare(
+        &self,
+        sort_keys: &mut dyn Iterator<Item = &PropertyIdx>,
+        other: &Self,
+    ) -> std::cmp::Ordering;
 }
 
 struct EntryIter<'e> {
@@ -262,20 +266,20 @@ impl FullEntryTrait for BasicEntry {
         &self,
         sort_keys: &mut dyn Iterator<Item = &PropertyIdx>,
         other: &BasicEntry,
-    ) -> bool {
+    ) -> cmp::Ordering {
         for &property_id in sort_keys {
             let self_value = self.value(property_id);
             let other_value = other.value(property_id);
             match self_value.partial_cmp(other_value) {
-                None => return false,
+                None => return cmp::Ordering::Greater,
                 Some(c) => match c {
-                    cmp::Ordering::Less => return true,
-                    cmp::Ordering::Greater => return false,
+                    cmp::Ordering::Less => return cmp::Ordering::Less,
+                    cmp::Ordering::Greater => return cmp::Ordering::Greater,
                     cmp::Ordering::Equal => continue,
                 },
             }
         }
-        false
+        cmp::Ordering::Greater
     }
 }
 
@@ -283,7 +287,11 @@ impl<T> FullEntryTrait for Box<T>
 where
     T: FullEntryTrait,
 {
-    fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PropertyIdx>, other: &Self) -> bool {
+    fn compare(
+        &self,
+        sort_keys: &mut dyn Iterator<Item = &PropertyIdx>,
+        other: &Self,
+    ) -> cmp::Ordering {
         T::compare(self, sort_keys, other)
     }
 }

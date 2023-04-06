@@ -91,7 +91,8 @@ test_suite! {
                 schema::Property::new_content_address(),
                 schema::Property::new_uint()
             ]),
-            vec!()
+            vec!(),
+            None
         );
 
         let mut entry_store = Box::new(creator::EntryStore::new(entry_def));

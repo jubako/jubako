@@ -6,6 +6,7 @@
 #![feature(slice_ptr_len)]
 #![feature(ptr_as_uninit)]
 #![feature(vec_into_raw_parts)]
+#![feature(is_sorted)]
 
 #[macro_use]
 mod bases;
