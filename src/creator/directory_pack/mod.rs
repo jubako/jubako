@@ -14,7 +14,7 @@ use std::cmp;
 use value_store::ValueStore;
 pub use value_store::ValueStoreKind;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Value {
     Content(ContentAddress),
     Unsigned(Word<u64>),
