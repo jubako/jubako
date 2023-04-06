@@ -32,7 +32,10 @@ impl MemoryReader {
     /// [TODO] Use a new trait/type for this.
     pub fn get_slice(&self, offset: Offset, end: End) -> Result<&[u8]> {
         let region = self.region.cut_rel(offset, end);
-        self.source.get_slice(region)
+        // We know for sure that our reader in inside the region of our source.
+        // This is also true for SeekableDecoder as it has already called
+        // decode_to before casting itself to a MemorySource
+        unsafe { self.source.get_slice_unchecked(region) }
     }
 
     pub fn read_u8(&self, offset: Offset) -> Result<u8> {
@@ -55,6 +58,6 @@ impl MemoryReader {
 impl TryFrom<Reader> for MemoryReader {
     type Error = Error;
     fn try_from(reader: Reader) -> Result<Self> {
-        reader.into_memory_reader()
+        reader.into_memory_reader(Offset::zero(), End::None)
     }
 }

@@ -1,7 +1,7 @@
 use super::flux::*;
 use super::reader::*;
 use super::types::*;
-use super::{Region, Source};
+use super::{MemoryReader, Region, Source};
 use std::sync::Arc;
 
 // A wrapper around a source. Allowing access only on a region of the source
@@ -52,25 +52,17 @@ impl<'s> SubReader<'s> {
             region,
         }
     }
-
     pub fn create_sub_memory_reader(&self, offset: Offset, end: End) -> Result<Reader> {
         let region = self.region.cut_rel(offset, end);
         let (source, region) = Arc::clone(self.source).into_memory(region)?;
         Ok(Reader::new_from_parts(source, region))
     }
 
-    /// Get a slice from the reader.
-    /// This is usefull only if this is a memory reader, panic if not
-    /// [TODO] Use a new trait/type for this.
-    /*pub fn get_slice(&self, offset: Offset, end: End) -> Result<&[u8]> {
-        let origin = self.origin + offset;
-        let end = match end {
-            End::None => self.end,
-            End::Offset(o) => self.origin + o,
-            End::Size(s) => origin + s,
-        };
-        self.source.get_slice(origin, end)
-    }*/
+    pub fn into_memory_reader(&self, offset: Offset, end: End) -> Result<MemoryReader> {
+        let region = self.region.cut_rel(offset, end);
+        let (source, region) = Arc::clone(self.source).into_memory_source(region)?;
+        Ok(MemoryReader::new_from_parts(source, region))
+    }
 
     pub fn read_u8(&self, offset: Offset) -> Result<u8> {
         self.source.read_u8(self.region.begin() + offset)

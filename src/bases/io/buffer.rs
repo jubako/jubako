@@ -136,4 +136,8 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> MemorySource for T {
         debug_assert!(region.end().into_usize() <= self.as_ref().len());
         Ok(&self.as_ref()[region.begin().into_usize()..region.end().into_usize()])
     }
+    unsafe fn get_slice_unchecked(&self, region: Region) -> Result<&[u8]> {
+        debug_assert!(region.end().into_usize() <= self.as_ref().len());
+        Ok(&self.as_ref()[region.begin().into_usize()..region.end().into_usize()])
+    }
 }
