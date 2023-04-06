@@ -209,8 +209,17 @@ impl BasicEntry {
         variant_id: Option<VariantIdx>,
         values: Vec<common::Value>,
     ) -> Self {
+        Self::new_from_schema_idx(schema, Default::default(), variant_id, values)
+    }
+
+    pub fn new_from_schema_idx(
+        schema: &schema::Schema,
+        idx: Vow<EntryIdx>,
+        variant_id: Option<VariantIdx>,
+        values: Vec<common::Value>,
+    ) -> Self {
         let value_transformer = ValueTransformer::new(schema, variant_id, values);
-        Self::new(variant_id, value_transformer.collect())
+        Self::new_idx(variant_id, value_transformer.collect(), idx)
     }
 
     pub fn new(variant_id: Option<VariantIdx>, values: Vec<Value>) -> Self {
@@ -218,6 +227,14 @@ impl BasicEntry {
             variant_id,
             values,
             idx: Default::default(),
+        }
+    }
+
+    pub fn new_idx(variant_id: Option<VariantIdx>, values: Vec<Value>, idx: Vow<EntryIdx>) -> Self {
+        Self {
+            variant_id,
+            values,
+            idx,
         }
     }
 }
