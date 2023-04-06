@@ -1,3 +1,4 @@
+use super::Region;
 ///! All base traits use to produce structure from raw data.
 use crate::bases::*;
 use std::io::{BorrowedBuf, Read};
@@ -6,8 +7,7 @@ use std::sync::Arc;
 // A wrapper arount someting to implement Flux trait
 pub struct Flux<'s> {
     source: &'s Arc<dyn Source>,
-    origin: Offset,
-    end: Offset,
+    region: Region,
     offset: Offset,
 }
 
@@ -15,8 +15,7 @@ impl<'s> std::fmt::Debug for Flux<'s> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Flux")
             .field("source", self.source)
-            .field("origin", &self.origin)
-            .field("end", &self.end)
+            .field("region", &self.region)
             .field("offset", &self.offset)
             .finish()
     }
@@ -24,45 +23,42 @@ impl<'s> std::fmt::Debug for Flux<'s> {
 
 impl<'s> Flux<'s> {
     pub fn to_owned(&self) -> Stream {
-        Stream::new_from_parts(Arc::clone(self.source), self.origin, self.end, self.offset)
+        Stream::new_from_parts(Arc::clone(self.source), self.region, self.offset)
     }
 
-    pub fn new_from_parts(
-        source: &'s Arc<dyn Source>,
-        origin: Offset,
-        end: Offset,
-        offset: Offset,
-    ) -> Self {
+    pub fn new_from_parts(source: &'s Arc<dyn Source>, region: Region, offset: Offset) -> Self {
         Self {
             source,
-            origin,
-            end,
+            region,
             offset,
         }
     }
 
     pub fn tell(&self) -> Offset {
-        (self.offset - self.origin).into()
+        (self.offset - self.region.begin()).into()
     }
     pub fn size(&self) -> Size {
-        self.end - self.origin
+        self.region.size()
     }
     pub fn seek(&mut self, pos: Offset) {
-        self.offset = self.origin + pos;
-        assert!(self.offset <= self.end);
+        self.offset = self.region.begin() + pos;
+        assert!(self.offset <= self.region.end());
     }
     pub fn reset(&mut self) {
         self.seek(Offset::zero())
     }
     pub fn skip(&mut self, size: Size) -> Result<()> {
         let new_offset = self.offset + size;
-        if new_offset <= self.end {
+        if new_offset <= self.region.end() {
             self.offset = new_offset;
             Ok(())
         } else {
             Err(format_error!(&format!(
                 "Cannot skip at offset {} ({}+{}) after end of flux ({}).",
-                new_offset, self.offset, size, self.end
+                new_offset,
+                self.offset,
+                size,
+                self.region.end()
             )))
         }
     }
@@ -139,7 +135,7 @@ impl<'s> Flux<'s> {
 
 impl<'s> Read for Flux<'s> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let max_len = std::cmp::min(buf.len(), (self.end - self.offset).into_usize());
+        let max_len = std::cmp::min(buf.len(), (self.region.end() - self.offset).into_usize());
         let buf = &mut buf[..max_len];
         match self.source.read(self.offset, buf) {
             Ok(s) => {

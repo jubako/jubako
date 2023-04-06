@@ -175,24 +175,19 @@ impl Source for SeekableDecoder {
         Ok(())
     }
 
-    fn into_memory(
-        self: Arc<Self>,
-        offset: Offset,
-        size: usize,
-    ) -> Result<(Arc<dyn Source>, Offset, End)> {
-        debug_assert!((offset + size).is_valid(self.size()));
-        self.decode_to(offset + size);
-        Ok((self, offset, End::new_size(size as u64)))
+    fn into_memory(self: Arc<Self>, region: Region) -> Result<(Arc<dyn Source>, Region)> {
+        debug_assert!(region.end().is_valid(self.size()));
+        self.decode_to(region.end());
+        Ok((self, region))
     }
 
     fn into_memory_source(
         self: Arc<Self>,
-        offset: Offset,
-        size: usize,
-    ) -> Result<(Arc<dyn MemorySource>, Offset, End)> {
-        debug_assert!((offset + size).is_valid(self.size()));
-        self.decode_to(offset + size);
-        Ok((self, offset, End::new_size(size as u64)))
+        region: Region,
+    ) -> Result<(Arc<dyn MemorySource>, Region)> {
+        debug_assert!(region.end().is_valid(self.size()));
+        self.decode_to(region.end());
+        Ok((self, region))
     }
 
     fn read_u8(&self, offset: Offset) -> Result<u8> {
@@ -297,11 +292,10 @@ impl Source for SeekableDecoder {
 }
 
 impl MemorySource for SeekableDecoder {
-    fn get_slice(&self, offset: Offset, end: Offset) -> Result<&[u8]> {
-        debug_assert!(offset <= end);
-        debug_assert!(end.is_valid(self.size()));
-        self.decode_to(end);
-        Ok(&self.decoded_slice()[offset.into_usize()..end.into_usize()])
+    fn get_slice(&self, region: Region) -> Result<&[u8]> {
+        debug_assert!(region.end().is_valid(self.size()));
+        self.decode_to(region.end());
+        Ok(&self.decoded_slice()[region.begin().into_usize()..region.end().into_usize()])
     }
 }
 

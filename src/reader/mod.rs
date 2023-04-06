@@ -9,7 +9,7 @@ pub use content_pack::ContentPack;
 pub use directory_pack::{builder, layout};
 pub use directory_pack::{
     Array, CompareTrait, ContentAddress, DirectoryPack, EntryStore, EntryTrait, Index,
-    LazyEntry as Entry, PropertyCompare, Range, RawValue, Value, ValueStorage,
+    LazyEntry as Entry, PropertyCompare, RangeTrait as Range, RawValue, Value, ValueStorage,
 };
 pub use manifest_pack::ManifestPack;
 

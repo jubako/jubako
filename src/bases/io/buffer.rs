@@ -27,30 +27,17 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
         Ok(())
     }
 
-    fn into_memory(
-        self: Arc<Self>,
-        offset: Offset,
-        size: usize,
-    ) -> Result<(Arc<dyn Source>, Offset, End)> {
-        debug_assert!(offset.into_usize() + size <= self.as_ref().as_ref().len());
-        Ok((
-            Arc::clone(&(self as Arc<dyn Source>)),
-            offset,
-            End::new_size(size as u64),
-        ))
+    fn into_memory(self: Arc<Self>, region: Region) -> Result<(Arc<dyn Source>, Region)> {
+        debug_assert!(region.end().into_usize() <= self.as_ref().as_ref().len());
+        Ok((Arc::clone(&(self as Arc<dyn Source>)), region))
     }
 
     fn into_memory_source(
         self: Arc<Self>,
-        offset: Offset,
-        size: usize,
-    ) -> Result<(Arc<dyn MemorySource>, Offset, End)> {
-        debug_assert!(offset.into_usize() + size <= self.as_ref().as_ref().len());
-        Ok((
-            Arc::clone(&(self as Arc<dyn MemorySource>)),
-            offset,
-            End::new_size(size as u64),
-        ))
+        region: Region,
+    ) -> Result<(Arc<dyn MemorySource>, Region)> {
+        debug_assert!(region.end().into_usize() <= self.as_ref().as_ref().len());
+        Ok((Arc::clone(&(self as Arc<dyn MemorySource>)), region))
     }
 
     fn read_u8(&self, offset: Offset) -> Result<u8> {
@@ -145,9 +132,8 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
 }
 
 impl<T: AsRef<[u8]> + 'static + Sync + Send> MemorySource for T {
-    fn get_slice(&self, offset: Offset, end: Offset) -> Result<&[u8]> {
-        debug_assert!(offset <= end);
-        debug_assert!(end.into_usize() <= self.as_ref().len());
-        Ok(&self.as_ref()[offset.into_usize()..end.into_usize()])
+    fn get_slice(&self, region: Region) -> Result<&[u8]> {
+        debug_assert!(region.end().into_usize() <= self.as_ref().len());
+        Ok(&self.as_ref()[region.begin().into_usize()..region.end().into_usize()])
     }
 }
