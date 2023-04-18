@@ -49,13 +49,21 @@ impl<Entry: FullEntryTrait> EntryStoreTrait for EntryStore<Entry> {
     }
 
     fn finalize(&mut self) {
+        use std::io::Write;
         set_entry_idx(&mut self.entries);
         if let Some(keys) = &self.schema.sort_keys {
             let compare = |a: &Entry, b: &Entry| a.compare(&mut keys.iter(), b);
             let compare_opt = |a: &Entry, b: &Entry| Some(a.compare(&mut keys.iter(), b));
+            let mut watchdog = 50;
             while !self.entries.is_sorted_by(compare_opt) {
+                print!(".");
+                let _ = std::io::stdout().flush();
                 self.entries.sort_by(compare);
                 set_entry_idx(&mut self.entries);
+                watchdog -= 1;
+                if watchdog == 0 {
+                    panic!("Cannot sort entry store");
+                }
             }
         }
 
