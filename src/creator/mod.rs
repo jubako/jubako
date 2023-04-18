@@ -3,7 +3,7 @@ mod directory_pack;
 mod manifest_pack;
 
 use crate::bases::*;
-pub use crate::bases::{FileSource, Stream};
+pub use crate::bases::{FileSource, Reader};
 use crate::common::CheckKind;
 pub use content_pack::ContentPackCreator;
 pub use directory_pack::{

@@ -18,7 +18,7 @@ pub mod tools;
 pub use crate::bases::{
     Bound, ContentIdx, End, EntryCount, EntryIdx, EntryRange, EntryStoreIdx, ErrorKind, FreeData31,
     FreeData40, FreeData63, MemoryReader, Offset, PackId, PropertyCount, PropertyIdx, Reader,
-    Result, Size, ValueIdx, VariantIdx, Vow, Word,
+    Result, Size, SubReader, ValueIdx, VariantIdx, Vow, Word,
 };
 pub use crate::common::{CompressionType, ContentAddress, Value};
 pub use crate::tools::concat;
