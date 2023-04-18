@@ -39,18 +39,22 @@ impl PartialOrd for Value {
                 _ => None,
             },
             Value::Array {
-                size: _,
+                size,
                 data,
                 value_id: id,
             } => match other {
                 Value::Array {
-                    size: _,
+                    size: other_size,
                     data: other_data,
                     value_id: other_id,
                 } => match data.cmp(other_data) {
                     cmp::Ordering::Less => Some(cmp::Ordering::Less),
                     cmp::Ordering::Greater => Some(cmp::Ordering::Greater),
-                    cmp::Ordering::Equal => Some(id.get().cmp(&other_id.get())),
+                    cmp::Ordering::Equal => match id.get().cmp(&other_id.get()) {
+                        cmp::Ordering::Less => Some(cmp::Ordering::Less),
+                        cmp::Ordering::Greater => Some(cmp::Ordering::Greater),
+                        cmp::Ordering::Equal => Some(size.cmp(other_size)),
+                    },
                 },
                 _ => None,
             },
