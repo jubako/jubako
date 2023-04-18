@@ -323,7 +323,7 @@ struct Index {
     index_key: PropertyIdx,
     name: String,
     count: EntryCount,
-    offset: EntryIdx,
+    offset: Word<EntryIdx>,
 }
 
 impl Index {
@@ -333,7 +333,7 @@ impl Index {
         index_key: PropertyIdx,
         store_id: EntryStoreIdx,
         count: EntryCount,
-        offset: EntryIdx,
+        offset: Word<EntryIdx>,
     ) -> Self {
         Index {
             store_id,
@@ -354,7 +354,7 @@ impl super::private::WritableTell for Index {
     fn write_tail(&mut self, stream: &mut dyn OutStream) -> Result<()> {
         self.store_id.write(stream)?;
         self.count.write(stream)?;
-        self.offset.write(stream)?;
+        self.offset.get().write(stream)?;
         self.extra_data.write(stream)?;
         self.index_key.write(stream)?;
         PString::write_string(self.name.as_ref(), stream)?;

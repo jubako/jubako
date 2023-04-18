@@ -111,7 +111,7 @@ test_suite! {
             0.into(),
             entry_store_idx,
             (entries.len() as u32).into(),
-            0.into());
+            jubako::EntryIdx::from(0).into());
         let pack_info = creator.finalize().unwrap();
         Ok(pack_info)
     }
