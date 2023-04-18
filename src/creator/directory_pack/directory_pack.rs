@@ -84,15 +84,20 @@ impl DirectoryPackCreator {
 
         println!("======= Finalize creation =======");
 
-        println!("----- Write indexes -----");
-        let mut indexes_offsets = vec![];
-        for index in &mut self.indexes {
-            indexes_offsets.push(index.write(&mut file)?);
+        println!("----- Finalize value_stores -----");
+        for value_store in &mut self.value_stores {
+            value_store.borrow_mut().finalize();
         }
 
         println!("----- Finalize entry_stores -----");
         for entry_store in &mut self.entry_stores {
             entry_store.finalize();
+        }
+
+        println!("----- Write indexes -----");
+        let mut indexes_offsets = vec![];
+        for index in &mut self.indexes {
+            indexes_offsets.push(index.write(&mut file)?);
         }
 
         println!("----- Write entry_stores -----");

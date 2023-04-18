@@ -3,18 +3,6 @@ use super::FullEntryTrait;
 use crate::bases::*;
 use crate::creator::private::WritableTell;
 
-struct EntryCompare<'e, Entry: FullEntryTrait> {
-    pub ref_entry: &'e Entry,
-    pub property_ids: &'e Vec<PropertyIdx>,
-}
-
-impl<'e, Entry: FullEntryTrait> EntryCompare<'e, Entry> {
-    fn compare(&self, other_entry: &Entry) -> bool {
-        other_entry.compare(&mut self.property_ids.iter(), self.ref_entry)
-            != std::cmp::Ordering::Greater
-    }
-}
-
 fn set_entry_idx<Entry: FullEntryTrait>(entries: &mut Vec<Entry>) {
     let mut idx: EntryIdx = 0.into();
     for entry in entries {
@@ -40,21 +28,8 @@ impl<Entry: FullEntryTrait> EntryStore<Entry> {
 
     pub fn add_entry(&mut self, mut entry: Entry) -> Bound<EntryIdx> {
         let entry_idx = entry.get_idx();
-        match &self.schema.sort_keys {
-            None => {
-                entry.set_idx(EntryIdx::from(self.entries.len() as u32));
-                self.entries.push(entry);
-            }
-            Some(keys) => {
-                let comparator = EntryCompare {
-                    ref_entry: &entry,
-                    property_ids: keys,
-                };
-                let idx = self.entries.partition_point(|e| comparator.compare(e));
-                self.entries.insert(idx, entry);
-                set_entry_idx(&mut self.entries);
-            }
-        };
+        entry.set_idx(EntryIdx::from(self.entries.len() as u32));
+        self.entries.push(entry);
         entry_idx
     }
 

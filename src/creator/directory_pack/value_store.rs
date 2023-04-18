@@ -18,34 +18,12 @@ impl BaseValueStore {
         }
     }
 
-    fn get_bound_or_insert(&self, data: &[u8]) -> std::result::Result<Bound<u64>, usize> {
-        match self
-            .sorted_indirect
-            .binary_search_by(|entry| self.data[entry.0].as_slice().cmp(data))
-        {
-            Ok(sorted_idx) => Ok(self.sorted_indirect[sorted_idx].1.bind()),
-            Err(insertion_idx) => Err(insertion_idx),
-        }
-    }
-
-    pub fn add_value<F: FnOnce(&mut Self, usize)>(
-        &mut self,
-        data: &[u8],
-        fix_offset: F,
-    ) -> Bound<u64> {
-        match self.get_bound_or_insert(data) {
-            Ok(bound) => bound,
-            Err(insertion_idx) => {
-                self.data.push(data.to_vec());
-                self.size += data.len();
-                let vow = Vow::new(0);
-                let bound = vow.bind();
-                self.sorted_indirect
-                    .insert(insertion_idx, (self.data.len() - 1, vow));
-                fix_offset(self, insertion_idx);
-                bound
-            }
-        }
+    pub fn add_value(&mut self, data: &[u8]) -> Bound<u64> {
+        self.data.push(data.to_vec());
+        let vow = Vow::new(0);
+        let bound = vow.bind();
+        self.sorted_indirect.push((self.data.len() - 1, vow));
+        bound
     }
 }
 
@@ -56,30 +34,30 @@ impl PlainValueStore {
         Self(BaseValueStore::new(idx))
     }
 
-    fn fix_offset(s: &mut BaseValueStore, starting_point: usize) {
-        if starting_point == s.sorted_indirect.len() - 1 {
-            // We are at the end of the array
-            if starting_point != 0 {
-                // We are not at the begining
-                let (idx, vow) = &s.sorted_indirect[starting_point - 1];
-                let offset = vow.get() + s.data[*idx].len() as u64;
-                s.sorted_indirect[starting_point].1.fulfil(offset);
+    pub fn finalize(&mut self) {
+        self.0.sorted_indirect.sort_by_key(|e| &self.0.data[e.0]);
+        let mut offset = 0;
+        let mut last_data_idx: Option<usize> = None;
+        for (idx, vow) in self.0.sorted_indirect.iter_mut() {
+            let data = &self.0.data[*idx];
+            if let Some(i) = last_data_idx {
+                if data == &self.0.data[i] {
+                    // We have a duplicate
+                    *idx = i;
+                    vow.fulfil(offset - (data.len() as u64));
+                    continue;
+                }
             }
-            // If we are at end and beggining, we have only one element, nothing to do
-        } else {
-            // We are not at the end.
-            // The one following us contains the offset to start with
-            let mut offset = s.sorted_indirect[starting_point + 1].1.get();
-            for (idx, vow) in s.sorted_indirect.iter().skip(starting_point) {
-                vow.fulfil(offset);
-                let data = &s.data[*idx];
-                offset += data.len() as u64;
-            }
+            // No duplicate
+            vow.fulfil(offset);
+            offset += data.len() as u64;
+            last_data_idx = Some(*idx);
         }
+        self.0.size = offset.into();
     }
 
     pub fn add_value(&mut self, data: &[u8]) -> Bound<u64> {
-        self.0.add_value(data, Self::fix_offset)
+        self.0.add_value(data)
     }
 
     pub fn size(&self) -> Size {
@@ -97,7 +75,16 @@ impl PlainValueStore {
 
 impl WritableTell for PlainValueStore {
     fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
+        let mut last_data_idx: Option<usize> = None;
         for (idx, _) in &self.0.sorted_indirect {
+            if let Some(i) = last_data_idx {
+                if *idx == i {
+                    // We have a duplicate
+                    // skip
+                    continue;
+                }
+            }
+            last_data_idx = Some(*idx);
             stream.write_data(&self.0.data[*idx])?;
         }
         Ok(())
@@ -127,14 +114,23 @@ impl IndexedValueStore {
         Self(BaseValueStore::new(idx))
     }
 
-    fn fix_offset(s: &mut BaseValueStore, starting_point: usize) {
-        for (idx, (_, vow)) in s.sorted_indirect.iter().enumerate().skip(starting_point) {
+    pub fn finalize(&mut self) {
+        self.0.sorted_indirect.sort_by_key(|e| &self.0.data[e.0]);
+        for (idx, (_, vow)) in self.0.sorted_indirect.iter().enumerate() {
             vow.fulfil(idx as u64);
         }
     }
 
     pub fn add_value(&mut self, data: &[u8]) -> Bound<u64> {
-        self.0.add_value(data, Self::fix_offset)
+        for (idx, vow) in self.0.sorted_indirect.iter() {
+            let existing_data = &self.0.data[*idx];
+            if data == existing_data.as_slice() {
+                // We have found a duplicate
+                return vow.bind();
+            }
+        }
+        self.0.size += data.len();
+        self.0.add_value(data)
     }
 
     pub fn key_size(&self) -> ByteSize {
@@ -219,6 +215,13 @@ impl ValueStore {
         match &self {
             ValueStore::PlainValueStore(s) => s.get_idx(),
             ValueStore::IndexedValueStore(s) => s.get_idx(),
+        }
+    }
+
+    pub(crate) fn finalize(&mut self) {
+        match self {
+            ValueStore::PlainValueStore(s) => s.finalize(),
+            ValueStore::IndexedValueStore(s) => s.finalize(),
         }
     }
 }
