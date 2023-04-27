@@ -29,6 +29,7 @@ lru = "0.8.1"
 memmap2 = "0.5.7"
 pathdiff = "0.2.1"
 spmc = "0.3.0"
+log = "0.4.17"
 
 [dev-dependencies]
 test-case = "1.2.0"

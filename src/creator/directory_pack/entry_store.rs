@@ -3,6 +3,8 @@ use super::FullEntryTrait;
 use crate::bases::*;
 use crate::creator::private::WritableTell;
 
+use log::debug;
+
 fn set_entry_idx<Entry: FullEntryTrait>(entries: &mut Vec<Entry>) {
     let mut idx: EntryIdx = 0.into();
     for entry in entries {
@@ -36,6 +38,10 @@ impl<Entry: FullEntryTrait> EntryStore<Entry> {
     pub fn get_idx(&self) -> EntryStoreIdx {
         self.idx.get()
     }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
 }
 
 pub trait EntryStoreTrait: WritableTell {
@@ -49,15 +55,16 @@ impl<Entry: FullEntryTrait> EntryStoreTrait for EntryStore<Entry> {
     }
 
     fn finalize(&mut self) {
-        use std::io::Write;
         set_entry_idx(&mut self.entries);
         if let Some(keys) = &self.schema.sort_keys {
             let compare = |a: &Entry, b: &Entry| a.compare(&mut keys.iter(), b);
             let compare_opt = |a: &Entry, b: &Entry| Some(a.compare(&mut keys.iter(), b));
             let mut watchdog = 50;
             while !self.entries.is_sorted_by(compare_opt) {
-                print!(".");
-                let _ = std::io::stdout().flush();
+                debug!(".");
+                /*for entry in &self.entries {
+                    println!("- {:?}/{:?}", entry.value(1.into()), entry.value(0.into()));
+                }*/
                 self.entries.sort_by(compare);
                 set_entry_idx(&mut self.entries);
                 watchdog -= 1;
@@ -71,7 +78,7 @@ impl<Entry: FullEntryTrait> EntryStoreTrait for EntryStore<Entry> {
             self.schema.process(entry);
         }
 
-        println!("Schema is {:#?}", self.schema);
+        debug!("Schema is {:#?}", self.schema);
     }
 }
 
@@ -86,7 +93,7 @@ impl<Entry: FullEntryTrait> WritableTell for EntryStore<Entry> {
 
     fn write(&mut self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
         let layout = self.schema.finalize();
-        println!("Layout is {layout:#?}");
+        debug!("Layout is {layout:#?}");
         for entry in &self.entries {
             layout.write_entry(entry, stream)?;
         }
