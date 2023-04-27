@@ -71,7 +71,7 @@ impl DirectoryPackCreator {
         self.indexes.push(index);
     }
 
-    pub fn finalize(mut self) -> Result<PackData> {
+    pub fn finalize(mut self, path: Option<PathBuf>) -> Result<PackData> {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -171,7 +171,10 @@ impl DirectoryPackCreator {
             free_data: FreeData103::clone_from_slice(&[0; 103]),
             reader: FileSource::new(file)?.into(),
             check_info_pos: check_offset,
-            embedded: Embedded::No(self.path),
+            embedded: match path {
+                None => Embedded::Yes,
+                Some(p) => Embedded::No(p),
+            },
         })
     }
 }
