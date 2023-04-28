@@ -2,7 +2,7 @@ use crate::bases::*;
 use crate::common::ContentInfo;
 
 pub struct ClusterCreator {
-    pub index: usize,
+    pub index: ClusterIdx,
     pub data: Vec<Reader>,
     pub offsets: Vec<usize>,
 }
@@ -11,7 +11,7 @@ const CLUSTER_SIZE: Size = Size::new(1024 * 1024 * 4);
 const MAX_BLOBS_PER_CLUSTER: usize = 0xFFF;
 
 impl ClusterCreator {
-    pub fn new(index: usize) -> Self {
+    pub fn new(index: ClusterIdx) -> Self {
         ClusterCreator {
             index,
             data: Vec::with_capacity(MAX_BLOBS_PER_CLUSTER),
@@ -19,7 +19,7 @@ impl ClusterCreator {
         }
     }
 
-    pub fn index(&self) -> usize {
+    pub fn index(&self) -> ClusterIdx {
         self.index
     }
 
@@ -47,9 +47,6 @@ impl ClusterCreator {
         let new_offset = self.offsets.last().unwrap_or(&0) + content.size().into_usize();
         self.data.push(content);
         self.offsets.push(new_offset);
-        Ok(ContentInfo::new(
-            ClusterIdx::from(self.index as u32),
-            BlobIdx::from(idx),
-        ))
+        Ok(ContentInfo::new(self.index, BlobIdx::from(idx)))
     }
 }
