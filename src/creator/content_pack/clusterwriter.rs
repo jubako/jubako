@@ -1,4 +1,5 @@
 use super::cluster::ClusterCreator;
+use super::Progress;
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
 use std::fs::File;
@@ -85,6 +86,7 @@ pub struct ClusterCompressor {
     input: spmc::Receiver<ClusterCreator>,
     output: mpsc::Sender<WriteTask>,
     nb_cluster_in_queue: Arc<(Mutex<usize>, Condvar)>,
+    progress: Arc<dyn Progress>,
 }
 
 impl ClusterCompressor {
@@ -93,12 +95,14 @@ impl ClusterCompressor {
         input: spmc::Receiver<ClusterCreator>,
         output: mpsc::Sender<WriteTask>,
         nb_cluster_in_queue: Arc<(Mutex<usize>, Condvar)>,
+        progress: Arc<dyn Progress>,
     ) -> Self {
         Self {
             compression,
             input,
             output,
             nb_cluster_in_queue,
+            progress,
         }
     }
 
@@ -142,7 +146,7 @@ impl ClusterCompressor {
         mut cluster: ClusterCreator,
         outstream: &mut dyn OutStream,
     ) -> Result<SizedOffset> {
-        println!("Compress cluster {}", cluster.index());
+        self.progress.handle_cluster(cluster.index().into(), true);
         self.write_cluster_data(&mut cluster, outstream)?;
         let tail_offset = outstream.tell();
         self.write_cluster_tail(&mut cluster, tail_offset.into(), outstream)?;
@@ -187,14 +191,16 @@ pub struct ClusterWriter {
     cluster_addresses: Vec<Late<SizedOffset>>,
     file: File,
     input: mpsc::Receiver<WriteTask>,
+    progress: Arc<dyn Progress>,
 }
 
 impl ClusterWriter {
-    pub fn new(file: File, input: mpsc::Receiver<WriteTask>) -> Self {
+    pub fn new(file: File, input: mpsc::Receiver<WriteTask>, progress: Arc<dyn Progress>) -> Self {
         Self {
             cluster_addresses: vec![],
             file,
             input,
+            progress,
         }
     }
 
@@ -228,7 +234,8 @@ impl ClusterWriter {
     }
 
     fn write_cluster(&mut self, mut cluster: ClusterCreator) -> Result<SizedOffset> {
-        println!("Write cluster {}", cluster.index());
+        self.progress
+            .handle_cluster(cluster.index().into_u32(), false);
         let start_offset = self.file.tell();
         self.write_cluster_data(&mut cluster)?;
         let tail_offset = self.file.tell();
@@ -281,7 +288,12 @@ pub struct ClusterWriterProxy {
 }
 
 impl ClusterWriterProxy {
-    pub fn new(file: File, compression: CompressionType, nb_thread: usize) -> Self {
+    pub fn new(
+        file: File,
+        compression: CompressionType,
+        nb_thread: usize,
+        progress: Arc<dyn Progress>,
+    ) -> Self {
         let (dispatch_tx, dispatch_rx) = spmc::channel();
         let (fusion_tx, fusion_rx) = mpsc::channel();
 
@@ -292,12 +304,14 @@ impl ClusterWriterProxy {
                 let dispatch_rx = dispatch_rx.clone();
                 let fusion_tx = fusion_tx.clone();
                 let nb_cluster_in_queue = Arc::clone(&nb_cluster_in_queue);
+                let progress = Arc::clone(&progress);
                 spawn(move || {
                     let worker = ClusterCompressor::new(
                         compression,
                         dispatch_rx,
                         fusion_tx,
                         nb_cluster_in_queue,
+                        progress,
                     );
                     worker.run()
                 })
@@ -305,7 +319,7 @@ impl ClusterWriterProxy {
             .collect();
 
         let thread_handle = spawn(move || {
-            let writer = ClusterWriter::new(file, fusion_rx);
+            let writer = ClusterWriter::new(file, fusion_rx, progress);
             writer.run()
         });
         Self {

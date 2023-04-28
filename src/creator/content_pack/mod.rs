@@ -10,6 +10,7 @@ use std::cell::Cell;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 fn shannon_entropy(data: &Reader) -> Result<f32> {
     let mut entropy = 0.0;
@@ -33,6 +34,14 @@ fn shannon_entropy(data: &Reader) -> Result<f32> {
     Ok(entropy)
 }
 
+pub trait Progress: Send + Sync {
+    fn new_cluster(&self, _cluster_idx: u32, _compressed: bool) {}
+    fn handle_cluster(&self, _cluster_idx: u32, _compressed: bool) {}
+    fn content_added(&self, _size: Size) {}
+}
+
+impl Progress for () {}
+
 pub struct ContentPackCreator {
     app_vendor_id: u32,
     pack_id: PackId,
@@ -40,8 +49,9 @@ pub struct ContentPackCreator {
     content_infos: Vec<ContentInfo>,
     raw_open_cluster: Option<ClusterCreator>,
     comp_open_cluster: Option<ClusterCreator>,
-    next_cluster_id: Cell<usize>,
+    next_cluster_id: Cell<u32>,
     cluster_writer: ClusterWriterProxy,
+    progress: Arc<dyn Progress>,
 }
 
 macro_rules! open_cluster_ref {
@@ -69,24 +79,71 @@ impl ContentPackCreator {
         free_data: FreeData40,
         compression: CompressionType,
     ) -> Result<Self> {
+        Self::new_with_progress(
+            path,
+            pack_id,
+            app_vendor_id,
+            free_data,
+            compression,
+            Arc::new(()),
+        )
+    }
+
+    pub fn new_with_progress<P: AsRef<Path>>(
+        path: P,
+        pack_id: PackId,
+        app_vendor_id: u32,
+        free_data: FreeData40,
+        compression: CompressionType,
+        progress: Arc<dyn Progress>,
+    ) -> Result<Self> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(true)
             .open(&path)?;
-        Self::new_from_file(file, pack_id, app_vendor_id, free_data, compression)
+        Self::new_from_file_with_progress(
+            file,
+            pack_id,
+            app_vendor_id,
+            free_data,
+            compression,
+            progress,
+        )
     }
 
     pub fn new_from_file(
-        mut file: File,
+        file: File,
         pack_id: PackId,
         app_vendor_id: u32,
         free_data: FreeData40,
         compression: CompressionType,
     ) -> Result<Self> {
+        Self::new_from_file_with_progress(
+            file,
+            pack_id,
+            app_vendor_id,
+            free_data,
+            compression,
+            Arc::new(()),
+        )
+    }
+
+    pub fn new_from_file_with_progress(
+        mut file: File,
+        pack_id: PackId,
+        app_vendor_id: u32,
+        free_data: FreeData40,
+        compression: CompressionType,
+        progress: Arc<dyn Progress>,
+    ) -> Result<Self> {
         file.seek(SeekFrom::Start(128))?;
-        let cluster_writer = ClusterWriterProxy::new(file, compression, 8);
+        let nb_threads = std::thread::available_parallelism()
+            .unwrap_or(8.try_into().unwrap())
+            .get();
+        let cluster_writer =
+            ClusterWriterProxy::new(file, compression, nb_threads, Arc::clone(&progress));
         Ok(Self {
             app_vendor_id,
             pack_id,
@@ -96,15 +153,17 @@ impl ContentPackCreator {
             comp_open_cluster: None,
             next_cluster_id: Cell::new(0),
             cluster_writer,
+            progress,
         })
     }
 
-    fn open_cluster(&self) -> ClusterCreator {
+    fn open_cluster(&self, compressed: bool) -> ClusterCreator {
         let cluster_id = self.next_cluster_id.replace(self.next_cluster_id.get() + 1);
+        self.progress.new_cluster(cluster_id, compressed);
         ClusterCreator::new(cluster_id.into())
     }
 
-    fn get_open_cluster(&mut self, content: &Reader) -> Result<&mut ClusterCreator> {
+    fn get_open_cluster<'s>(&'s mut self, content: &Reader) -> Result<&'s mut ClusterCreator> {
         let entropy = shannon_entropy(content)?;
         let compress_content = entropy <= 6.0;
         // Let's get raw cluster
@@ -119,18 +178,19 @@ impl ContentPackCreator {
     fn cluster_to_close(&mut self, size: Size, compressed: bool) -> Option<ClusterCreator> {
         if let Some(cluster) = open_cluster_ref!(self, compressed).as_ref() {
             if cluster.is_full(size) {
-                let new_cluster = self.open_cluster();
+                let new_cluster = self.open_cluster(compressed);
                 open_cluster_ref!(mut self, compressed).replace(new_cluster)
             } else {
                 None
             }
         } else {
-            let new_cluster = self.open_cluster();
+            let new_cluster = self.open_cluster(compressed);
             open_cluster_ref!(mut self, compressed).replace(new_cluster)
         }
     }
 
     pub fn add_content(&mut self, content: Reader) -> Result<ContentIdx> {
+        self.progress.content_added(content.size());
         let cluster = self.get_open_cluster(&content)?;
         let content_info = cluster.add_content(content)?;
         self.content_infos.push(content_info);
