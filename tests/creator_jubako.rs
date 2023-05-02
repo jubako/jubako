@@ -73,7 +73,7 @@ test_suite! {
             let content = entry.content.clone().into_bytes();
             creator.add_content(content.into())?;
         }
-        let pack_info = creator.finalize()?;
+        let pack_info = creator.finalize(Some("/tmp/contentPack.jbkc".into()))?;
         Ok(pack_info)
     }
 
@@ -112,7 +112,7 @@ test_suite! {
             entry_store_idx,
             (entries.len() as u32).into(),
             jubako::EntryIdx::from(0).into());
-        let pack_info = creator.finalize().unwrap();
+        let pack_info = creator.finalize(Some("/tmp/directoryPack.jbkd".into())).unwrap();
         Ok(pack_info)
     }
 

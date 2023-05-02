@@ -7,7 +7,7 @@ use crate::creator::{Embedded, PackData};
 use cluster::ClusterCreator;
 use clusterwriter::ClusterWriterProxy;
 use std::cell::Cell;
-use std::fs::OpenOptions;
+use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
@@ -41,7 +41,6 @@ pub struct ContentPackCreator {
     raw_open_cluster: Option<ClusterCreator>,
     comp_open_cluster: Option<ClusterCreator>,
     next_cluster_id: Cell<usize>,
-    path: PathBuf,
     cluster_writer: ClusterWriterProxy,
 }
 
@@ -70,12 +69,22 @@ impl ContentPackCreator {
         free_data: FreeData40,
         compression: CompressionType,
     ) -> Result<Self> {
-        let mut file = OpenOptions::new()
+        let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(true)
             .open(&path)?;
+        Self::new_from_file(file, pack_id, app_vendor_id, free_data, compression)
+    }
+
+    pub fn new_from_file(
+        mut file: File,
+        pack_id: PackId,
+        app_vendor_id: u32,
+        free_data: FreeData40,
+        compression: CompressionType,
+    ) -> Result<Self> {
         file.seek(SeekFrom::Start(128))?;
         let cluster_writer = ClusterWriterProxy::new(file, compression, 8);
         Ok(Self {
@@ -86,7 +95,6 @@ impl ContentPackCreator {
             raw_open_cluster: None,
             comp_open_cluster: None,
             next_cluster_id: Cell::new(0),
-            path: path.as_ref().into(),
             cluster_writer,
         })
     }
@@ -129,7 +137,7 @@ impl ContentPackCreator {
         Ok(((self.content_infos.len() - 1) as u32).into())
     }
 
-    pub fn finalize(mut self) -> Result<PackData> {
+    pub fn finalize(mut self, path: Option<PathBuf>) -> Result<PackData> {
         if let Some(cluster) = self.raw_open_cluster.take() {
             if !cluster.is_empty() {
                 self.cluster_writer.write_cluster(cluster, false);
@@ -184,7 +192,10 @@ impl ContentPackCreator {
             free_data: FreeData103::clone_from_slice(&[0; 103]),
             reader: FileSource::new(file)?.into(),
             check_info_pos: check_offset,
-            embedded: Embedded::No(self.path),
+            embedded: match path {
+                None => Embedded::Yes,
+                Some(p) => Embedded::No(p),
+            },
         })
     }
 }

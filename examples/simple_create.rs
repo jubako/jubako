@@ -93,8 +93,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         jubako::EntryIdx::from(0).into(), // Offset 0
     );
 
-    let directory_pack_info = directory_pack.finalize()?;
-    let content_pack_info = content_pack.finalize()?;
+    let directory_pack_info = directory_pack.finalize(Some("test.jbkd".into()))?;
+    let content_pack_info = content_pack.finalize(Some("test.jbkc".into()))?;
     let mut manifest_creator = jbk::creator::ManifestPackCreator::new(
         "test.jbkm",
         VENDOR_ID,
