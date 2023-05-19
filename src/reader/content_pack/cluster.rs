@@ -1,7 +1,6 @@
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
-use std::cell::RefCell;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 enum ClusterReader {
     // The reader on the raw data as stored in the cluster.
@@ -15,7 +14,7 @@ pub struct Cluster {
     blob_offsets: Vec<Offset>,
     data_size: Size,
     compression: CompressionType,
-    reader: RefCell<ClusterReader>,
+    reader: RwLock<ClusterReader>,
 }
 
 #[cfg(feature = "lz4")]
@@ -118,12 +117,12 @@ impl Cluster {
             blob_offsets,
             data_size,
             compression: header.compression,
-            reader: RefCell::new(reader),
+            reader: RwLock::new(reader),
         })
     }
 
     fn build_plain_reader(&self) -> Result<()> {
-        let mut cluster_reader = self.reader.borrow_mut();
+        let mut cluster_reader = self.reader.write().unwrap();
         if let ClusterReader::Plain(_) = *cluster_reader {
             return Ok(());
         };
@@ -162,7 +161,7 @@ impl Cluster {
         self.build_plain_reader()?;
         let offset = self.blob_offsets[index.into_usize()];
         let end_offset = self.blob_offsets[index.into_usize() + 1];
-        if let ClusterReader::Plain(r) = &*self.reader.borrow() {
+        if let ClusterReader::Plain(r) = &*self.reader.read().unwrap() {
             Ok(r.create_sub_reader(offset, End::Offset(end_offset)).into())
         } else {
             unreachable!()

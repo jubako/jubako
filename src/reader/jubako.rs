@@ -9,15 +9,15 @@ use crate::common::{ContentAddress, Pack, PackInfo, PackPos};
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct Container {
     path: PathBuf,
     main_pack: ManifestPack,
     reader: Reader,
-    directory_pack: Rc<DirectoryPack>,
-    value_storage: Rc<ValueStorage>,
-    entry_storage: Rc<EntryStorage>,
+    directory_pack: Arc<DirectoryPack>,
+    value_storage: Arc<ValueStorage>,
+    entry_storage: Arc<EntryStorage>,
     packs: Vec<OnceCell<ContentPack>>,
 }
 
@@ -83,7 +83,7 @@ impl Container {
         let main_pack =
             ManifestPack::new(reader.create_sub_memory_reader(Offset::zero(), End::None)?)?;
         let pack_info = main_pack.get_directory_pack_info();
-        let directory_pack = Rc::new(DirectoryPack::new(get_pack_reader(
+        let directory_pack = Arc::new(DirectoryPack::new(get_pack_reader(
             &reader, &path, pack_info,
         )?)?);
         let value_storage = directory_pack.create_value_storage();
@@ -122,15 +122,15 @@ impl Container {
         ContentPack::new(pack_reader)
     }
 
-    pub fn get_directory_pack(&self) -> &Rc<DirectoryPack> {
+    pub fn get_directory_pack(&self) -> &Arc<DirectoryPack> {
         &self.directory_pack
     }
 
-    pub fn get_value_storage(&self) -> &Rc<ValueStorage> {
+    pub fn get_value_storage(&self) -> &Arc<ValueStorage> {
         &self.value_storage
     }
 
-    pub fn get_entry_storage(&self) -> &Rc<EntryStorage> {
+    pub fn get_entry_storage(&self) -> &Arc<EntryStorage> {
         &self.entry_storage
     }
 

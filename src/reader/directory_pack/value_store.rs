@@ -21,7 +21,7 @@ impl Producable for ValueStoreKind {
     }
 }
 
-pub trait ValueStoreTrait: std::fmt::Debug {
+pub trait ValueStoreTrait: std::fmt::Debug + Send + Sync {
     fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]>;
 }
 

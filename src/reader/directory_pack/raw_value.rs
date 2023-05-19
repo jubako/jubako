@@ -2,16 +2,16 @@ use super::ValueStoreTrait;
 use crate::bases::*;
 use crate::common::{ContentAddress, Value};
 use std::cmp;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub struct Extend {
-    pub(crate) store: Rc<dyn ValueStoreTrait>,
+    pub(crate) store: Arc<dyn ValueStoreTrait>,
     pub value_id: ValueIdx,
 }
 
 impl Extend {
-    pub fn new(store: Rc<dyn ValueStoreTrait>, value_id: ValueIdx) -> Self {
+    pub fn new(store: Arc<dyn ValueStoreTrait>, value_id: ValueIdx) -> Self {
         Self { store, value_id }
     }
 }
@@ -289,7 +289,6 @@ mod tests {
     use crate::reader::directory_pack::{Extend, ValueStoreTrait};
     use crate::ContentAddress;
     use galvanic_test::test_suite;
-    use std::rc::Rc;
 
     test_suite! {
         use super::*;
@@ -321,7 +320,7 @@ mod tests {
                        size: Some(Size::new(10)),
                        base: BaseArray::new(b"Bye "),
                        base_len: 4,
-                       extend:Some(Extend{store:Rc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)})
+                       extend:Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)})
                      }),
                      Value::Array("Bye Jubako".into())),
                     (RawValue::Content(ContentAddress::new(PackId::from(0), ContentIdx::from(50))),
@@ -370,9 +369,9 @@ mod tests {
                 vec![
                     (vec![], None, vec![]),
                     ("Hello".into(), None, "Hello".into()),
-                    ("Hello".into(), Some(Extend{store:Rc::new(mock::ValueStore{}), value_id:ValueIdx::from(0)}), "HelloHello".into()),
-                    ("Hello ".into(), Some(Extend{store:Rc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)}), "Hello Jubako".into()),
-                    (vec![], Some(Extend{store:Rc::new(mock::ValueStore{}), value_id:ValueIdx::from(18)}), "awsome".into()),
+                    ("Hello".into(), Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(0)}), "HelloHello".into()),
+                    ("Hello ".into(), Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)}), "Hello Jubako".into()),
+                    (vec![], Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(18)}), "awsome".into()),
                 ].into_iter()
             }
             setup(&mut self) {
@@ -397,7 +396,7 @@ mod tests {
                 size: Some(Size::new(12)),
                 base: BaseArray::new(b"Hello "),
                 base_len: 6,
-                extend: Some(Extend{store:Rc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)})
+                extend: Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)})
             };
             assert_eq!(raw_value.partial_cmp(&"Hel".as_bytes()).unwrap(), cmp::Ordering::Greater);
             assert_eq!(raw_value.partial_cmp(&"Hello".as_bytes()).unwrap(), cmp::Ordering::Greater);

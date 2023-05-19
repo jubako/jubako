@@ -1,7 +1,7 @@
 use super::{EntryRange, EntryStorage, EntryStore, RangeTrait};
 use crate::bases::*;
 use crate::common::ContentAddress;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct IndexHeader {
@@ -43,8 +43,8 @@ impl Index {
         Self { header }
     }
 
-    pub fn get_store(&self, entry_storage: &EntryStorage) -> Result<Rc<EntryStore>> {
-        Ok(Rc::clone(
+    pub fn get_store(&self, entry_storage: &EntryStorage) -> Result<Arc<EntryStore>> {
+        Ok(Arc::clone(
             entry_storage.get_entry_store(self.header.store_id)?,
         ))
     }

@@ -2,7 +2,7 @@ use jbk::reader::builder::PropertyBuilderTrait;
 use jbk::reader::Range;
 use jubako as jbk;
 use std::error::Error;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub enum Entry {
     Variant0(Variant0),
@@ -22,7 +22,7 @@ pub struct Variant1 {
 }
 
 pub struct Builder {
-    store: Rc<jbk::reader::EntryStore>,
+    store: Arc<jbk::reader::EntryStore>,
     variant_id: jbk::reader::builder::VariantIdProperty,
     value0: jbk::reader::builder::ArrayProperty,
     value1: jbk::reader::builder::IntProperty,
@@ -63,7 +63,7 @@ impl jbk::reader::builder::BuilderTrait for Builder {
 }
 
 fn create_builder(
-    store: Rc<jbk::reader::EntryStore>,
+    store: Arc<jbk::reader::EntryStore>,
     value_storage: &jbk::reader::ValueStorage,
 ) -> jbk::Result<Builder> {
     let layout = store.layout();

@@ -5,7 +5,7 @@ use crate::reader::directory_pack::private::ValueStorageTrait;
 use crate::reader::directory_pack::raw_layout::{DeportedDefault, PropertyKind};
 use crate::reader::directory_pack::raw_value::{Array, Extend, RawValue};
 use crate::reader::directory_pack::ValueStoreTrait;
-use std::rc::Rc;
+use std::sync::Arc;
 
 // The properties here are pretty close from the layout::Property.
 // The main difference is that layout::Property is not typed:
@@ -43,7 +43,7 @@ pub struct IntProperty {
     offset: Offset,
     size: ByteSize,
     default: Option<u64>,
-    deported: Option<(ByteSize, Rc<dyn ValueStoreTrait>)>,
+    deported: Option<(ByteSize, Arc<dyn ValueStoreTrait>)>,
 }
 
 impl IntProperty {
@@ -51,7 +51,7 @@ impl IntProperty {
         offset: Offset,
         size: ByteSize,
         default: Option<u64>,
-        deported: Option<(ByteSize, Rc<dyn ValueStoreTrait>)>,
+        deported: Option<(ByteSize, Arc<dyn ValueStoreTrait>)>,
     ) -> Self {
         Self {
             offset,
@@ -64,7 +64,7 @@ impl IntProperty {
     fn new_from_deported(
         offset: Offset,
         size: ByteSize,
-        store: Rc<dyn ValueStoreTrait>,
+        store: Arc<dyn ValueStoreTrait>,
         deported_default: DeportedDefault,
     ) -> Result<Self> {
         match deported_default {
@@ -144,7 +144,7 @@ pub struct SignedProperty {
     offset: Offset,
     size: ByteSize,
     default: Option<i64>,
-    deported: Option<(ByteSize, Rc<dyn ValueStoreTrait>)>,
+    deported: Option<(ByteSize, Arc<dyn ValueStoreTrait>)>,
 }
 
 impl SignedProperty {
@@ -152,7 +152,7 @@ impl SignedProperty {
         offset: Offset,
         size: ByteSize,
         default: Option<i64>,
-        deported: Option<(ByteSize, Rc<dyn ValueStoreTrait>)>,
+        deported: Option<(ByteSize, Arc<dyn ValueStoreTrait>)>,
     ) -> Self {
         Self {
             offset,
@@ -165,7 +165,7 @@ impl SignedProperty {
     fn new_from_deported(
         offset: Offset,
         size: ByteSize,
-        store: Rc<dyn ValueStoreTrait>,
+        store: Arc<dyn ValueStoreTrait>,
         deported_default: DeportedDefault,
     ) -> Result<Self> {
         match deported_default {
@@ -247,7 +247,7 @@ pub struct ArrayProperty {
     offset: Offset,
     array_size_size: Option<ByteSize>,
     fixed_array_size: u8,
-    deported_array_info: Option<(ByteSize, Rc<dyn ValueStoreTrait>)>,
+    deported_array_info: Option<(ByteSize, Arc<dyn ValueStoreTrait>)>,
     default: Option<(u64, BaseArray, Option<u64>)>,
 }
 
@@ -256,7 +256,7 @@ impl ArrayProperty {
         offset: Offset,
         array_size_size: Option<ByteSize>,
         fixed_array_size: u8,
-        deported_array_info: Option<(ByteSize, Rc<dyn ValueStoreTrait>)>,
+        deported_array_info: Option<(ByteSize, Arc<dyn ValueStoreTrait>)>,
         default: Option<(u64, BaseArray, Option<u64>)>,
     ) -> Self {
         Self {
@@ -283,7 +283,7 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
                     None => None,
                     Some((size, store_id)) => {
                         let value_store = value_storage.get_value_store(store_id)?;
-                        Some((size, value_store as Rc<dyn ValueStoreTrait>))
+                        Some((size, value_store as Arc<dyn ValueStoreTrait>))
                     }
                 };
                 Ok(ArrayProperty::new(
@@ -308,7 +308,7 @@ impl PropertyBuilderTrait for ArrayProperty {
                 base_array,
                 self.deported_array_info
                     .as_ref()
-                    .map(|(_, store)| Extend::new(Rc::clone(store), value_id.unwrap().into())),
+                    .map(|(_, store)| Extend::new(Arc::clone(store), value_id.unwrap().into())),
             ),
             None => {
                 let mut flux = reader.create_flux_from(self.offset);
@@ -320,7 +320,7 @@ impl PropertyBuilderTrait for ArrayProperty {
                 let deported_info = match &self.deported_array_info {
                     Some((value_size, store)) => {
                         let value_id = flux.read_usized(*value_size)?.into();
-                        Some(Extend::new(Rc::clone(store), value_id))
+                        Some(Extend::new(Arc::clone(store), value_id))
                     }
                     None => None,
                 };
@@ -417,7 +417,7 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
                     None => None,
                     Some((size, store_id)) => {
                         let value_store = value_storage.get_value_store(*store_id)?;
-                        Some((*size, value_store as Rc<dyn ValueStoreTrait>))
+                        Some((*size, value_store as Arc<dyn ValueStoreTrait>))
                     }
                 };
                 Self::Array(ArrayProperty::new(
@@ -661,7 +661,7 @@ mod tests {
 
     #[test]
     fn test_deported_int() {
-        let value_store = Rc::new(mock::ValueStore::new());
+        let value_store = Arc::new(mock::ValueStore::new());
         let content = vec![0x00, 0x01, 0x02, 0x03, 0x04, 0x1A, 0x04, 0x20, 0xff];
         let reader = Reader::new(content, End::None);
 
@@ -783,7 +783,7 @@ mod tests {
 
     #[test]
     fn test_deported_sint() {
-        let value_store = Rc::new(mock::ValueStore::new());
+        let value_store = Arc::new(mock::ValueStore::new());
         let content = vec![0x00, 0x01, 0x02, 0x03, 0x04, 0x1A, 0x04, 0x20, 0xff];
         let reader = Reader::new(content, End::None);
 
@@ -1040,12 +1040,12 @@ mod tests {
     fn test_deported_array() {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
         let reader = Reader::new(content, End::None);
-        let value_store = Rc::new(fake::ValueStore {}) as Rc<dyn ValueStoreTrait>;
+        let value_store = Arc::new(fake::ValueStore {}) as Arc<dyn ValueStoreTrait>;
         let prop = ArrayProperty::new(
             Offset::new(0),
             Some(ByteSize::U1),
             0,
-            Some((ByteSize::U1, Rc::clone(&value_store))),
+            Some((ByteSize::U1, Arc::clone(&value_store))),
             None,
         );
         assert_eq!(
@@ -1062,7 +1062,7 @@ mod tests {
             Offset::new(2),
             Some(ByteSize::U1),
             0,
-            Some((ByteSize::U1, Rc::clone(&value_store))),
+            Some((ByteSize::U1, Arc::clone(&value_store))),
             None,
         );
         assert_eq!(
@@ -1079,7 +1079,7 @@ mod tests {
             Offset::new(0),
             Some(ByteSize::U1),
             0,
-            Some((ByteSize::U2, Rc::clone(&value_store))),
+            Some((ByteSize::U2, Arc::clone(&value_store))),
             None,
         );
         assert_eq!(
@@ -1095,7 +1095,7 @@ mod tests {
             Offset::new(2),
             Some(ByteSize::U1),
             0,
-            Some((ByteSize::U2, Rc::clone(&value_store))),
+            Some((ByteSize::U2, Arc::clone(&value_store))),
             None,
         );
         assert_eq!(
@@ -1112,7 +1112,7 @@ mod tests {
             Offset::new(0),
             Some(ByteSize::U1),
             1,
-            Some((ByteSize::U1, Rc::clone(&value_store))),
+            Some((ByteSize::U1, Arc::clone(&value_store))),
             None,
         );
         assert_eq!(
@@ -1128,7 +1128,7 @@ mod tests {
             Offset::new(2),
             Some(ByteSize::U1),
             1,
-            Some((ByteSize::U1, Rc::clone(&value_store))),
+            Some((ByteSize::U1, Arc::clone(&value_store))),
             None,
         );
         assert_eq!(
@@ -1145,7 +1145,7 @@ mod tests {
             Offset::new(0),
             Some(ByteSize::U1),
             3,
-            Some((ByteSize::U1, Rc::clone(&value_store))),
+            Some((ByteSize::U1, Arc::clone(&value_store))),
             None,
         );
         assert_eq!(
@@ -1161,7 +1161,7 @@ mod tests {
             Offset::new(2),
             Some(ByteSize::U1),
             3,
-            Some((ByteSize::U1, Rc::clone(&value_store))),
+            Some((ByteSize::U1, Arc::clone(&value_store))),
             None,
         );
         assert_eq!(
@@ -1178,7 +1178,7 @@ mod tests {
             Offset::new(0),
             Some(ByteSize::U1),
             3,
-            Some((ByteSize::U3, Rc::clone(&value_store))),
+            Some((ByteSize::U3, Arc::clone(&value_store))),
             None,
         );
         assert_eq!(
@@ -1194,7 +1194,7 @@ mod tests {
             Offset::new(2),
             Some(ByteSize::U1),
             3,
-            Some((ByteSize::U3, Rc::clone(&value_store))),
+            Some((ByteSize::U3, Arc::clone(&value_store))),
             None,
         );
         assert_eq!(
@@ -1211,7 +1211,7 @@ mod tests {
     #[test]
     fn default_array() {
         let reader = Reader::new(vec![], End::None);
-        let value_store = Rc::new(fake::ValueStore {}) as Rc<dyn ValueStoreTrait>;
+        let value_store = Arc::new(fake::ValueStore {}) as Arc<dyn ValueStoreTrait>;
 
         let prop = ArrayProperty::new(
             Offset::new(2),
@@ -1229,7 +1229,7 @@ mod tests {
             Offset::new(2),
             Some(ByteSize::U3),
             3,
-            Some((ByteSize::U2, Rc::clone(&value_store))),
+            Some((ByteSize::U2, Arc::clone(&value_store))),
             Some((2000, BaseArray::new(&[0x01, 0x02]), Some(300))),
         );
         assert_eq!(

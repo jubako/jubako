@@ -61,7 +61,7 @@ pub struct ArrayReader<OutType, IdxType> {
     reader: Reader,
     length: Count<IdxType>,
     elem_size: usize,
-    produced_type: PhantomData<*const OutType>,
+    produced_type: PhantomData<OutType>,
 }
 
 impl<OutType, IdxType> ArrayReader<OutType, IdxType>

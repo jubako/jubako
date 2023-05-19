@@ -83,7 +83,7 @@ mod tests {
     use crate::reader::directory_pack::builder;
     use crate::reader::directory_pack::EntryTrait;
     use crate::reader::RawValue;
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     mod mock {
         use super::*;
@@ -151,7 +151,7 @@ mod tests {
         pub struct ValueStorage {}
         impl ValueStorageTrait for ValueStorage {
             type ValueStore = ValueStore;
-            fn get_value_store(&self, _id: ValueStoreIdx) -> Result<Rc<Self::ValueStore>> {
+            fn get_value_store(&self, _id: ValueStoreIdx) -> Result<Arc<Self::ValueStore>> {
                 unreachable!()
             }
         }

@@ -1,12 +1,12 @@
 use super::super::raw_layout::{PropertyKind, RawProperty};
 use super::property::Property;
 use crate::bases::*;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct Properties(Box<[Property]>);
 
-pub type SharedProperties = Rc<[Property]>;
+pub type SharedProperties = Arc<[Property]>;
 
 impl std::ops::Deref for Properties {
     type Target = [Property];

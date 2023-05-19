@@ -7,14 +7,14 @@ use lru::LruCache;
 use std::cell::{Cell, RefCell};
 use std::io::Read;
 use std::num::NonZeroUsize;
-use std::rc::Rc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 pub struct ContentPack {
     header: ContentPackHeader,
     content_infos: ArrayReader<ContentInfo, u32>,
     cluster_ptrs: ArrayReader<SizedOffset, u32>,
-    cluster_cache: RefCell<LruCache<ClusterIdx, Rc<Cluster>>>,
+    cluster_cache: RefCell<LruCache<ClusterIdx, Arc<Cluster>>>,
     reader: Reader,
     check_info: Cell<Option<CheckInfo>>,
 }
@@ -46,12 +46,12 @@ impl ContentPack {
         self.header.content_count
     }
 
-    fn _get_cluster(&self, cluster_index: ClusterIdx) -> Result<Rc<Cluster>> {
+    fn _get_cluster(&self, cluster_index: ClusterIdx) -> Result<Arc<Cluster>> {
         let cluster_info = self.cluster_ptrs.index(*cluster_index)?;
-        Ok(Rc::new(Cluster::new(&self.reader, cluster_info)?))
+        Ok(Arc::new(Cluster::new(&self.reader, cluster_info)?))
     }
 
-    fn get_cluster(&self, cluster_index: ClusterIdx) -> Result<Rc<Cluster>> {
+    fn get_cluster(&self, cluster_index: ClusterIdx) -> Result<Arc<Cluster>> {
         let mut cache = self.cluster_cache.borrow_mut();
         let cached = cache.get(&cluster_index);
         Ok(match cached {

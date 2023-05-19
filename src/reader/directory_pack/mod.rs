@@ -13,9 +13,8 @@ use self::index::IndexHeader;
 use self::value_store::{ValueStore, ValueStoreTrait};
 use crate::bases::*;
 use crate::common::{CheckInfo, DirectoryPackHeader, Pack, PackKind};
-use std::cell::Cell;
 use std::io::Read;
-use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 use uuid::Uuid;
 
 pub use self::entry_store::EntryStore;
@@ -35,14 +34,14 @@ mod private {
     use super::*;
     pub trait ValueStorageTrait {
         type ValueStore: ValueStoreTrait + 'static;
-        fn get_value_store(&self, id: ValueStoreIdx) -> Result<Rc<Self::ValueStore>>;
+        fn get_value_store(&self, id: ValueStoreIdx) -> Result<Arc<Self::ValueStore>>;
     }
 }
 
 pub struct ValueStorage(VecCache<ValueStore, DirectoryPack>);
 
 impl ValueStorage {
-    pub fn new(source: Rc<DirectoryPack>) -> Self {
+    pub fn new(source: Arc<DirectoryPack>) -> Self {
         Self(VecCache::new(source))
     }
 }
@@ -50,19 +49,19 @@ impl ValueStorage {
 impl private::ValueStorageTrait for ValueStorage {
     type ValueStore = ValueStore;
 
-    fn get_value_store(&self, store_id: ValueStoreIdx) -> Result<Rc<Self::ValueStore>> {
-        Ok(Rc::clone(self.0.get(store_id)?))
+    fn get_value_store(&self, store_id: ValueStoreIdx) -> Result<Arc<Self::ValueStore>> {
+        Ok(Arc::clone(self.0.get(store_id)?))
     }
 }
 
 pub struct EntryStorage(VecCache<EntryStore, DirectoryPack>);
 
 impl EntryStorage {
-    pub fn new(source: Rc<DirectoryPack>) -> Self {
+    pub fn new(source: Arc<DirectoryPack>) -> Self {
         Self(VecCache::new(source))
     }
 
-    pub fn get_entry_store(&self, store_id: EntryStoreIdx) -> Result<&Rc<EntryStore>> {
+    pub fn get_entry_store(&self, store_id: EntryStoreIdx) -> Result<&Arc<EntryStore>> {
         self.0.get(store_id)
     }
 }
@@ -73,7 +72,7 @@ pub struct DirectoryPack {
     entry_stores_ptrs: ArrayReader<SizedOffset, u32>,
     index_ptrs: ArrayReader<SizedOffset, u32>,
     reader: Reader,
-    check_info: Cell<Option<CheckInfo>>,
+    check_info: RwLock<Option<CheckInfo>>,
 }
 
 impl DirectoryPack {
@@ -102,7 +101,7 @@ impl DirectoryPack {
             entry_stores_ptrs,
             index_ptrs,
             reader,
-            check_info: Cell::new(None),
+            check_info: RwLock::new(None),
         })
     }
     pub fn get_free_data(&self) -> &[u8] {
@@ -130,12 +129,12 @@ impl DirectoryPack {
         Err(format!("Cannot find index {index_name}").into())
     }
 
-    pub fn create_value_storage(self: &Rc<Self>) -> Rc<ValueStorage> {
-        Rc::new(ValueStorage::new(Rc::clone(self)))
+    pub fn create_value_storage(self: &Arc<Self>) -> Arc<ValueStorage> {
+        Arc::new(ValueStorage::new(Arc::clone(self)))
     }
 
-    pub fn create_entry_storage(self: &Rc<Self>) -> Rc<EntryStorage> {
-        Rc::new(EntryStorage::new(Rc::clone(self)))
+    pub fn create_entry_storage(self: &Arc<Self>) -> Arc<EntryStorage> {
+        Arc::new(EntryStorage::new(Arc::clone(self)))
     }
 }
 
@@ -145,9 +144,9 @@ impl CachableSource<ValueStore> for DirectoryPack {
         self.header.value_store_count.into_usize()
     }
 
-    fn get_value(&self, id: Self::Idx) -> Result<Rc<ValueStore>> {
+    fn get_value(&self, id: Self::Idx) -> Result<Arc<ValueStore>> {
         let sized_offset = self.value_stores_ptrs.index(*id)?;
-        Ok(Rc::new(ValueStore::new(&self.reader, sized_offset)?))
+        Ok(Arc::new(ValueStore::new(&self.reader, sized_offset)?))
     }
 }
 
@@ -157,9 +156,9 @@ impl CachableSource<EntryStore> for DirectoryPack {
         self.header.entry_store_count.into_usize()
     }
 
-    fn get_value(&self, id: Self::Idx) -> Result<Rc<EntryStore>> {
+    fn get_value(&self, id: Self::Idx) -> Result<Arc<EntryStore>> {
         let sized_offset = self.entry_stores_ptrs.index(*id)?;
-        Ok(Rc::new(EntryStore::new(&self.reader, sized_offset)?))
+        Ok(Arc::new(EntryStore::new(&self.reader, sized_offset)?))
     }
 }
 
@@ -183,18 +182,20 @@ impl Pack for DirectoryPack {
         self.header.pack_header.file_size
     }
     fn check(&self) -> Result<bool> {
-        if self.check_info.get().is_none() {
+        if self.check_info.read().unwrap().is_none() {
             let mut checkinfo_flux = self
                 .reader
                 .create_flux_from(self.header.pack_header.check_info_pos);
             let check_info = CheckInfo::produce(&mut checkinfo_flux)?;
-            self.check_info.set(Some(check_info));
+            let mut s_check_info = self.check_info.write().unwrap();
+            *s_check_info = Some(check_info);
         }
         let mut check_flux = self
             .reader
             .create_flux_to(End::Offset(self.header.pack_header.check_info_pos));
         self.check_info
-            .get()
+            .read()
+            .unwrap()
             .unwrap()
             .check(&mut check_flux as &mut dyn Read)
     }
@@ -379,7 +380,7 @@ mod tests {
         let hash = blake3::hash(&content);
         content.push(0x01); // check info off: 284
         content.extend(hash.as_bytes()); // end : 284+32 = 316/0x13C
-        let directory_pack = Rc::new(DirectoryPack::new(content.into()).unwrap());
+        let directory_pack = Arc::new(DirectoryPack::new(content.into()).unwrap());
         let index = directory_pack.get_index(0.into()).unwrap();
         let value_storage = directory_pack.create_value_storage();
         let entry_storage = directory_pack.create_entry_storage();

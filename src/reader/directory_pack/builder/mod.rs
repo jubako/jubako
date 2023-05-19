@@ -7,6 +7,7 @@ use super::{LazyEntry, PropertyCompare, Value};
 use crate::bases::*;
 use crate::reader::directory_pack::private::ValueStorageTrait;
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub use self::property::*;
 
@@ -49,11 +50,11 @@ pub struct LazyEntryProperties {
 
 pub struct AnyBuilder {
     properties: Rc<LazyEntryProperties>,
-    store: Rc<EntryStore>,
+    store: Arc<EntryStore>,
 }
 
 impl AnyBuilder {
-    pub fn new<ValueStorage>(store: Rc<EntryStore>, value_storage: &ValueStorage) -> Result<Self>
+    pub fn new<ValueStorage>(store: Arc<EntryStore>, value_storage: &ValueStorage) -> Result<Self>
     where
         ValueStorage: ValueStorageTrait,
     {
@@ -119,6 +120,7 @@ mod tests {
         use crate::reader::directory_pack::private::ValueStorageTrait;
         use crate::reader::directory_pack::ValueStoreIdx;
         use crate::reader::directory_pack::ValueStoreTrait;
+        use std::sync::Arc;
 
         #[derive(Debug)]
         pub struct ValueStore;
@@ -131,7 +133,7 @@ mod tests {
         pub struct ValueStorage;
         impl ValueStorageTrait for ValueStorage {
             type ValueStore = ValueStore;
-            fn get_value_store(&self, _idx: ValueStoreIdx) -> Result<Rc<Self::ValueStore>> {
+            fn get_value_store(&self, _idx: ValueStoreIdx) -> Result<Arc<Self::ValueStore>> {
                 unreachable!();
             }
         }
@@ -154,7 +156,7 @@ mod tests {
         let entry_reader = Reader::from(vec![
             0x00, 0x00, 0x00, 0x01, 0x88, 0x99, 0x01, 0x00, 0x00, 0x02, 0x66, 0x77,
         ]);
-        let store = Rc::new(EntryStore::Plain(PlainStore {
+        let store = Arc::new(EntryStore::Plain(PlainStore {
             layout,
             entry_reader,
         }));
@@ -229,7 +231,7 @@ mod tests {
             0xCC, // signed int entry 1
             0x88, 0x99, // uint entry 1
         ]);
-        let store = Rc::new(EntryStore::Plain(PlainStore {
+        let store = Arc::new(EntryStore::Plain(PlainStore {
             layout,
             entry_reader,
         }));
