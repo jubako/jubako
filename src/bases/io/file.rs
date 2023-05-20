@@ -6,62 +6,14 @@ use std::io;
 use std::io::BorrowedBuf;
 use std::io::{Read, Seek, SeekFrom};
 use std::ops::Deref;
-use std::os::unix::prelude::{AsRawFd, RawFd};
+use std::os::unix::prelude::AsRawFd;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-pub struct BufferedFile {
-    source: io::BufReader<File>,
-    len: i64,
-    pos: i64,
+pub struct FileSource {
+    source: Mutex<io::BufReader<File>>,
+    len: u64,
 }
-
-impl BufferedFile {
-    pub fn new(source: File, len: u64) -> Self {
-        Self {
-            source: io::BufReader::with_capacity(512, source),
-            len: len as i64,
-            pos: 0,
-        }
-    }
-
-    pub fn get_slice(&mut self, offset: Offset, end: Offset) -> Result<&[u8]> {
-        use std::io::BufRead;
-        self.seek(SeekFrom::Start(offset.into_u64()))?;
-        let buf = self.source.fill_buf()?;
-        let size = (end - offset).into_usize();
-        Ok(&buf[..size])
-    }
-}
-
-impl AsRawFd for &BufferedFile {
-    fn as_raw_fd(&self) -> RawFd {
-        self.source.get_ref().as_raw_fd()
-    }
-}
-
-impl Read for BufferedFile {
-    fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
-        let delta = self.source.read(buf)?;
-        self.pos += delta as i64;
-        Ok(delta)
-    }
-}
-
-impl Seek for BufferedFile {
-    fn seek(&mut self, pos: SeekFrom) -> std::result::Result<u64, std::io::Error> {
-        let delta = match pos {
-            SeekFrom::Current(o) => o,
-            SeekFrom::Start(s) => s as i64 - self.pos,
-            SeekFrom::End(e) => (self.len - e) - self.pos,
-        };
-        self.source.seek_relative(delta)?;
-        self.pos += delta;
-        Ok(self.pos as u64)
-    }
-}
-
-pub struct FileSource(Mutex<BufferedFile>);
 
 impl FileSource {
     pub fn open<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
@@ -71,21 +23,24 @@ impl FileSource {
     pub fn new(mut source: File) -> Result<Self> {
         let len = source.seek(SeekFrom::End(0))?;
         source.seek(SeekFrom::Start(0))?;
-        let source = BufferedFile::new(source, len);
-        Ok(FileSource(Mutex::new(source)))
+        let source = io::BufReader::with_capacity(1024, source);
+        Ok(FileSource {
+            source: Mutex::new(source),
+            len,
+        })
     }
 }
 
 impl Deref for FileSource {
-    type Target = Mutex<BufferedFile>;
+    type Target = Mutex<io::BufReader<File>>;
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.source
     }
 }
 
 impl Source for FileSource {
     fn size(&self) -> Size {
-        (self.lock().unwrap().len as u64).into()
+        (self.len).into()
     }
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize> {
         let mut f = self.lock().unwrap();
@@ -124,7 +79,8 @@ impl Source for FileSource {
                 .offset(region.begin().into_u64())
                 .len(region.size().into_usize())
                 .populate();
-            let mmap = unsafe { mmap_options.map(&self.lock().unwrap().deref())? };
+            let mmap =
+                unsafe { mmap_options.map(self.source.lock().unwrap().get_ref().as_raw_fd())? };
             Ok((
                 Arc::new(mmap),
                 Region::new_from_size(Offset::zero(), region.size()),
@@ -155,7 +111,8 @@ impl Source for FileSource {
                 .offset(region.begin().into_u64())
                 .len(region.size().into_usize())
                 .populate();
-            let mmap = unsafe { mmap_options.map(&self.lock().unwrap().deref())? };
+            let mmap =
+                unsafe { mmap_options.map(self.source.lock().unwrap().get_ref().as_raw_fd())? };
             Ok((
                 Arc::new(mmap),
                 Region::new_from_size(Offset::zero(), region.size()),
@@ -168,9 +125,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        let mut f = self.lock().unwrap();
-        let slice = f.get_slice(offset, end)?;
-        Ok(read_u8(slice))
+        let mut buf = [0u8; 1];
+        let mut f = self.source.lock().unwrap();
+        f.seek(SeekFrom::Start(offset.into_u64()))?;
+        f.read_exact(&mut buf)?;
+        Ok(read_u8(&buf))
     }
 
     fn read_u16(&self, offset: Offset) -> Result<u16> {
@@ -179,8 +138,10 @@ impl Source for FileSource {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
         let mut f = self.lock().unwrap();
-        let slice = f.get_slice(offset, end)?;
-        Ok(read_u16(slice))
+        let mut buf = [0u8; 2];
+        f.seek(SeekFrom::Start(offset.into_u64()))?;
+        f.read_exact(&mut buf)?;
+        Ok(read_u16(&buf))
     }
 
     fn read_u32(&self, offset: Offset) -> Result<u32> {
@@ -188,9 +149,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
+        let mut buf = [0u8; 4];
         let mut f = self.lock().unwrap();
-        let slice = f.get_slice(offset, end)?;
-        Ok(read_u32(slice))
+        f.seek(SeekFrom::Start(offset.into_u64()))?;
+        f.read_exact(&mut buf)?;
+        Ok(read_u32(&buf))
     }
 
     fn read_u64(&self, offset: Offset) -> Result<u64> {
@@ -198,9 +161,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
+        let mut buf = [0u8; 8];
         let mut f = self.lock().unwrap();
-        let slice = f.get_slice(offset, end)?;
-        Ok(read_u64(slice))
+        f.seek(SeekFrom::Start(offset.into_u64()))?;
+        f.read_exact(&mut buf)?;
+        Ok(read_u64(&buf))
     }
 
     fn read_usized(&self, offset: Offset, size: ByteSize) -> Result<u64> {
@@ -208,9 +173,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
+        let mut buf = [0u8; 8];
         let mut f = self.lock().unwrap();
-        let slice = f.get_slice(offset, end)?;
-        Ok(read_to_u64(size as usize, slice))
+        f.seek(SeekFrom::Start(offset.into_u64()))?;
+        f.read_exact(&mut buf[..size as usize])?;
+        Ok(read_to_u64(size as usize, &buf))
     }
 
     fn read_i8(&self, offset: Offset) -> Result<i8> {
@@ -218,9 +185,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
+        let mut buf = [0u8; 1];
         let mut f = self.lock().unwrap();
-        let slice = f.get_slice(offset, end)?;
-        Ok(read_i8(slice))
+        f.seek(SeekFrom::Start(offset.into_u64()))?;
+        f.read_exact(&mut buf)?;
+        Ok(read_i8(&buf))
     }
 
     fn read_i16(&self, offset: Offset) -> Result<i16> {
@@ -228,9 +197,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
+        let mut buf = [0u8; 2];
         let mut f = self.lock().unwrap();
-        let slice = f.get_slice(offset, end)?;
-        Ok(read_i16(slice))
+        f.seek(SeekFrom::Start(offset.into_u64()))?;
+        f.read_exact(&mut buf)?;
+        Ok(read_i16(&buf))
     }
 
     fn read_i32(&self, offset: Offset) -> Result<i32> {
@@ -238,9 +209,12 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
+        let mut buf = [0u8; 4];
         let mut f = self.lock().unwrap();
-        let slice = f.get_slice(offset, end)?;
-        Ok(read_i32(slice))
+
+        f.seek(SeekFrom::Start(offset.into_u64()))?;
+        f.read_exact(&mut buf)?;
+        Ok(read_i32(&buf))
     }
 
     fn read_i64(&self, offset: Offset) -> Result<i64> {
@@ -248,9 +222,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
+        let mut buf = [0u8; 8];
         let mut f = self.lock().unwrap();
-        let slice = f.get_slice(offset, end)?;
-        Ok(read_i64(slice))
+        f.seek(SeekFrom::Start(offset.into_u64()))?;
+        f.read_exact(&mut buf)?;
+        Ok(read_i64(&buf))
     }
 
     fn read_isized(&self, offset: Offset, size: ByteSize) -> Result<i64> {
@@ -258,8 +234,10 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
+        let mut buf = [0u8; 8];
         let mut f = self.lock().unwrap();
-        let slice = f.get_slice(offset, end)?;
-        Ok(read_to_i64(size as usize, slice))
+        f.seek(SeekFrom::Start(offset.into_u64()))?;
+        f.read_exact(&mut buf[..size as usize])?;
+        Ok(read_to_i64(size as usize, &buf))
     }
 }
