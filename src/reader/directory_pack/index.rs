@@ -52,6 +52,14 @@ impl Index {
     pub fn get_store_id(&self) -> EntryStoreIdx {
         self.header.store_id
     }
+
+    pub fn size(&self) -> EntryCount {
+        self.header.entry_count
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.header.entry_count.into_u32() == 0
+    }
 }
 
 impl From<&Index> for EntryRange {
