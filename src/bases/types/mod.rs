@@ -30,6 +30,7 @@ pub use sized_offset::SizedOffset;
 pub use specific_types::*;
 
 /// The end of a buffer.
+#[derive(Debug)]
 pub enum End {
     Offset(Offset),
     Size(Size),
