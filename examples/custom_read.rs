@@ -68,10 +68,10 @@ fn create_builder(
     let layout = store.layout();
     let (variant_offset, variants) = layout.variant_part.as_ref().unwrap();
     assert_eq!(variants.len(), 2);
-    let value0 = (&layout.common[0], value_storage).try_into()?;
-    let value1 = (&layout.common[1], value_storage).try_into()?;
-    let variant0_value2 = (&variants[0][0]).try_into()?;
-    let variant1_value2 = (&variants[1][0], value_storage).try_into()?;
+    let value0 = (&layout.common["AString"], value_storage).try_into()?;
+    let value1 = (&layout.common["AInteger"], value_storage).try_into()?;
+    let variant0_value2 = (&variants[0]["TheContent"]).try_into()?;
+    let variant1_value2 = (&variants[1]["AnotherInt"], value_storage).try_into()?;
     let variant_id = jbk::reader::builder::VariantIdProperty::new(*variant_offset);
     Ok(Builder {
         store,

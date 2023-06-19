@@ -15,9 +15,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     {
         let entry = index.get_entry(&builder, 0.into())?;
         assert_eq!(entry.get_variant_id().unwrap(), Some(0.into())); // We correctly have variant 0
-        assert_eq!(entry.get_value(0.into())?.as_vec()?, Vec::from("Super"));
-        assert_eq!(entry.get_value(1.into())?.as_unsigned(), 50);
-        let value_2 = entry.get_value(2.into())?;
+        assert_eq!(entry.get_value("AString")?.as_vec()?, Vec::from("Super"));
+        assert_eq!(entry.get_value("AInteger")?.as_unsigned(), 50);
+        let value_2 = entry.get_value("TheContent")?;
         let content_address = value_2.as_content();
         // Let's print the content on stdout
         let reader = container.get_reader(content_address)?;
@@ -27,17 +27,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     {
         let entry = index.get_entry(&builder, 1.into())?;
         assert_eq!(entry.get_variant_id().unwrap(), Some(1.into()));
-        assert_eq!(entry.get_value(0.into())?.as_vec()?, Vec::from("Mega"));
-        assert_eq!(entry.get_value(1.into())?.as_unsigned(), 42);
-        assert_eq!(entry.get_value(2.into())?.as_unsigned(), 5);
+        assert_eq!(entry.get_value("AString")?.as_vec()?, Vec::from("Mega"));
+        assert_eq!(entry.get_value("AInteger")?.as_unsigned(), 42);
+        assert_eq!(entry.get_value("AnotherInt")?.as_unsigned(), 5);
     }
 
     {
         let entry = index.get_entry(&builder, 2.into())?;
         assert_eq!(entry.get_variant_id().unwrap(), Some(1.into()));
-        assert_eq!(entry.get_value(0.into())?.as_vec()?, Vec::from("Hyper"));
-        assert_eq!(entry.get_value(1.into())?.as_unsigned(), 45);
-        assert_eq!(entry.get_value(2.into())?.as_unsigned(), 2);
+        assert_eq!(entry.get_value("AString")?.as_vec()?, Vec::from("Hyper"));
+        assert_eq!(entry.get_value("AInteger")?.as_unsigned(), 45);
+        assert_eq!(entry.get_value("AnotherInt")?.as_unsigned(), 2);
     }
 
     Ok(())

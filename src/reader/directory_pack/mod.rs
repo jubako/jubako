@@ -27,7 +27,7 @@ pub use raw_value::{Array, ArrayIter, Extend, RawValue};
 
 pub trait EntryTrait {
     fn get_variant_id(&self) -> Result<Option<VariantIdx>>;
-    fn get_value(&self, idx: PropertyIdx) -> Result<RawValue>;
+    fn get_value(&self, name: &str) -> Result<RawValue>;
 }
 
 mod private {
@@ -313,8 +313,8 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x24, // check_info_pos
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x1C, // index_ptr_pos
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFA, // entry_store_ptr_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x24, // index_ptr_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, // entry_store_ptr_pos
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x9C, // value_store_ptr_pos
             0x00, 0x00, 0x00, 0x01, // index count
             0x00, 0x00, 0x00, 0x01, // entry_store count
@@ -351,18 +351,18 @@ mod tests {
             0x00, 0x0D, // entry size
             0x00, // variant count
             0x04, // value count
-            0b0101_0001, 0b001_00000, 0x00, // Char1[0] + deported 1, idx 0x00
-            0b0101_0001, 0b001_00010, 0x00, // Char1[2] + deported 1, idx 0x00
-            0b0010_0010, // u24
-            0b0001_0110, // content address
+            0b0101_0001, 0b001_00000, 0x00, 1, b'A', // Char1[0] + deported 1, idx 0x00
+            0b0101_0001, 0b001_00010, 0x00, 1, b'B',// Char1[2] + deported 1, idx 0x00
+            0b0010_0010, 1, b'C', // u24
+            0b0001_0110, 1, b'D', // content address
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x41, // data size
         ]);
-        // Add a entry_store_ptr (offset 164+65+21=250/0xFA)
+        // Add a entry_store_ptr (offset 164+65+29=258/0x102)
         content.extend_from_slice(&[
-            0x00, 21, // size
+            0x00, 29, // size
             0x00, 0x00, 0x00, 0x00, 0x00, 0xE5, // offset of the tailler (164+65=229/0xE5)
         ]);
-        // Add one index (offset 250+8=258/0x102)
+        // Add one index (offset 258+8=266/0x10A)
         content.extend_from_slice(&[
             0x00, 0x00, 0x00, 0x00, // store_id
             0x00, 0x00, 0x00, 0x04, // entry_count (use only 4 from the 5 available)
@@ -371,10 +371,10 @@ mod tests {
             0x00, // index_property (use the first pstring a binary search property
             0x08, b'm', b'y', b' ', b'i', b'n', b'd', b'e', b'x', // Pstring "my index"
         ]);
-        // Add a index_ptr (offset 258+26=284/0x11C)
+        // Add a index_ptr (offset 266+26=292/0x124)
         content.extend_from_slice(&[
             0x00, 26, //size
-            0x00, 0x00, 0x00, 0x00, 0x01, 0x02, // offset
+            0x00, 0x00, 0x00, 0x00, 0x01, 0x0A, // offset
         ]);
         // end = 284+8=292/0x124
         let hash = blake3::hash(&content);
@@ -393,7 +393,7 @@ mod tests {
         {
             let entry = index.get_entry(&builder, 0.into()).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
-            let value0 = entry.get_value(0.into()).unwrap();
+            let value0 = entry.get_value("A").unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
                     &FakeArray::new(
@@ -411,7 +411,7 @@ mod tests {
                 value0.as_vec().unwrap(),
                 b"J\xc5\xabbako" // Jūbako
             );
-            let value1 = entry.get_value(1.into()).unwrap();
+            let value1 = entry.get_value("B").unwrap();
             if let RawValue::Array(a) = &value1 {
                 assert_eq!(
                     &FakeArray::new(
@@ -426,9 +426,9 @@ mod tests {
                 panic!("Must be a array");
             };
             assert_eq!(value1.as_vec().unwrap(), b"aBHello");
-            assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U32(0x212223));
+            assert_eq!(entry.get_value("C").unwrap(), RawValue::U32(0x212223));
             assert_eq!(
-                entry.get_value(3.into()).unwrap(),
+                entry.get_value("D").unwrap(),
                 RawValue::Content(ContentAddress {
                     pack_id: PackId::from(1),
                     content_id: ContentIdx::from(0)
@@ -438,7 +438,7 @@ mod tests {
         {
             let entry = index.get_entry(&builder, 1.into()).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
-            let value0 = entry.get_value(0.into()).unwrap();
+            let value0 = entry.get_value("A").unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
                     &FakeArray::new(
@@ -453,7 +453,7 @@ mod tests {
                 panic!("Must be a array");
             };
             assert_eq!(value0.as_vec().unwrap(), b"Foo");
-            let value1 = entry.get_value(1.into()).unwrap();
+            let value1 = entry.get_value("B").unwrap();
             if let RawValue::Array(a) = &value1 {
                 assert_eq!(
                     &FakeArray::new(
@@ -468,9 +468,9 @@ mod tests {
                 panic!("Must be a array");
             };
             assert_eq!(value1.as_vec().unwrap(), b"ABJ\xc5\xabbako");
-            assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U32(0x313233));
+            assert_eq!(entry.get_value("C").unwrap(), RawValue::U32(0x313233));
             assert_eq!(
-                entry.get_value(3.into()).unwrap(),
+                entry.get_value("D").unwrap(),
                 RawValue::Content(ContentAddress {
                     pack_id: PackId::from(0),
                     content_id: ContentIdx::from(1)
@@ -480,7 +480,7 @@ mod tests {
         {
             let entry = index.get_entry(&builder, 2.into()).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
-            let value0 = entry.get_value(0.into()).unwrap();
+            let value0 = entry.get_value("A").unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
                     &FakeArray::new(
@@ -495,7 +495,7 @@ mod tests {
                 panic!("Must be a array");
             };
             assert_eq!(value0.as_vec().unwrap(), b"J\xc5\xabbako");
-            let value1 = entry.get_value(1.into()).unwrap();
+            let value1 = entry.get_value("B").unwrap();
             if let RawValue::Array(a) = &value1 {
                 assert_eq!(
                     &FakeArray::new(
@@ -510,9 +510,9 @@ mod tests {
                 panic!("Must be a array");
             };
             assert_eq!(value1.as_vec().unwrap(), b"ABFoo");
-            assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U32(0x414243));
+            assert_eq!(entry.get_value("C").unwrap(), RawValue::U32(0x414243));
             assert_eq!(
-                entry.get_value(3.into()).unwrap(),
+                entry.get_value("D").unwrap(),
                 RawValue::Content(ContentAddress {
                     pack_id: PackId::from(0),
                     content_id: ContentIdx::from(2)
@@ -522,7 +522,7 @@ mod tests {
         {
             let entry = index.get_entry(&builder, 3.into()).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
-            let value0 = entry.get_value(0.into()).unwrap();
+            let value0 = entry.get_value("A").unwrap();
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
                     &FakeArray::new(
@@ -537,7 +537,7 @@ mod tests {
                 panic!("Must be a array");
             };
             assert_eq!(value0.as_vec().unwrap(), b"Hello");
-            let value1 = entry.get_value(1.into()).unwrap();
+            let value1 = entry.get_value("B").unwrap();
             if let RawValue::Array(a) = &value1 {
                 assert_eq!(
                     &FakeArray::new(
@@ -552,9 +552,9 @@ mod tests {
                 panic!("Must be a array");
             };
             assert_eq!(value1.as_vec().unwrap(), b"\0\0Foo");
-            assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U32(0x515253));
+            assert_eq!(entry.get_value("C").unwrap(), RawValue::U32(0x515253));
             assert_eq!(
-                entry.get_value(3.into()).unwrap(),
+                entry.get_value("D").unwrap(),
                 RawValue::Content(ContentAddress {
                     pack_id: PackId::from(0),
                     content_id: ContentIdx::from(0xaaaaaa)

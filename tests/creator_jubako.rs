@@ -15,6 +15,7 @@ test_suite! {
     use jubako::reader::{Range, EntryTrait};
     use std::io::Read;
     use crate::Entry as TestEntry;
+    use std::collections::HashMap;
 
     fixture compression(c: jubako::CompressionType) -> jubako::CompressionType {
         params {
@@ -87,9 +88,9 @@ test_suite! {
         let key_store_handle = creator.create_value_store(key_store_kind);
         let entry_def = schema::Schema::new(
             schema::CommonProperties::new(vec![
-                schema::Property::new_array(0, key_store_handle),
-                schema::Property::new_content_address(),
-                schema::Property::new_uint()
+                schema::Property::new_array(0, key_store_handle, "V0".to_string()),
+                schema::Property::new_content_address("V1".to_string()),
+                schema::Property::new_uint("V2".to_string())
             ]),
             vec!(),
             None
@@ -97,11 +98,11 @@ test_suite! {
 
         let mut entry_store = Box::new(creator::EntryStore::new(entry_def));
         for (idx, entry) in entries.iter().enumerate() {
-            entry_store.add_entry(creator::BasicEntry::new_from_schema(&entry_store.schema, None, vec![
-                jubako::Value::Array(entry.path.clone().into()),
-                jubako::Value::Content(jubako::ContentAddress::new(1.into(), (idx as u32).into())),
-                jubako::Value::Unsigned((entry.word_count as u64).into())]
-            ));
+            entry_store.add_entry(creator::BasicEntry::new_from_schema(&entry_store.schema, None, HashMap::from([
+                ("V0".to_string(), jubako::Value::Array(entry.path.clone().into())),
+                ("V1".to_string(), jubako::Value::Content(jubako::ContentAddress::new(1.into(), (idx as u32).into()))),
+                ("V2".to_string(), jubako::Value::Unsigned((entry.word_count as u64).into()))
+            ])));
         }
 
         let entry_store_idx = creator.add_entry_store(entry_store);
@@ -155,12 +156,12 @@ test_suite! {
             let entry = index.get_entry(&builder, i.into()).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             println!("Check value 0");
-            let value_0 = entry.get_value(0.into()).unwrap();
+            let value_0 = entry.get_value("V0").unwrap();
             println!("Raw value 0 is {:?}", value_0);
             let value_0 = value_0.as_vec().unwrap();
             assert_eq!(value_0, articles.val[i.into_usize()].path.as_bytes());
             println!("Check value 1");
-            let value_1 = entry.get_value(1.into()).unwrap();
+            let value_1 = entry.get_value("V1").unwrap();
             println!("Raw value 1 is {:?}", value_1);
             let value_1 = value_1.as_content();
             println!("Value 1 is {:?}", value_1);
@@ -174,7 +175,7 @@ test_suite! {
             flux.read_to_string(&mut read_content).unwrap();
             assert_eq!(read_content, articles.val[i.into_usize()].content);
             println!("Check value 2");
-            let value_2 = entry.get_value(2.into()).unwrap();
+            let value_2 = entry.get_value("V2").unwrap();
             let value_2 = value_2.as_unsigned();
             assert_eq!(value_2, articles.val[i.into_usize()].word_count as u64);
         }

@@ -1,5 +1,6 @@
 use jubako as jbk;
 use jubako::creator::schema;
+use std::collections::HashMap;
 use std::error::Error;
 use std::rc::Rc;
 
@@ -28,16 +29,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Our entry kind will have two variants.
     let entry_def = schema::Schema::new(
         schema::CommonProperties::new(vec![
-            schema::Property::new_array(0, Rc::clone(&value_store)), // One string, will be stored in value_store
-            schema::Property::new_uint(),                            // A integer
+            schema::Property::new_array(0, Rc::clone(&value_store), "AString".to_string()), // One string, will be stored in value_store
+            schema::Property::new_uint("AInteger".to_string()), // A integer
         ]),
         vec![
             schema::VariantProperties::new(vec![
-                schema::Property::new_content_address(), // A "pointer" to a content.
+                schema::Property::new_content_address("TheContent".to_string()), // A "pointer" to a content.
             ]),
-            schema::VariantProperties::new(vec![
-                schema::Property::new_uint(), //
-            ]),
+            schema::VariantProperties::new(vec![schema::Property::new_uint(
+                "AnotherInt".to_string(),
+            )]),
         ],
         None,
     );
@@ -51,34 +52,37 @@ fn main() -> Result<(), Box<dyn Error>> {
     entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
         &entry_store.schema,
         Some(0.into()), // Variant 0
-        vec![
-            jbk::Value::Array("Super".into()),
-            jbk::Value::Unsigned(50.into()),
-            jbk::Value::Content(jbk::ContentAddress::new(
-                jbk::PackId::from(1), // Pack id
-                content_id,           // Content id in the pack
-            )),
-        ],
+        HashMap::from([
+            ("AString".to_string(), jbk::Value::Array("Super".into())),
+            ("AInteger".to_string(), jbk::Value::Unsigned(50.into())),
+            (
+                "TheContent".to_string(),
+                jbk::Value::Content(jbk::ContentAddress::new(
+                    jbk::PackId::from(1), // Pack id
+                    content_id,           // Content id in the pack
+                )),
+            ),
+        ]),
     ));
 
     entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
         &entry_store.schema,
         Some(1.into()), // Variant 1
-        vec![
-            jbk::Value::Array("Mega".into()),
-            jbk::Value::Unsigned(42.into()),
-            jbk::Value::Unsigned(5.into()),
-        ],
+        HashMap::from([
+            ("AString".to_string(), jbk::Value::Array("Mega".into())),
+            ("AInteger".to_string(), jbk::Value::Unsigned(42.into())),
+            ("AnotherInt".to_string(), jbk::Value::Unsigned(5.into())),
+        ]),
     ));
 
     entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
         &entry_store.schema,
         Some(1.into()), // Variant 1
-        vec![
-            jbk::Value::Array("Hyper".into()),
-            jbk::Value::Unsigned(45.into()),
-            jbk::Value::Unsigned(2.into()),
-        ],
+        HashMap::from([
+            ("AString".to_string(), jbk::Value::Array("Hyper".into())),
+            ("AInteger".to_string(), jbk::Value::Unsigned(45.into())),
+            ("AnotherInt".to_string(), jbk::Value::Unsigned(2.into())),
+        ]),
     ));
 
     let entry_store_id = directory_pack.add_entry_store(entry_store);

@@ -10,18 +10,22 @@ pub enum Property {
         array_size_size: Option<ByteSize>,
         fixed_array_size: u8,
         deported_info: Option<(ByteSize, Rc<RefCell<ValueStore>>)>,
+        name: String,
     },
     ContentAddress {
         size: ByteSize,
         default: Option<u8>,
+        name: String,
     },
     UnsignedInt {
         size: ByteSize,
         default: Option<u64>,
+        name: String,
     },
     SignedInt {
         size: ByteSize,
         default: Option<i64>,
+        name: String,
     },
     Padding(/*size*/ u8),
 }
@@ -38,30 +42,47 @@ impl std::fmt::Debug for Property {
                 array_size_size,
                 fixed_array_size,
                 deported_info,
+                name,
             } => f
                 .debug_struct("Array")
                 .field("array_size_size", &array_size_size)
                 .field("fixed_array_size", &fixed_array_size)
                 .field("deported_info", &deported_info)
                 .field("size", &self.size())
+                .field("name", &name)
                 .finish(),
-            ContentAddress { size, default } => f
+            ContentAddress {
+                size,
+                default,
+                name,
+            } => f
                 .debug_struct("ContentAddress")
                 .field("size", &size)
                 .field("default", &default)
                 .field("size", &self.size())
+                .field("name", &name)
                 .finish(),
-            UnsignedInt { size, default } => f
+            UnsignedInt {
+                size,
+                default,
+                name,
+            } => f
                 .debug_struct("UnsignedInt")
                 .field("size", &size)
                 .field("default", &default)
                 .field("size", &self.size())
+                .field("name", &name)
                 .finish(),
-            SignedInt { size, default } => f
+            SignedInt {
+                size,
+                default,
+                name,
+            } => f
                 .debug_struct("SignedInt")
                 .field("size", &size)
                 .field("default", &default)
                 .field("size", &self.size())
+                .field("name", &name)
                 .finish(),
             Padding(_size) => f
                 .debug_struct("Padding")
@@ -79,6 +100,7 @@ impl Property {
                 array_size_size,
                 fixed_array_size,
                 deported_info,
+                name: _,
             } => {
                 (match array_size_size {
                     None => 0,
@@ -89,17 +111,27 @@ impl Property {
                         Some((s, _)) => *s as usize as u16,
                     }
             }
-            Property::ContentAddress { size, default } => {
-                (if default.is_some() { 0 } else { 1 }) + *size as usize as u16
-            }
-            Property::UnsignedInt { size, default } => {
+            Property::ContentAddress {
+                size,
+                default,
+                name: _,
+            } => (if default.is_some() { 0 } else { 1 }) + *size as usize as u16,
+            Property::UnsignedInt {
+                size,
+                default,
+                name: _,
+            } => {
                 if default.is_some() {
                     0
                 } else {
                     *size as u16
                 }
             }
-            Property::SignedInt { size, default } => {
+            Property::SignedInt {
+                size,
+                default,
+                name: _,
+            } => {
                 if default.is_some() {
                     0
                 } else {
@@ -119,6 +151,7 @@ impl Writable for Property {
                 array_size_size,
                 fixed_array_size,
                 deported_info,
+                name,
             } => {
                 let mut written = 0;
                 let keytype = 0b0101_0000
@@ -135,46 +168,65 @@ impl Writable for Property {
                 if let Some((_, store)) = deported_info {
                     written += store.borrow().get_idx().write(stream)?;
                 }
+                written += PString::write_string(name.as_bytes(), stream)?;
                 Ok(written)
             }
-            Property::ContentAddress { size, default } => {
+            Property::ContentAddress {
+                size,
+                default,
+                name,
+            } => {
                 let mut key_type = 0b0001_0000;
                 key_type += *size as u8 - 1;
-                match default {
-                    None => stream.write_u8(key_type + 0b0000_0100),
+                let mut written = match default {
+                    None => stream.write_u8(key_type + 0b0000_0100)?,
                     Some(d) => {
                         let mut written = 0;
                         written += stream.write_u8(key_type)?;
                         written += stream.write_u8(*d)?;
-                        Ok(written)
+                        written
                     }
-                }
+                };
+                written += PString::write_string(name.as_bytes(), stream)?;
+                Ok(written)
             }
-            Property::UnsignedInt { size, default } => {
+            Property::UnsignedInt {
+                size,
+                default,
+                name,
+            } => {
                 let mut key_type = 0b0010_0000;
                 key_type += *size as u8 - 1;
-                match default {
-                    None => stream.write_u8(key_type),
+                let mut written = match default {
+                    None => stream.write_u8(key_type)?,
                     Some(d) => {
                         let mut written = 0;
                         written += stream.write_u8(key_type + 0b0000_1000)?;
                         written += stream.write_usized(*d, *size)?;
-                        Ok(written)
+                        written
                     }
-                }
+                };
+                written += PString::write_string(name.as_bytes(), stream)?;
+                Ok(written)
             }
-            Property::SignedInt { size, default } => {
+            Property::SignedInt {
+                size,
+                default,
+                name,
+            } => {
                 let mut key_type = 0b0011_0000;
                 key_type += *size as u8 - 1;
-                match default {
-                    None => stream.write_u8(key_type),
+                let mut written = match default {
+                    None => stream.write_u8(key_type)?,
                     Some(d) => {
                         let mut written = 0;
                         written += stream.write_u8(key_type + 0b0000_1000)?;
                         written += stream.write_isized(*d, *size)?;
-                        Ok(written)
+                        written
                     }
-                }
+                };
+                written += PString::write_string(name.as_bytes(), stream)?;
+                Ok(written)
             }
             Property::Padding(size) => {
                 let key_type = 0b0000_0000;

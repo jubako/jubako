@@ -2,7 +2,7 @@ use super::property::Property;
 use super::Value;
 use crate::bases::Writable;
 use crate::bases::*;
-use crate::creator::directory_pack::{EntryIter, EntryTrait};
+use crate::creator::directory_pack::EntryTrait;
 
 #[derive(Debug)]
 pub struct Properties(Vec<Property>);
@@ -37,15 +37,15 @@ impl Properties {
         stream: &mut dyn OutStream,
     ) -> Result<usize> {
         let mut written = 0;
-        let mut value_iter = EntryIter::new(entry);
         for key in keys {
             match key {
                 Property::Array {
                     array_size_size,
                     fixed_array_size,
                     deported_info,
+                    name,
                 } => {
-                    let value = value_iter.next().unwrap();
+                    let value = entry.value(name);
                     if let Value::Array {
                         size,
                         data,
@@ -67,8 +67,12 @@ impl Properties {
                         return Err("Not a Array".to_string().into());
                     }
                 }
-                Property::ContentAddress { size, default } => {
-                    let value = value_iter.next().unwrap();
+                Property::ContentAddress {
+                    size,
+                    default,
+                    name,
+                } => {
+                    let value = entry.value(name);
                     if let Value::Content(value) = value {
                         if let Some(d) = default {
                             assert_eq!(*d, value.pack_id.into_u8());
@@ -80,8 +84,12 @@ impl Properties {
                         return Err("Not a Content".to_string().into());
                     }
                 }
-                Property::UnsignedInt { size, default } => {
-                    let value = value_iter.next().unwrap();
+                Property::UnsignedInt {
+                    size,
+                    default,
+                    name,
+                } => {
+                    let value = entry.value(name);
                     if let Value::Unsigned(value) = value {
                         if let Some(d) = default {
                             assert_eq!(*d, value.get());
@@ -92,8 +100,12 @@ impl Properties {
                         return Err("Not a unsigned".to_string().into());
                     }
                 }
-                Property::SignedInt { size, default } => {
-                    let value = value_iter.next().unwrap();
+                Property::SignedInt {
+                    size,
+                    default,
+                    name,
+                } => {
+                    let value = entry.value(name);
                     if let Value::Signed(value) = value {
                         if let Some(d) = default {
                             assert_eq!(*d, value.get());

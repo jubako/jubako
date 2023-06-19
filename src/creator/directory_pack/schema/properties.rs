@@ -1,4 +1,4 @@
-use super::super::{layout, Value};
+use super::super::{layout, EntryTrait};
 use super::property::Property;
 
 #[derive(Debug)]
@@ -50,7 +50,7 @@ impl Properties {
             .collect()
     }
 
-    pub fn process<'a>(&mut self, values: &mut impl Iterator<Item = &'a Value>) {
-        self.0.iter_mut().for_each(|p| p.process(values))
+    pub fn process(&mut self, entry: &dyn EntryTrait) {
+        self.0.iter_mut().for_each(|p| p.process(entry))
     }
 }

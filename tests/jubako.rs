@@ -152,8 +152,11 @@ impl IndexStore {
         data.push(0x00); // variant count
         data.push(0x03); // key count
         data.extend(&[0b0101_0001, 0b001_00000, 0x00]); // The first key, a char1[0] + deported(1) idx 0
+        data.extend(&[2, b'V', b'0']); // The name of the first key "V0"
         data.extend(&[0b0001_0100]); // The second key, the content address (1 for the pack_id + 1 for the value_id)
+        data.extend(&[2, b'V', b'1']); // The name of the second key "V1"
         data.extend(&[0b0010_0001]); // The third key, the u16
+        data.extend(&[2, b'V', b'2']); // The name of the third key "V2"
         data.extend((self.data.len() as u64).to_be_bytes()); //data size
         self.tail_size = Some(data.len() as u16);
         data
@@ -489,10 +492,10 @@ test_suite! {
         for i in index.count() {
             let entry = index.get_entry(&builder, i).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
-            let value_0 = entry.get_value(0.into()).unwrap();
+            let value_0 = entry.get_value("V0").unwrap();
             let vec = value_0.as_vec().unwrap();
             assert_eq!(vec, articles.val[i.into_u32() as usize].path.as_bytes());
-            let value_1 = entry.get_value(1.into()).unwrap();
+            let value_1 = entry.get_value("V1").unwrap();
             if let reader::RawValue::Content(content) = value_1 {
                 assert_eq!(
                     content,
@@ -506,7 +509,7 @@ test_suite! {
             } else {
               panic!();
             }
-            let value_2= entry.get_value(2.into()).unwrap();
+            let value_2= entry.get_value("V2").unwrap();
             if let reader::RawValue::U16(v) = value_2 {
                 assert_eq!(v, articles.val[i.into_u32() as usize].word_count);
             } else {

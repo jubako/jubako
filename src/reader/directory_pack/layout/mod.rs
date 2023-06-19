@@ -25,13 +25,13 @@ impl Producable for Layout {
     fn produce(flux: &mut Flux) -> Result<Self> {
         let entry_size = flux.read_u16()? as usize;
         let variant_count: VariantCount = Count::<u8>::produce(flux)?.into();
-        let raw_layout = RawLayout::produce(flux)?;
+        let mut raw_layout = RawLayout::produce(flux)?;
         let mut common_properties = Vec::new();
         let mut common_size = 0;
-        let mut property_iter = raw_layout.iter().peekable();
+        let mut property_iter = raw_layout.drain(..).peekable();
         while let Some(raw_property) = property_iter.next_if(|p| !p.is_variant_id()) {
             common_size += raw_property.size;
-            common_properties.push(*raw_property);
+            common_properties.push(raw_property);
         }
         let common_properties = Properties::new(0, common_properties)?;
         let variant_part = if variant_count.into_u8() != 0 {
@@ -61,7 +61,7 @@ impl Producable for Layout {
                     continue;
                 }
                 variant_size += raw_property.size;
-                variant_def.push(*raw_property);
+                variant_def.push(raw_property);
                 match variant_size.cmp(&(entry_size - common_size)) {
                     Ordering::Greater => {
                         return Err(format_error!(

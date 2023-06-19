@@ -4,22 +4,21 @@ mod property;
 pub use properties::{CommonProperties, VariantProperties};
 pub use property::Property;
 
-use super::{layout, EntryIter, EntryTrait, Value, ValueStore};
-use crate::bases::*;
+use super::{layout, EntryTrait, Value, ValueStore};
 use properties::Properties;
 
 #[derive(Debug)]
 pub struct Schema {
     pub common: Properties,
     pub variants: Vec<Properties>,
-    pub sort_keys: Option<Vec<PropertyIdx>>,
+    pub sort_keys: Option<Vec<String>>,
 }
 
 impl Schema {
     pub fn new(
         common: CommonProperties,
         variants: Vec<VariantProperties>,
-        sort_keys: Option<Vec<PropertyIdx>>,
+        sort_keys: Option<Vec<String>>,
     ) -> Self {
         Self {
             common,
@@ -29,10 +28,9 @@ impl Schema {
     }
 
     pub fn process(&mut self, entry: &dyn EntryTrait) {
-        let mut iter = EntryIter::new(entry);
-        self.common.process(&mut iter);
+        self.common.process(entry);
         if let Some(variant_id) = entry.variant_id() {
-            self.variants[variant_id.into_usize()].process(&mut iter);
+            self.variants[variant_id.into_usize()].process(entry);
         }
     }
 

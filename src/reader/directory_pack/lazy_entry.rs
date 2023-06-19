@@ -15,12 +15,11 @@ impl LazyEntry {
         Self { properties, reader }
     }
 
-    fn _get_value(&self, idx: PropertyIdx) -> Result<RawValue> {
-        let common_len = self.properties.common.count();
-        if idx.into_u8() < common_len {
+    fn _get_value(&self, name: &str) -> Result<RawValue> {
+        if self.properties.common.contains(name) {
             self.properties
                 .common
-                .create_value(idx, &self.reader.as_sub_reader())
+                .create_value(name, &self.reader.as_sub_reader())
         } else {
             match &self.properties.variant_part {
                 None => Err("Invalid key".to_string().into()),
@@ -28,7 +27,7 @@ impl LazyEntry {
                     let sub_reader = self.reader.as_sub_reader();
                     let variant_id = id_property.create(&sub_reader)?;
                     let variant = &variants[variant_id.into_usize()];
-                    variant.create_value(idx - common_len, &sub_reader)
+                    variant.create_value(name, &sub_reader)
                 }
             }
         }
@@ -43,7 +42,7 @@ impl EntryTrait for LazyEntry {
         }
     }
 
-    fn get_value(&self, idx: PropertyIdx) -> Result<RawValue> {
-        self._get_value(idx)
+    fn get_value(&self, name: &str) -> Result<RawValue> {
+        self._get_value(name)
     }
 }
