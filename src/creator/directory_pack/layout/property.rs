@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub enum Property {
-    VariantId,
+    VariantId(String),
     Array {
         array_size_size: Option<ByteSize>,
         fixed_array_size: u8,
@@ -34,8 +34,9 @@ impl std::fmt::Debug for Property {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use Property::*;
         match self {
-            VariantId => f
+            VariantId(name) => f
                 .debug_struct("VariantId")
+                .field("name", &name)
                 .field("size", &self.size())
                 .finish(),
             Array {
@@ -95,7 +96,7 @@ impl std::fmt::Debug for Property {
 impl Property {
     pub(crate) fn size(&self) -> u16 {
         match self {
-            Property::VariantId => 1,
+            Property::VariantId(_name) => 1,
             Property::Array {
                 array_size_size,
                 fixed_array_size,
@@ -146,7 +147,11 @@ impl Property {
 impl Writable for Property {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         match self {
-            Property::VariantId => stream.write_u8(0b1000_0000),
+            Property::VariantId(name) => {
+                let mut written = stream.write_u8(0b1000_0000)?;
+                written += PString::write_string(name.as_bytes(), stream)?;
+                Ok(written)
+            }
             Property::Array {
                 array_size_size,
                 fixed_array_size,

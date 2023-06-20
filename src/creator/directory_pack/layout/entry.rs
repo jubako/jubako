@@ -2,25 +2,28 @@ use super::properties::Properties;
 use crate::bases::Writable;
 use crate::bases::*;
 use crate::creator::directory_pack::EntryTrait;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Entry {
     pub common: Properties,
     pub variants: Vec<Properties>,
+    pub variants_map: HashMap<String, VariantIdx>,
     pub entry_size: u16,
 }
 
 impl Entry {
     pub fn write_entry(&self, entry: &dyn EntryTrait, stream: &mut dyn OutStream) -> Result<usize> {
-        assert!(self.variants.is_empty() == entry.variant_id().is_none());
+        assert!(self.variants.is_empty() == entry.variant_name().is_none());
         let written = if self.variants.is_empty() {
-            Properties::write_entry(self.common.iter(), entry, stream)?
+            Properties::write_entry(self.common.iter(), None, entry, stream)?
         } else {
+            let variant_id = self.variants_map[entry.variant_name().unwrap()];
             let mut keys = self
                 .common
                 .iter()
-                .chain(self.variants[entry.variant_id().unwrap().into_usize()].iter());
-            Properties::write_entry(&mut keys, entry, stream)?
+                .chain(self.variants[variant_id.into_usize()].iter());
+            Properties::write_entry(&mut keys, Some(variant_id), entry, stream)?
         };
         assert_eq!(written, self.entry_size as usize);
         Ok(written)

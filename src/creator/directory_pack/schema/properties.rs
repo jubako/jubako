@@ -38,12 +38,8 @@ impl Properties {
         Self(keys)
     }
 
-    pub fn finalize(&self, variant: bool) -> layout::Properties {
-        let variant = if variant {
-            Some(layout::Property::VariantId)
-        } else {
-            None
-        };
+    pub fn finalize(&self, variant_name: Option<String>) -> layout::Properties {
+        let variant = variant_name.map(layout::Property::VariantId);
         variant
             .into_iter()
             .chain(self.0.iter().map(|p| p.finalize()))

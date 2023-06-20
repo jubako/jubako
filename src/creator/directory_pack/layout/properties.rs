@@ -33,6 +33,7 @@ impl Properties {
 
     pub fn write_entry<'a>(
         keys: impl Iterator<Item = &'a Property>,
+        variant_id: Option<VariantIdx>,
         entry: &dyn EntryTrait,
         stream: &mut dyn OutStream,
     ) -> Result<usize> {
@@ -120,8 +121,8 @@ impl Properties {
                     let data = vec![0x00; *size as usize];
                     written += stream.write(&data)?;
                 }
-                Property::VariantId => {
-                    written += entry.variant_id().unwrap().write(stream)?;
+                Property::VariantId(_name) => {
+                    written += variant_id.unwrap().write(stream)?;
                 }
             }
         }

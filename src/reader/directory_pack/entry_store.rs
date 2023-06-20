@@ -233,15 +233,15 @@ mod tests {
             0x0B,        // property count (9)
             0b0000_0110, // padding (7)       offset: 0
             0b0101_0100, 0b001_00001, 0x0F, 2, b'C', b'0', // char4[1] + deported(1) 0x0F                offset: 7
-            0b1000_0000, // Variant id size:1                                             offset: 13
-            0b0101_0100, 0b101_00001, 0x0F, 2, b'V', b'0',  // char4[1] + deported(5), idx 0x0F size: 10  offset: 14
-            0b0001_0110, 2, b'V', b'1', // content address size : 1+ 3                                   offset: 24
-            0b0010_0010, 2, b'V', b'2', // u24 size: 3                                                   offset: 28  => Variant size 31
-            0b1000_0000, // Variant id size: 1                                            offset: 13  // new variant
-            0b0101_0011, 0b000_00110, 2, b'V', b'0', // char3[6] size: 9                                 offset: 14
-            0b0001_0101, 2, b'V', b'1',  // content address size: 1 + 2                                   offset: 23
-            0b0010_0010, 2, b'V', b'2',  // u24 size: 3                                                   offset: 26
-            0b0000_0001,  // padding (2)                                                  offset: 29  => Variant size 31
+            0b1000_0000, 3, b'V', b'A', b'0', // Variant id size:1                                       offset: 13
+            0b0101_0100, 0b101_00001, 0x0F, 2, b'V', b'0',  // char4[1] + deported(5), idx 0x0F size: 10 offset: 17
+            0b0001_0110, 2, b'V', b'1', // content address size : 1+ 3                                   offset: 27
+            0b0010_0010, 2, b'V', b'2', // u24 size: 3                                                   offset: 31  => Variant size 34
+            0b1000_0000, 3, b'V', b'A', b'1', // Variant id size: 1                                      offset: 13  // new variant
+            0b0101_0011, 0b000_00110, 2, b'V', b'0', // char3[6] size: 9                                 offset: 17
+            0b0001_0101, 2, b'V', b'1',  // content address size: 1 + 2                                  offset: 26
+            0b0010_0010, 2, b'V', b'2',  // u24 size: 3                                                  offset: 29
+            0b0000_0001,  // padding (2)                                                                 offset: 31  => Variant size 32
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
         let size = Size::from(content.len());
@@ -265,9 +265,13 @@ mod tests {
         )]);
         assert_eq!(&*common, &expected);
 
-        let (offset, variants) = store.layout.variant_part.unwrap();
+        let (offset, variants, variants_map) = store.layout.variant_part.unwrap();
         assert_eq!(offset, Offset::new(13));
         assert_eq!(variants.len(), 2);
+        assert_eq!(
+            variants_map,
+            HashMap::from([(String::from("VA0"), 0), (String::from("VA1"), 1)])
+        );
         let variant = &variants[0];
         let expected = HashMap::from([
             (

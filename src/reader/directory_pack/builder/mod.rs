@@ -52,7 +52,11 @@ impl AnyVariantBuilder {
 
 pub struct LazyEntryProperties {
     pub common: AnyVariantBuilder,
-    pub variant_part: Option<(VariantIdProperty, Vec<AnyVariantBuilder>)>,
+    pub variant_part: Option<(
+        VariantIdProperty,
+        Vec<AnyVariantBuilder>,
+        HashMap<String, u8>,
+    )>,
 }
 
 pub struct AnyBuilder {
@@ -69,13 +73,13 @@ impl AnyBuilder {
         let common = AnyVariantBuilder::new(&layout.common, value_storage)?;
         let variant_part = match &layout.variant_part {
             None => None,
-            Some((variant_id_offset, variants)) => {
+            Some((variant_id_offset, variants, variants_map)) => {
                 let variants: Result<Vec<_>> = variants
                     .iter()
                     .map(|v| AnyVariantBuilder::new(v, value_storage))
                     .collect();
                 let variant_id = VariantIdProperty::new(*variant_id_offset);
-                Some((variant_id, variants?))
+                Some((variant_id, variants?, variants_map.clone()))
             }
         };
         let properties = Rc::new(LazyEntryProperties {
@@ -249,6 +253,7 @@ mod tests {
                     .unwrap()
                     .into(),
                 ]),
+                HashMap::from([(String::from("Variant1"), 0), (String::from("Variant2"), 1)]),
             )),
             size: Size::new(8),
         };

@@ -64,7 +64,7 @@ impl PartialOrd for Value {
 }
 
 pub trait EntryTrait {
-    fn variant_id(&self) -> Option<VariantIdx>;
+    fn variant_name(&self) -> Option<&str>;
     fn value(&self, name: &str) -> &Value;
     fn value_count(&self) -> PropertyCount;
     fn set_idx(&mut self, idx: EntryIdx);
@@ -81,7 +81,7 @@ pub trait FullEntryTrait: EntryTrait {
 
 #[derive(Debug)]
 pub struct BasicEntry {
-    variant_id: Option<VariantIdx>,
+    variant_name: Option<String>,
     values: HashMap<String, Value>,
     idx: Vow<EntryIdx>,
 }
@@ -94,24 +94,30 @@ pub struct ValueTransformer<'a> {
 impl<'a> ValueTransformer<'a> {
     pub fn new(
         schema: &'a schema::Schema,
-        variant_id: Option<VariantIdx>,
+        variant_name: Option<&str>,
         values: HashMap<String, common::Value>,
     ) -> Self {
         if schema.variants.is_empty() {
-            ValueTransformer {
+            return ValueTransformer {
                 keys: Box::new(schema.common.iter()),
                 values,
-            }
+            };
         } else {
-            let keys = schema
-                .common
-                .iter()
-                .chain(schema.variants[variant_id.unwrap().into_usize()].iter());
-            ValueTransformer {
-                keys: Box::new(keys),
-                values,
+            for (n, v) in &schema.variants {
+                if n == variant_name.unwrap() {
+                    let keys = schema.common.iter().chain(v.iter());
+                    return ValueTransformer {
+                        keys: Box::new(keys),
+                        values,
+                    };
+                }
             }
-        }
+            //[TODO] Transform this as Result
+            panic!(
+                "Entry variant name {} doesn't correspond to possible variants",
+                variant_name.unwrap()
+            );
+        };
     }
 }
 
@@ -174,9 +180,9 @@ impl<'a> Iterator for ValueTransformer<'a> {
                         content_id_size: _,
                         name,
                     } => {
-                        let value = &self.values[name];
+                        let value = self.values.remove(name).unwrap();
                         if let common::Value::Content(v) = value {
-                            return Some((name.to_string(), Value::Content(*v)));
+                            return Some((name.to_string(), Value::Content(v)));
                         } else {
                             panic!("Invalid value type");
                         }
@@ -191,37 +197,37 @@ impl<'a> Iterator for ValueTransformer<'a> {
 impl BasicEntry {
     pub fn new_from_schema(
         schema: &schema::Schema,
-        variant_id: Option<VariantIdx>,
+        variant_name: Option<String>,
         values: HashMap<String, common::Value>,
     ) -> Self {
-        Self::new_from_schema_idx(schema, Default::default(), variant_id, values)
+        Self::new_from_schema_idx(schema, Default::default(), variant_name, values)
     }
 
     pub fn new_from_schema_idx(
         schema: &schema::Schema,
         idx: Vow<EntryIdx>,
-        variant_id: Option<VariantIdx>,
+        variant_name: Option<String>,
         values: HashMap<String, common::Value>,
     ) -> Self {
-        let value_transformer = ValueTransformer::new(schema, variant_id, values);
-        Self::new_idx(variant_id, value_transformer.collect(), idx)
+        let value_transformer = ValueTransformer::new(schema, variant_name.as_deref(), values);
+        Self::new_idx(variant_name, value_transformer.collect(), idx)
     }
 
-    pub fn new(variant_id: Option<VariantIdx>, values: HashMap<String, Value>) -> Self {
+    pub fn new(variant_name: Option<String>, values: HashMap<String, Value>) -> Self {
         Self {
-            variant_id,
+            variant_name,
             values,
             idx: Default::default(),
         }
     }
 
     pub fn new_idx(
-        variant_id: Option<VariantIdx>,
+        variant_name: Option<String>,
         values: HashMap<String, Value>,
         idx: Vow<EntryIdx>,
     ) -> Self {
         Self {
-            variant_id,
+            variant_name,
             values,
             idx,
         }
@@ -229,8 +235,8 @@ impl BasicEntry {
 }
 
 impl EntryTrait for BasicEntry {
-    fn variant_id(&self) -> Option<VariantIdx> {
-        self.variant_id
+    fn variant_name(&self) -> Option<&str> {
+        self.variant_name.as_deref()
     }
     fn value(&self, name: &str) -> &Value {
         &self.values[name]
@@ -250,8 +256,8 @@ impl<T> EntryTrait for Box<T>
 where
     T: EntryTrait,
 {
-    fn variant_id(&self) -> Option<VariantIdx> {
-        T::variant_id(self)
+    fn variant_name(&self) -> Option<&str> {
+        T::variant_name(self)
     }
     fn value(&self, name: &str) -> &Value {
         T::value(self, name)

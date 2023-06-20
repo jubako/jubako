@@ -187,7 +187,11 @@ impl Producable for RawProperty {
                     )
                 }
             }
-            0b1000 => (1, PropertyKind::VariantId, None),
+            0b1000 => (
+                1,
+                PropertyKind::VariantId,
+                Some(String::from_utf8(PString::produce(flux)?)?),
+            ),
             0b1010 | 0b1011 => {
                 let default_value = (propdata & 0b1000) != 0;
                 let int_size = ByteSize::try_from((propdata & 0x07) as usize + 1).unwrap();
@@ -281,7 +285,7 @@ mod tests {
     use super::*;
     use test_case::test_case;
 
-    #[test_case(&[0b1000_0000, 1, b'a'] => RawProperty{size:1, kind:PropertyKind::VariantId, name: None })]
+    #[test_case(&[0b1000_0000, 1, b'a'] => RawProperty{size:1, kind:PropertyKind::VariantId, name: Some(String::from("a")) })]
     #[test_case(&[0b0000_0000] => RawProperty{size:1, kind:PropertyKind::Padding, name: None })]
     #[test_case(&[0b0000_0111] => RawProperty{size:8, kind:PropertyKind::Padding, name: None })]
     #[test_case(&[0b0000_1111] => RawProperty{size:16, kind:PropertyKind::Padding, name: None })]
