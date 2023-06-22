@@ -94,7 +94,7 @@ pub struct ValueTransformer<'a> {
 impl<'a> ValueTransformer<'a> {
     pub fn new(
         schema: &'a schema::Schema,
-        variant_name: Option<&str>,
+        variant_name: &Option<String>,
         values: HashMap<String, common::Value>,
     ) -> Self {
         if schema.variants.is_empty() {
@@ -104,7 +104,7 @@ impl<'a> ValueTransformer<'a> {
             };
         } else {
             for (n, v) in &schema.variants {
-                if n == variant_name.unwrap() {
+                if n == variant_name.as_ref().unwrap() {
                     let keys = schema.common.iter().chain(v.iter());
                     return ValueTransformer {
                         keys: Box::new(keys),
@@ -115,7 +115,7 @@ impl<'a> ValueTransformer<'a> {
             //[TODO] Transform this as Result
             panic!(
                 "Entry variant name {} doesn't correspond to possible variants",
-                variant_name.unwrap()
+                variant_name.as_ref().unwrap()
             );
         };
     }
@@ -195,40 +195,43 @@ impl<'a> Iterator for ValueTransformer<'a> {
 }
 
 impl BasicEntry {
-    pub fn new_from_schema(
+    pub fn new_from_schema<VN: ToString, N:ToString>(
         schema: &schema::Schema,
-        variant_name: Option<String>,
-        values: HashMap<String, common::Value>,
+        variant_name: Option<VN>,
+        values: HashMap<N, common::Value>,
     ) -> Self {
         Self::new_from_schema_idx(schema, Default::default(), variant_name, values)
     }
 
-    pub fn new_from_schema_idx(
+    pub fn new_from_schema_idx<VN: ToString, N: ToString>(
         schema: &schema::Schema,
         idx: Vow<EntryIdx>,
-        variant_name: Option<String>,
-        values: HashMap<String, common::Value>,
+        variant_name: Option<VN>,
+        values: HashMap<N, common::Value>,
     ) -> Self {
-        let value_transformer = ValueTransformer::new(schema, variant_name.as_deref(), values);
+        let variant_name = variant_name.map(|n| n.to_string());
+        let value_transformer = ValueTransformer::new(schema, &variant_name, values
+                        .into_iter()
+                        .map(|(n, v)| (n.to_string(), v))
+                        .collect());
         Self::new_idx(variant_name, value_transformer.collect(), idx)
     }
 
-    pub fn new(variant_name: Option<String>, values: HashMap<String, Value>) -> Self {
-        Self {
-            variant_name,
-            values,
-            idx: Default::default(),
-        }
+    pub fn new<VN: ToString, N: ToString>(variant_name: Option<VN>, values: HashMap<N, Value>) -> Self {
+        Self::new_idx(variant_name, values, Default::default())
     }
 
-    pub fn new_idx(
-        variant_name: Option<String>,
-        values: HashMap<String, Value>,
+    pub fn new_idx<VN: ToString, N: ToString>(
+        variant_name: Option<VN>,
+        values: HashMap<N, Value>,
         idx: Vow<EntryIdx>,
     ) -> Self {
         Self {
-            variant_name,
-            values,
+            variant_name: variant_name.map(|n| n.to_string()),
+            values: values
+                .into_iter()
+                .map(|(n, v)| (n.to_string(), v))
+                .collect(),
             idx,
         }
     }

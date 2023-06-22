@@ -29,21 +29,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Our entry kind will have two variants.
     let entry_def = schema::Schema::new(
         schema::CommonProperties::new(vec![
-            schema::Property::new_array(0, Rc::clone(&value_store), "AString".to_string()), // One string, will be stored in value_store
-            schema::Property::new_uint("AInteger".to_string()), // A integer
+            schema::Property::new_array(0, Rc::clone(&value_store), "AString"), // One string, will be stored in value_store
+            schema::Property::new_uint("AInteger"),                             // A integer
         ]),
         vec![
             (
-                String::from("FirstVariant"),
+                "FirstVariant",
                 schema::VariantProperties::new(vec![
-                    schema::Property::new_content_address("TheContent".to_string()), // A "pointer" to a content.
+                    schema::Property::new_content_address("TheContent"), // A "pointer" to a content.
                 ]),
             ),
             (
-                String::from("SecondVariant"),
-                schema::VariantProperties::new(vec![schema::Property::new_uint(
-                    "AnotherInt".to_string(),
-                )]),
+                "SecondVariant",
+                schema::VariantProperties::new(vec![schema::Property::new_uint("AnotherInt")]),
             ),
         ],
         None,
@@ -59,10 +57,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         &entry_store.schema,
         Some(String::from("FirstVariant")), // Variant 0
         HashMap::from([
-            ("AString".to_string(), jbk::Value::Array("Super".into())),
-            ("AInteger".to_string(), jbk::Value::Unsigned(50.into())),
+            ("AString", jbk::Value::Array("Super".into())),
+            ("AInteger", jbk::Value::Unsigned(50.into())),
             (
-                "TheContent".to_string(),
+                "TheContent",
                 jbk::Value::Content(jbk::ContentAddress::new(
                     jbk::PackId::from(1), // Pack id
                     content_id,           // Content id in the pack
@@ -75,9 +73,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         &entry_store.schema,
         Some(String::from("SecondVariant")),
         HashMap::from([
-            ("AString".to_string(), jbk::Value::Array("Mega".into())),
-            ("AInteger".to_string(), jbk::Value::Unsigned(42.into())),
-            ("AnotherInt".to_string(), jbk::Value::Unsigned(5.into())),
+            ("AString", jbk::Value::Array("Mega".into())),
+            ("AInteger", jbk::Value::Unsigned(42.into())),
+            ("AnotherInt", jbk::Value::Unsigned(5.into())),
         ]),
     ));
 
@@ -85,9 +83,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         &entry_store.schema,
         Some(String::from("SecondVariant")),
         HashMap::from([
-            ("AString".to_string(), jbk::Value::Array("Hyper".into())),
-            ("AInteger".to_string(), jbk::Value::Unsigned(45.into())),
-            ("AnotherInt".to_string(), jbk::Value::Unsigned(2.into())),
+            ("AString", jbk::Value::Array("Hyper".into())),
+            ("AInteger", jbk::Value::Unsigned(45.into())),
+            ("AnotherInt", jbk::Value::Unsigned(2.into())),
         ]),
     ));
 

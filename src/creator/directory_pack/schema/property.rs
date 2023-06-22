@@ -130,40 +130,40 @@ impl std::fmt::Debug for Property {
 }
 
 impl Property {
-    pub fn new_uint(name: String) -> Self {
+    pub fn new_uint<N: ToString>(name: N) -> Self {
         Property::UnsignedInt {
             counter: Default::default(),
             size: Default::default(),
-            name,
+            name: name.to_string(),
         }
     }
 
-    pub fn new_sint(name: String) -> Self {
+    pub fn new_sint<N: ToString>(name: N) -> Self {
         Property::SignedInt {
             counter: Default::default(),
             size: Default::default(),
-            name,
+            name: name.to_string(),
         }
     }
 
-    pub fn new_array(
+    pub fn new_array<N: ToString>(
         fixed_array_size: usize,
         store_handle: Rc<RefCell<ValueStore>>,
-        name: String,
+        name: N,
     ) -> Self {
         Property::Array {
             max_array_size: Default::default(),
             fixed_array_size,
             store_handle,
-            name,
+            name: name.to_string(),
         }
     }
 
-    pub fn new_content_address(name: String) -> Self {
+    pub fn new_content_address<N: ToString>(name: N) -> Self {
         Property::ContentAddress {
             pack_id_counter: Default::default(),
             content_id_size: Default::default(),
-            name,
+            name: name.to_string(),
         }
     }
 

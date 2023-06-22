@@ -16,18 +16,18 @@ pub struct Schema {
 }
 
 impl Schema {
-    pub fn new(
+    pub fn new<N: ToString>(
         common: CommonProperties,
-        variants: Vec<(String, VariantProperties)>,
-        sort_keys: Option<Vec<String>>,
+        variants: Vec<(N, VariantProperties)>,
+        sort_keys: Option<Vec<N>>,
     ) -> Self {
         Self {
             common,
             variants: variants
                 .into_iter()
-                .map(|(n, p)| (n, Properties::from(p)))
+                .map(|(n, p)| (n.to_string(), Properties::from(p)))
                 .collect(),
-            sort_keys,
+            sort_keys: sort_keys.map(|v| v.iter().map(|n| n.to_string()).collect())
         }
     }
 
