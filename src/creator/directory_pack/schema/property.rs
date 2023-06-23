@@ -1,5 +1,5 @@
 use super::super::layout;
-use super::{EntryTrait, Value, ValueStore};
+use super::{EntryTrait, PropertyName, Value, ValueStore};
 use crate::bases::*;
 use std::cell::RefCell;
 use std::cmp;
@@ -53,32 +53,32 @@ where
     }
 }
 
-pub enum Property {
+pub enum Property<PN: PropertyName> {
     UnsignedInt {
         counter: ValueCounter<u64>,
         size: PropertySize<u64>,
-        name: String,
+        name: PN,
     },
     SignedInt {
         counter: ValueCounter<i64>,
         size: PropertySize<i64>,
-        name: String,
+        name: PN,
     },
     Array {
         max_array_size: PropertySize<usize>,
         fixed_array_size: usize,
         store_handle: Rc<RefCell<ValueStore>>,
-        name: String,
+        name: PN,
     },
     ContentAddress {
         pack_id_counter: ValueCounter<u8>,
         content_id_size: PropertySize<u32>,
-        name: String,
+        name: PN,
     },
     Padding(/*size*/ u8),
 }
 
-impl std::fmt::Debug for Property {
+impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnsignedInt {
@@ -89,7 +89,7 @@ impl std::fmt::Debug for Property {
                 .debug_struct("UnsignedInt")
                 .field("counter", &counter)
                 .field("size", &size)
-                .field("name", &name)
+                .field("name", &name.to_string())
                 .finish(),
             Self::SignedInt {
                 counter,
@@ -99,7 +99,7 @@ impl std::fmt::Debug for Property {
                 .debug_struct("SignedInt")
                 .field("counter", &counter)
                 .field("size", &size)
-                .field("name", &name)
+                .field("name", &name.to_string())
                 .finish(),
             Self::Array {
                 max_array_size,
@@ -112,7 +112,7 @@ impl std::fmt::Debug for Property {
                 .field("fixed_array_size", &fixed_array_size)
                 .field("store_idx", &store_handle.borrow().get_idx())
                 .field("key_size", &store_handle.borrow().key_size())
-                .field("name", &name)
+                .field("name", &name.to_string())
                 .finish(),
             Self::ContentAddress {
                 pack_id_counter,
@@ -122,52 +122,52 @@ impl std::fmt::Debug for Property {
                 .debug_struct("ContentAddress")
                 .field("pack_id_counter", &pack_id_counter)
                 .field("content_id_size", &content_id_size)
-                .field("name", &name)
+                .field("name", &name.to_string())
                 .finish(),
             Self::Padding(s) => f.debug_tuple("Padding").field(&s).finish(),
         }
     }
 }
 
-impl Property {
-    pub fn new_uint<N: ToString>(name: N) -> Self {
+impl<PN: PropertyName> Property<PN> {
+    pub fn new_uint(name: PN) -> Self {
         Property::UnsignedInt {
             counter: Default::default(),
             size: Default::default(),
-            name: name.to_string(),
+            name,
         }
     }
 
-    pub fn new_sint<N: ToString>(name: N) -> Self {
+    pub fn new_sint(name: PN) -> Self {
         Property::SignedInt {
             counter: Default::default(),
             size: Default::default(),
-            name: name.to_string(),
+            name,
         }
     }
 
-    pub fn new_array<N: ToString>(
+    pub fn new_array(
         fixed_array_size: usize,
         store_handle: Rc<RefCell<ValueStore>>,
-        name: N,
+        name: PN,
     ) -> Self {
         Property::Array {
             max_array_size: Default::default(),
             fixed_array_size,
             store_handle,
-            name: name.to_string(),
+            name,
         }
     }
 
-    pub fn new_content_address<N: ToString>(name: N) -> Self {
+    pub fn new_content_address(name: PN) -> Self {
         Property::ContentAddress {
             pack_id_counter: Default::default(),
             content_id_size: Default::default(),
-            name: name.to_string(),
+            name,
         }
     }
 
-    pub fn process(&mut self, entry: &dyn EntryTrait) {
+    pub fn process(&mut self, entry: &dyn EntryTrait<PN>) {
         match self {
             Self::UnsignedInt {
                 counter,
@@ -256,7 +256,7 @@ impl Property {
         }
     }
 
-    pub fn finalize(&self) -> layout::Property {
+    pub fn finalize(&self) -> layout::Property<PN> {
         match self {
             Self::UnsignedInt {
                 counter,
@@ -271,12 +271,12 @@ impl Property {
                     ValueCounter::One(d) => layout::Property::UnsignedInt {
                         size,
                         default: Some(*d),
-                        name: name.to_string(),
+                        name: *name,
                     },
                     _ => layout::Property::UnsignedInt {
                         size,
                         default: None,
-                        name: name.to_string(),
+                        name: *name,
                     },
                 }
             }
@@ -293,12 +293,12 @@ impl Property {
                     ValueCounter::One(d) => layout::Property::SignedInt {
                         size,
                         default: Some(*d),
-                        name: name.to_string(),
+                        name: *name,
                     },
                     _ => layout::Property::SignedInt {
                         size,
                         default: None,
-                        name: name.to_string(),
+                        name: *name,
                     },
                 }
             }
@@ -316,7 +316,7 @@ impl Property {
                     }),
                     fixed_array_size: *fixed_array_size as u8,
                     deported_info: Some((value_id_size, Rc::clone(store_handle))),
-                    name: name.to_string(),
+                    name: *name,
                 }
             }
             Self::ContentAddress {
@@ -335,7 +335,7 @@ impl Property {
                 layout::Property::ContentAddress {
                     size,
                     default,
-                    name: name.to_string(),
+                    name: *name,
                 }
             }
             Self::Padding(size) => layout::Property::Padding(*size),

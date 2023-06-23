@@ -1,3 +1,4 @@
+use super::super::PropertyName;
 use super::property::Property;
 use super::Value;
 use crate::bases::Writable;
@@ -5,36 +6,54 @@ use crate::bases::*;
 use crate::creator::directory_pack::EntryTrait;
 
 #[derive(Debug)]
-pub struct Properties(Vec<Property>);
+pub struct Properties<PN: PropertyName>(Vec<Property<PN>>);
 
-impl std::ops::Deref for Properties {
-    type Target = [Property];
+impl<PN: PropertyName> std::ops::Deref for Properties<PN> {
+    type Target = [Property<PN>];
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl std::ops::DerefMut for Properties {
+impl<PN: PropertyName> std::ops::DerefMut for Properties<PN> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl FromIterator<Property> for Properties {
-    fn from_iter<I: IntoIterator<Item = Property>>(iter: I) -> Self {
+impl<PN: PropertyName> FromIterator<Property<PN>> for Properties<PN> {
+    fn from_iter<I: IntoIterator<Item = Property<PN>>>(iter: I) -> Self {
         Self(iter.into_iter().collect())
     }
 }
 
-impl Properties {
-    pub fn new(keys: Vec<Property>) -> Self {
+impl<PN: PropertyName> Properties<PN> {
+    pub fn new(keys: Vec<Property<PN>>) -> Self {
         Self(keys)
     }
 
+    pub(crate) fn entry_size(&self) -> u16 {
+        self.iter().map(|k| k.size()).sum::<u16>()
+    }
+
+    pub(crate) fn fill_to_size(&mut self, size: u16) {
+        let current_size = self.entry_size();
+        let mut padding_size = size - current_size;
+        while padding_size >= 16 {
+            self.0.push(Property::Padding(16));
+            padding_size -= 16;
+        }
+        if padding_size > 0 {
+            self.0.push(Property::Padding(padding_size as u8))
+        }
+    }
+}
+
+impl<PN: PropertyName + 'static> Properties<PN> {
     pub fn write_entry<'a>(
-        keys: impl Iterator<Item = &'a Property>,
+        keys: impl Iterator<Item = &'a Property<PN>>,
         variant_id: Option<VariantIdx>,
-        entry: &dyn EntryTrait,
+        entry: &dyn EntryTrait<PN>,
         stream: &mut dyn OutStream,
     ) -> Result<usize> {
         let mut written = 0;
@@ -128,25 +147,9 @@ impl Properties {
         }
         Ok(written)
     }
-
-    pub(crate) fn entry_size(&self) -> u16 {
-        self.iter().map(|k| k.size()).sum::<u16>()
-    }
-
-    pub(crate) fn fill_to_size(&mut self, size: u16) {
-        let current_size = self.entry_size();
-        let mut padding_size = size - current_size;
-        while padding_size >= 16 {
-            self.0.push(Property::Padding(16));
-            padding_size -= 16;
-        }
-        if padding_size > 0 {
-            self.0.push(Property::Padding(padding_size as u8))
-        }
-    }
 }
 
-impl Writable for Properties {
+impl<PN: PropertyName> Writable for Properties<PN> {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         let mut written = 0;
         for key in &self.0 {

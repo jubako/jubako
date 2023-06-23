@@ -5,21 +5,21 @@ pub use properties::{CommonProperties, VariantProperties};
 pub use property::Property;
 use std::collections::HashMap;
 
-use super::{layout, EntryTrait, Value, ValueStore};
+use super::{layout, EntryTrait, PropertyName, Value, ValueStore};
 use properties::Properties;
 
 #[derive(Debug)]
-pub struct Schema {
-    pub common: Properties,
-    pub variants: Vec<(String, Properties)>,
-    pub sort_keys: Option<Vec<String>>,
+pub struct Schema<PN: PropertyName> {
+    pub common: Properties<PN>,
+    pub variants: Vec<(String, Properties<PN>)>,
+    pub sort_keys: Option<Vec<PN>>,
 }
 
-impl Schema {
+impl<PN: PropertyName> Schema<PN> {
     pub fn new<N: ToString>(
-        common: CommonProperties,
-        variants: Vec<(N, VariantProperties)>,
-        sort_keys: Option<Vec<N>>,
+        common: CommonProperties<PN>,
+        variants: Vec<(N, VariantProperties<PN>)>,
+        sort_keys: Option<Vec<PN>>,
     ) -> Self {
         Self {
             common,
@@ -27,11 +27,11 @@ impl Schema {
                 .into_iter()
                 .map(|(n, p)| (n.to_string(), Properties::from(p)))
                 .collect(),
-            sort_keys: sort_keys.map(|v| v.iter().map(|n| n.to_string()).collect())
+            sort_keys,
         }
     }
 
-    pub fn process(&mut self, entry: &dyn EntryTrait) {
+    pub fn process(&mut self, entry: &dyn EntryTrait<PN>) {
         self.common.process(entry);
         if let Some(variant_name) = entry.variant_name() {
             for (n, p) in &mut self.variants {
@@ -43,7 +43,7 @@ impl Schema {
         }
     }
 
-    pub fn finalize(&self) -> layout::Entry {
+    pub fn finalize(&self) -> layout::Entry<PN> {
         let common_layout = self.common.finalize(None);
         let mut variants_layout = Vec::new();
         let mut variants_map = HashMap::new();

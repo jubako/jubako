@@ -1,36 +1,37 @@
+use super::super::PropertyName;
 use super::ValueStore;
 use crate::bases::Writable;
 use crate::bases::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub enum Property {
+pub enum Property<PN: PropertyName> {
     VariantId(String),
     Array {
         array_size_size: Option<ByteSize>,
         fixed_array_size: u8,
         deported_info: Option<(ByteSize, Rc<RefCell<ValueStore>>)>,
-        name: String,
+        name: PN,
     },
     ContentAddress {
         size: ByteSize,
         default: Option<u8>,
-        name: String,
+        name: PN,
     },
     UnsignedInt {
         size: ByteSize,
         default: Option<u64>,
-        name: String,
+        name: PN,
     },
     SignedInt {
         size: ByteSize,
         default: Option<i64>,
-        name: String,
+        name: PN,
     },
     Padding(/*size*/ u8),
 }
 
-impl std::fmt::Debug for Property {
+impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use Property::*;
         match self {
@@ -50,7 +51,7 @@ impl std::fmt::Debug for Property {
                 .field("fixed_array_size", &fixed_array_size)
                 .field("deported_info", &deported_info)
                 .field("size", &self.size())
-                .field("name", &name)
+                .field("name", &name.to_string())
                 .finish(),
             ContentAddress {
                 size,
@@ -61,7 +62,7 @@ impl std::fmt::Debug for Property {
                 .field("size", &size)
                 .field("default", &default)
                 .field("size", &self.size())
-                .field("name", &name)
+                .field("name", &name.to_string())
                 .finish(),
             UnsignedInt {
                 size,
@@ -72,7 +73,7 @@ impl std::fmt::Debug for Property {
                 .field("size", &size)
                 .field("default", &default)
                 .field("size", &self.size())
-                .field("name", &name)
+                .field("name", &name.to_string())
                 .finish(),
             SignedInt {
                 size,
@@ -83,7 +84,7 @@ impl std::fmt::Debug for Property {
                 .field("size", &size)
                 .field("default", &default)
                 .field("size", &self.size())
-                .field("name", &name)
+                .field("name", &name.to_string())
                 .finish(),
             Padding(_size) => f
                 .debug_struct("Padding")
@@ -93,7 +94,7 @@ impl std::fmt::Debug for Property {
     }
 }
 
-impl Property {
+impl<PN: PropertyName> Property<PN> {
     pub(crate) fn size(&self) -> u16 {
         match self {
             Property::VariantId(_name) => 1,
@@ -144,7 +145,7 @@ impl Property {
     }
 }
 
-impl Writable for Property {
+impl<PN: PropertyName> Writable for Property<PN> {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         match self {
             Property::VariantId(name) => {
@@ -173,7 +174,7 @@ impl Writable for Property {
                 if let Some((_, store)) = deported_info {
                     written += store.borrow().get_idx().write(stream)?;
                 }
-                written += PString::write_string(name.as_bytes(), stream)?;
+                written += PString::write_string(name.to_string().as_bytes(), stream)?;
                 Ok(written)
             }
             Property::ContentAddress {
@@ -192,7 +193,7 @@ impl Writable for Property {
                         written
                     }
                 };
-                written += PString::write_string(name.as_bytes(), stream)?;
+                written += PString::write_string(name.to_string().as_bytes(), stream)?;
                 Ok(written)
             }
             Property::UnsignedInt {
@@ -211,7 +212,7 @@ impl Writable for Property {
                         written
                     }
                 };
-                written += PString::write_string(name.as_bytes(), stream)?;
+                written += PString::write_string(name.to_string().as_bytes(), stream)?;
                 Ok(written)
             }
             Property::SignedInt {
@@ -230,7 +231,7 @@ impl Writable for Property {
                         written
                     }
                 };
-                written += PString::write_string(name.as_bytes(), stream)?;
+                written += PString::write_string(name.to_string().as_bytes(), stream)?;
                 Ok(written)
             }
             Property::Padding(size) => {

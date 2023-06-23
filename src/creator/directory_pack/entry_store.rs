@@ -1,11 +1,11 @@
 use super::schema;
-use super::FullEntryTrait;
+use super::{FullEntryTrait, PropertyName};
 use crate::bases::*;
 use crate::creator::private::WritableTell;
 
 use log::debug;
 
-fn set_entry_idx<Entry: FullEntryTrait>(entries: &mut Vec<Entry>) {
+fn set_entry_idx<PN: PropertyName, Entry: FullEntryTrait<PN>>(entries: &mut Vec<Entry>) {
     let mut idx: EntryIdx = 0.into();
     for entry in entries {
         entry.set_idx(idx);
@@ -13,14 +13,14 @@ fn set_entry_idx<Entry: FullEntryTrait>(entries: &mut Vec<Entry>) {
     }
 }
 
-pub struct EntryStore<Entry: FullEntryTrait> {
+pub struct EntryStore<Entry: FullEntryTrait<PN>, PN: PropertyName> {
     idx: Late<EntryStoreIdx>,
     entries: Vec<Entry>,
-    pub schema: schema::Schema,
+    pub schema: schema::Schema<PN>,
 }
 
-impl<Entry: FullEntryTrait> EntryStore<Entry> {
-    pub fn new(schema: schema::Schema) -> Self {
+impl<Entry: FullEntryTrait<PN>, PN: PropertyName> EntryStore<Entry, PN> {
+    pub fn new(schema: schema::Schema<PN>) -> Self {
         Self {
             idx: Default::default(),
             entries: vec![],
@@ -49,7 +49,9 @@ pub trait EntryStoreTrait: WritableTell {
     fn finalize(&mut self);
 }
 
-impl<Entry: FullEntryTrait> EntryStoreTrait for EntryStore<Entry> {
+impl<Entry: FullEntryTrait<PN>, PN: PropertyName + std::fmt::Debug> EntryStoreTrait
+    for EntryStore<Entry, PN>
+{
     fn set_idx(&mut self, idx: EntryStoreIdx) {
         self.idx.set(idx)
     }
@@ -82,7 +84,9 @@ impl<Entry: FullEntryTrait> EntryStoreTrait for EntryStore<Entry> {
     }
 }
 
-impl<Entry: FullEntryTrait> WritableTell for EntryStore<Entry> {
+impl<Entry: FullEntryTrait<PN>, PN: PropertyName + std::fmt::Debug> WritableTell
+    for EntryStore<Entry, PN>
+{
     fn write_data(&mut self, _stream: &mut dyn OutStream) -> Result<()> {
         unreachable!();
     }
