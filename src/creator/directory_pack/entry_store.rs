@@ -1,11 +1,16 @@
 use super::schema;
-use super::{FullEntryTrait, PropertyName};
+use super::{FullEntryTrait, PropertyName, VariantName};
 use crate::bases::*;
 use crate::creator::private::WritableTell;
 
 use log::debug;
 
-fn set_entry_idx<PN: PropertyName, Entry: FullEntryTrait<PN>>(entries: &mut Vec<Entry>) {
+fn set_entry_idx<PN, VN, Entry>(entries: &mut Vec<Entry>)
+where
+    PN: PropertyName,
+    VN: VariantName,
+    Entry: FullEntryTrait<PN, VN>,
+{
     let mut idx: EntryIdx = 0.into();
     for entry in entries {
         entry.set_idx(idx);
@@ -13,14 +18,24 @@ fn set_entry_idx<PN: PropertyName, Entry: FullEntryTrait<PN>>(entries: &mut Vec<
     }
 }
 
-pub struct EntryStore<Entry: FullEntryTrait<PN>, PN: PropertyName> {
+pub struct EntryStore<PN, VN, Entry>
+where
+    PN: PropertyName,
+    VN: VariantName,
+    Entry: FullEntryTrait<PN, VN>,
+{
     idx: Late<EntryStoreIdx>,
     entries: Vec<Entry>,
-    pub schema: schema::Schema<PN>,
+    pub schema: schema::Schema<PN, VN>,
 }
 
-impl<Entry: FullEntryTrait<PN>, PN: PropertyName> EntryStore<Entry, PN> {
-    pub fn new(schema: schema::Schema<PN>) -> Self {
+impl<PN, VN, Entry> EntryStore<PN, VN, Entry>
+where
+    PN: PropertyName,
+    VN: VariantName,
+    Entry: FullEntryTrait<PN, VN>,
+{
+    pub fn new(schema: schema::Schema<PN, VN>) -> Self {
         Self {
             idx: Default::default(),
             entries: vec![],
@@ -49,8 +64,11 @@ pub trait EntryStoreTrait: WritableTell {
     fn finalize(&mut self);
 }
 
-impl<Entry: FullEntryTrait<PN>, PN: PropertyName + std::fmt::Debug> EntryStoreTrait
-    for EntryStore<Entry, PN>
+impl<PN, VN, Entry> EntryStoreTrait for EntryStore<PN, VN, Entry>
+where
+    PN: PropertyName + std::fmt::Debug,
+    VN: VariantName + std::fmt::Debug,
+    Entry: FullEntryTrait<PN, VN>,
 {
     fn set_idx(&mut self, idx: EntryStoreIdx) {
         self.idx.set(idx)
@@ -84,8 +102,11 @@ impl<Entry: FullEntryTrait<PN>, PN: PropertyName + std::fmt::Debug> EntryStoreTr
     }
 }
 
-impl<Entry: FullEntryTrait<PN>, PN: PropertyName + std::fmt::Debug> WritableTell
-    for EntryStore<Entry, PN>
+impl<PN, VN, Entry> WritableTell for EntryStore<PN, VN, Entry>
+where
+    PN: PropertyName + std::fmt::Debug,
+    VN: VariantName + std::fmt::Debug,
+    Entry: FullEntryTrait<PN, VN>,
 {
     fn write_data(&mut self, _stream: &mut dyn OutStream) -> Result<()> {
         unreachable!();

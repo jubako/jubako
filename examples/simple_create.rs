@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let content_id = content_pack.add_content(content.into())?;
     entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
         &entry_store.schema,
-        Some(String::from("FirstVariant")), // Variant 0
+        Some("FirstVariant"), // Variant 0
         HashMap::from([
             ("AString", jbk::Value::Array("Super".into())),
             ("AInteger", jbk::Value::Unsigned(50.into())),
@@ -71,7 +71,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
         &entry_store.schema,
-        Some(String::from("SecondVariant")),
+        Some("SecondVariant"),
         HashMap::from([
             ("AString", jbk::Value::Array("Mega".into())),
             ("AInteger", jbk::Value::Unsigned(42.into())),
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
         &entry_store.schema,
-        Some(String::from("SecondVariant")),
+        Some("SecondVariant"),
         HashMap::from([
             ("AString", jbk::Value::Array("Hyper".into())),
             ("AInteger", jbk::Value::Unsigned(45.into())),

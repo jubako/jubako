@@ -1,4 +1,4 @@
-use super::super::PropertyName;
+use super::super::{PropertyName, VariantName};
 use super::property::Property;
 use super::Value;
 use crate::bases::Writable;
@@ -50,10 +50,10 @@ impl<PN: PropertyName> Properties<PN> {
 }
 
 impl<PN: PropertyName + 'static> Properties<PN> {
-    pub fn write_entry<'a>(
+    pub fn write_entry<'a, VN: VariantName>(
         keys: impl Iterator<Item = &'a Property<PN>>,
         variant_id: Option<VariantIdx>,
-        entry: &dyn EntryTrait<PN>,
+        entry: &dyn EntryTrait<PN, VN>,
         stream: &mut dyn OutStream,
     ) -> Result<usize> {
         let mut written = 0;

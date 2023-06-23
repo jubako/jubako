@@ -1,4 +1,4 @@
-use super::super::PropertyName;
+use super::super::{PropertyName, VariantName};
 use super::properties::Properties;
 use crate::bases::Writable;
 use crate::bases::*;
@@ -6,17 +6,17 @@ use crate::creator::directory_pack::EntryTrait;
 use std::collections::HashMap;
 
 #[derive(Debug)]
-pub struct Entry<PN: PropertyName> {
+pub struct Entry<PN: PropertyName, VN: VariantName> {
     pub common: Properties<PN>,
     pub variants: Vec<Properties<PN>>,
-    pub variants_map: HashMap<String, VariantIdx>,
+    pub variants_map: HashMap<VN, VariantIdx>,
     pub entry_size: u16,
 }
 
-impl<PN: PropertyName> Entry<PN> {
+impl<PN: PropertyName, VN: VariantName> Entry<PN, VN> {
     pub fn write_entry(
         &self,
-        entry: &dyn EntryTrait<PN>,
+        entry: &dyn EntryTrait<PN, VN>,
         stream: &mut dyn OutStream,
     ) -> Result<usize> {
         assert!(self.variants.is_empty() == entry.variant_name().is_none());
@@ -39,7 +39,7 @@ impl<PN: PropertyName> Entry<PN> {
     }
 }
 
-impl<PN: PropertyName> Writable for Entry<PN> {
+impl<PN: PropertyName, VN: VariantName> Writable for Entry<PN, VN> {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         let mut written = 0;
         written += stream.write_u16(self.entry_size)?;

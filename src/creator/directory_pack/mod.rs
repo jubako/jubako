@@ -16,8 +16,10 @@ use value_store::ValueStore;
 pub use value_store::ValueStoreKind;
 
 pub trait PropertyName: ToString + std::cmp::Eq + std::hash::Hash + Copy + 'static {}
-
 impl PropertyName for &'static str {}
+
+pub trait VariantName: ToString + std::cmp::Eq + std::hash::Hash + Copy {}
+impl VariantName for &str {}
 
 #[derive(Debug, PartialEq)]
 pub enum Value {
@@ -67,22 +69,22 @@ impl PartialOrd for Value {
     }
 }
 
-pub trait EntryTrait<PN: PropertyName> {
-    fn variant_name(&self) -> Option<&str>;
+pub trait EntryTrait<PN: PropertyName, VN: VariantName> {
+    fn variant_name(&self) -> Option<&VN>;
     fn value(&self, name: &PN) -> &Value;
     fn value_count(&self) -> PropertyCount;
     fn set_idx(&mut self, idx: EntryIdx);
     fn get_idx(&self) -> Bound<EntryIdx>;
 }
 
-pub trait FullEntryTrait<PN: PropertyName>: EntryTrait<PN> {
+pub trait FullEntryTrait<PN: PropertyName, VN: VariantName>: EntryTrait<PN, VN> {
     fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PN>, other: &Self)
         -> std::cmp::Ordering;
 }
 
 #[derive(Debug)]
-pub struct BasicEntry<PN: PropertyName> {
-    variant_name: Option<String>,
+pub struct BasicEntry<PN: PropertyName, VN: VariantName> {
+    variant_name: Option<VN>,
     values: HashMap<PN, Value>,
     idx: Vow<EntryIdx>,
 }
@@ -93,9 +95,9 @@ pub struct ValueTransformer<'a, PN: PropertyName> {
 }
 
 impl<'a, PN: PropertyName> ValueTransformer<'a, PN> {
-    pub fn new(
-        schema: &'a schema::Schema<PN>,
-        variant_name: &Option<String>,
+    pub fn new<VN: VariantName>(
+        schema: &'a schema::Schema<PN, VN>,
+        variant_name: &Option<VN>,
         values: HashMap<PN, common::Value>,
     ) -> Self {
         if schema.variants.is_empty() {
@@ -116,7 +118,7 @@ impl<'a, PN: PropertyName> ValueTransformer<'a, PN> {
             //[TODO] Transform this as Result
             panic!(
                 "Entry variant name {} doesn't correspond to possible variants",
-                variant_name.as_ref().unwrap()
+                variant_name.unwrap().to_string()
             );
         };
     }
@@ -195,46 +197,45 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
     }
 }
 
-impl<PN: PropertyName> BasicEntry<PN> {
-    pub fn new_from_schema<VN: ToString>(
-        schema: &schema::Schema<PN>,
+impl<PN: PropertyName, VN: VariantName> BasicEntry<PN, VN> {
+    pub fn new_from_schema(
+        schema: &schema::Schema<PN, VN>,
         variant_name: Option<VN>,
         values: HashMap<PN, common::Value>,
     ) -> Self {
         Self::new_from_schema_idx(schema, Default::default(), variant_name, values)
     }
 
-    pub fn new_from_schema_idx<VN: ToString>(
-        schema: &schema::Schema<PN>,
+    pub fn new_from_schema_idx(
+        schema: &schema::Schema<PN, VN>,
         idx: Vow<EntryIdx>,
         variant_name: Option<VN>,
         values: HashMap<PN, common::Value>,
     ) -> Self {
-        let variant_name = variant_name.map(|n| n.to_string());
         let value_transformer = ValueTransformer::<PN>::new(schema, &variant_name, values);
         Self::new_idx(variant_name, value_transformer.collect(), idx)
     }
 
-    pub fn new<VN: ToString>(variant_name: Option<VN>, values: HashMap<PN, Value>) -> Self {
+    pub fn new(variant_name: Option<VN>, values: HashMap<PN, Value>) -> Self {
         Self::new_idx(variant_name, values, Default::default())
     }
 
-    pub fn new_idx<VN: ToString>(
+    pub fn new_idx(
         variant_name: Option<VN>,
         values: HashMap<PN, Value>,
         idx: Vow<EntryIdx>,
     ) -> Self {
         Self {
-            variant_name: variant_name.map(|n| n.to_string()),
+            variant_name,
             values,
             idx,
         }
     }
 }
 
-impl<PN: PropertyName> EntryTrait<PN> for BasicEntry<PN> {
-    fn variant_name(&self) -> Option<&str> {
-        self.variant_name.as_deref()
+impl<PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for BasicEntry<PN, VN> {
+    fn variant_name(&self) -> Option<&VN> {
+        self.variant_name.as_ref()
     }
     fn value(&self, name: &PN) -> &Value {
         &self.values[name]
@@ -250,11 +251,11 @@ impl<PN: PropertyName> EntryTrait<PN> for BasicEntry<PN> {
     }
 }
 
-impl<T, PN: PropertyName> EntryTrait<PN> for Box<T>
+impl<T, PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for Box<T>
 where
-    T: EntryTrait<PN>,
+    T: EntryTrait<PN, VN>,
 {
-    fn variant_name(&self) -> Option<&str> {
+    fn variant_name(&self) -> Option<&VN> {
         T::variant_name(self)
     }
     fn value(&self, name: &PN) -> &Value {
@@ -271,11 +272,11 @@ where
     }
 }
 
-impl<PN: PropertyName> FullEntryTrait<PN> for BasicEntry<PN> {
+impl<PN: PropertyName, VN: VariantName> FullEntryTrait<PN, VN> for BasicEntry<PN, VN> {
     fn compare(
         &self,
         sort_keys: &mut dyn Iterator<Item = &PN>,
-        other: &BasicEntry<PN>,
+        other: &BasicEntry<PN, VN>,
     ) -> cmp::Ordering {
         for property_name in sort_keys {
             let self_value = self.value(property_name);
@@ -293,9 +294,9 @@ impl<PN: PropertyName> FullEntryTrait<PN> for BasicEntry<PN> {
     }
 }
 
-impl<T, PN: PropertyName> FullEntryTrait<PN> for Box<T>
+impl<T, PN: PropertyName, VN: VariantName> FullEntryTrait<PN, VN> for Box<T>
 where
-    T: FullEntryTrait<PN>,
+    T: FullEntryTrait<PN, VN>,
 {
     fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PN>, other: &Self) -> cmp::Ordering {
         T::compare(self, sort_keys, other)

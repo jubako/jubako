@@ -5,33 +5,33 @@ pub use properties::{CommonProperties, VariantProperties};
 pub use property::Property;
 use std::collections::HashMap;
 
-use super::{layout, EntryTrait, PropertyName, Value, ValueStore};
+use super::{layout, EntryTrait, PropertyName, Value, ValueStore, VariantName};
 use properties::Properties;
 
 #[derive(Debug)]
-pub struct Schema<PN: PropertyName> {
+pub struct Schema<PN: PropertyName, VN: VariantName> {
     pub common: Properties<PN>,
-    pub variants: Vec<(String, Properties<PN>)>,
+    pub variants: Vec<(VN, Properties<PN>)>,
     pub sort_keys: Option<Vec<PN>>,
 }
 
-impl<PN: PropertyName> Schema<PN> {
-    pub fn new<N: ToString>(
+impl<PN: PropertyName, VN: VariantName> Schema<PN, VN> {
+    pub fn new(
         common: CommonProperties<PN>,
-        variants: Vec<(N, VariantProperties<PN>)>,
+        variants: Vec<(VN, VariantProperties<PN>)>,
         sort_keys: Option<Vec<PN>>,
     ) -> Self {
         Self {
             common,
             variants: variants
                 .into_iter()
-                .map(|(n, p)| (n.to_string(), Properties::from(p)))
+                .map(|(n, p)| (n, Properties::from(p)))
                 .collect(),
             sort_keys,
         }
     }
 
-    pub fn process(&mut self, entry: &dyn EntryTrait<PN>) {
+    pub fn process(&mut self, entry: &dyn EntryTrait<PN, VN>) {
         self.common.process(entry);
         if let Some(variant_name) = entry.variant_name() {
             for (n, p) in &mut self.variants {
@@ -43,13 +43,13 @@ impl<PN: PropertyName> Schema<PN> {
         }
     }
 
-    pub fn finalize(&self) -> layout::Entry<PN> {
+    pub fn finalize(&self) -> layout::Entry<PN, VN> {
         let common_layout = self.common.finalize(None);
         let mut variants_layout = Vec::new();
         let mut variants_map = HashMap::new();
         for (name, variant) in &self.variants {
             variants_layout.push(variant.finalize(Some(name.to_string())));
-            variants_map.insert(name.to_string(), (variants_layout.len() as u8 - 1).into());
+            variants_map.insert(*name, (variants_layout.len() as u8 - 1).into());
         }
         let entry_size = if variants_layout.is_empty() {
             common_layout.entry_size()

@@ -86,8 +86,7 @@ test_suite! {
             jubako::FreeData31::clone_from_slice(&[0xff; 31])
         );
         let key_store_handle = creator.create_value_store(key_store_kind);
-        let entry_def = schema::Schema::new::<String>
-        (
+        let entry_def = schema::Schema::<&str, &str>::new(
             schema::CommonProperties::new(vec![
                 schema::Property::new_array(0, key_store_handle, "V0"),
                 schema::Property::new_content_address("V1"),
@@ -99,7 +98,7 @@ test_suite! {
 
         let mut entry_store = Box::new(creator::EntryStore::new(entry_def));
         for (idx, entry) in entries.iter().enumerate() {
-            entry_store.add_entry(creator::BasicEntry::new_from_schema::<String>(&entry_store.schema, None, HashMap::from([
+            entry_store.add_entry(creator::BasicEntry::new_from_schema(&entry_store.schema, None, HashMap::from([
                 ("V0", jubako::Value::Array(entry.path.clone().into())),
                 ("V1", jubako::Value::Content(jubako::ContentAddress::new(1.into(), (idx as u32).into()))),
                 ("V2", jubako::Value::Unsigned((entry.word_count as u64).into()))

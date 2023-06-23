@@ -1,5 +1,5 @@
 use super::super::layout;
-use super::{EntryTrait, PropertyName, Value, ValueStore};
+use super::{EntryTrait, PropertyName, Value, ValueStore, VariantName};
 use crate::bases::*;
 use std::cell::RefCell;
 use std::cmp;
@@ -167,7 +167,7 @@ impl<PN: PropertyName> Property<PN> {
         }
     }
 
-    pub fn process(&mut self, entry: &dyn EntryTrait<PN>) {
+    pub fn process<VN: VariantName>(&mut self, entry: &dyn EntryTrait<PN, VN>) {
         match self {
             Self::UnsignedInt {
                 counter,
