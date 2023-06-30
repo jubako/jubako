@@ -210,7 +210,16 @@ However, nothing prevent to create a entry with one variant and put only some pa
 
 If a variant identifier is present, ``entrySize`` and ``keyCount`` MUST integrate it.
 
-All variants MUST have the same size. (Use padding if not)
+All variants MUST have the same size. (Use padding if needed)
+
+KeyInfo
+-------
+
+The entry definition (common part and variant) is composed of key info.
+A key info describes one "property" or "attribute" of the entry.
+It is composed of:
+- a key type: at least one byte and potentially several complement bytes
+- a key name: the name of the property.
 
 Key Type
 --------
@@ -247,6 +256,7 @@ Variant identifier
 
 ``0bSSSS`` must be 0.
 Key size is always 1.
+The variant identifier in the entry is a u8.
 
 Padding
 .......
@@ -341,6 +351,16 @@ Unsized char[]
   ``ZZZZZ + value_store_offsets[index+1] - value_store_offsets[index]``.
 
 It is not possible to store data smaller than ``ZZZZZ`` without a explicit size.
+
+Key Name
+--------
+
+All key types (except padding) are followed by a key name.
+The key name is a UTF-8 PString.
+
+Key name associated to a variant id defines the name of the variant.
+Other key names define the name of the property.
+
 
 
 Ref EntryStore [TODO]
