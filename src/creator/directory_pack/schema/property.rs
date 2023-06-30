@@ -1,6 +1,5 @@
 use super::super::layout;
-use super::Value;
-use super::ValueStore;
+use super::{EntryTrait, PropertyName, Value, ValueStore, VariantName};
 use crate::bases::*;
 use std::cell::RefCell;
 use std::cmp;
@@ -54,98 +53,128 @@ where
     }
 }
 
-pub enum Property {
+pub enum Property<PN: PropertyName> {
     UnsignedInt {
         counter: ValueCounter<u64>,
         size: PropertySize<u64>,
+        name: PN,
     },
     SignedInt {
         counter: ValueCounter<i64>,
         size: PropertySize<i64>,
+        name: PN,
     },
     Array {
         max_array_size: PropertySize<usize>,
         fixed_array_size: usize,
         store_handle: Rc<RefCell<ValueStore>>,
+        name: PN,
     },
     ContentAddress {
         pack_id_counter: ValueCounter<u8>,
         content_id_size: PropertySize<u32>,
+        name: PN,
     },
     Padding(/*size*/ u8),
 }
 
-impl std::fmt::Debug for Property {
+impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UnsignedInt { counter, size } => f
-                .debug_tuple("UnsignedInt")
-                .field(&counter)
-                .field(&size)
+            Self::UnsignedInt {
+                counter,
+                size,
+                name,
+            } => f
+                .debug_struct("UnsignedInt")
+                .field("counter", &counter)
+                .field("size", &size)
+                .field("name", &name.to_string())
                 .finish(),
-            Self::SignedInt { counter, size } => f
-                .debug_tuple("SignedInt")
-                .field(&counter)
-                .field(&size)
+            Self::SignedInt {
+                counter,
+                size,
+                name,
+            } => f
+                .debug_struct("SignedInt")
+                .field("counter", &counter)
+                .field("size", &size)
+                .field("name", &name.to_string())
                 .finish(),
             Self::Array {
                 max_array_size,
                 fixed_array_size,
                 store_handle,
+                name,
             } => f
                 .debug_struct("Array")
                 .field("may_array_size", &max_array_size)
                 .field("fixed_array_size", &fixed_array_size)
                 .field("store_idx", &store_handle.borrow().get_idx())
                 .field("key_size", &store_handle.borrow().key_size())
+                .field("name", &name.to_string())
                 .finish(),
             Self::ContentAddress {
                 pack_id_counter,
                 content_id_size,
+                name,
             } => f
                 .debug_struct("ContentAddress")
                 .field("pack_id_counter", &pack_id_counter)
                 .field("content_id_size", &content_id_size)
+                .field("name", &name.to_string())
                 .finish(),
             Self::Padding(s) => f.debug_tuple("Padding").field(&s).finish(),
         }
     }
 }
 
-impl Property {
-    pub fn new_uint() -> Self {
+impl<PN: PropertyName> Property<PN> {
+    pub fn new_uint(name: PN) -> Self {
         Property::UnsignedInt {
             counter: Default::default(),
             size: Default::default(),
+            name,
         }
     }
 
-    pub fn new_sint() -> Self {
+    pub fn new_sint(name: PN) -> Self {
         Property::SignedInt {
             counter: Default::default(),
             size: Default::default(),
+            name,
         }
     }
 
-    pub fn new_array(fixed_array_size: usize, store_handle: Rc<RefCell<ValueStore>>) -> Self {
+    pub fn new_array(
+        fixed_array_size: usize,
+        store_handle: Rc<RefCell<ValueStore>>,
+        name: PN,
+    ) -> Self {
         Property::Array {
             max_array_size: Default::default(),
             fixed_array_size,
             store_handle,
+            name,
         }
     }
 
-    pub fn new_content_address() -> Self {
+    pub fn new_content_address(name: PN) -> Self {
         Property::ContentAddress {
             pack_id_counter: Default::default(),
             content_id_size: Default::default(),
+            name,
         }
     }
 
-    pub fn process<'a>(&mut self, values: &mut impl Iterator<Item = &'a Value>) {
+    pub fn process<VN: VariantName>(&mut self, entry: &dyn EntryTrait<PN, VN>) {
         match self {
-            Self::UnsignedInt { counter, size } => {
-                if let Value::Unsigned(value) = values.next().unwrap() {
+            Self::UnsignedInt {
+                counter,
+                size,
+                name,
+            } => {
+                if let Value::Unsigned(value) = entry.value(name) {
                     counter.process(value.get());
                     match size {
                         PropertySize::Fixed(size) => {
@@ -159,8 +188,12 @@ impl Property {
                     panic!("Value type doesn't correspond to property");
                 }
             }
-            Self::SignedInt { counter, size } => {
-                if let Value::Signed(value) = values.next().unwrap() {
+            Self::SignedInt {
+                counter,
+                size,
+                name,
+            } => {
+                if let Value::Signed(value) = entry.value(name) {
                     counter.process(value.get());
                     match size {
                         PropertySize::Fixed(size) => {
@@ -177,8 +210,9 @@ impl Property {
             Self::ContentAddress {
                 pack_id_counter,
                 content_id_size,
+                name,
             } => {
-                if let Value::Content(c) = values.next().unwrap() {
+                if let Value::Content(c) = entry.value(name) {
                     pack_id_counter.process(c.pack_id.into_u8());
                     match content_id_size {
                         PropertySize::Fixed(size) => {
@@ -196,12 +230,13 @@ impl Property {
                 max_array_size,
                 fixed_array_size: _,
                 store_handle: _,
+                name,
             } => {
                 if let Value::Array {
                     size,
                     data: _,
                     value_id: _,
-                } = values.next().unwrap()
+                } = entry.value(name)
                 {
                     match max_array_size {
                         PropertySize::Fixed(fixed_size) => {
@@ -221,9 +256,13 @@ impl Property {
         }
     }
 
-    pub fn finalize(&self) -> layout::Property {
+    pub fn finalize(&self) -> layout::Property<PN> {
         match self {
-            Self::UnsignedInt { counter, size } => {
+            Self::UnsignedInt {
+                counter,
+                size,
+                name,
+            } => {
                 let size = match size {
                     PropertySize::Fixed(size) => *size,
                     PropertySize::Auto(max) => needed_bytes(*max),
@@ -232,14 +271,20 @@ impl Property {
                     ValueCounter::One(d) => layout::Property::UnsignedInt {
                         size,
                         default: Some(*d),
+                        name: *name,
                     },
                     _ => layout::Property::UnsignedInt {
                         size,
                         default: None,
+                        name: *name,
                     },
                 }
             }
-            Self::SignedInt { counter, size } => {
+            Self::SignedInt {
+                counter,
+                size,
+                name,
+            } => {
                 let size = match size {
                     PropertySize::Fixed(size) => *size,
                     PropertySize::Auto(max) => needed_bytes(*max),
@@ -248,10 +293,12 @@ impl Property {
                     ValueCounter::One(d) => layout::Property::SignedInt {
                         size,
                         default: Some(*d),
+                        name: *name,
                     },
                     _ => layout::Property::SignedInt {
                         size,
                         default: None,
+                        name: *name,
                     },
                 }
             }
@@ -259,6 +306,7 @@ impl Property {
                 max_array_size,
                 fixed_array_size,
                 store_handle,
+                name,
             } => {
                 let value_id_size = store_handle.borrow().key_size();
                 layout::Property::Array {
@@ -268,11 +316,13 @@ impl Property {
                     }),
                     fixed_array_size: *fixed_array_size as u8,
                     deported_info: Some((value_id_size, Rc::clone(store_handle))),
+                    name: *name,
                 }
             }
             Self::ContentAddress {
                 pack_id_counter,
                 content_id_size,
+                name,
             } => {
                 let default = match pack_id_counter {
                     ValueCounter::One(d) => Some(*d),
@@ -282,7 +332,11 @@ impl Property {
                     PropertySize::Fixed(size) => *size,
                     PropertySize::Auto(max) => needed_bytes(*max),
                 };
-                layout::Property::ContentAddress { size, default }
+                layout::Property::ContentAddress {
+                    size,
+                    default,
+                    name: *name,
+                }
             }
             Self::Padding(size) => layout::Property::Padding(*size),
         }

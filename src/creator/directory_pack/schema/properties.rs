@@ -1,56 +1,52 @@
-use super::super::{layout, Value};
+use super::super::{layout, EntryTrait, PropertyName, VariantName};
 use super::property::Property;
 
 #[derive(Debug)]
-pub struct Properties(Vec<Property>);
-pub type CommonProperties = Properties;
+pub struct Properties<PN: PropertyName>(Vec<Property<PN>>);
+pub type CommonProperties<PN> = Properties<PN>;
 
 #[derive(Debug)]
-pub struct VariantProperties(pub Vec<Property>);
+pub struct VariantProperties<PN: PropertyName>(pub Vec<Property<PN>>);
 
-impl std::ops::Deref for Properties {
-    type Target = [Property];
+impl<PN: PropertyName> std::ops::Deref for Properties<PN> {
+    type Target = [Property<PN>];
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl std::ops::DerefMut for Properties {
+impl<PN: PropertyName> std::ops::DerefMut for Properties<PN> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl VariantProperties {
-    pub fn new(keys: Vec<Property>) -> Self {
+impl<PN: PropertyName> VariantProperties<PN> {
+    pub fn new(keys: Vec<Property<PN>>) -> Self {
         Self(keys)
     }
 }
 
-impl From<VariantProperties> for Properties {
-    fn from(other: VariantProperties) -> Self {
+impl<PN: PropertyName> From<VariantProperties<PN>> for Properties<PN> {
+    fn from(other: VariantProperties<PN>) -> Self {
         Self(other.0)
     }
 }
 
-impl Properties {
-    pub fn new(keys: Vec<Property>) -> Self {
+impl<PN: PropertyName> Properties<PN> {
+    pub fn new(keys: Vec<Property<PN>>) -> Self {
         Self(keys)
     }
 
-    pub fn finalize(&self, variant: bool) -> layout::Properties {
-        let variant = if variant {
-            Some(layout::Property::VariantId)
-        } else {
-            None
-        };
+    pub fn finalize(&self, variant_name: Option<String>) -> layout::Properties<PN> {
+        let variant = variant_name.map(layout::Property::VariantId);
         variant
             .into_iter()
             .chain(self.0.iter().map(|p| p.finalize()))
             .collect()
     }
 
-    pub fn process<'a>(&mut self, values: &mut impl Iterator<Item = &'a Value>) {
-        self.0.iter_mut().for_each(|p| p.process(values))
+    pub fn process<VN: VariantName>(&mut self, entry: &dyn EntryTrait<PN, VN>) {
+        self.0.iter_mut().for_each(|p| p.process(entry))
     }
 }

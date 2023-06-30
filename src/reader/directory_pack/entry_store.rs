@@ -88,6 +88,7 @@ impl PlainStore {
 mod tests {
     use super::*;
     use crate::reader::directory_pack::layout::{Property, PropertyKind};
+    use std::collections::HashMap;
 
     #[test]
     fn test_1variant_allproperties() {
@@ -98,21 +99,21 @@ mod tests {
             0x00,        // variant count
             0x10,       // property count (16)
             0b0000_0111, // padding (8)       offset: 0
-            0b0001_0110, // content address   offset: 8
-            0b0010_0000, // u8                offset: 12
-            0b0010_0010, // u24               offset: 13
-            0b0010_0111, // u64               offset: 16
-            0b0011_0000, // s8                offset: 24
-            0b0011_0010, // s24               offset: 25
-            0b0011_0111, // s64               offset: 28
-            0b0101_0010, 0b000_00001, // char2[1]    offset: 36
-            0b0101_0010, 0b000_01000, // char2[8]    offset: 39
-            0b0101_0010, 0b000_11111, // char2[31]   offset: 49
-            0b0101_0001, 0b001_00000, 0x0F, // char1[0] + deported(1), idx 0x0F   offset: 82
-            0b0101_0010, 0b111_00000, 0x0F, // char2[0] + deported(7), idx 0x0F   offset: 84
-            0b0101_0001, 0b001_00010, 0x0F, // char1[2] + deported(1), idx 0x0F   offset: 93
-            0b0101_0010, 0b111_00010, 0x0F, // char2[2] + deported(7), idx 0x0F   offset: 97
-            0b0001_0000, 0x01, // content address, with default 0x01 and 1 byte of data offset: 108
+            0b0001_0110, 2, b'V', b'0', // content address   offset: 8
+            0b0010_0000, 2, b'V', b'1', // u8                offset: 12
+            0b0010_0010, 2, b'V', b'2', // u24               offset: 13
+            0b0010_0111, 2, b'V', b'3', // u64               offset: 16
+            0b0011_0000, 2, b'V', b'4', // s8                offset: 24
+            0b0011_0010, 2, b'V', b'5', // s24               offset: 25
+            0b0011_0111, 2, b'V', b'6', // s64               offset: 28
+            0b0101_0010, 0b000_00001, 2, b'V', b'7', // char2[1]    offset: 36
+            0b0101_0010, 0b000_01000, 2, b'V', b'8', // char2[8]    offset: 39
+            0b0101_0010, 0b000_11111, 2, b'V', b'9', // char2[31]   offset: 49
+            0b0101_0001, 0b001_00000, 0x0F, 3 , b'V', b'1', b'0', // char1[0] + deported(1), idx 0x0F   offset: 82
+            0b0101_0010, 0b111_00000, 0x0F, 3 , b'V', b'1', b'1', // char2[0] + deported(7), idx 0x0F   offset: 84
+            0b0101_0001, 0b001_00010, 0x0F, 3 , b'V', b'1', b'2', // char1[2] + deported(1), idx 0x0F   offset: 93
+            0b0101_0010, 0b111_00010, 0x0F, 3 , b'V', b'1', b'3', // char2[2] + deported(7), idx 0x0F   offset: 97
+            0b0001_0000, 0x01, 3 , b'V', b'1', b'4', // content address, with default 0x01 and 1 byte of data offset: 108
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size           offset: 109
         ];
         let size = Size::from(content.len());
@@ -122,58 +123,103 @@ mod tests {
             EntryStore::Plain(s) => s,
         };
         assert!(store.layout.variant_part.is_none());
-        let expected = [
-            Property::new(8, PropertyKind::ContentAddress(ByteSize::U3, None)),
-            Property::new(12, PropertyKind::UnsignedInt(ByteSize::U1, None)),
-            Property::new(13, PropertyKind::UnsignedInt(ByteSize::U3, None)),
-            Property::new(16, PropertyKind::UnsignedInt(ByteSize::U8, None)),
-            Property::new(24, PropertyKind::SignedInt(ByteSize::U1, None)),
-            Property::new(25, PropertyKind::SignedInt(ByteSize::U3, None)),
-            Property::new(28, PropertyKind::SignedInt(ByteSize::U8, None)),
-            Property::new(36, PropertyKind::Array(Some(ByteSize::U2), 1, None, None)),
-            Property::new(39, PropertyKind::Array(Some(ByteSize::U2), 8, None, None)),
-            Property::new(49, PropertyKind::Array(Some(ByteSize::U2), 31, None, None)),
-            Property::new(
-                82,
-                PropertyKind::Array(
-                    Some(ByteSize::U1),
-                    0,
-                    Some((ByteSize::U1, 0x0F.into())),
-                    None,
+        let expected = HashMap::from([
+            (
+                "V0".to_string(),
+                Property::new(8, PropertyKind::ContentAddress(ByteSize::U3, None)),
+            ),
+            (
+                "V1".to_string(),
+                Property::new(12, PropertyKind::UnsignedInt(ByteSize::U1, None)),
+            ),
+            (
+                "V2".to_string(),
+                Property::new(13, PropertyKind::UnsignedInt(ByteSize::U3, None)),
+            ),
+            (
+                "V3".to_string(),
+                Property::new(16, PropertyKind::UnsignedInt(ByteSize::U8, None)),
+            ),
+            (
+                "V4".to_string(),
+                Property::new(24, PropertyKind::SignedInt(ByteSize::U1, None)),
+            ),
+            (
+                "V5".to_string(),
+                Property::new(25, PropertyKind::SignedInt(ByteSize::U3, None)),
+            ),
+            (
+                "V6".to_string(),
+                Property::new(28, PropertyKind::SignedInt(ByteSize::U8, None)),
+            ),
+            (
+                "V7".to_string(),
+                Property::new(36, PropertyKind::Array(Some(ByteSize::U2), 1, None, None)),
+            ),
+            (
+                "V8".to_string(),
+                Property::new(39, PropertyKind::Array(Some(ByteSize::U2), 8, None, None)),
+            ),
+            (
+                "V9".to_string(),
+                Property::new(49, PropertyKind::Array(Some(ByteSize::U2), 31, None, None)),
+            ),
+            (
+                "V10".to_string(),
+                Property::new(
+                    82,
+                    PropertyKind::Array(
+                        Some(ByteSize::U1),
+                        0,
+                        Some((ByteSize::U1, 0x0F.into())),
+                        None,
+                    ),
                 ),
             ),
-            Property::new(
-                84,
-                PropertyKind::Array(
-                    Some(ByteSize::U2),
-                    0,
-                    Some((ByteSize::U7, 0x0F.into())),
-                    None,
+            (
+                "V11".to_string(),
+                Property::new(
+                    84,
+                    PropertyKind::Array(
+                        Some(ByteSize::U2),
+                        0,
+                        Some((ByteSize::U7, 0x0F.into())),
+                        None,
+                    ),
                 ),
             ),
-            Property::new(
-                93,
-                PropertyKind::Array(
-                    Some(ByteSize::U1),
-                    2,
-                    Some((ByteSize::U1, 0x0F.into())),
-                    None,
+            (
+                "V12".to_string(),
+                Property::new(
+                    93,
+                    PropertyKind::Array(
+                        Some(ByteSize::U1),
+                        2,
+                        Some((ByteSize::U1, 0x0F.into())),
+                        None,
+                    ),
                 ),
             ),
-            Property::new(
-                97,
-                PropertyKind::Array(
-                    Some(ByteSize::U2),
-                    2,
-                    Some((ByteSize::U7, 0x0F.into())),
-                    None,
+            (
+                "V13".to_string(),
+                Property::new(
+                    97,
+                    PropertyKind::Array(
+                        Some(ByteSize::U2),
+                        2,
+                        Some((ByteSize::U7, 0x0F.into())),
+                        None,
+                    ),
                 ),
             ),
-            Property::new(
-                108,
-                PropertyKind::ContentAddress(ByteSize::U1, Some(1.into())),
+            (
+                "V14".to_string(),
+                Property::new(
+                    108,
+                    PropertyKind::ContentAddress(ByteSize::U1, Some(1.into())),
+                ),
             ),
-        ];
+        ]);
         assert_eq!(&*store.layout.common, &expected);
     }
 
@@ -186,16 +232,16 @@ mod tests {
             0x02,        // variant count
             0x0B,        // property count (9)
             0b0000_0110, // padding (7)       offset: 0
-            0b0101_0100, 0b001_00001, 0x0F, // char4[1] + deported(1) 0x0F                offset: 7
-            0b1000_0000, // Variant id size:1                                             offset: 13
-            0b0101_0100, 0b101_00001, 0x0F, // char4[1] + deported(5), idx 0x0F size: 10  offset: 14
-            0b0001_0110, // content address size : 1+ 3                                   offset: 24
-            0b0010_0010, // u24 size: 3                                                   offset: 28  => Variant size 31
-            0b1000_0000, // Variant id size: 1                                            offset: 13  // new variant
-            0b0101_0011, 0b000_00110, // char3[6] size: 9                                 offset: 14
-            0b0001_0101, // content address size: 1 + 2                                   offset: 23
-            0b0010_0010, // u24 size: 3                                                   offset: 26
-            0b0000_0001,  // padding (2)                                                  offset: 29  => Variant size 31
+            0b0101_0100, 0b001_00001, 0x0F, 2, b'C', b'0', // char4[1] + deported(1) 0x0F                offset: 7
+            0b1000_0000, 3, b'V', b'A', b'0', // Variant id size:1                                       offset: 13
+            0b0101_0100, 0b101_00001, 0x0F, 2, b'V', b'0',  // char4[1] + deported(5), idx 0x0F size: 10 offset: 17
+            0b0001_0110, 2, b'V', b'1', // content address size : 1+ 3                                   offset: 27
+            0b0010_0010, 2, b'V', b'2', // u24 size: 3                                                   offset: 31  => Variant size 34
+            0b1000_0000, 3, b'V', b'A', b'1', // Variant id size: 1                                      offset: 13  // new variant
+            0b0101_0011, 0b000_00110, 2, b'V', b'0', // char3[6] size: 9                                 offset: 17
+            0b0001_0101, 2, b'V', b'1',  // content address size: 1 + 2                                  offset: 26
+            0b0010_0010, 2, b'V', b'2',  // u24 size: 3                                                  offset: 29
+            0b0000_0001,  // padding (2)                                                                 offset: 31  => Variant size 32
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
         ];
         let size = Size::from(content.len());
@@ -205,41 +251,66 @@ mod tests {
             EntryStore::Plain(s) => s,
         };
         let common = store.layout.common;
-        let expected = [Property::new(
-            7,
-            PropertyKind::Array(
-                Some(ByteSize::U4),
-                1,
-                Some((ByteSize::U1, 0x0F.into())),
-                None,
-            ),
-        )];
-        assert_eq!(&*common, &expected);
-
-        let (offset, variants) = store.layout.variant_part.unwrap();
-        assert_eq!(offset, Offset::new(13));
-        assert_eq!(variants.len(), 2);
-        let variant = &variants[0];
-        let expected = [
+        let expected = HashMap::from([(
+            "C0".to_string(),
             Property::new(
-                14,
+                7,
                 PropertyKind::Array(
                     Some(ByteSize::U4),
                     1,
-                    Some((ByteSize::U5, 0x0F.into())),
+                    Some((ByteSize::U1, 0x0F.into())),
                     None,
                 ),
             ),
-            Property::new(24, PropertyKind::ContentAddress(ByteSize::U3, None)),
-            Property::new(28, PropertyKind::UnsignedInt(ByteSize::U3, None)),
-        ];
-        assert_eq!(&**variant, &expected);
+        )]);
+        assert_eq!(&*common, &expected);
+
+        let (offset, variants, variants_map) = store.layout.variant_part.unwrap();
+        assert_eq!(offset, Offset::new(13));
+        assert_eq!(variants.len(), 2);
+        assert_eq!(
+            variants_map,
+            HashMap::from([(String::from("VA0"), 0), (String::from("VA1"), 1)])
+        );
+        let variant = &variants[0];
+        let expected = HashMap::from([
+            (
+                "V0".to_string(),
+                Property::new(
+                    14,
+                    PropertyKind::Array(
+                        Some(ByteSize::U4),
+                        1,
+                        Some((ByteSize::U5, 0x0F.into())),
+                        None,
+                    ),
+                ),
+            ),
+            (
+                "V1".to_string(),
+                Property::new(24, PropertyKind::ContentAddress(ByteSize::U3, None)),
+            ),
+            (
+                "V2".to_string(),
+                Property::new(28, PropertyKind::UnsignedInt(ByteSize::U3, None)),
+            ),
+        ]);
+        assert_eq!(***variant, expected);
         let variant = &variants[1];
-        let expected = [
-            Property::new(14, PropertyKind::Array(Some(ByteSize::U3), 6, None, None)),
-            Property::new(23, PropertyKind::ContentAddress(ByteSize::U2, None)),
-            Property::new(26, PropertyKind::UnsignedInt(ByteSize::U3, None)),
-        ];
-        assert_eq!(&**variant, &expected);
+        let expected = HashMap::from([
+            (
+                "V0".to_string(),
+                Property::new(14, PropertyKind::Array(Some(ByteSize::U3), 6, None, None)),
+            ),
+            (
+                "V1".to_string(),
+                Property::new(23, PropertyKind::ContentAddress(ByteSize::U2, None)),
+            ),
+            (
+                "V2".to_string(),
+                Property::new(26, PropertyKind::UnsignedInt(ByteSize::U3, None)),
+            ),
+        ]);
+        assert_eq!(***variant, expected);
     }
 }

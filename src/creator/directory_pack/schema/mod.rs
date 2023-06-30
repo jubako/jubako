@@ -3,43 +3,54 @@ mod property;
 
 pub use properties::{CommonProperties, VariantProperties};
 pub use property::Property;
+use std::collections::HashMap;
 
-use super::{layout, EntryIter, EntryTrait, Value, ValueStore};
-use crate::bases::*;
+use super::{layout, EntryTrait, PropertyName, Value, ValueStore, VariantName};
 use properties::Properties;
 
 #[derive(Debug)]
-pub struct Schema {
-    pub common: Properties,
-    pub variants: Vec<Properties>,
-    pub sort_keys: Option<Vec<PropertyIdx>>,
+pub struct Schema<PN: PropertyName, VN: VariantName> {
+    pub common: Properties<PN>,
+    pub variants: Vec<(VN, Properties<PN>)>,
+    pub sort_keys: Option<Vec<PN>>,
 }
 
-impl Schema {
+impl<PN: PropertyName, VN: VariantName> Schema<PN, VN> {
     pub fn new(
-        common: CommonProperties,
-        variants: Vec<VariantProperties>,
-        sort_keys: Option<Vec<PropertyIdx>>,
+        common: CommonProperties<PN>,
+        variants: Vec<(VN, VariantProperties<PN>)>,
+        sort_keys: Option<Vec<PN>>,
     ) -> Self {
         Self {
             common,
-            variants: variants.into_iter().map(Properties::from).collect(),
+            variants: variants
+                .into_iter()
+                .map(|(n, p)| (n, Properties::from(p)))
+                .collect(),
             sort_keys,
         }
     }
 
-    pub fn process(&mut self, entry: &dyn EntryTrait) {
-        let mut iter = EntryIter::new(entry);
-        self.common.process(&mut iter);
-        if let Some(variant_id) = entry.variant_id() {
-            self.variants[variant_id.into_usize()].process(&mut iter);
+    pub fn process(&mut self, entry: &dyn EntryTrait<PN, VN>) {
+        self.common.process(entry);
+        if let Some(variant_name) = entry.variant_name() {
+            for (n, p) in &mut self.variants {
+                if n == variant_name {
+                    p.process(entry);
+                    break;
+                }
+            }
         }
     }
 
-    pub fn finalize(&self) -> layout::Entry {
-        let common_layout = self.common.finalize(false);
-        let mut variants_layout: Vec<layout::Properties> =
-            self.variants.iter().map(|v| v.finalize(true)).collect();
+    pub fn finalize(&self) -> layout::Entry<PN, VN> {
+        let common_layout = self.common.finalize(None);
+        let mut variants_layout = Vec::new();
+        let mut variants_map = HashMap::new();
+        for (name, variant) in &self.variants {
+            variants_layout.push(variant.finalize(Some(name.to_string())));
+            variants_map.insert(*name, (variants_layout.len() as u8 - 1).into());
+        }
         let entry_size = if variants_layout.is_empty() {
             common_layout.entry_size()
         } else {
@@ -58,6 +69,7 @@ impl Schema {
         layout::Entry {
             common: common_layout,
             variants: variants_layout,
+            variants_map,
             entry_size,
         }
     }

@@ -103,11 +103,12 @@ mod tests {
             fn get_variant_id(&self) -> Result<Option<VariantIdx>> {
                 Ok(None)
             }
-            fn get_value(&self, idx: PropertyIdx) -> Result<RawValue> {
-                Ok(match idx {
-                    PropertyIdx(Idx(0)) => self.v.clone(),
-                    _ => panic!(),
-                })
+            fn get_value(&self, name: &str) -> Result<RawValue> {
+                if name == "foo" {
+                    Ok(self.v.clone())
+                } else {
+                    panic!()
+                }
             }
         }
 
@@ -164,7 +165,7 @@ mod tests {
 
         for i in 0..10 {
             let entry = range.get_entry(&builder, i.into()).unwrap();
-            let value0 = entry.get_value(0.into()).unwrap();
+            let value0 = entry.get_value("foo").unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }
     }
@@ -178,7 +179,7 @@ mod tests {
             let comparator = mock::EntryCompare::new(i, false);
             let idx = range.find(&comparator).unwrap().unwrap();
             let entry = range.get_entry(&builder, idx).unwrap();
-            let value0 = entry.get_value(0.into()).unwrap();
+            let value0 = entry.get_value("foo").unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }
 
@@ -196,7 +197,7 @@ mod tests {
             let comparator = mock::EntryCompare::new(i, true);
             let idx = range.find(&comparator).unwrap().unwrap();
             let entry = range.get_entry(&builder, idx).unwrap();
-            let value0 = entry.get_value(0.into()).unwrap();
+            let value0 = entry.get_value("foo").unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }
 

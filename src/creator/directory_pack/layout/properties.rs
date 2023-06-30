@@ -1,51 +1,71 @@
+use super::super::{PropertyName, VariantName};
 use super::property::Property;
 use super::Value;
 use crate::bases::Writable;
 use crate::bases::*;
-use crate::creator::directory_pack::{EntryIter, EntryTrait};
+use crate::creator::directory_pack::EntryTrait;
 
 #[derive(Debug)]
-pub struct Properties(Vec<Property>);
+pub struct Properties<PN: PropertyName>(Vec<Property<PN>>);
 
-impl std::ops::Deref for Properties {
-    type Target = [Property];
+impl<PN: PropertyName> std::ops::Deref for Properties<PN> {
+    type Target = [Property<PN>];
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl std::ops::DerefMut for Properties {
+impl<PN: PropertyName> std::ops::DerefMut for Properties<PN> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl FromIterator<Property> for Properties {
-    fn from_iter<I: IntoIterator<Item = Property>>(iter: I) -> Self {
+impl<PN: PropertyName> FromIterator<Property<PN>> for Properties<PN> {
+    fn from_iter<I: IntoIterator<Item = Property<PN>>>(iter: I) -> Self {
         Self(iter.into_iter().collect())
     }
 }
 
-impl Properties {
-    pub fn new(keys: Vec<Property>) -> Self {
+impl<PN: PropertyName> Properties<PN> {
+    pub fn new(keys: Vec<Property<PN>>) -> Self {
         Self(keys)
     }
 
-    pub fn write_entry<'a>(
-        keys: impl Iterator<Item = &'a Property>,
-        entry: &dyn EntryTrait,
+    pub(crate) fn entry_size(&self) -> u16 {
+        self.iter().map(|k| k.size()).sum::<u16>()
+    }
+
+    pub(crate) fn fill_to_size(&mut self, size: u16) {
+        let current_size = self.entry_size();
+        let mut padding_size = size - current_size;
+        while padding_size >= 16 {
+            self.0.push(Property::Padding(16));
+            padding_size -= 16;
+        }
+        if padding_size > 0 {
+            self.0.push(Property::Padding(padding_size as u8))
+        }
+    }
+}
+
+impl<PN: PropertyName + 'static> Properties<PN> {
+    pub fn write_entry<'a, VN: VariantName>(
+        keys: impl Iterator<Item = &'a Property<PN>>,
+        variant_id: Option<VariantIdx>,
+        entry: &dyn EntryTrait<PN, VN>,
         stream: &mut dyn OutStream,
     ) -> Result<usize> {
         let mut written = 0;
-        let mut value_iter = EntryIter::new(entry);
         for key in keys {
             match key {
                 Property::Array {
                     array_size_size,
                     fixed_array_size,
                     deported_info,
+                    name,
                 } => {
-                    let value = value_iter.next().unwrap();
+                    let value = entry.value(name);
                     if let Value::Array {
                         size,
                         data,
@@ -67,8 +87,12 @@ impl Properties {
                         return Err("Not a Array".to_string().into());
                     }
                 }
-                Property::ContentAddress { size, default } => {
-                    let value = value_iter.next().unwrap();
+                Property::ContentAddress {
+                    size,
+                    default,
+                    name,
+                } => {
+                    let value = entry.value(name);
                     if let Value::Content(value) = value {
                         if let Some(d) = default {
                             assert_eq!(*d, value.pack_id.into_u8());
@@ -80,8 +104,12 @@ impl Properties {
                         return Err("Not a Content".to_string().into());
                     }
                 }
-                Property::UnsignedInt { size, default } => {
-                    let value = value_iter.next().unwrap();
+                Property::UnsignedInt {
+                    size,
+                    default,
+                    name,
+                } => {
+                    let value = entry.value(name);
                     if let Value::Unsigned(value) = value {
                         if let Some(d) = default {
                             assert_eq!(*d, value.get());
@@ -92,8 +120,12 @@ impl Properties {
                         return Err("Not a unsigned".to_string().into());
                     }
                 }
-                Property::SignedInt { size, default } => {
-                    let value = value_iter.next().unwrap();
+                Property::SignedInt {
+                    size,
+                    default,
+                    name,
+                } => {
+                    let value = entry.value(name);
                     if let Value::Signed(value) = value {
                         if let Some(d) = default {
                             assert_eq!(*d, value.get());
@@ -108,32 +140,16 @@ impl Properties {
                     let data = vec![0x00; *size as usize];
                     written += stream.write(&data)?;
                 }
-                Property::VariantId => {
-                    written += entry.variant_id().unwrap().write(stream)?;
+                Property::VariantId(_name) => {
+                    written += variant_id.unwrap().write(stream)?;
                 }
             }
         }
         Ok(written)
     }
-
-    pub(crate) fn entry_size(&self) -> u16 {
-        self.iter().map(|k| k.size()).sum::<u16>()
-    }
-
-    pub(crate) fn fill_to_size(&mut self, size: u16) {
-        let current_size = self.entry_size();
-        let mut padding_size = size - current_size;
-        while padding_size >= 16 {
-            self.0.push(Property::Padding(16));
-            padding_size -= 16;
-        }
-        if padding_size > 0 {
-            self.0.push(Property::Padding(padding_size as u8))
-        }
-    }
 }
 
-impl Writable for Properties {
+impl<PN: PropertyName> Writable for Properties<PN> {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         let mut written = 0;
         for key in &self.0 {

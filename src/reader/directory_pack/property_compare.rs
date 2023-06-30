@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 
 pub struct PropertyCompare<'builder> {
     builder: &'builder AnyBuilder,
-    property_ids: Box<[PropertyIdx]>,
+    property_names: Box<[String]>,
     values: Box<[Value]>,
     ordered: bool,
 }
@@ -14,13 +14,13 @@ pub struct PropertyCompare<'builder> {
 impl<'builder> PropertyCompare<'builder> {
     pub fn new(
         builder: &'builder AnyBuilder,
-        property_ids: Vec<PropertyIdx>,
+        property_names: Vec<String>,
         values: Vec<Value>,
     ) -> Self {
-        assert_eq!(property_ids.len(), values.len());
+        assert_eq!(property_names.len(), values.len());
         Self {
             builder,
-            property_ids: property_ids.into(),
+            property_names: property_names.into(),
             values: values.into(),
             ordered: false,
         }
@@ -30,8 +30,8 @@ impl<'builder> PropertyCompare<'builder> {
 impl CompareTrait for PropertyCompare<'_> {
     fn compare_entry(&self, idx: EntryIdx) -> Result<Ordering> {
         let entry = self.builder.create_entry(idx)?;
-        for (property_id, value) in std::iter::zip(self.property_ids.iter(), self.values.iter()) {
-            let ordering = entry.get_value(*property_id)?.partial_cmp(value).unwrap();
+        for (name, value) in std::iter::zip(self.property_names.iter(), self.values.iter()) {
+            let ordering = entry.get_value(name)?.partial_cmp(value).unwrap();
             if ordering.is_ne() {
                 return Ok(ordering);
             }

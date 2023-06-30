@@ -1,11 +1,12 @@
 mod property;
 
 use super::entry_store::EntryStore;
-use super::layout::Property as LProperty;
+use super::layout::Properties as LProperties;
 use super::raw_value::RawValue;
 use super::{LazyEntry, PropertyCompare, Value};
 use crate::bases::*;
 use crate::reader::directory_pack::private::ValueStorageTrait;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -17,21 +18,27 @@ pub trait BuilderTrait {
 }
 
 pub struct AnyVariantBuilder {
-    properties: Vec<AnyProperty>,
+    properties: HashMap<String, AnyProperty>,
 }
 
 impl AnyVariantBuilder {
-    pub fn create_value(&self, idx: PropertyIdx, reader: &SubReader) -> Result<RawValue> {
-        self.properties[idx.into_usize()].create(reader)
+    pub fn contains(&self, name: &str) -> bool {
+        self.properties.contains_key(name)
+    }
+    pub fn create_value(&self, name: &str, reader: &SubReader) -> Result<RawValue> {
+        self.properties[name].create(reader)
     }
 
-    pub fn new<ValueStorage>(properties: &[LProperty], value_storage: &ValueStorage) -> Result<Self>
+    pub fn new<ValueStorage>(properties: &LProperties, value_storage: &ValueStorage) -> Result<Self>
     where
         ValueStorage: ValueStorageTrait,
     {
-        let properties: Result<Vec<_>> = properties
+        let properties: Result<HashMap<String, _>> = properties
             .iter()
-            .map(|p| (p, value_storage).try_into())
+            .map(|(n, p)| match (p, value_storage).try_into() {
+                Ok(p) => Ok((n.clone(), p)),
+                Err(e) => Err(e),
+            })
             .collect();
         Ok(Self {
             properties: properties?,
@@ -45,7 +52,11 @@ impl AnyVariantBuilder {
 
 pub struct LazyEntryProperties {
     pub common: AnyVariantBuilder,
-    pub variant_part: Option<(VariantIdProperty, Vec<AnyVariantBuilder>)>,
+    pub variant_part: Option<(
+        VariantIdProperty,
+        Vec<AnyVariantBuilder>,
+        HashMap<String, u8>,
+    )>,
 }
 
 pub struct AnyBuilder {
@@ -62,13 +73,13 @@ impl AnyBuilder {
         let common = AnyVariantBuilder::new(&layout.common, value_storage)?;
         let variant_part = match &layout.variant_part {
             None => None,
-            Some((variant_id_offset, variants)) => {
+            Some((variant_id_offset, variants, variants_map)) => {
                 let variants: Result<Vec<_>> = variants
                     .iter()
                     .map(|v| AnyVariantBuilder::new(v, value_storage))
                     .collect();
                 let variant_id = VariantIdProperty::new(*variant_id_offset);
-                Some((variant_id, variants?))
+                Some((variant_id, variants?, variants_map.clone()))
             }
         };
         let properties = Rc::new(LazyEntryProperties {
@@ -78,16 +89,16 @@ impl AnyBuilder {
         Ok(Self { properties, store })
     }
 
-    pub fn new_property_compare(&self, property_id: PropertyIdx, value: Value) -> PropertyCompare {
-        PropertyCompare::new(self, vec![property_id], vec![value])
+    pub fn new_property_compare(&self, property_name: String, value: Value) -> PropertyCompare {
+        PropertyCompare::new(self, vec![property_name], vec![value])
     }
 
     pub fn new_multiple_property_compare(
         &self,
-        property_ids: Vec<PropertyIdx>,
+        property_names: Vec<String>,
         values: Vec<Value>,
     ) -> PropertyCompare {
-        PropertyCompare::new(self, property_ids, values)
+        PropertyCompare::new(self, property_names, values)
     }
 }
 
@@ -145,8 +156,16 @@ mod tests {
             common: Properties::new(
                 0,
                 vec![
-                    RawProperty::new(PropertyKind::ContentAddress(ByteSize::U3, None), 4),
-                    RawProperty::new(PropertyKind::UnsignedInt(ByteSize::U2, None), 2),
+                    RawProperty::new(
+                        PropertyKind::ContentAddress(ByteSize::U3, None),
+                        4,
+                        Some("V0".to_string()),
+                    ),
+                    RawProperty::new(
+                        PropertyKind::UnsignedInt(ByteSize::U2, None),
+                        2,
+                        Some("V11".to_string()),
+                    ),
                 ],
             )
             .unwrap(),
@@ -168,10 +187,10 @@ mod tests {
 
             assert!(entry.get_variant_id().unwrap().is_none());
             assert_eq!(
-                entry.get_value(0.into()).unwrap(),
+                entry.get_value("V0").unwrap(),
                 RawValue::Content(ContentAddress::new(0.into(), 1.into()),)
             );
-            assert!(entry.get_value(1.into()).unwrap() == RawValue::U16(0x8899));
+            assert!(entry.get_value("V11").unwrap() == RawValue::U16(0x8899));
         }
 
         {
@@ -179,10 +198,10 @@ mod tests {
 
             assert!(entry.get_variant_id().unwrap().is_none());
             assert!(
-                entry.get_value(0.into()).unwrap()
+                entry.get_value("V0").unwrap()
                     == RawValue::Content(ContentAddress::new(1.into(), 2.into()),)
             );
-            assert!(entry.get_value(1.into()).unwrap() == RawValue::U16(0x6677));
+            assert!(entry.get_value("V11").unwrap() == RawValue::U16(0x6677));
         }
     }
 
@@ -199,8 +218,13 @@ mod tests {
                             RawProperty::new(
                                 PropertyKind::Array(Some(ByteSize::U1), 4, None, None),
                                 5,
+                                Some("V0".to_string()),
                             ),
-                            RawProperty::new(PropertyKind::UnsignedInt(ByteSize::U2, None), 2),
+                            RawProperty::new(
+                                PropertyKind::UnsignedInt(ByteSize::U2, None),
+                                2,
+                                Some("V1".to_string()),
+                            ),
                         ],
                     )
                     .unwrap()
@@ -208,15 +232,28 @@ mod tests {
                     Properties::new(
                         1,
                         vec![
-                            RawProperty::new(PropertyKind::Array(None, 2, None, None), 2),
-                            RawProperty::new(PropertyKind::Padding, 2),
-                            RawProperty::new(PropertyKind::SignedInt(ByteSize::U1, None), 1),
-                            RawProperty::new(PropertyKind::UnsignedInt(ByteSize::U2, None), 2),
+                            RawProperty::new(
+                                PropertyKind::Array(None, 2, None, None),
+                                2,
+                                Some("V0".to_string()),
+                            ),
+                            RawProperty::new(PropertyKind::Padding, 2, Some("V1".to_string())),
+                            RawProperty::new(
+                                PropertyKind::SignedInt(ByteSize::U1, None),
+                                1,
+                                Some("V2".to_string()),
+                            ),
+                            RawProperty::new(
+                                PropertyKind::UnsignedInt(ByteSize::U2, None),
+                                2,
+                                Some("V3".to_string()),
+                            ),
                         ],
                     )
                     .unwrap()
                     .into(),
                 ]),
+                HashMap::from([(String::from("Variant1"), 0), (String::from("Variant2"), 1)]),
             )),
             size: Size::new(8),
         };
@@ -243,7 +280,7 @@ mod tests {
 
             assert_eq!(entry.get_variant_id().unwrap(), Some(0.into()));
             assert_eq!(
-                entry.get_value(0.into()).unwrap(),
+                entry.get_value("V0").unwrap(),
                 RawValue::Array(Array::new(
                     Some(Size::new(4)),
                     BaseArray::new(&[0xFF, 0xEE, 0xDD, 0xCC]),
@@ -251,7 +288,7 @@ mod tests {
                     None
                 ))
             );
-            assert_eq!(entry.get_value(1.into()).unwrap(), RawValue::U16(0x8899));
+            assert_eq!(entry.get_value("V1").unwrap(), RawValue::U16(0x8899));
         }
 
         {
@@ -259,11 +296,11 @@ mod tests {
 
             assert_eq!(entry.get_variant_id().unwrap(), Some(1.into()));
             assert_eq!(
-                entry.get_value(0.into()).unwrap(),
+                entry.get_value("V0").unwrap(),
                 RawValue::Array(Array::new(None, BaseArray::new(&[0xFF, 0xEE]), 2, None))
             );
-            assert_eq!(entry.get_value(1.into()).unwrap(), RawValue::I8(-52));
-            assert_eq!(entry.get_value(2.into()).unwrap(), RawValue::U16(0x8899));
+            assert_eq!(entry.get_value("V2").unwrap(), RawValue::I8(-52));
+            assert_eq!(entry.get_value("V3").unwrap(), RawValue::U16(0x8899));
         }
     }
 }

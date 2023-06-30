@@ -11,8 +11,15 @@ use crate::common::ContentAddress;
 pub use directory_pack::DirectoryPackCreator;
 pub use entry_store::EntryStore;
 use std::cmp;
+use std::collections::HashMap;
 use value_store::ValueStore;
 pub use value_store::ValueStoreKind;
+
+pub trait PropertyName: ToString + std::cmp::Eq + std::hash::Hash + Copy + 'static {}
+impl PropertyName for &'static str {}
+
+pub trait VariantName: ToString + std::cmp::Eq + std::hash::Hash + Copy {}
+impl VariantName for &str {}
 
 #[derive(Debug, PartialEq)]
 pub enum Value {
@@ -62,87 +69,63 @@ impl PartialOrd for Value {
     }
 }
 
-pub trait EntryTrait {
-    fn variant_id(&self) -> Option<VariantIdx>;
-    fn value(&self, id: PropertyIdx) -> &Value;
+pub trait EntryTrait<PN: PropertyName, VN: VariantName> {
+    fn variant_name(&self) -> Option<&VN>;
+    fn value(&self, name: &PN) -> &Value;
     fn value_count(&self) -> PropertyCount;
     fn set_idx(&mut self, idx: EntryIdx);
     fn get_idx(&self) -> Bound<EntryIdx>;
 }
 
-pub trait FullEntryTrait: EntryTrait {
-    fn compare(
-        &self,
-        sort_keys: &mut dyn Iterator<Item = &PropertyIdx>,
-        other: &Self,
-    ) -> std::cmp::Ordering;
-}
-
-struct EntryIter<'e> {
-    entry: &'e dyn EntryTrait,
-    idx: PropertyIdx,
-}
-
-impl<'e> EntryIter<'e> {
-    fn new(entry: &'e dyn EntryTrait) -> Self {
-        Self {
-            entry,
-            idx: PropertyIdx::from(0),
-        }
-    }
-}
-
-impl<'e> Iterator for EntryIter<'e> {
-    type Item = &'e Value;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.idx.is_valid(self.entry.value_count()) {
-            let value = self.entry.value(self.idx);
-            self.idx += 1;
-            Some(value)
-        } else {
-            None
-        }
-    }
+pub trait FullEntryTrait<PN: PropertyName, VN: VariantName>: EntryTrait<PN, VN> {
+    fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PN>, other: &Self)
+        -> std::cmp::Ordering;
 }
 
 #[derive(Debug)]
-pub struct BasicEntry {
-    variant_id: Option<VariantIdx>,
-    values: Vec<Value>,
+pub struct BasicEntry<PN: PropertyName, VN: VariantName> {
+    variant_name: Option<VN>,
+    values: HashMap<PN, Value>,
     idx: Vow<EntryIdx>,
 }
 
-pub struct ValueTransformer<'a> {
-    keys: Box<dyn Iterator<Item = &'a schema::Property> + 'a>,
-    values: std::vec::IntoIter<common::Value>,
+pub struct ValueTransformer<'a, PN: PropertyName> {
+    keys: Box<dyn Iterator<Item = &'a schema::Property<PN>> + 'a>,
+    values: HashMap<PN, common::Value>,
 }
 
-impl<'a> ValueTransformer<'a> {
-    pub fn new(
-        schema: &'a schema::Schema,
-        variant_id: Option<VariantIdx>,
-        values: Vec<common::Value>,
+impl<'a, PN: PropertyName> ValueTransformer<'a, PN> {
+    pub fn new<VN: VariantName>(
+        schema: &'a schema::Schema<PN, VN>,
+        variant_name: &Option<VN>,
+        values: HashMap<PN, common::Value>,
     ) -> Self {
         if schema.variants.is_empty() {
-            ValueTransformer {
+            return ValueTransformer {
                 keys: Box::new(schema.common.iter()),
-                values: values.into_iter(),
-            }
+                values,
+            };
         } else {
-            let keys = schema
-                .common
-                .iter()
-                .chain(schema.variants[variant_id.unwrap().into_usize()].iter());
-            ValueTransformer {
-                keys: Box::new(keys),
-                values: values.into_iter(),
+            for (n, v) in &schema.variants {
+                if n == variant_name.as_ref().unwrap() {
+                    let keys = schema.common.iter().chain(v.iter());
+                    return ValueTransformer {
+                        keys: Box::new(keys),
+                        values,
+                    };
+                }
             }
-        }
+            //[TODO] Transform this as Result
+            panic!(
+                "Entry variant name {} doesn't correspond to possible variants",
+                variant_name.unwrap().to_string()
+            );
+        };
     }
 }
 
-impl<'a> Iterator for ValueTransformer<'a> {
-    type Item = Value;
+impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
+    type Item = (PN, Value);
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.keys.next() {
@@ -152,17 +135,21 @@ impl<'a> Iterator for ValueTransformer<'a> {
                         max_array_size: _,
                         fixed_array_size,
                         store_handle,
+                        name,
                     } => {
-                        let value = self.values.next().unwrap();
+                        let value = self.values.remove(name).unwrap();
                         if let common::Value::Array(mut data) = value {
                             let size = data.len();
                             let to_store = data.split_off(cmp::min(*fixed_array_size, data.len()));
                             let value_id = store_handle.borrow_mut().add_value(&to_store);
-                            return Some(Value::Array {
-                                size,
-                                data,
-                                value_id,
-                            });
+                            return Some((
+                                *name,
+                                Value::Array {
+                                    size,
+                                    data,
+                                    value_id,
+                                },
+                            ));
                         } else {
                             panic!("Invalid value type");
                         }
@@ -170,10 +157,11 @@ impl<'a> Iterator for ValueTransformer<'a> {
                     schema::Property::UnsignedInt {
                         counter: _,
                         size: _,
+                        name,
                     } => {
-                        let value = self.values.next().unwrap();
+                        let value = self.values.remove(name).unwrap();
                         if let common::Value::Unsigned(v) = value {
-                            return Some(Value::Unsigned(v));
+                            return Some((*name, Value::Unsigned(v)));
                         } else {
                             panic!("Invalid value type");
                         }
@@ -181,10 +169,11 @@ impl<'a> Iterator for ValueTransformer<'a> {
                     schema::Property::SignedInt {
                         counter: _,
                         size: _,
+                        name,
                     } => {
-                        let value = self.values.next().unwrap();
+                        let value = self.values.remove(name).unwrap();
                         if let common::Value::Signed(v) = value {
-                            return Some(Value::Signed(v));
+                            return Some((*name, Value::Signed(v)));
                         } else {
                             panic!("Invalid value type");
                         }
@@ -192,10 +181,11 @@ impl<'a> Iterator for ValueTransformer<'a> {
                     schema::Property::ContentAddress {
                         pack_id_counter: _,
                         content_id_size: _,
+                        name,
                     } => {
-                        let value = self.values.next().unwrap();
+                        let value = self.values.remove(name).unwrap();
                         if let common::Value::Content(v) = value {
-                            return Some(Value::Content(v));
+                            return Some((*name, Value::Content(v)));
                         } else {
                             panic!("Invalid value type");
                         }
@@ -207,48 +197,48 @@ impl<'a> Iterator for ValueTransformer<'a> {
     }
 }
 
-impl BasicEntry {
+impl<PN: PropertyName, VN: VariantName> BasicEntry<PN, VN> {
     pub fn new_from_schema(
-        schema: &schema::Schema,
-        variant_id: Option<VariantIdx>,
-        values: Vec<common::Value>,
+        schema: &schema::Schema<PN, VN>,
+        variant_name: Option<VN>,
+        values: HashMap<PN, common::Value>,
     ) -> Self {
-        Self::new_from_schema_idx(schema, Default::default(), variant_id, values)
+        Self::new_from_schema_idx(schema, Default::default(), variant_name, values)
     }
 
     pub fn new_from_schema_idx(
-        schema: &schema::Schema,
+        schema: &schema::Schema<PN, VN>,
         idx: Vow<EntryIdx>,
-        variant_id: Option<VariantIdx>,
-        values: Vec<common::Value>,
+        variant_name: Option<VN>,
+        values: HashMap<PN, common::Value>,
     ) -> Self {
-        let value_transformer = ValueTransformer::new(schema, variant_id, values);
-        Self::new_idx(variant_id, value_transformer.collect(), idx)
+        let value_transformer = ValueTransformer::<PN>::new(schema, &variant_name, values);
+        Self::new_idx(variant_name, value_transformer.collect(), idx)
     }
 
-    pub fn new(variant_id: Option<VariantIdx>, values: Vec<Value>) -> Self {
-        Self {
-            variant_id,
-            values,
-            idx: Default::default(),
-        }
+    pub fn new(variant_name: Option<VN>, values: HashMap<PN, Value>) -> Self {
+        Self::new_idx(variant_name, values, Default::default())
     }
 
-    pub fn new_idx(variant_id: Option<VariantIdx>, values: Vec<Value>, idx: Vow<EntryIdx>) -> Self {
+    pub fn new_idx(
+        variant_name: Option<VN>,
+        values: HashMap<PN, Value>,
+        idx: Vow<EntryIdx>,
+    ) -> Self {
         Self {
-            variant_id,
+            variant_name,
             values,
             idx,
         }
     }
 }
 
-impl EntryTrait for BasicEntry {
-    fn variant_id(&self) -> Option<VariantIdx> {
-        self.variant_id
+impl<PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for BasicEntry<PN, VN> {
+    fn variant_name(&self) -> Option<&VN> {
+        self.variant_name.as_ref()
     }
-    fn value(&self, id: PropertyIdx) -> &Value {
-        &self.values[id.into_usize()]
+    fn value(&self, name: &PN) -> &Value {
+        &self.values[name]
     }
     fn value_count(&self) -> PropertyCount {
         (self.values.len() as u8).into()
@@ -261,15 +251,15 @@ impl EntryTrait for BasicEntry {
     }
 }
 
-impl<T> EntryTrait for Box<T>
+impl<T, PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for Box<T>
 where
-    T: EntryTrait,
+    T: EntryTrait<PN, VN>,
 {
-    fn variant_id(&self) -> Option<VariantIdx> {
-        T::variant_id(self)
+    fn variant_name(&self) -> Option<&VN> {
+        T::variant_name(self)
     }
-    fn value(&self, id: PropertyIdx) -> &Value {
-        T::value(self, id)
+    fn value(&self, name: &PN) -> &Value {
+        T::value(self, name)
     }
     fn value_count(&self) -> PropertyCount {
         T::value_count(self)
@@ -282,15 +272,15 @@ where
     }
 }
 
-impl FullEntryTrait for BasicEntry {
+impl<PN: PropertyName, VN: VariantName> FullEntryTrait<PN, VN> for BasicEntry<PN, VN> {
     fn compare(
         &self,
-        sort_keys: &mut dyn Iterator<Item = &PropertyIdx>,
-        other: &BasicEntry,
+        sort_keys: &mut dyn Iterator<Item = &PN>,
+        other: &BasicEntry<PN, VN>,
     ) -> cmp::Ordering {
-        for &property_id in sort_keys {
-            let self_value = self.value(property_id);
-            let other_value = other.value(property_id);
+        for property_name in sort_keys {
+            let self_value = self.value(property_name);
+            let other_value = other.value(property_name);
             match self_value.partial_cmp(other_value) {
                 None => return cmp::Ordering::Greater,
                 Some(c) => match c {
@@ -304,15 +294,11 @@ impl FullEntryTrait for BasicEntry {
     }
 }
 
-impl<T> FullEntryTrait for Box<T>
+impl<T, PN: PropertyName, VN: VariantName> FullEntryTrait<PN, VN> for Box<T>
 where
-    T: FullEntryTrait,
+    T: FullEntryTrait<PN, VN>,
 {
-    fn compare(
-        &self,
-        sort_keys: &mut dyn Iterator<Item = &PropertyIdx>,
-        other: &Self,
-    ) -> cmp::Ordering {
+    fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PN>, other: &Self) -> cmp::Ordering {
         T::compare(self, sort_keys, other)
     }
 }

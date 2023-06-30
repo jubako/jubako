@@ -8,10 +8,11 @@ use crate::bases::*;
 pub use super::raw_layout::PropertyKind;
 pub use properties::{Properties, SharedProperties};
 pub use property::Property;
+use std::collections::HashMap;
 
 use std::cmp::Ordering;
 
-type VariantPart = (Offset, Box<[SharedProperties]>);
+type VariantPart = (Offset, Box<[SharedProperties]>, HashMap<String, u8>);
 
 #[derive(Debug)]
 pub struct Layout {
@@ -25,13 +26,13 @@ impl Producable for Layout {
     fn produce(flux: &mut Flux) -> Result<Self> {
         let entry_size = flux.read_u16()? as usize;
         let variant_count: VariantCount = Count::<u8>::produce(flux)?.into();
-        let raw_layout = RawLayout::produce(flux)?;
+        let mut raw_layout = RawLayout::produce(flux)?;
         let mut common_properties = Vec::new();
         let mut common_size = 0;
-        let mut property_iter = raw_layout.iter().peekable();
+        let mut property_iter = raw_layout.drain(..).peekable();
         while let Some(raw_property) = property_iter.next_if(|p| !p.is_variant_id()) {
             common_size += raw_property.size;
-            common_properties.push(*raw_property);
+            common_properties.push(raw_property);
         }
         let common_properties = Properties::new(0, common_properties)?;
         let variant_part = if variant_count.into_u8() != 0 {
@@ -40,16 +41,17 @@ impl Producable for Layout {
 
             let mut variant_size = 0;
             let mut variants = Vec::new();
+            let mut variants_map = HashMap::new();
             let mut variant_def = Vec::new();
-            let mut variant_started = false;
+            let mut variant_name: Option<String> = None;
             for raw_property in property_iter {
-                if !raw_property.is_variant_id() && !variant_started {
+                if !raw_property.is_variant_id() && variant_name.is_none() {
                     return Err(format_error!(
                         "Variant definition must start with a VariantId.",
                         flux
                     ));
                 }
-                if raw_property.is_variant_id() && variant_started {
+                if raw_property.is_variant_id() && variant_name.is_some() {
                     return Err(format_error!(
                         "VariantId cannot be in the middle of a variant definition.",
                         flux
@@ -57,11 +59,11 @@ impl Producable for Layout {
                 }
                 if raw_property.is_variant_id() {
                     // This is a special property
-                    variant_started = true;
+                    variant_name = raw_property.name;
                     continue;
                 }
                 variant_size += raw_property.size;
-                variant_def.push(*raw_property);
+                variant_def.push(raw_property);
                 match variant_size.cmp(&(entry_size - common_size)) {
                     Ordering::Greater => {
                         return Err(format_error!(
@@ -73,9 +75,10 @@ impl Producable for Layout {
                     }
                     Ordering::Equal => {
                         variants.push(Properties::new(common_size, variant_def)?.into());
+                        variants_map.insert(variant_name.unwrap(), variants.len() as u8 - 1);
                         variant_def = Vec::new();
                         variant_size = 0;
-                        variant_started = false;
+                        variant_name = None;
                     }
                     Ordering::Less => {
                         /* Noting to do */
@@ -95,7 +98,7 @@ impl Producable for Layout {
                     flux
                 ));
             }
-            Some((variant_id_offset, variants.into_boxed_slice()))
+            Some((variant_id_offset, variants.into_boxed_slice(), variants_map))
         } else {
             None
         };
