@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     // Entries have fixed sizes. We need to store variable length values in an extra store.
-    let value_store = directory_pack.create_value_store(jbk::creator::ValueStoreKind::Plain);
+    let value_store = jbk::creator::ValueStore::new(jbk::creator::ValueStoreKind::Plain);
 
     // Our entry kind will have two variants.
     let entry_def = schema::Schema::new(
@@ -89,6 +89,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ]),
     ));
 
+    directory_pack.add_value_store(value_store);
     let entry_store_id = directory_pack.add_entry_store(entry_store);
 
     // One index to access our entries.

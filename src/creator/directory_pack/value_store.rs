@@ -1,17 +1,20 @@
 use crate::bases::*;
 use crate::creator::private::WritableTell;
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 pub struct BaseValueStore {
-    idx: ValueStoreIdx,
+    idx: Option<ValueStoreIdx>,
     data: Vec<Vec<u8>>,
     sorted_indirect: Vec<(usize, Vow<u64>)>,
     size: Size,
 }
 
 impl BaseValueStore {
-    pub fn new(idx: ValueStoreIdx) -> Self {
+    pub fn new() -> Self {
         Self {
-            idx,
+            idx: None,
             data: vec![],
             sorted_indirect: vec![],
             size: Size::zero(),
@@ -30,11 +33,12 @@ impl BaseValueStore {
 pub struct PlainValueStore(BaseValueStore);
 
 impl PlainValueStore {
-    pub fn new(idx: ValueStoreIdx) -> Self {
-        Self(BaseValueStore::new(idx))
+    pub fn new() -> Self {
+        Self(BaseValueStore::new())
     }
 
-    pub fn finalize(&mut self) {
+    pub fn finalize(&mut self, idx: ValueStoreIdx) {
+        self.0.idx = Some(idx);
         self.0.sorted_indirect.sort_by_key(|e| &self.0.data[e.0]);
         let mut offset = 0;
         let mut last_data_idx: Option<usize> = None;
@@ -68,7 +72,7 @@ impl PlainValueStore {
         needed_bytes(self.size().into_u64())
     }
 
-    pub fn get_idx(&self) -> ValueStoreIdx {
+    pub fn get_idx(&self) -> Option<ValueStoreIdx> {
         self.0.idx
     }
 }
@@ -110,11 +114,12 @@ impl std::fmt::Debug for PlainValueStore {
 pub struct IndexedValueStore(BaseValueStore);
 
 impl IndexedValueStore {
-    pub fn new(idx: ValueStoreIdx) -> Self {
-        Self(BaseValueStore::new(idx))
+    pub fn new() -> Self {
+        Self(BaseValueStore::new())
     }
 
-    pub fn finalize(&mut self) {
+    pub fn finalize(&mut self, idx: ValueStoreIdx) {
+        self.0.idx = Some(idx);
         self.0.sorted_indirect.sort_by_key(|e| &self.0.data[e.0]);
         for (idx, (_, vow)) in self.0.sorted_indirect.iter().enumerate() {
             vow.fulfil(idx as u64);
@@ -137,7 +142,7 @@ impl IndexedValueStore {
         needed_bytes(self.0.sorted_indirect.len())
     }
 
-    pub fn get_idx(&self) -> ValueStoreIdx {
+    pub fn get_idx(&self) -> Option<ValueStoreIdx> {
         self.0.idx
     }
 }
@@ -190,11 +195,11 @@ pub enum ValueStore {
 }
 
 impl ValueStore {
-    pub fn new(kind: ValueStoreKind, idx: ValueStoreIdx) -> ValueStore {
-        match kind {
-            ValueStoreKind::Plain => ValueStore::PlainValueStore(PlainValueStore::new(idx)),
-            ValueStoreKind::Indexed => ValueStore::IndexedValueStore(IndexedValueStore::new(idx)),
-        }
+    pub fn new(kind: ValueStoreKind) -> Rc<RefCell<ValueStore>> {
+        Rc::new(RefCell::new(match kind {
+            ValueStoreKind::Plain => ValueStore::PlainValueStore(PlainValueStore::new()),
+            ValueStoreKind::Indexed => ValueStore::IndexedValueStore(IndexedValueStore::new()),
+        }))
     }
 
     pub fn add_value(&mut self, data: &[u8]) -> Bound<u64> {
@@ -211,17 +216,17 @@ impl ValueStore {
         }
     }
 
-    pub(crate) fn get_idx(&self) -> ValueStoreIdx {
+    pub(crate) fn get_idx(&self) -> Option<ValueStoreIdx> {
         match &self {
             ValueStore::PlainValueStore(s) => s.get_idx(),
             ValueStore::IndexedValueStore(s) => s.get_idx(),
         }
     }
 
-    pub(crate) fn finalize(&mut self) {
+    pub(crate) fn finalize(&mut self, idx: ValueStoreIdx) {
         match self {
-            ValueStore::PlainValueStore(s) => s.finalize(),
-            ValueStore::IndexedValueStore(s) => s.finalize(),
+            ValueStore::PlainValueStore(s) => s.finalize(idx),
+            ValueStore::IndexedValueStore(s) => s.finalize(idx),
         }
     }
 }

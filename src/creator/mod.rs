@@ -8,7 +8,7 @@ use crate::common::CheckKind;
 pub use content_pack::{CacheProgress, CachedContentPackCreator, ContentPackCreator, Progress};
 pub use directory_pack::{
     schema, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, PropertyName, Value,
-    ValueStoreKind, ValueTransformer, VariantName,
+    ValueStore, ValueStoreKind, ValueTransformer, VariantName,
 };
 pub use manifest_pack::ManifestPackCreator;
 use std::path::PathBuf;

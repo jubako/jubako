@@ -85,10 +85,11 @@ test_suite! {
             1,
             jubako::FreeData31::clone_from_slice(&[0xff; 31])
         );
-        let key_store_handle = creator.create_value_store(key_store_kind);
+        let value_store = creator::ValueStore::new(key_store_kind);
+        creator.add_value_store(value_store.clone());
         let entry_def = schema::Schema::<&str, &str>::new(
             schema::CommonProperties::new(vec![
-                schema::Property::new_array(0, key_store_handle, "V0"),
+                schema::Property::new_array(0, value_store, "V0"),
                 schema::Property::new_content_address("V1"),
                 schema::Property::new_uint("V2")
             ]),

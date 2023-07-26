@@ -42,15 +42,8 @@ impl DirectoryPackCreator {
         }
     }
 
-    pub fn create_value_store(&mut self, kind: ValueStoreKind) -> Rc<RefCell<ValueStore>> {
-        let idx = ValueStoreIdx::from(self.value_stores.len() as u8);
-        let value_store = Rc::new(RefCell::new(ValueStore::new(kind, idx)));
-        self.value_stores.push(Rc::clone(&value_store));
-        value_store
-    }
-
-    pub fn get_value_store(&mut self, idx: ValueStoreIdx) -> &RefCell<ValueStore> {
-        &self.value_stores[idx.into_usize()]
+    pub fn add_value_store(&mut self, value_store: Rc<RefCell<ValueStore>>) {
+        self.value_stores.push(value_store);
     }
 
     pub fn add_entry_store(&mut self, mut entry_store: Box<dyn EntryStoreTrait>) -> EntryStoreIdx {
@@ -87,8 +80,10 @@ impl DirectoryPackCreator {
         info!("======= Finalize creation =======");
 
         info!("----- Finalize value_stores -----");
-        for value_store in &mut self.value_stores {
-            value_store.borrow_mut().finalize();
+        for (idx, value_store) in &mut self.value_stores.iter().enumerate() {
+            value_store
+                .borrow_mut()
+                .finalize(ValueStoreIdx::from(idx as u8));
         }
 
         info!("----- Finalize entry_stores -----");
