@@ -2,15 +2,13 @@ use super::super::PropertyName;
 use super::ValueStore;
 use crate::bases::Writable;
 use crate::bases::*;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 pub enum Property<PN: PropertyName> {
     VariantId(String),
     Array {
         array_size_size: Option<ByteSize>,
         fixed_array_size: u8,
-        deported_info: Option<(ByteSize, Rc<RefCell<ValueStore>>)>,
+        deported_info: Option<(ByteSize, ValueStore)>,
         name: PN,
     },
     ContentAddress {

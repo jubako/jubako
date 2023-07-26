@@ -1,9 +1,7 @@
 use super::super::layout;
 use super::{EntryTrait, PropertyName, Value, ValueStore, VariantName};
 use crate::bases::*;
-use std::cell::RefCell;
 use std::cmp;
-use std::rc::Rc;
 
 pub enum PropertySize<T> {
     Fixed(ByteSize),
@@ -67,7 +65,7 @@ pub enum Property<PN: PropertyName> {
     Array {
         max_array_size: PropertySize<usize>,
         fixed_array_size: usize,
-        store_handle: Rc<RefCell<ValueStore>>,
+        store_handle: ValueStore,
         name: PN,
     },
     ContentAddress {
@@ -146,11 +144,7 @@ impl<PN: PropertyName> Property<PN> {
         }
     }
 
-    pub fn new_array(
-        fixed_array_size: usize,
-        store_handle: Rc<RefCell<ValueStore>>,
-        name: PN,
-    ) -> Self {
+    pub fn new_array(fixed_array_size: usize, store_handle: ValueStore, name: PN) -> Self {
         Property::Array {
             max_array_size: Default::default(),
             fixed_array_size,
@@ -315,7 +309,7 @@ impl<PN: PropertyName> Property<PN> {
                         PropertySize::Auto(max) => needed_bytes(*max),
                     }),
                     fixed_array_size: *fixed_array_size as u8,
-                    deported_info: Some((value_id_size, Rc::clone(store_handle))),
+                    deported_info: Some((value_id_size, store_handle.clone())),
                     name: *name,
                 }
             }

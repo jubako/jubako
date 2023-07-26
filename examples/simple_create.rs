@@ -2,7 +2,6 @@ use jubako as jbk;
 use jubako::creator::schema;
 use std::collections::HashMap;
 use std::error::Error;
-use std::rc::Rc;
 
 // This is what will allow Jubako to differenciate your format from others.
 const VENDOR_ID: u32 = 0x01_02_03_04;
@@ -24,13 +23,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     // Entries have fixed sizes. We need to store variable length values in an extra store.
-    let value_store = jbk::creator::ValueStore::new(jbk::creator::ValueStoreKind::Plain);
+    let value_store = jbk::creator::ValueStore::new_plain();
 
     // Our entry kind will have two variants.
     let entry_def = schema::Schema::new(
         schema::CommonProperties::new(vec![
-            schema::Property::new_array(0, Rc::clone(&value_store), "AString"), // One string, will be stored in value_store
-            schema::Property::new_uint("AInteger"),                             // A integer
+            schema::Property::new_array(0, value_store.clone(), "AString"), // One string, will be stored in value_store
+            schema::Property::new_uint("AInteger"),                         // A integer
         ]),
         vec![
             (

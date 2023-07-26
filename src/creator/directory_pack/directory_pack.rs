@@ -4,13 +4,10 @@ use crate::common::{ContentAddress, DirectoryPackHeader, PackHeaderInfo};
 use crate::creator::private::WritableTell;
 use crate::creator::{Embedded, PackData};
 use entry_store::EntryStoreTrait;
-use std::cell::RefCell;
 use std::fs::OpenOptions;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 use value_store::ValueStore;
-pub use value_store::ValueStoreKind;
 
 use log::info;
 
@@ -18,7 +15,7 @@ pub struct DirectoryPackCreator {
     app_vendor_id: u32,
     pack_id: PackId,
     free_data: FreeData31,
-    value_stores: Vec<Rc<RefCell<ValueStore>>>,
+    value_stores: Vec<ValueStore>,
     entry_stores: Vec<Box<dyn EntryStoreTrait>>,
     indexes: Vec<Index>,
     path: PathBuf,
@@ -42,7 +39,7 @@ impl DirectoryPackCreator {
         }
     }
 
-    pub fn add_value_store(&mut self, value_store: Rc<RefCell<ValueStore>>) {
+    pub fn add_value_store(&mut self, value_store: ValueStore) {
         self.value_stores.push(value_store);
     }
 
