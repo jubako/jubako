@@ -136,7 +136,10 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                         store_handle,
                         name,
                     } => {
-                        let value = self.values.remove(name).unwrap();
+                        let value = self
+                            .values
+                            .remove(name)
+                            .unwrap_or_else(|| panic!("Cannot find entry {:?}", name.to_string()));
                         if let common::Value::Array(mut data) = value {
                             let size = data.len();
                             let to_store = data.split_off(cmp::min(*fixed_array_size, data.len()));
