@@ -20,6 +20,8 @@ pub use pack_kind::PackKind;
 pub use pack_pos::PackPos;
 pub use value::Value;
 
+pub(crate) use pack_kind::FullPackKind;
+
 impl Producable for Uuid {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {
