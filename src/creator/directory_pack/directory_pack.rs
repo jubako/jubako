@@ -1,6 +1,6 @@
 use super::{entry_store, value_store, Index};
 use crate::bases::*;
-use crate::common::{ContentAddress, DirectoryPackHeader, PackHeaderInfo};
+use crate::common::{CheckInfo, ContentAddress, DirectoryPackHeader, PackHeaderInfo};
 use crate::creator::private::WritableTell;
 use crate::creator::{Embedded, PackData};
 use entry_store::EntryStoreTrait;
@@ -145,11 +145,8 @@ impl DirectoryPackCreator {
 
         info!("----- Compute checksum -----");
         file.rewind()?;
-        let mut hasher = blake3::Hasher::new();
-        std::io::copy(&mut file, &mut hasher)?;
-        let hash = hasher.finalize();
-        file.write_u8(1)?;
-        file.write_all(hash.as_bytes())?;
+        let check_info = CheckInfo::new_blake3(&mut file)?;
+        check_info.write(&mut file)?;
 
         file.rewind()?;
         let mut tail_buffer = [0u8; 64];

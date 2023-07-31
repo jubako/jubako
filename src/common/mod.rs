@@ -10,7 +10,7 @@ mod value;
 use uuid::Uuid;
 
 use crate::bases::*;
-pub use check::{CheckInfo, CheckKind};
+pub use check::{CheckInfo, CheckKind, ManifestCheckStream};
 pub use compression_type::CompressionType;
 pub use content_address::ContentAddress;
 pub use content_info::ContentInfo;

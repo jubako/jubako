@@ -2,7 +2,7 @@ use super::cluster::ClusterCreator;
 use super::clusterwriter::ClusterWriterProxy;
 use super::Progress;
 use crate::bases::*;
-use crate::common::{CompressionType, ContentInfo, ContentPackHeader, PackHeaderInfo};
+use crate::common::{CheckInfo, CompressionType, ContentInfo, ContentPackHeader, PackHeaderInfo};
 use crate::creator::{Embedded, PackData};
 use std::cell::Cell;
 use std::fs::{File, OpenOptions};
@@ -222,11 +222,8 @@ impl ContentPackCreator {
         );
         header.write(&mut file)?;
         file.rewind()?;
-        let mut hasher = blake3::Hasher::new();
-        std::io::copy(&mut file, &mut hasher)?;
-        let hash = hasher.finalize();
-        file.write_u8(1)?;
-        file.write_all(hash.as_bytes())?;
+        let check_info = CheckInfo::new_blake3(&mut file)?;
+        check_info.write(&mut file)?;
 
         file.rewind()?;
         let mut tail_buffer = [0u8; 64];
