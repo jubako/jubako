@@ -1,10 +1,13 @@
 #[macro_use]
 mod content_pack;
+mod container_pack;
 mod directory_pack;
 mod jubako;
+mod locator;
 mod manifest_pack;
 
 pub use self::jubako::Container;
+pub use container_pack::ContainerPack;
 pub use content_pack::ContentPack;
 pub use directory_pack::{builder, layout};
 pub type EntryStore = std::sync::Arc<directory_pack::EntryStore>;
@@ -12,6 +15,7 @@ pub use directory_pack::{
     Array, CompareTrait, ContentAddress, DirectoryPack, EntryTrait, Index, LazyEntry as Entry,
     PropertyCompare, RangeTrait as Range, RawValue, Value, ValueStorage,
 };
+pub use locator::PackLocatorTrait;
 pub use manifest_pack::ManifestPack;
 
 pub mod testing {

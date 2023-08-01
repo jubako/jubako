@@ -19,7 +19,7 @@ pub use byte_size::ByteSize;
 pub use count::Count;
 pub use delayed::{Bound, Late, Vow, Word};
 pub use error::{Error, ErrorKind, FormatError, Result};
-pub use free_data::{FreeData103, FreeData31, FreeData40, FreeData63};
+pub use free_data::{FreeData103, FreeData31, FreeData40, FreeData55};
 pub use id::Id;
 pub use idx::{Idx, IndexTrait};
 pub use offset::Offset;

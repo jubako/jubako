@@ -225,6 +225,7 @@ impl CheckInfo {
 struct PackInfo {
     uuid: uuid::Uuid,
     pack_id: u8,
+    pack_kind: u8,
     pack_size: u64,
     pack_path: String,
     check_info: CheckInfo,
@@ -234,11 +235,13 @@ impl PackInfo {
     pub fn bytes(&self, check_info_pos: u64) -> Vec<u8> {
         let mut data = vec![];
         data.extend(self.uuid.as_bytes());
-        data.push(self.pack_id);
-        data.extend(&[0; 103]);
         data.extend(self.pack_size.to_be_bytes());
         data.extend(check_info_pos.to_be_bytes());
-        data.extend(&[0; 8]); // offest
+        data.push(self.pack_kind);
+        data.push(self.pack_id);
+        data.push(0); // pack_group
+        data.push(0); // padding
+        data.extend(&[0; 2]); // free data id
         let path_data = self.pack_path.as_bytes();
         data.extend((path_data.len() as u8).to_be_bytes());
         data.extend(path_data);
@@ -337,6 +340,7 @@ test_suite! {
             pack_path: "/tmp/contentPack.jbkc".to_string(),
             pack_size,
             pack_id: 1,
+            pack_kind: b'c',
             uuid,
         })
     }
@@ -419,6 +423,7 @@ test_suite! {
             pack_path: "/tmp/directoryPack.jbkd".to_string(),
             pack_size,
             pack_id: 0,
+            pack_kind: b'd',
             uuid,
         })
     }
@@ -449,25 +454,24 @@ test_suite! {
         file.write_all(&file_size.to_be_bytes())?;
         file.write_all(&check_info_pos.to_be_bytes())?;
         file.write_all(&[0x00;16])?; // reserved
-        file.write_all(&[0x01])?; // number of contentpack
-        file.write_all(&[0xff;63])?; // free_data
+        file.write_all(&[0x02])?; // number of pack
+        file.write_all(&[0x00; 8])?; // Value store offset
+        file.write_all(&[0xff;55])?; // free_data
 
         assert_eq!(directory_check_info_pos, file.seek(SeekFrom::End(0))?);
         file.write_all(&directory_pack.check_info.bytes())?;
         file.write_all(&content_pack.check_info.bytes())?;
+        let pack_offset = file.seek(SeekFrom::Current(0))?;
         file.write_all(&directory_pack.bytes(directory_check_info_pos))?;
         file.write_all(&content_pack.bytes(content_check_info_pos))?;
 
         file.seek(SeekFrom::Start(0))?;
         let mut hasher = blake3::Hasher::new();
-        let mut buf = [0u8;256];
-        file.read_exact(&mut buf[..128])?;
-        hasher.write_all(&buf[..128])?; //check start
+        io::copy(&mut Read::by_ref(&mut file).take(pack_offset), &mut hasher)?;
         for _i in 0..2 {
-            file.read_exact(&mut buf[..144])?;
-            hasher.write_all(&buf[..144])?; //check beggining of pack
-            io::copy(&mut io::repeat(0).take(112), &mut hasher)?; // fill with 0 the path
-            file.seek(SeekFrom::Current(112))?;
+            io::copy(&mut Read::by_ref(&mut file).take(38), &mut hasher)?;
+            io::copy(&mut io::repeat(0).take(218), &mut hasher)?; // fill with 0 the path
+            file.seek(SeekFrom::Current(218))?;
         }
         io::copy(&mut file, &mut hasher)?; // finish
         let hash = hasher.finalize();
@@ -481,7 +485,7 @@ test_suite! {
         let directory_info = create_directory_pack(&articles.val).unwrap();
         let main_path = create_main_pack(directory_info, content_info).unwrap();
         let container = reader::Container::new(main_path).unwrap();
-        assert_eq!(container.pack_count(), 1.into());
+        assert_eq!(container.pack_count(), 2.into());
         assert!(container.check().unwrap());
         let index = container.get_index_for_name("Super index").unwrap();
         let builder = reader::builder::AnyBuilder::new(

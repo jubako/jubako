@@ -10,7 +10,6 @@ mod raw_value;
 mod value_store;
 
 use self::index::IndexHeader;
-use self::value_store::{ValueStore, ValueStoreTrait};
 use crate::bases::*;
 use crate::common::{CheckInfo, DirectoryPackHeader, Pack, PackKind};
 use std::io::Read;
@@ -21,6 +20,7 @@ pub use self::entry_store::EntryStore;
 pub use self::index::Index;
 pub use self::property_compare::PropertyCompare;
 pub use self::range::{CompareTrait, RangeTrait};
+pub use self::value_store::{ValueStore, ValueStoreTrait};
 pub use crate::common::{ContentAddress, Value};
 pub use lazy_entry::LazyEntry;
 pub use raw_value::{Array, ArrayIter, Extend, RawValue};

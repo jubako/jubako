@@ -2,6 +2,7 @@ use jubako as jbk;
 use jubako::creator::schema;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fs::OpenOptions;
 
 // This is what will allow Jubako to differenciate your format from others.
 const VENDOR_ID: u32 = 0x01_02_03_04;
@@ -16,7 +17,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
 
     let mut directory_pack = jbk::creator::DirectoryPackCreator::new(
-        "test.jbkd",
         jbk::PackId::from(0),
         VENDOR_ID,
         jbk::FreeData31::clone_from_slice(&[0x00; 31]),
@@ -101,21 +101,33 @@ fn main() -> Result<(), Box<dyn Error>> {
         jubako::EntryIdx::from(0).into(), // Offset 0
     );
 
-    let directory_pack_info = directory_pack.finalize(Some("test.jbkd".into()))?;
-    let content_pack_info = content_pack.finalize(Some("test.jbkc".into()))?;
+    let mut directory_file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open("test.jbkd")?;
+    let directory_pack_info = directory_pack.finalize(&mut directory_file)?;
+    let (_file, content_pack_info) = content_pack.finalize()?;
     let mut manifest_creator = jbk::creator::ManifestPackCreator::new(
-        "test.jbkm",
         VENDOR_ID,
-        jbk::FreeData63::clone_from_slice(&[0x00; 63]),
+        jbk::FreeData55::clone_from_slice(&[0x00; 55]),
     );
 
-    manifest_creator.add_pack(directory_pack_info);
-    manifest_creator.add_pack(content_pack_info);
-    manifest_creator.finalize()?;
+    manifest_creator.add_pack(directory_pack_info, "test.jbkd".into());
+    manifest_creator.add_pack(content_pack_info, "test.jbkc".into());
+
+    let mut manifest_file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open("test.jbkm")?;
+    manifest_creator.finalize(&mut manifest_file)?;
     // You have now 3 files : "test.jbkm", "test.jbkc" and "test.jbkd".
 
     // Let's concat them in only one.
-    jbk::concat(&["test.jbkm", "test.jbkc", "test.jbkd"], "test.jbk")?;
+    //jbk::concat(&["test.jbkm", "test.jbkc", "test.jbkd"], "test.jbk")?;
     // We have now 4 files. The 4th is "test.jbk" and it contains the 3 others.
 
     Ok(())

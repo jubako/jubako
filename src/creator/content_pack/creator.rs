@@ -2,12 +2,14 @@ use super::cluster::ClusterCreator;
 use super::clusterwriter::ClusterWriterProxy;
 use super::Progress;
 use crate::bases::*;
-use crate::common::{CheckInfo, CompressionType, ContentInfo, ContentPackHeader, PackHeaderInfo};
-use crate::creator::{Embedded, PackData};
+use crate::common::{
+    CheckInfo, CompressionType, ContentInfo, ContentPackHeader, PackHeaderInfo, PackKind,
+};
+use crate::creator::PackData;
 use std::cell::Cell;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 fn shannon_entropy(data: &Reader) -> Result<f32> {
@@ -187,7 +189,7 @@ impl ContentPackCreator {
         Ok(((self.content_infos.len() - 1) as u32).into())
     }
 
-    pub fn finalize(mut self, path: Option<PathBuf>) -> Result<PackData> {
+    pub fn finalize(mut self) -> Result<(File, PackData)> {
         if let Some(cluster) = self.raw_open_cluster.take() {
             if !cluster.is_empty() {
                 self.cluster_writer.write_cluster(cluster, false);
@@ -233,16 +235,16 @@ impl ContentPackCreator {
         file.write_all(&tail_buffer)?;
 
         file.rewind()?;
-        Ok(PackData {
-            uuid: header.pack_header.uuid,
-            pack_id: self.pack_id,
-            free_data: FreeData103::clone_from_slice(&[0; 103]),
-            reader: FileSource::new(file)?.into(),
-            check_info_pos: check_offset,
-            embedded: match path {
-                None => Embedded::Yes,
-                Some(p) => Embedded::No(p),
+        Ok((
+            file,
+            PackData {
+                uuid: header.pack_header.uuid,
+                pack_id: self.pack_id,
+                pack_kind: PackKind::Content,
+                free_data: FreeData103::clone_from_slice(&[0; 103]),
+                pack_size,
+                check_info,
             },
-        })
+        ))
     }
 }

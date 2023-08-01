@@ -5,7 +5,7 @@ mod content_info;
 mod headers;
 mod pack_info;
 mod pack_kind;
-mod pack_pos;
+mod pack_locator;
 mod value;
 use uuid::Uuid;
 
@@ -17,7 +17,7 @@ pub use content_info::ContentInfo;
 pub use headers::*;
 pub use pack_info::PackInfo;
 pub use pack_kind::PackKind;
-pub use pack_pos::PackPos;
+pub use pack_locator::PackLocator;
 pub use value::Value;
 
 pub(crate) use pack_kind::FullPackKind;

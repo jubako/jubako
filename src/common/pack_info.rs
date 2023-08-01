@@ -1,46 +1,36 @@
-use super::PackPos;
+use super::PackKind;
 use crate::bases::*;
-use pathdiff::diff_paths;
-use std::path::Path;
 use uuid::Uuid;
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct PackInfo {
     pub uuid: Uuid,
-    pub pack_id: PackId,
-    pub free_data: FreeData103,
     pub pack_size: Size,
     pub check_info_pos: Offset,
-    pub pack_pos: PackPos,
+    pub pack_kind: PackKind,
+    pub pack_id: PackId,
+    pub pack_group: u8,
+    pub free_data_id: ValueIdx,
+    pub pack_location: Vec<u8>,
 }
 
 impl PackInfo {
-    pub fn new<P: AsRef<Path>>(
+    pub fn new(
         pack_data: crate::creator::PackData,
+        pack_group: u8,
+        free_data_id: ValueIdx,
         offset: Offset,
-        manifest_path: P,
+        pack_location: Vec<u8>,
     ) -> Self {
-        use crate::creator::Embedded;
-        let (check_info_pos, pack_pos) = match pack_data.embedded {
-            Embedded::Yes =>
-            // Offset is the offset of the pack
-            {
-                (offset + pack_data.check_info_pos, offset.into())
-            }
-            Embedded::No(path) =>
-            // Offset is the offset of the check_info, pack_pos is the patch to the file
-            {
-                let relative_path = diff_paths(path, manifest_path).unwrap();
-                (offset, relative_path.into())
-            }
-        };
         Self {
             uuid: pack_data.uuid,
+            pack_size: pack_data.pack_size,
+            check_info_pos: offset,
+            pack_kind: pack_data.pack_kind,
             pack_id: pack_data.pack_id,
-            free_data: pack_data.free_data,
-            pack_size: pack_data.reader.size(),
-            check_info_pos,
-            pack_pos,
+            pack_group,
+            free_data_id,
+            pack_location,
         }
     }
 }
@@ -48,20 +38,14 @@ impl PackInfo {
 impl PackInfo {
     pub fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
         self.uuid.write(stream)?;
-        self.pack_id.write(stream)?;
-        self.free_data.write(stream)?;
         self.pack_size.write(stream)?;
         self.check_info_pos.write(stream)?;
-        match &self.pack_pos {
-            PackPos::Offset(offset) => {
-                offset.write(stream)?;
-                PString::write_string_padded(b"", 111, stream)?;
-            }
-            PackPos::Path(path) => {
-                stream.write_u64(0)?;
-                PString::write_string_padded(path.as_ref(), 111, stream)?;
-            }
-        }
+        self.pack_kind.write(stream)?;
+        self.pack_id.write(stream)?;
+        stream.write_u8(self.pack_group)?;
+        stream.write_u8(0)?; // padding
+        stream.write_u16(self.free_data_id.into_u64() as u16)?;
+        PString::write_string_padded(self.pack_location.as_ref(), 217, stream)?;
         Ok(())
     }
 }
@@ -74,26 +58,24 @@ impl Producable for PackInfo {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {
         let uuid = Uuid::produce(flux)?;
-        let pack_id = Id::produce(flux)?.into();
-        let free_data = FreeData103::produce(flux)?;
         let pack_size = Size::produce(flux)?;
         let check_info_pos = Offset::produce(flux)?;
-        let pack_offset = Offset::produce(flux)?;
-        let pack_pos = if pack_offset.is_zero() {
-            let v = PString::produce(flux)?;
-            flux.skip(Size::from(111 - v.len()))?;
-            PackPos::Path(v)
-        } else {
-            flux.skip(Size::new(112))?;
-            PackPos::Offset(pack_offset)
-        };
+        let pack_kind = PackKind::produce(flux)?;
+        let pack_id = Id::produce(flux)?.into();
+        let pack_group = flux.read_u8()?;
+        flux.skip(Size::new(1))?;
+        let free_data_id = ValueIdx::from(flux.read_u16()? as u64);
+        let pack_location = PString::produce(flux)?;
+        flux.skip(Size::from(217 - pack_location.len()))?;
         Ok(Self {
             uuid,
-            pack_id,
-            free_data,
             pack_size,
             check_info_pos,
-            pack_pos,
+            pack_kind,
+            pack_id,
+            pack_group,
+            free_data_id,
+            pack_location,
         })
     }
 }

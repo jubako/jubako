@@ -1,32 +1,41 @@
 use crate::bases::*;
-use crate::common::{PackHeader, PackHeaderInfo, PackKind};
+use crate::common::{PackHeader, PackHeaderInfo, PackInfo, PackKind};
 use generic_array::typenum::U128;
+use typenum::Unsigned;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ManifestPackHeader {
     pub pack_header: PackHeader,
     pub pack_count: PackCount,
-    pub free_data: FreeData63,
+    pub value_store_posinfo: SizedOffset,
+    pub free_data: FreeData55,
 }
 
 impl ManifestPackHeader {
-    pub fn new(pack_info: PackHeaderInfo, free_data: FreeData63, pack_count: PackCount) -> Self {
+    pub fn new(
+        pack_info: PackHeaderInfo,
+        free_data: FreeData55,
+        pack_count: PackCount,
+        value_store_posinfo: SizedOffset,
+    ) -> Self {
         ManifestPackHeader {
             pack_header: PackHeader::new(PackKind::Manifest, pack_info),
             pack_count,
+            value_store_posinfo,
             free_data,
         }
     }
 
     pub fn packs_offset(&self) -> Offset {
         Offset::from(
-            self.pack_header.check_info_pos.into_u64() - (self.pack_count.into_u64() + 1) * 256,
+            self.pack_header.check_info_pos.into_u64()
+                - self.pack_count.into_u64() * <PackInfo as SizedProducable>::Size::U64,
         )
     }
 }
 
 impl SizedProducable for ManifestPackHeader {
-    // PackHeader::Size (64) + PackCount::Size (1) + FreeData (63)
+    // PackHeader::Size (64) + PackCount::Size (1) + + SizedOffset::Size(8) + FreeData (55)
     type Size = U128;
 }
 
@@ -38,10 +47,12 @@ impl Producable for ManifestPackHeader {
             return Err(format_error!("Pack Magic is not ManifestPack"));
         }
         let pack_count = Count::<u8>::produce(flux)?.into();
-        let free_data = FreeData63::produce(flux)?;
+        let value_store_posinfo = SizedOffset::produce(flux)?;
+        let free_data = FreeData55::produce(flux)?;
         Ok(Self {
             pack_header,
             pack_count,
+            value_store_posinfo,
             free_data,
         })
     }
@@ -52,6 +63,7 @@ impl Writable for ManifestPackHeader {
         let mut written = 0;
         written += self.pack_header.write(stream)?;
         written += self.pack_count.write(stream)?;
+        written += self.value_store_posinfo.write(stream)?;
         written += self.free_data.write(stream)?;
         Ok(written)
     }
@@ -77,8 +89,9 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
             0x02, // pack_count
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Valuestoreoffset
         ];
-        content.extend_from_slice(&[0xff; 63]);
+        content.extend_from_slice(&[0xff; 55]);
         let reader = Reader::from(content);
         let mut flux = reader.create_flux_all();
         assert_eq!(
@@ -97,7 +110,8 @@ mod tests {
                     check_info_pos: Offset::from(0xffee_u64),
                 },
                 pack_count: PackCount::from(2),
-                free_data: FreeData63::clone_from_slice(&[0xff; 63])
+                value_store_posinfo: SizedOffset::new(Size::zero(), Offset::zero()),
+                free_data: FreeData55::clone_from_slice(&[0xff; 55])
             }
         );
     }
