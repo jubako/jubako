@@ -6,7 +6,7 @@ use std::ops::{Add, AddAssign, Sub};
 /// We handling content in 64 bits space.
 /// We cannot use a usize as it is arch dependent.
 /// Let's define our own type.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug, Default)]
 pub struct Size(u64);
 
 impl Size {
@@ -23,6 +23,10 @@ impl Size {
     #[cfg(target_pointer_width = "64")]
     pub fn into_usize(self) -> usize {
         self.0 as usize
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.0 == 0
     }
 }
 

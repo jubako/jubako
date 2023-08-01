@@ -5,7 +5,7 @@ use std::ops::{Add, AddAssign, Sub};
 /// A offset used Jubako.
 /// We handling content in 64 bits space.
 /// We cannot use a usize as it is arch dependent.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug, Default)]
 pub struct Offset(u64);
 
 impl Offset {
