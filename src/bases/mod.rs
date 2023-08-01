@@ -46,7 +46,11 @@ impl Region {
             End::Offset(o) => self.begin() + o,
             End::Size(s) => begin + s,
         };
-        debug_assert!(end <= self.end());
+        debug_assert!(
+            end <= self.end(),
+            "end({end:?}) <= self.end({:?})",
+            self.end()
+        );
         Self::new(begin, end)
     }
 }
