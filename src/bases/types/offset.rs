@@ -42,7 +42,7 @@ impl Producable for Offset {
     }
 }
 impl SizedProducable for Offset {
-    type Size = typenum::U8;
+    const SIZE: usize = 8;
 }
 
 impl Writable for Offset {

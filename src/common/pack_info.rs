@@ -51,7 +51,17 @@ impl PackInfo {
 }
 
 impl SizedProducable for PackInfo {
-    type Size = typenum::U256;
+    const SIZE: usize =
+        Uuid::SIZE
+        + Size::SIZE
+        + Offset::SIZE
+        + PackKind::SIZE
+        + 1 // pack_id
+        + 1 // pack_group
+        + 1 // padding
+        + 2 // free_data_id
+        + 218 // pack locator
+    ;
 }
 
 impl Producable for PackInfo {

@@ -19,7 +19,7 @@ impl SizedOffset {
 }
 
 impl SizedProducable for SizedOffset {
-    type Size = typenum::U8;
+    const SIZE: usize = 8;
 }
 
 impl Producable for SizedOffset {

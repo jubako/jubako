@@ -148,7 +148,7 @@ impl DirectoryPackCreator {
             uuid: header.uuid(),
             pack_id: self.pack_id,
             pack_kind: PackKind::Directory,
-            free_data: FreeData103::clone_from_slice(&[0; 103]),
+            free_data: [0; 103],
             pack_size,
             check_info,
         })

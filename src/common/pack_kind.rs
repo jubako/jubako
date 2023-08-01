@@ -24,6 +24,9 @@ impl Producable for PackKind {
         }
     }
 }
+impl SizedProducable for PackKind {
+    const SIZE: usize = 1;
+}
 
 impl Writable for PackKind {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
@@ -54,6 +57,10 @@ impl Producable for FullPackKind {
             }
         }
     }
+}
+
+impl SizedProducable for FullPackKind {
+    const SIZE: usize = 4;
 }
 
 impl Writable for FullPackKind {

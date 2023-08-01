@@ -1,7 +1,6 @@
 use super::{ContentPack, DirectoryPack, ManifestPack, PackLocatorTrait};
 use crate::bases::*;
 use crate::common::{ContainerPackHeader, FullPackKind, Pack, PackKind, PackLocator};
-use generic_array::typenum::Unsigned;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -12,8 +11,8 @@ pub struct ContainerPack {
 
 fn packs_offset(header: &ContainerPackHeader) -> Offset {
     (header.file_size
-        - Size::new(<ContainerPackHeader as SizedProducable>::Size::U64)
-        - Size::new(header.pack_count.into_u64() * <PackLocator as SizedProducable>::Size::U64))
+        - Size::new(ContainerPackHeader::SIZE as u64)
+        - Size::new(header.pack_count.into_u64() * PackLocator::SIZE as u64))
     .into()
 }
 

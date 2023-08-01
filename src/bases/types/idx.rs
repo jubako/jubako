@@ -13,9 +13,13 @@ impl Producable for Idx<u32> {
         Ok(flux.read_u32()?.into())
     }
 }
-impl SizedProducable for Idx<u32> {
-    type Size = typenum::U4;
+impl<T> SizedProducable for Idx<T>
+where
+    Idx<T>: Producable,
+{
+    const SIZE: usize = std::mem::size_of::<T>();
 }
+
 impl Writable for Idx<u8> {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         stream.write_u8(self.0)

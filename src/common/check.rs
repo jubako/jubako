@@ -2,7 +2,6 @@ use crate::bases::*;
 use std::cmp;
 use std::fmt::Debug;
 use std::io::{self, Read};
-use typenum::Unsigned;
 
 #[derive(Clone, Copy)]
 pub enum CheckKind {
@@ -96,7 +95,7 @@ impl CheckInfo {
     }
 }
 
-const PACK_INFO_SIZE: u64 = <super::PackInfo as SizedProducable>::Size::U64;
+const PACK_INFO_SIZE: u64 = super::PackInfo::SIZE as u64;
 const PACK_INFO_TO_CHECK: u64 = 38;
 
 pub struct ManifestCheckStream<'a, S: Read> {

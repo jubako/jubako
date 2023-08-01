@@ -28,7 +28,7 @@ impl PackLocator {
 }
 
 impl SizedProducable for PackLocator {
-    type Size = typenum::U32;
+    const SIZE: usize = Uuid::SIZE + Size::SIZE + Offset::SIZE;
 }
 
 impl Producable for PackLocator {

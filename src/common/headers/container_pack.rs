@@ -1,7 +1,6 @@
 use crate::bases::*;
 use crate::common::{FullPackKind, PackKind};
 use std::fmt::Debug;
-use typenum::U16;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ContainerPackHeader {
@@ -40,7 +39,11 @@ impl Producable for ContainerPackHeader {
 }
 
 impl SizedProducable for ContainerPackHeader {
-    type Size = U16;
+    const SIZE: usize = FullPackKind::SIZE
+         + 1 // version
+         + 1 // packCount
+         + 2 //padding
+         + Size::SIZE;
 }
 
 impl Writable for ContainerPackHeader {

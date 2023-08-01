@@ -13,7 +13,7 @@ impl Producable for Id<u8> {
     }
 }
 impl SizedProducable for Id<u8> {
-    type Size = typenum::U1;
+    const SIZE: usize = 1;
 }
 impl Writable for Id<u8> {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {

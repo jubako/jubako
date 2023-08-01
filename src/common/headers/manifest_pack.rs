@@ -1,7 +1,5 @@
 use crate::bases::*;
 use crate::common::{PackHeader, PackHeaderInfo, PackInfo, PackKind};
-use generic_array::typenum::U128;
-use typenum::Unsigned;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ManifestPackHeader {
@@ -29,14 +27,13 @@ impl ManifestPackHeader {
     pub fn packs_offset(&self) -> Offset {
         Offset::from(
             self.pack_header.check_info_pos.into_u64()
-                - self.pack_count.into_u64() * <PackInfo as SizedProducable>::Size::U64,
+                - self.pack_count.into_u64() * PackInfo::SIZE as u64,
         )
     }
 }
 
 impl SizedProducable for ManifestPackHeader {
-    // PackHeader::Size (64) + PackCount::Size (1) + + SizedOffset::Size(8) + FreeData (55)
-    type Size = U128;
+    const SIZE: usize = PackHeader::SIZE + Count::<u8>::SIZE + SizedOffset::SIZE + FreeData55::SIZE;
 }
 
 impl Producable for ManifestPackHeader {
@@ -111,7 +108,7 @@ mod tests {
                 },
                 pack_count: PackCount::from(2),
                 value_store_posinfo: SizedOffset::new(Size::zero(), Offset::zero()),
-                free_data: FreeData55::clone_from_slice(&[0xff; 55])
+                free_data: [0xff; 55],
             }
         );
     }

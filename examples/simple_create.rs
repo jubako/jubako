@@ -12,15 +12,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         "test.jbkc",
         jbk::PackId::from(1), // The pack id as referenced in the container
         VENDOR_ID,
-        jbk::FreeData40::clone_from_slice(&[0x00; 40]), // Put whatever you what, this is for you
-        jbk::CompressionType::Zstd,                     // How to compress
+        [0x00; 40],                 // Put whatever you what, this is for you
+        jbk::CompressionType::Zstd, // How to compress
     )?;
 
-    let mut directory_pack = jbk::creator::DirectoryPackCreator::new(
-        jbk::PackId::from(0),
-        VENDOR_ID,
-        jbk::FreeData31::clone_from_slice(&[0x00; 31]),
-    );
+    let mut directory_pack =
+        jbk::creator::DirectoryPackCreator::new(jbk::PackId::from(0), VENDOR_ID, [0x00; 31]);
 
     // Entries have fixed sizes. We need to store variable length values in an extra store.
     let value_store = jbk::creator::ValueStore::new_plain();
@@ -109,10 +106,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .open("test.jbkd")?;
     let directory_pack_info = directory_pack.finalize(&mut directory_file)?;
     let (_file, content_pack_info) = content_pack.finalize()?;
-    let mut manifest_creator = jbk::creator::ManifestPackCreator::new(
-        VENDOR_ID,
-        jbk::FreeData55::clone_from_slice(&[0x00; 55]),
-    );
+    let mut manifest_creator = jbk::creator::ManifestPackCreator::new(VENDOR_ID, [0x00; 55]);
 
     manifest_creator.add_pack(directory_pack_info, "test.jbkd".into());
     manifest_creator.add_pack(content_pack_info, "test.jbkc".into());

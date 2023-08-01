@@ -75,7 +75,7 @@ test_suite! {
             "/tmp/contentPack.jbkc",
             jubako::PackId::from(1),
             1,
-            jubako::FreeData40::clone_from_slice(&[0xff; 40]),
+            [0xff; 40],
             compression
         )?;
         for entry in entries {
@@ -87,11 +87,7 @@ test_suite! {
     }
 
     fn create_directory_pack(value_store_kind: ValueStoreKind, entries: &Vec<TestEntry>) -> Result<(creator::PackData, jubako::Reader)> {
-        let mut creator = creator::DirectoryPackCreator::new(
-            jubako::PackId::from(1),
-            1,
-            jubako::FreeData31::clone_from_slice(&[0xff; 31])
-        );
+        let mut creator = creator::DirectoryPackCreator::new(jubako::PackId::from(1), 1, [0xff; 31]);
         let value_store = match value_store_kind {
             ValueStoreKind::Plain => creator::ValueStore::new_plain(),
             ValueStoreKind::Indexed => creator::ValueStore::new_indexed()
@@ -136,10 +132,7 @@ test_suite! {
     }
 
     fn create_main_pack(directory_pack: creator::PackData, content_pack:creator::PackData) -> Result<String> {
-        let mut creator = creator::ManifestPackCreator::new(
-            1,
-            jubako::FreeData55::clone_from_slice(&[0xff; 55])
-        );
+        let mut creator = creator::ManifestPackCreator::new(1, [0xff; 55]);
 
         creator.add_pack(directory_pack, "/tmp/directoryPack.jbkd".into());
         creator.add_pack(content_pack, "/tmp/contentPack.jbkc".into());

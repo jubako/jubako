@@ -41,14 +41,18 @@ where
     }
 }
 
+impl<T> SizedProducable for Count<T>
+where
+    Count<T>: Producable,
+{
+    const SIZE: usize = std::mem::size_of::<T>();
+}
+
 impl Producable for Count<u8> {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {
         Ok(flux.read_u8()?.into())
     }
-}
-impl SizedProducable for Count<u8> {
-    type Size = typenum::U1;
 }
 
 impl Producable for Count<u16> {
@@ -57,9 +61,6 @@ impl Producable for Count<u16> {
         Ok(flux.read_u16()?.into())
     }
 }
-impl SizedProducable for Count<u16> {
-    type Size = typenum::U2;
-}
 
 impl Producable for Count<u32> {
     type Output = Self;
@@ -67,18 +68,12 @@ impl Producable for Count<u32> {
         Ok(flux.read_u32()?.into())
     }
 }
-impl SizedProducable for Count<u32> {
-    type Size = typenum::U4;
-}
 
 impl Producable for Count<u64> {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {
         Ok(flux.read_u64()?.into())
     }
-}
-impl SizedProducable for Count<u64> {
-    type Size = typenum::U8;
 }
 
 impl Writable for Count<u8> {

@@ -3,14 +3,13 @@ use crate::common::{ContainerPackHeader, PackLocator};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
-use typenum::Unsigned;
 
 pub struct ContainerPackCreator {
     packs: Vec<PackLocator>,
     file: File,
 }
 
-const HEADER_SIZE: u64 = <ContainerPackHeader as SizedProducable>::Size::U64;
+const HEADER_SIZE: u64 = ContainerPackHeader::SIZE as u64;
 
 impl ContainerPackCreator {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {

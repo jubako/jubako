@@ -241,7 +241,7 @@ impl ContentPackCreator {
                 uuid: header.pack_header.uuid,
                 pack_id: self.pack_id,
                 pack_kind: PackKind::Content,
-                free_data: FreeData103::clone_from_slice(&[0; 103]),
+                free_data: [0; 103],
                 pack_size,
                 check_info,
             },

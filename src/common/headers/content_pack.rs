@@ -114,7 +114,7 @@ mod tests {
                 cluster_ptr_pos: Offset::from(0xeedd_u64),
                 content_count: ContentCount::from(0x50_u32),
                 cluster_count: ClusterCount::from(0x60_u32),
-                free_data: FreeData40::clone_from_slice(&[0xff; 40]),
+                free_data: [0xff; 40],
             }
         );
     }
