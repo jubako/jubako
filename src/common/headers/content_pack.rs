@@ -9,13 +9,13 @@ pub struct ContentPackHeader {
     pub cluster_ptr_pos: Offset,
     pub content_count: ContentCount,
     pub cluster_count: ClusterCount,
-    pub free_data: FreeData40,
+    pub free_data: ContentPackFreeData,
 }
 
 impl ContentPackHeader {
     pub fn new(
         pack_info: PackHeaderInfo,
-        free_data: FreeData40,
+        free_data: ContentPackFreeData,
         cluster_ptr_pos: Offset,
         cluster_count: ClusterCount,
         content_ptr_pos: Offset,
@@ -43,7 +43,7 @@ impl Producable for ContentPackHeader {
         let cluster_ptr_pos = Offset::produce(flux)?;
         let content_count = Count::<u32>::produce(flux)?.into();
         let cluster_count = Count::<u32>::produce(flux)?.into();
-        let free_data = FreeData40::produce(flux)?;
+        let free_data = ContentPackFreeData::produce(flux)?;
         Ok(ContentPackHeader {
             pack_header,
             content_ptr_pos,

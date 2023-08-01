@@ -6,13 +6,13 @@ pub struct ManifestPackHeader {
     pub pack_header: PackHeader,
     pub pack_count: PackCount,
     pub value_store_posinfo: SizedOffset,
-    pub free_data: FreeData55,
+    pub free_data: ManifestPackFreeData,
 }
 
 impl ManifestPackHeader {
     pub fn new(
         pack_info: PackHeaderInfo,
-        free_data: FreeData55,
+        free_data: ManifestPackFreeData,
         pack_count: PackCount,
         value_store_posinfo: SizedOffset,
     ) -> Self {
@@ -33,7 +33,8 @@ impl ManifestPackHeader {
 }
 
 impl SizedProducable for ManifestPackHeader {
-    const SIZE: usize = PackHeader::SIZE + Count::<u8>::SIZE + SizedOffset::SIZE + FreeData55::SIZE;
+    const SIZE: usize =
+        PackHeader::SIZE + Count::<u8>::SIZE + SizedOffset::SIZE + ManifestPackFreeData::SIZE;
 }
 
 impl Producable for ManifestPackHeader {
@@ -45,7 +46,7 @@ impl Producable for ManifestPackHeader {
         }
         let pack_count = Count::<u8>::produce(flux)?.into();
         let value_store_posinfo = SizedOffset::produce(flux)?;
-        let free_data = FreeData55::produce(flux)?;
+        let free_data = ManifestPackFreeData::produce(flux)?;
         Ok(Self {
             pack_header,
             pack_count,

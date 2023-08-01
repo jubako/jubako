@@ -12,14 +12,14 @@ use log::info;
 pub struct DirectoryPackCreator {
     app_vendor_id: u32,
     pack_id: PackId,
-    free_data: FreeData31,
+    free_data: DirectoryPackFreeData,
     value_stores: Vec<ValueStore>,
     entry_stores: Vec<Box<dyn EntryStoreTrait>>,
     indexes: Vec<Index>,
 }
 
 impl DirectoryPackCreator {
-    pub fn new(pack_id: PackId, app_vendor_id: u32, free_data: FreeData31) -> Self {
+    pub fn new(pack_id: PackId, app_vendor_id: u32, free_data: DirectoryPackFreeData) -> Self {
         DirectoryPackCreator {
             app_vendor_id,
             pack_id,

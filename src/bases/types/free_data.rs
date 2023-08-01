@@ -20,7 +20,7 @@ impl<const N: usize> Writable for FreeData<N> {
     }
 }
 
-pub type FreeData31 = FreeData<31>;
-pub type FreeData40 = FreeData<40>;
-pub type FreeData55 = FreeData<55>;
-pub type FreeData103 = FreeData<103>;
+pub type DirectoryPackFreeData = FreeData<31>;
+pub type ContentPackFreeData = FreeData<40>;
+pub type ManifestPackFreeData = FreeData<55>;
+pub type PackInfoFreeData = FreeData<103>;

@@ -5,13 +5,13 @@ use std::io::{Read, Seek, SeekFrom, Write};
 
 pub struct ManifestPackCreator {
     app_vendor_id: u32,
-    free_data: FreeData55,
+    free_data: ManifestPackFreeData,
     packs: Vec<(PackData, Vec<u8>)>,
     value_store: ValueStore,
 }
 
 impl ManifestPackCreator {
-    pub fn new(app_vendor_id: u32, free_data: FreeData55) -> Self {
+    pub fn new(app_vendor_id: u32, free_data: ManifestPackFreeData) -> Self {
         ManifestPackCreator {
             app_vendor_id,
             free_data,
