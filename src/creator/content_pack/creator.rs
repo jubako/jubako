@@ -241,7 +241,7 @@ impl ContentPackCreator {
                 uuid: header.pack_header.uuid,
                 pack_id: self.pack_id,
                 pack_kind: PackKind::Content,
-                free_data: [0; 103],
+                free_data: Default::default(),
                 pack_size,
                 check_info,
             },

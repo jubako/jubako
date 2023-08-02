@@ -109,7 +109,7 @@ mod tests {
                 },
                 pack_count: PackCount::from(2),
                 value_store_posinfo: SizedOffset::new(Size::zero(), Offset::zero()),
-                free_data: [0xff; 55],
+                free_data: [0xff; 55].into(),
             }
         );
     }

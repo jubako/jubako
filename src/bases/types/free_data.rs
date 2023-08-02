@@ -1,13 +1,14 @@
 use crate::bases::*;
 
-pub type FreeData<const N: usize> = [u8; N];
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub struct FreeData<const N: usize>([u8; N]);
 
 impl<const N: usize> Producable for FreeData<N> {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {
         let mut s = [0; N];
         flux.read_exact(s.as_mut_slice())?;
-        Ok(s)
+        Ok(Self(s))
     }
 }
 impl<const N: usize> SizedProducable for FreeData<N> {
@@ -16,7 +17,26 @@ impl<const N: usize> SizedProducable for FreeData<N> {
 
 impl<const N: usize> Writable for FreeData<N> {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_data(self.as_slice())
+        stream.write_data(&self.0)
+    }
+}
+
+impl<const N: usize> Default for FreeData<N> {
+    fn default() -> Self {
+        Self([0; N])
+    }
+}
+
+impl<const N: usize> std::ops::Deref for FreeData<N> {
+    type Target = [u8; N];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<const N: usize> From<[u8; N]> for FreeData<N> {
+    fn from(input: [u8; N]) -> Self {
+        Self(input)
     }
 }
 

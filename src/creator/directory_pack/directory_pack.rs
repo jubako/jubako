@@ -148,7 +148,7 @@ impl DirectoryPackCreator {
             uuid: header.uuid(),
             pack_id: self.pack_id,
             pack_kind: PackKind::Directory,
-            free_data: [0; 103],
+            free_data: Default::default(),
             pack_size,
             check_info,
         })
