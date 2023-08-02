@@ -35,7 +35,7 @@ impl ContentPack {
             header,
             content_infos,
             cluster_ptrs,
-            cluster_cache: Mutex::new(LruCache::new(NonZeroUsize::new(20).unwrap())),
+            cluster_cache: Mutex::new(LruCache::new(NonZeroUsize::new(40).unwrap())),
             reader,
             check_info: OnceLock::new(),
         })
