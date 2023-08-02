@@ -31,7 +31,10 @@ impl CompareTrait for PropertyCompare<'_> {
     fn compare_entry(&self, idx: EntryIdx) -> Result<Ordering> {
         let entry = self.builder.create_entry(idx)?;
         for (name, value) in std::iter::zip(self.property_names.iter(), self.values.iter()) {
-            let ordering = entry.get_value(name)?.partial_cmp(value).unwrap();
+            let ordering = entry
+                .get_value(name)?
+                .partial_cmp(value)?
+                .ok_or_else(|| Error::from("Invalide value type".to_string()))?;
             if ordering.is_ne() {
                 return Ok(ordering);
             }

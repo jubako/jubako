@@ -54,53 +54,44 @@ impl Array {
         }
         Ok(())
     }
-}
 
-impl PartialEq<[u8]> for Array {
-    fn eq(&self, other: &[u8]) -> bool {
+    pub fn is_equal(&self, other: &[u8]) -> Result<bool> {
         if let Some(s) = self.size {
             if s.into_usize() != other.len() {
-                return false;
+                return Ok(false);
             }
         } else if other.len() <= self.base_len as usize {
-            return false;
+            return Ok(false);
         }
-        //[TODO] Properly handle unwrap here
-        let our_iter = ArrayIter::new(self).unwrap();
+        let our_iter = ArrayIter::new(self)?;
         for (s, o) in our_iter.zip(other) {
-            //[TODO] Properly handle unwrap here
-            if s.unwrap() != *o {
-                return false;
+            if s? != *o {
+                return Ok(false);
             }
         }
-        true
+        Ok(true)
     }
-}
 
-impl PartialOrd<[u8]> for Array {
-    fn partial_cmp(&self, other: &[u8]) -> Option<cmp::Ordering> {
-        //[TODO] Properly handle unwrap here
-        let our_iter = ArrayIter::new(self).unwrap();
+    pub fn partial_cmp(&self, other: &[u8]) -> Result<Option<cmp::Ordering>> {
+        let our_iter = ArrayIter::new(self)?;
         let mut other_iter = other.iter();
         for our_value in our_iter {
-            //[TODO] Properly handle unwrap here
-            let our_value = our_value.unwrap();
+            let our_value = our_value?;
             let other_value = other_iter.next();
-            //println!("cmp {our_value}, {other_value:?}");
             match other_value {
-                None => return Some(cmp::Ordering::Greater),
+                None => return Ok(Some(cmp::Ordering::Greater)),
                 Some(other_value) => {
                     let cmp = our_value.cmp(other_value);
                     if cmp != cmp::Ordering::Equal {
-                        return Some(cmp);
+                        return Ok(Some(cmp));
                     };
                 }
             }
         }
-        Some(match other_iter.next() {
+        Ok(Some(match other_iter.next() {
             None => cmp::Ordering::Equal,
             Some(_) => cmp::Ordering::Less,
-        })
+        }))
     }
 }
 
@@ -252,55 +243,51 @@ impl RawValue {
             _ => panic!(),
         }
     }
-}
 
-impl PartialEq<Value> for RawValue {
-    fn eq(&self, other: &Value) -> bool {
-        match other {
+    pub fn is_equal(&self, other: &Value) -> Result<bool> {
+        Ok(match other {
             Value::Content(_) => false,
             Value::Unsigned(v) => match self {
-                RawValue::U8(r) => (*r as u64).eq(&v.get()),
-                RawValue::U16(r) => (*r as u64).eq(&v.get()),
-                RawValue::U32(r) => (*r as u64).eq(&v.get()),
-                RawValue::U64(r) => (*r).eq(&v.get()),
+                RawValue::U8(r) => PartialEq::eq(&(*r as u64), &v.get()),
+                RawValue::U16(r) => PartialEq::eq(&(*r as u64), &v.get()),
+                RawValue::U32(r) => PartialEq::eq(&(*r as u64), &v.get()),
+                RawValue::U64(r) => PartialEq::eq(r, &v.get()),
                 _ => false,
             },
             Value::Signed(v) => match self {
-                RawValue::I8(r) => (*r as i64).eq(&v.get()),
-                RawValue::I16(r) => (*r as i64).eq(&v.get()),
-                RawValue::I32(r) => (*r as i64).eq(&v.get()),
-                RawValue::I64(r) => (*r).eq(&v.get()),
+                RawValue::I8(r) => PartialEq::eq(&(*r as i64), &v.get()),
+                RawValue::I16(r) => PartialEq::eq(&(*r as i64), &v.get()),
+                RawValue::I32(r) => PartialEq::eq(&(*r as i64), &v.get()),
+                RawValue::I64(r) => PartialEq::eq(r, &v.get()),
                 _ => false,
             },
             Value::Array(v) => match self {
-                RawValue::Array(a) => a.eq(v.as_slice()),
+                RawValue::Array(a) => a.is_equal(v.as_slice())?,
                 _ => false,
             },
-        }
+        })
     }
-}
 
-impl PartialOrd<Value> for RawValue {
-    fn partial_cmp(&self, other: &Value) -> Option<cmp::Ordering> {
+    pub fn partial_cmp(&self, other: &Value) -> Result<Option<cmp::Ordering>> {
         match other {
-            Value::Content(_) => None,
-            Value::Unsigned(v) => match self {
+            Value::Content(_) => Ok(None),
+            Value::Unsigned(v) => Ok(match self {
                 RawValue::U8(r) => Some((*r as u64).cmp(&v.get())),
                 RawValue::U16(r) => Some((*r as u64).cmp(&v.get())),
                 RawValue::U32(r) => Some((*r as u64).cmp(&v.get())),
                 RawValue::U64(r) => Some((*r).cmp(&v.get())),
                 _ => None,
-            },
-            Value::Signed(v) => match self {
+            }),
+            Value::Signed(v) => Ok(match self {
                 RawValue::I8(r) => Some((*r as i64).cmp(&v.get())),
                 RawValue::I16(r) => Some((*r as i64).cmp(&v.get())),
                 RawValue::I32(r) => Some((*r as i64).cmp(&v.get())),
                 RawValue::I64(r) => Some((*r).cmp(&v.get())),
                 _ => None,
-            },
+            }),
             Value::Array(v) => match self {
                 RawValue::Array(a) => a.partial_cmp(v),
-                _ => None,
+                _ => Ok(None),
             },
         }
     }
@@ -421,13 +408,13 @@ mod tests {
                 base_len: 6,
                 extend: Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)})
             };
-            assert_eq!(raw_value.partial_cmp(&"Hel".as_bytes()).unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp(&"Hello".as_bytes()).unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp(&"Hello ".as_bytes()).unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp(&"Hello Jubako".as_bytes()).unwrap(), cmp::Ordering::Equal);
-            assert_eq!(raw_value.partial_cmp(&"Hello Jubako!".as_bytes()).unwrap(), cmp::Ordering::Less);
-            assert_eq!(raw_value.partial_cmp(&"Hella Jubako!".as_bytes()).unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp(&"Hemmo Jubako!".as_bytes()).unwrap(), cmp::Ordering::Less);
+            assert_eq!(raw_value.partial_cmp(&"Hel".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.partial_cmp(&"Hello".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.partial_cmp(&"Hello ".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.partial_cmp(&"Hello Jubako".as_bytes()).unwrap().unwrap(), cmp::Ordering::Equal);
+            assert_eq!(raw_value.partial_cmp(&"Hello Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Less);
+            assert_eq!(raw_value.partial_cmp(&"Hella Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.partial_cmp(&"Hemmo Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Less);
 
         }
     }
