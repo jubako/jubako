@@ -43,7 +43,7 @@ impl Array {
     }
 
     pub fn resolve_to_vec(&self, vec: &mut Vec<u8>) -> Result<()> {
-        let our_iter = ArrayIter::new(self);
+        let our_iter = ArrayIter::new(self)?;
         if let Some(s) = self.size {
             vec.reserve(s.into_usize());
         } else {
@@ -65,7 +65,8 @@ impl PartialEq<[u8]> for Array {
         } else if other.len() <= self.base_len as usize {
             return false;
         }
-        let our_iter = ArrayIter::new(self);
+        //[TODO] Properly handle unwrap here
+        let our_iter = ArrayIter::new(self).unwrap();
         for (s, o) in our_iter.zip(other) {
             //[TODO] Properly handle unwrap here
             if s.unwrap() != *o {
@@ -78,7 +79,8 @@ impl PartialEq<[u8]> for Array {
 
 impl PartialOrd<[u8]> for Array {
     fn partial_cmp(&self, other: &[u8]) -> Option<cmp::Ordering> {
-        let our_iter = ArrayIter::new(self);
+        //[TODO] Properly handle unwrap here
+        let our_iter = ArrayIter::new(self).unwrap();
         let mut other_iter = other.iter();
         for our_value in our_iter {
             //[TODO] Properly handle unwrap here
@@ -102,19 +104,48 @@ impl PartialOrd<[u8]> for Array {
     }
 }
 
+enum ArrayIterMode<'a> {
+    Base { data: &'a [u8], len: usize },
+    Extend { data: &'a [u8], len: usize },
+    End,
+}
+
 pub struct ArrayIter<'a> {
     array: &'a Array,
+    mode: ArrayIterMode<'a>,
     idx: usize,
-    known_size: Option<usize>,
 }
 
 impl<'a> ArrayIter<'a> {
-    pub fn new(array: &'a Array) -> Self {
-        let known_size = array.size.map(|v| v.into_usize());
-        Self {
+    pub fn new(array: &'a Array) -> Result<Self> {
+        let mode = if array.base_len > 0 {
+            ArrayIterMode::Base {
+                data: array.base.data.as_slice(),
+                len: array.base_len as usize,
+            }
+        } else {
+            Self::setup_extend(array)?
+        };
+        Ok(Self {
             array,
+            mode,
             idx: 0,
-            known_size,
+        })
+    }
+
+    fn setup_extend(array: &Array) -> Result<ArrayIterMode> {
+        match &array.extend {
+            Some(extend) => {
+                let data = extend.store.get_data(
+                    extend.value_id,
+                    array.size.map(|v| v - Size::from(array.base_len as usize)),
+                )?;
+                Ok(ArrayIterMode::Extend {
+                    data,
+                    len: data.len(),
+                })
+            }
+            None => Ok(ArrayIterMode::End),
         }
     }
 }
@@ -122,38 +153,30 @@ impl<'a> ArrayIter<'a> {
 impl Iterator for ArrayIter<'_> {
     type Item = Result<u8>;
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(s) = self.known_size {
-            if self.idx >= s {
-                return None;
-            }
-        }
-        // As far as we know, we are under our known size, so we must return something.
-        let base_len = self.array.base_len as usize;
-        if self.idx < base_len {
-            let ret = self.array.base.data[self.idx];
-            self.idx += 1;
-            Some(Ok(ret))
-        } else if let Some(extend) = &self.array.extend {
-            let data = extend.store.get_data(
-                extend.value_id,
-                self.array.size.map(|v| v - base_len.into()),
-            );
-            match data {
-                Ok(data) => {
-                    self.known_size = Some(base_len + data.len());
-                    if self.idx - base_len < data.len() {
-                        let ret = data[self.idx - base_len];
-                        self.idx += 1;
-                        Some(Ok(ret))
-                    } else {
-                        None
-                    }
+        match &self.mode {
+            ArrayIterMode::Base { data, len } => {
+                let ret = data[self.idx];
+                self.idx += 1;
+                if self.idx == *len {
+                    self.mode = match Self::setup_extend(self.array) {
+                        Ok(mode) => mode,
+                        Err(e) => {
+                            return Some(Err(e));
+                        }
+                    };
+                    self.idx = 0;
                 }
-                Err(e) => Some(Err(e)),
+                Some(Ok(ret))
             }
-        } else {
-            self.known_size = Some(base_len);
-            None
+            ArrayIterMode::Extend { data, len } => {
+                let ret = data[self.idx];
+                self.idx += 1;
+                if self.idx == *len {
+                    self.mode = ArrayIterMode::End;
+                }
+                Some(Ok(ret))
+            }
+            ArrayIterMode::End => None,
         }
     }
 }
