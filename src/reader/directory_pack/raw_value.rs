@@ -43,7 +43,7 @@ impl Array {
     }
 
     pub fn resolve_to_vec(&self, vec: &mut Vec<u8>) -> Result<()> {
-        let our_iter = ArrayIter::new(self);
+        let our_iter = ArrayIter::new(self)?;
         if let Some(s) = self.size {
             vec.reserve(s.into_usize());
         } else {
@@ -54,67 +54,89 @@ impl Array {
         }
         Ok(())
     }
-}
 
-impl PartialEq<[u8]> for Array {
-    fn eq(&self, other: &[u8]) -> bool {
+    pub fn is_equal(&self, other: &[u8]) -> Result<bool> {
         if let Some(s) = self.size {
             if s.into_usize() != other.len() {
-                return false;
+                return Ok(false);
             }
         } else if other.len() <= self.base_len as usize {
-            return false;
+            return Ok(false);
         }
-        let our_iter = ArrayIter::new(self);
+        let our_iter = ArrayIter::new(self)?;
         for (s, o) in our_iter.zip(other) {
-            //[TODO] Properly handle unwrap here
-            if s.unwrap() != *o {
-                return false;
+            if s? != *o {
+                return Ok(false);
             }
         }
-        true
+        Ok(true)
     }
-}
 
-impl PartialOrd<[u8]> for Array {
-    fn partial_cmp(&self, other: &[u8]) -> Option<cmp::Ordering> {
-        let our_iter = ArrayIter::new(self);
+    pub fn partial_cmp(&self, other: &[u8]) -> Result<Option<cmp::Ordering>> {
+        let our_iter = ArrayIter::new(self)?;
         let mut other_iter = other.iter();
         for our_value in our_iter {
-            //[TODO] Properly handle unwrap here
-            let our_value = our_value.unwrap();
+            let our_value = our_value?;
             let other_value = other_iter.next();
-            //println!("cmp {our_value}, {other_value:?}");
             match other_value {
-                None => return Some(cmp::Ordering::Greater),
+                None => return Ok(Some(cmp::Ordering::Greater)),
                 Some(other_value) => {
                     let cmp = our_value.cmp(other_value);
                     if cmp != cmp::Ordering::Equal {
-                        return Some(cmp);
+                        return Ok(Some(cmp));
                     };
                 }
             }
         }
-        Some(match other_iter.next() {
+        Ok(Some(match other_iter.next() {
             None => cmp::Ordering::Equal,
             Some(_) => cmp::Ordering::Less,
-        })
+        }))
     }
+}
+
+enum ArrayIterMode<'a> {
+    Base { data: &'a [u8], len: usize },
+    Extend { data: &'a [u8], len: usize },
+    End,
 }
 
 pub struct ArrayIter<'a> {
     array: &'a Array,
+    mode: ArrayIterMode<'a>,
     idx: usize,
-    known_size: Option<usize>,
 }
 
 impl<'a> ArrayIter<'a> {
-    pub fn new(array: &'a Array) -> Self {
-        let known_size = array.size.map(|v| v.into_usize());
-        Self {
+    pub fn new(array: &'a Array) -> Result<Self> {
+        let mode = if array.base_len > 0 {
+            ArrayIterMode::Base {
+                data: array.base.data.as_slice(),
+                len: array.base_len as usize,
+            }
+        } else {
+            Self::setup_extend(array)?
+        };
+        Ok(Self {
             array,
+            mode,
             idx: 0,
-            known_size,
+        })
+    }
+
+    fn setup_extend(array: &Array) -> Result<ArrayIterMode> {
+        match &array.extend {
+            Some(extend) => {
+                let data = extend.store.get_data(
+                    extend.value_id,
+                    array.size.map(|v| v - Size::from(array.base_len as usize)),
+                )?;
+                Ok(ArrayIterMode::Extend {
+                    data,
+                    len: data.len(),
+                })
+            }
+            None => Ok(ArrayIterMode::End),
         }
     }
 }
@@ -122,38 +144,30 @@ impl<'a> ArrayIter<'a> {
 impl Iterator for ArrayIter<'_> {
     type Item = Result<u8>;
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(s) = self.known_size {
-            if self.idx >= s {
-                return None;
-            }
-        }
-        // As far as we know, we are under our known size, so we must return something.
-        let base_len = self.array.base_len as usize;
-        if self.idx < base_len {
-            let ret = self.array.base.data[self.idx];
-            self.idx += 1;
-            Some(Ok(ret))
-        } else if let Some(extend) = &self.array.extend {
-            let data = extend.store.get_data(
-                extend.value_id,
-                self.array.size.map(|v| v - base_len.into()),
-            );
-            match data {
-                Ok(data) => {
-                    self.known_size = Some(base_len + data.len());
-                    if self.idx - base_len < data.len() {
-                        let ret = data[self.idx - base_len];
-                        self.idx += 1;
-                        Some(Ok(ret))
-                    } else {
-                        None
-                    }
+        match &self.mode {
+            ArrayIterMode::Base { data, len } => {
+                let ret = data[self.idx];
+                self.idx += 1;
+                if self.idx == *len {
+                    self.mode = match Self::setup_extend(self.array) {
+                        Ok(mode) => mode,
+                        Err(e) => {
+                            return Some(Err(e));
+                        }
+                    };
+                    self.idx = 0;
                 }
-                Err(e) => Some(Err(e)),
+                Some(Ok(ret))
             }
-        } else {
-            self.known_size = Some(base_len);
-            None
+            ArrayIterMode::Extend { data, len } => {
+                let ret = data[self.idx];
+                self.idx += 1;
+                if self.idx == *len {
+                    self.mode = ArrayIterMode::End;
+                }
+                Some(Ok(ret))
+            }
+            ArrayIterMode::End => None,
         }
     }
 }
@@ -229,55 +243,51 @@ impl RawValue {
             _ => panic!(),
         }
     }
-}
 
-impl PartialEq<Value> for RawValue {
-    fn eq(&self, other: &Value) -> bool {
-        match other {
+    pub fn is_equal(&self, other: &Value) -> Result<bool> {
+        Ok(match other {
             Value::Content(_) => false,
             Value::Unsigned(v) => match self {
-                RawValue::U8(r) => (*r as u64).eq(&v.get()),
-                RawValue::U16(r) => (*r as u64).eq(&v.get()),
-                RawValue::U32(r) => (*r as u64).eq(&v.get()),
-                RawValue::U64(r) => (*r).eq(&v.get()),
+                RawValue::U8(r) => PartialEq::eq(&(*r as u64), &v.get()),
+                RawValue::U16(r) => PartialEq::eq(&(*r as u64), &v.get()),
+                RawValue::U32(r) => PartialEq::eq(&(*r as u64), &v.get()),
+                RawValue::U64(r) => PartialEq::eq(r, &v.get()),
                 _ => false,
             },
             Value::Signed(v) => match self {
-                RawValue::I8(r) => (*r as i64).eq(&v.get()),
-                RawValue::I16(r) => (*r as i64).eq(&v.get()),
-                RawValue::I32(r) => (*r as i64).eq(&v.get()),
-                RawValue::I64(r) => (*r).eq(&v.get()),
+                RawValue::I8(r) => PartialEq::eq(&(*r as i64), &v.get()),
+                RawValue::I16(r) => PartialEq::eq(&(*r as i64), &v.get()),
+                RawValue::I32(r) => PartialEq::eq(&(*r as i64), &v.get()),
+                RawValue::I64(r) => PartialEq::eq(r, &v.get()),
                 _ => false,
             },
             Value::Array(v) => match self {
-                RawValue::Array(a) => a.eq(v.as_slice()),
+                RawValue::Array(a) => a.is_equal(v.as_slice())?,
                 _ => false,
             },
-        }
+        })
     }
-}
 
-impl PartialOrd<Value> for RawValue {
-    fn partial_cmp(&self, other: &Value) -> Option<cmp::Ordering> {
+    pub fn partial_cmp(&self, other: &Value) -> Result<Option<cmp::Ordering>> {
         match other {
-            Value::Content(_) => None,
-            Value::Unsigned(v) => match self {
+            Value::Content(_) => Ok(None),
+            Value::Unsigned(v) => Ok(match self {
                 RawValue::U8(r) => Some((*r as u64).cmp(&v.get())),
                 RawValue::U16(r) => Some((*r as u64).cmp(&v.get())),
                 RawValue::U32(r) => Some((*r as u64).cmp(&v.get())),
                 RawValue::U64(r) => Some((*r).cmp(&v.get())),
                 _ => None,
-            },
-            Value::Signed(v) => match self {
+            }),
+            Value::Signed(v) => Ok(match self {
                 RawValue::I8(r) => Some((*r as i64).cmp(&v.get())),
                 RawValue::I16(r) => Some((*r as i64).cmp(&v.get())),
                 RawValue::I32(r) => Some((*r as i64).cmp(&v.get())),
                 RawValue::I64(r) => Some((*r).cmp(&v.get())),
                 _ => None,
-            },
+            }),
             Value::Array(v) => match self {
                 RawValue::Array(a) => a.partial_cmp(v),
-                _ => None,
+                _ => Ok(None),
             },
         }
     }
@@ -398,13 +408,13 @@ mod tests {
                 base_len: 6,
                 extend: Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)})
             };
-            assert_eq!(raw_value.partial_cmp(&"Hel".as_bytes()).unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp(&"Hello".as_bytes()).unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp(&"Hello ".as_bytes()).unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp(&"Hello Jubako".as_bytes()).unwrap(), cmp::Ordering::Equal);
-            assert_eq!(raw_value.partial_cmp(&"Hello Jubako!".as_bytes()).unwrap(), cmp::Ordering::Less);
-            assert_eq!(raw_value.partial_cmp(&"Hella Jubako!".as_bytes()).unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp(&"Hemmo Jubako!".as_bytes()).unwrap(), cmp::Ordering::Less);
+            assert_eq!(raw_value.partial_cmp(&"Hel".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.partial_cmp(&"Hello".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.partial_cmp(&"Hello ".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.partial_cmp(&"Hello Jubako".as_bytes()).unwrap().unwrap(), cmp::Ordering::Equal);
+            assert_eq!(raw_value.partial_cmp(&"Hello Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Less);
+            assert_eq!(raw_value.partial_cmp(&"Hella Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.partial_cmp(&"Hemmo Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Less);
 
         }
     }

@@ -188,7 +188,7 @@ mod tests {
             assert!(entry.get_variant_id().unwrap().is_none());
             assert_eq!(
                 entry.get_value("V0").unwrap(),
-                RawValue::Content(ContentAddress::new(0.into(), 1.into()),)
+                RawValue::Content(ContentAddress::new(0.into(), 1.into()))
             );
             assert!(entry.get_value("V11").unwrap() == RawValue::U16(0x8899));
         }
@@ -197,9 +197,9 @@ mod tests {
             let entry = builder.create_entry(1.into()).unwrap();
 
             assert!(entry.get_variant_id().unwrap().is_none());
-            assert!(
-                entry.get_value("V0").unwrap()
-                    == RawValue::Content(ContentAddress::new(1.into(), 2.into()),)
+            assert_eq!(
+                entry.get_value("V0").unwrap(),
+                RawValue::Content(ContentAddress::new(1.into(), 2.into()))
             );
             assert!(entry.get_value("V11").unwrap() == RawValue::U16(0x6677));
         }
