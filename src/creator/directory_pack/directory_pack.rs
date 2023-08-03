@@ -1,16 +1,13 @@
 use super::{entry_store, value_store, Index};
 use crate::bases::*;
-use crate::common::{ContentAddress, DirectoryPackHeader, PackHeaderInfo};
+use crate::common::{CheckInfo, ContentAddress, DirectoryPackHeader, PackHeaderInfo};
 use crate::creator::private::WritableTell;
 use crate::creator::{Embedded, PackData};
 use entry_store::EntryStoreTrait;
-use std::cell::RefCell;
 use std::fs::OpenOptions;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 use value_store::ValueStore;
-pub use value_store::ValueStoreKind;
 
 use log::info;
 
@@ -18,7 +15,7 @@ pub struct DirectoryPackCreator {
     app_vendor_id: u32,
     pack_id: PackId,
     free_data: FreeData31,
-    value_stores: Vec<Rc<RefCell<ValueStore>>>,
+    value_stores: Vec<ValueStore>,
     entry_stores: Vec<Box<dyn EntryStoreTrait>>,
     indexes: Vec<Index>,
     path: PathBuf,
@@ -42,15 +39,8 @@ impl DirectoryPackCreator {
         }
     }
 
-    pub fn create_value_store(&mut self, kind: ValueStoreKind) -> Rc<RefCell<ValueStore>> {
-        let idx = ValueStoreIdx::from(self.value_stores.len() as u8);
-        let value_store = Rc::new(RefCell::new(ValueStore::new(kind, idx)));
-        self.value_stores.push(Rc::clone(&value_store));
-        value_store
-    }
-
-    pub fn get_value_store(&mut self, idx: ValueStoreIdx) -> &RefCell<ValueStore> {
-        &self.value_stores[idx.into_usize()]
+    pub fn add_value_store(&mut self, value_store: ValueStore) {
+        self.value_stores.push(value_store);
     }
 
     pub fn add_entry_store(&mut self, mut entry_store: Box<dyn EntryStoreTrait>) -> EntryStoreIdx {
@@ -87,8 +77,10 @@ impl DirectoryPackCreator {
         info!("======= Finalize creation =======");
 
         info!("----- Finalize value_stores -----");
-        for value_store in &mut self.value_stores {
-            value_store.borrow_mut().finalize();
+        for (idx, value_store) in &mut self.value_stores.iter().enumerate() {
+            value_store
+                .borrow_mut()
+                .finalize(ValueStoreIdx::from(idx as u8));
         }
 
         info!("----- Finalize entry_stores -----");
@@ -153,11 +145,8 @@ impl DirectoryPackCreator {
 
         info!("----- Compute checksum -----");
         file.rewind()?;
-        let mut hasher = blake3::Hasher::new();
-        std::io::copy(&mut file, &mut hasher)?;
-        let hash = hasher.finalize();
-        file.write_u8(1)?;
-        file.write_all(hash.as_bytes())?;
+        let check_info = CheckInfo::new_blake3(&mut file)?;
+        check_info.write(&mut file)?;
 
         file.rewind()?;
         let mut tail_buffer = [0u8; 64];

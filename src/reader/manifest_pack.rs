@@ -1,11 +1,11 @@
 use std::cell::OnceCell;
 
 use crate::bases::*;
-use crate::common::{CheckInfo, ManifestPackHeader, Pack, PackInfo, PackKind, PackPos};
-use generic_array::typenum;
+use crate::common::{
+    CheckInfo, ManifestCheckStream, ManifestPackHeader, Pack, PackInfo, PackKind, PackPos,
+};
 use std::cmp;
-use std::io::{repeat, Read};
-use typenum::Unsigned;
+use std::io::Read;
 use uuid::Uuid;
 
 pub struct ManifestPack {
@@ -75,66 +75,15 @@ impl ManifestPack {
 
     fn check_manifest_only(&self) -> Result<bool> {
         let check_info = self.get_check_info()?;
-        {
-            let check_flux = self
-                .reader
-                .create_flux_to(End::Offset(self.header.pack_header.check_info_pos));
-            let mut check_stream = CheckStream::new(check_flux, self.header.pack_count + 1);
-            let mut v = vec![];
-            check_stream.read_to_end(&mut v)?;
-        }
-        let check_flux = self
+        let mut check_flux = self
             .reader
             .create_flux_to(End::Offset(self.header.pack_header.check_info_pos));
-        let mut check_stream = CheckStream::new(check_flux, self.header.pack_count + 1);
+        let mut check_stream = ManifestCheckStream::new(
+            &mut check_flux,
+            self.header.packs_offset(),
+            self.header.pack_count + 1,
+        );
         check_info.check(&mut check_stream as &mut dyn Read)
-    }
-}
-
-struct CheckStream<'a> {
-    source: Flux<'a>,
-    start_safe_zone: u64,
-}
-
-impl<'a> CheckStream<'a> {
-    pub fn new(source: Flux<'a>, pack_count: PackCount) -> Self {
-        let start_safe_zone =
-            <ManifestPackHeader as SizedProducable>::Size::U64 + 256 * (pack_count.into_u64());
-        Self {
-            source,
-            start_safe_zone,
-        }
-    }
-}
-
-const HEADER_SIZE: u64 = <ManifestPackHeader as SizedProducable>::Size::U64;
-const PACK_INFO_SIZE: u64 = <PackInfo as SizedProducable>::Size::U64;
-const PACK_INFO_TO_CHECK: u64 = 144;
-
-impl Read for CheckStream<'_> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        // Data we don't want to check are positionned between
-        // 128 + k*256 + 144  and 128 + k*256 + 144 + 112
-        // => between  (208 + k*256) and (320+ k*256)
-        // for k < pack_count
-        let offset = self.source.tell().into_u64();
-        if offset < HEADER_SIZE {
-            let size = cmp::min(buf.len(), (HEADER_SIZE - offset) as usize);
-            self.source.read(&mut buf[..size])
-        } else if offset >= self.start_safe_zone {
-            self.source.read(buf)
-        } else {
-            let local_offset = (offset - HEADER_SIZE) % PACK_INFO_SIZE;
-            if local_offset < PACK_INFO_TO_CHECK {
-                let size = cmp::min(buf.len(), (PACK_INFO_TO_CHECK - local_offset) as usize);
-                self.source.read(&mut buf[..size])
-            } else {
-                let size = cmp::min(buf.len(), (PACK_INFO_SIZE - local_offset) as usize);
-                let size = repeat(0).read(&mut buf[..size])?;
-                self.source.skip(Size::from(size)).unwrap();
-                Ok(size)
-            }
-        }
     }
 }
 
@@ -259,7 +208,9 @@ mod tests {
         let hash = {
             let mut hasher = blake3::Hasher::new();
             let reader = Reader::new_from_arc(Arc::clone(&content) as Arc<dyn Source>, End::None);
-            let mut check_stream = CheckStream::new((&reader).into(), PackCount::from(3));
+            let mut flux = reader.create_flux_all();
+            let mut check_stream =
+                ManifestCheckStream::new(&mut flux, Offset::new(128), PackCount::from(3));
             io::copy(&mut check_stream, &mut hasher).unwrap();
             hasher.finalize()
         };

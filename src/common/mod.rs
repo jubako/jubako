@@ -10,7 +10,7 @@ mod value;
 use uuid::Uuid;
 
 use crate::bases::*;
-pub use check::{CheckInfo, CheckKind};
+pub use check::{CheckInfo, CheckKind, ManifestCheckStream};
 pub use compression_type::CompressionType;
 pub use content_address::ContentAddress;
 pub use content_info::ContentInfo;
@@ -19,6 +19,8 @@ pub use pack_info::PackInfo;
 pub use pack_kind::PackKind;
 pub use pack_pos::PackPos;
 pub use value::Value;
+
+pub(crate) use pack_kind::FullPackKind;
 
 impl Producable for Uuid {
     type Output = Self;

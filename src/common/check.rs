@@ -1,6 +1,8 @@
 use crate::bases::*;
+use std::cmp;
 use std::fmt::Debug;
 use std::io::{self, Read};
+use typenum::Unsigned;
 
 #[derive(Clone, Copy)]
 pub enum CheckKind {
@@ -52,12 +54,34 @@ impl Producable for CheckInfo {
     }
 }
 
+impl Writable for CheckInfo {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+        match self.b3hash {
+            None => CheckKind::None.write(stream),
+            Some(hash) => {
+                CheckKind::Blake3.write(stream)?;
+                stream.write_all(hash.as_bytes())?;
+                Ok(33)
+            }
+        }
+    }
+}
+
 impl CheckInfo {
+    pub fn new_blake3(source: &mut dyn Read) -> Result<Self> {
+        let mut hasher = blake3::Hasher::new();
+        io::copy(source, &mut hasher)?;
+        let hash = hasher.finalize();
+        Ok(Self { b3hash: Some(hash) })
+    }
+
     pub fn check(&self, source: &mut dyn Read) -> Result<bool> {
         if let Some(b3hash) = self.b3hash {
             let mut hasher = blake3::Hasher::new();
             io::copy(source, &mut hasher)?;
             let hash = hasher.finalize();
+            println!("CheckInfo hash: {b3hash:?}");
+            println!("Found hash: {hash:?}");
             Ok(hash == b3hash)
         } else {
             Ok(true)
@@ -69,5 +93,58 @@ impl CheckInfo {
             None => Size::new(1),
             Some(_) => Size::new(33),
         }
+    }
+}
+
+const PACK_INFO_SIZE: u64 = <super::PackInfo as SizedProducable>::Size::U64;
+const PACK_INFO_TO_CHECK: u64 = 38;
+
+pub struct ManifestCheckStream<'a, S: Read> {
+    source: &'a mut S,
+    current_offset: u64,
+    pack_offset: u64,
+    start_safe_zone: u64,
+}
+
+impl<'a, S: Read> ManifestCheckStream<'a, S> {
+    pub fn new(source: &'a mut S, pack_offset: Offset, pack_count: PackCount) -> Self {
+        let pack_offset = pack_offset.into_u64();
+        let start_safe_zone = pack_offset + pack_count.into_u64() * PACK_INFO_SIZE;
+        Self {
+            source,
+            current_offset: 0,
+            pack_offset,
+            start_safe_zone,
+        }
+    }
+}
+
+impl<S: Read> Read for ManifestCheckStream<'_, S> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        // The check stream want to exclude the 218 bytes (PACK_INFO_SIZE-PACK_INFO_TO_CHECK)
+        // in all pack_info locating the pack.
+        // So data we don't want to check are positionned between
+        // pack_offset + k*256 + 38  and 128 + (k+1)*256
+        // for k < pack_count
+        let offset = self.current_offset;
+        let read_size = if offset < self.pack_offset {
+            let size = cmp::min(buf.len(), (self.pack_offset - offset) as usize);
+            self.source.read(&mut buf[..size])?
+        } else if offset >= self.start_safe_zone {
+            self.source.read(buf)?
+        } else {
+            let local_offset = (offset - self.pack_offset) % PACK_INFO_SIZE;
+            if local_offset < PACK_INFO_TO_CHECK {
+                let size = cmp::min(buf.len(), (PACK_INFO_TO_CHECK - local_offset) as usize);
+                self.source.read(&mut buf[..size])?
+            } else {
+                let size = cmp::min(buf.len(), (PACK_INFO_SIZE - local_offset) as usize);
+                let size = self.source.read(&mut buf[..size])?;
+                buf[..size].fill(0);
+                size
+            }
+        };
+        self.current_offset += read_size as u64;
+        Ok(read_size)
     }
 }

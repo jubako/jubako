@@ -5,7 +5,7 @@ use super::{MemoryReader, Region, Source};
 use std::sync::Arc;
 
 // A wrapper around a source. Allowing access only on a region of the source
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Reader {
     source: Arc<dyn Source>,
     region: Region,

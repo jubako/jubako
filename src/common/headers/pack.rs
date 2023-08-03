@@ -1,5 +1,5 @@
 use crate::bases::*;
-use crate::common::PackKind;
+use crate::common::{FullPackKind, PackKind};
 use std::fmt::Debug;
 use uuid::Uuid;
 
@@ -47,7 +47,7 @@ impl PackHeader {
 impl Producable for PackHeader {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {
-        let magic = PackKind::produce(flux)?;
+        let magic = FullPackKind::produce(flux)?;
         let app_vendor_id = flux.read_u32()?;
         let major_version = flux.read_u8()?;
         let minor_version = flux.read_u8()?;
@@ -71,7 +71,7 @@ impl Producable for PackHeader {
 impl Writable for PackHeader {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         let mut written = 0;
-        written += self.magic.write(stream)?;
+        written += FullPackKind(self.magic).write(stream)?;
         written += stream.write_u32(self.app_vendor_id)?;
         written += stream.write_u8(self.major_version)?;
         written += stream.write_u8(self.minor_version)?;

@@ -17,6 +17,12 @@ test_suite! {
     use crate::Entry as TestEntry;
     use std::collections::HashMap;
 
+    #[derive(Clone, Copy, Debug)]
+    pub enum ValueStoreKind {
+        Plain,
+        Indexed,
+    }
+
     fixture compression(c: jubako::CompressionType) -> jubako::CompressionType {
         params {
             vec![
@@ -34,11 +40,11 @@ test_suite! {
         }
     }
 
-    fixture key_store_kind(k: creator::ValueStoreKind) -> creator::ValueStoreKind {
+    fixture value_store_kind(k: ValueStoreKind) -> ValueStoreKind {
         params {
             vec![
-                creator::ValueStoreKind::Plain,
-                creator::ValueStoreKind::Indexed,
+                ValueStoreKind::Plain,
+                ValueStoreKind::Indexed,
             ].into_iter()
         }
         setup(&mut self) {
@@ -78,17 +84,21 @@ test_suite! {
         Ok(pack_info)
     }
 
-    fn create_directory_pack(key_store_kind: creator::ValueStoreKind, entries: &Vec<TestEntry>) -> Result<creator::PackData> {
+    fn create_directory_pack(value_store_kind: ValueStoreKind, entries: &Vec<TestEntry>) -> Result<creator::PackData> {
         let mut creator = creator::DirectoryPackCreator::new(
             "/tmp/directoryPack.jbkd",
             jubako::PackId::from(1),
             1,
             jubako::FreeData31::clone_from_slice(&[0xff; 31])
         );
-        let key_store_handle = creator.create_value_store(key_store_kind);
+        let value_store = match value_store_kind {
+            ValueStoreKind::Plain => creator::ValueStore::new_plain(),
+            ValueStoreKind::Indexed => creator::ValueStore::new_indexed()
+        };
+        creator.add_value_store(value_store.clone());
         let entry_def = schema::Schema::<&str, &str>::new(
             schema::CommonProperties::new(vec![
-                schema::Property::new_array(0, key_store_handle, "V0"),
+                schema::Property::new_array(0, value_store, "V0"),
                 schema::Property::new_content_address("V1"),
                 schema::Property::new_uint("V2")
             ]),
@@ -132,9 +142,9 @@ test_suite! {
 
 
 
-    test test_content_pack(compression, key_store_kind, articles) {
+    test test_content_pack(compression, value_store_kind, articles) {
         let content_info = create_content_pack(compression.val, &articles.val).unwrap();
-        let directory_info = create_directory_pack(key_store_kind.val, &articles.val).unwrap();
+        let directory_info = create_directory_pack(value_store_kind.val, &articles.val).unwrap();
         let main_path = create_main_pack(directory_info, content_info).unwrap();
 
         let container = jubako::reader::Container::new(main_path).unwrap();

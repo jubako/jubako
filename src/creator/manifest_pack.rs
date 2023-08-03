@@ -1,8 +1,8 @@
 use super::{Embedded, PackData};
 use crate::bases::*;
-use crate::common::{ManifestPackHeader, PackHeaderInfo, PackInfo};
+use crate::common::{CheckInfo, ManifestCheckStream, ManifestPackHeader, PackHeaderInfo, PackInfo};
 use std::fs::OpenOptions;
-use std::io::{copy, repeat, Read, Seek, SeekFrom, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 pub struct ManifestPackCreator {
@@ -26,7 +26,7 @@ impl ManifestPackCreator {
         self.packs.push(pack_info);
     }
 
-    pub fn finalize(self) -> IoResult<String> {
+    pub fn finalize(self) -> Result<String> {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -43,7 +43,7 @@ impl ManifestPackCreator {
                 Embedded::Yes => Offset::zero(),
                 Embedded::No(_) => pack_data.check_info_pos,
             };
-            copy(
+            std::io::copy(
                 &mut pack_data.reader.create_flux_from(sub_offset),
                 &mut file,
             )?;
@@ -54,6 +54,7 @@ impl ManifestPackCreator {
             ));
         }
 
+        let packs_offset = file.tell();
         // Write the pack_info
         for pack_info in &pack_infos {
             pack_info.write(&mut file)?;
@@ -71,20 +72,9 @@ impl ManifestPackCreator {
         header.write(&mut file)?;
         file.rewind()?;
 
-        let mut hasher = blake3::Hasher::new();
-        let mut buf = [0u8; 256];
-        file.read_exact(&mut buf[..128])?;
-        hasher.write_all(&buf[..128])?; //check start
-        for _i in 0..nb_packs {
-            file.read_exact(&mut buf[..144])?;
-            hasher.write_all(&buf[..144])?; //check beggining of pack
-            copy(&mut repeat(0).take(112), &mut hasher)?; // fill with 0 the path
-            file.seek(SeekFrom::Current(112))?;
-        }
-        copy(&mut file, &mut hasher)?; // finish
-        let hash = hasher.finalize();
-        file.write_u8(1)?;
-        file.write_all(hash.as_bytes())?;
+        let mut check_stream = ManifestCheckStream::new(&mut file, packs_offset, nb_packs.into());
+        let check_info = CheckInfo::new_blake3(&mut check_stream)?;
+        check_info.write(&mut file)?;
 
         file.rewind()?;
         let mut tail_buffer = [0u8; 64];

@@ -122,7 +122,7 @@ impl ClusterCompressor {
 
     fn write_cluster_tail(
         &mut self,
-        cluster: &mut ClusterCreator,
+        cluster: &ClusterCreator,
         raw_data_size: Size,
         outstream: &mut dyn OutStream,
     ) -> Result<()> {
@@ -149,7 +149,7 @@ impl ClusterCompressor {
         self.progress.handle_cluster(cluster.index().into(), true);
         self.write_cluster_data(&mut cluster, outstream)?;
         let tail_offset = outstream.tell();
-        self.write_cluster_tail(&mut cluster, tail_offset.into(), outstream)?;
+        self.write_cluster_tail(&cluster, tail_offset.into(), outstream)?;
         let tail_size = outstream.tell() - tail_offset;
         Ok(SizedOffset {
             size: tail_size,
@@ -211,11 +211,7 @@ impl ClusterWriter {
         Ok(())
     }
 
-    fn write_cluster_tail(
-        &mut self,
-        cluster: &mut ClusterCreator,
-        raw_data_size: Size,
-    ) -> Result<()> {
+    fn write_cluster_tail(&mut self, cluster: &ClusterCreator, raw_data_size: Size) -> Result<()> {
         let offset_size = needed_bytes(cluster.data_size().into_u64());
         let cluster_header = ClusterHeader::new(
             CompressionType::None,
@@ -239,7 +235,7 @@ impl ClusterWriter {
         let start_offset = self.file.tell();
         self.write_cluster_data(&mut cluster)?;
         let tail_offset = self.file.tell();
-        self.write_cluster_tail(&mut cluster, tail_offset - start_offset)?;
+        self.write_cluster_tail(&cluster, tail_offset - start_offset)?;
         let tail_size = self.file.tell() - tail_offset;
         Ok(SizedOffset {
             size: tail_size,

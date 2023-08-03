@@ -4,46 +4,17 @@ mod manifest_pack;
 
 use crate::bases::*;
 pub use crate::bases::{FileSource, Reader};
-use crate::common::CheckKind;
-pub use content_pack::{ContentPackCreator, Progress};
+pub use content_pack::{CacheProgress, CachedContentPackCreator, ContentPackCreator, Progress};
 pub use directory_pack::{
-    schema, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, PropertyName, Value,
-    ValueStoreKind, ValueTransformer, VariantName,
+    schema, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, IndexedValueStore,
+    PlainValueStore, PropertyName, Value, ValueStore, ValueTransformer, VariantName,
 };
 pub use manifest_pack::ManifestPackCreator;
 use std::path::PathBuf;
 
-pub struct CheckInfo {
-    kind: CheckKind,
-    data: Option<Vec<u8>>,
-}
-
 pub enum Embedded {
     Yes,
     No(PathBuf),
-}
-impl CheckInfo {
-    pub fn new_blake3(hash: &[u8]) -> Self {
-        Self {
-            kind: CheckKind::Blake3,
-            data: Some(hash.to_vec()),
-        }
-    }
-    pub fn size(&self) -> Size {
-        match self.kind {
-            CheckKind::None => Size::new(1),
-            CheckKind::Blake3 => Size::new(33),
-        }
-    }
-}
-
-impl Writable for CheckInfo {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        let mut written = 0;
-        written += self.kind.write(stream)?;
-        written += stream.write_data(self.data.as_ref().unwrap())?;
-        Ok(written)
-    }
 }
 
 mod private {

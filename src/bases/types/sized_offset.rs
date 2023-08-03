@@ -1,6 +1,6 @@
 use crate::bases::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SizedOffset {
     pub size: Size,
     pub offset: Offset,
@@ -12,14 +12,9 @@ impl SizedOffset {
         debug_assert!(offset.into_u64() <= 0xFF_FF_FF_FF_FF_FF_u64);
         Self { size, offset }
     }
-}
 
-impl Default for SizedOffset {
-    fn default() -> Self {
-        Self {
-            size: Size::zero(),
-            offset: Offset::zero(),
-        }
+    pub fn is_zero(&self) -> bool {
+        self.size.is_zero() && self.offset.is_zero()
     }
 }
 
