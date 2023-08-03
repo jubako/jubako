@@ -1,4 +1,3 @@
-///! All base traits use to produce structure from raw data.
 use crate::bases::*;
 use std::io::{BorrowedBuf, Read};
 use std::sync::Arc;
