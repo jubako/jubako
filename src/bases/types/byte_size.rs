@@ -38,7 +38,7 @@ impl Producable for ByteSize {
     }
 }
 impl SizedProducable for ByteSize {
-    type Size = typenum::U1;
+    const SIZE: usize = 1;
 }
 impl Writable for ByteSize {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {

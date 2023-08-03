@@ -68,6 +68,16 @@ impl Producable for PackHeader {
     }
 }
 
+impl SizedProducable for PackHeader {
+    const SIZE: usize = FullPackKind::SIZE
+        + 4 // app_vendor_id
+        + 1 // major
+        + 1 // minor
+        + Uuid::SIZE
+        + Size::SIZE
+        + Offset::SIZE;
+}
+
 impl Writable for PackHeader {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         let mut written = 0;

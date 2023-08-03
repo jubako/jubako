@@ -30,6 +30,9 @@ impl Producable for Uuid {
         Ok(Uuid::from_bytes(v))
     }
 }
+impl SizedProducable for Uuid {
+    const SIZE: usize = 16;
+}
 impl Writable for Uuid {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         stream.write_data(self.as_bytes())

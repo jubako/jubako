@@ -16,12 +16,12 @@ impl Size {
     pub const fn zero() -> Self {
         Self(0)
     }
-    pub fn into_u64(self) -> u64 {
+    pub const fn into_u64(self) -> u64 {
         self.0
     }
 
     #[cfg(target_pointer_width = "64")]
-    pub fn into_usize(self) -> usize {
+    pub const fn into_usize(self) -> usize {
         self.0 as usize
     }
 
@@ -37,7 +37,7 @@ impl Producable for Size {
     }
 }
 impl SizedProducable for Size {
-    type Size = typenum::U8;
+    const SIZE: usize = 8;
 }
 impl Writable for Size {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {

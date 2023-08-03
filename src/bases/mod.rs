@@ -19,7 +19,6 @@ use std::cmp;
 use std::marker::PhantomData;
 pub use stream::*;
 pub use sub_reader::*;
-use typenum::Unsigned;
 pub use types::*;
 pub use write::*;
 
@@ -56,7 +55,7 @@ impl Region {
 }
 
 pub trait SizedProducable: Producable {
-    type Size;
+    const SIZE: usize;
 }
 
 /// ArrayReader is a wrapper a reader to access element stored as a array.
@@ -71,7 +70,6 @@ pub struct ArrayReader<OutType, IdxType> {
 impl<OutType, IdxType> ArrayReader<OutType, IdxType>
 where
     OutType: SizedProducable,
-    OutType::Size: typenum::Unsigned,
     u64: std::convert::From<IdxType>,
     IdxType: Copy,
 {
@@ -93,7 +91,7 @@ where
         at: Offset,
         length: Count<IdxType>,
     ) -> Result<Self> {
-        let elem_size = Size::from(OutType::Size::to_u64());
+        let elem_size = Size::from(OutType::SIZE);
         let sub_reader =
             reader.create_sub_memory_reader(at, End::Size(elem_size * u64::from(length.0)))?;
         Ok(Self {

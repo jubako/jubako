@@ -1,20 +1,18 @@
 use crate::bases::*;
 use crate::common::{PackHeader, PackHeaderInfo, PackInfo, PackKind};
-use generic_array::typenum::U128;
-use typenum::Unsigned;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ManifestPackHeader {
     pub pack_header: PackHeader,
     pub pack_count: PackCount,
     pub value_store_posinfo: SizedOffset,
-    pub free_data: FreeData55,
+    pub free_data: ManifestPackFreeData,
 }
 
 impl ManifestPackHeader {
     pub fn new(
         pack_info: PackHeaderInfo,
-        free_data: FreeData55,
+        free_data: ManifestPackFreeData,
         pack_count: PackCount,
         value_store_posinfo: SizedOffset,
     ) -> Self {
@@ -29,14 +27,14 @@ impl ManifestPackHeader {
     pub fn packs_offset(&self) -> Offset {
         Offset::from(
             self.pack_header.check_info_pos.into_u64()
-                - self.pack_count.into_u64() * <PackInfo as SizedProducable>::Size::U64,
+                - self.pack_count.into_u64() * PackInfo::SIZE as u64,
         )
     }
 }
 
 impl SizedProducable for ManifestPackHeader {
-    // PackHeader::Size (64) + PackCount::Size (1) + + SizedOffset::Size(8) + FreeData (55)
-    type Size = U128;
+    const SIZE: usize =
+        PackHeader::SIZE + Count::<u8>::SIZE + SizedOffset::SIZE + ManifestPackFreeData::SIZE;
 }
 
 impl Producable for ManifestPackHeader {
@@ -48,7 +46,7 @@ impl Producable for ManifestPackHeader {
         }
         let pack_count = Count::<u8>::produce(flux)?.into();
         let value_store_posinfo = SizedOffset::produce(flux)?;
-        let free_data = FreeData55::produce(flux)?;
+        let free_data = ManifestPackFreeData::produce(flux)?;
         Ok(Self {
             pack_header,
             pack_count,
@@ -111,7 +109,7 @@ mod tests {
                 },
                 pack_count: PackCount::from(2),
                 value_store_posinfo: SizedOffset::new(Size::zero(), Offset::zero()),
-                free_data: FreeData55::clone_from_slice(&[0xff; 55])
+                free_data: [0xff; 55].into(),
             }
         );
     }

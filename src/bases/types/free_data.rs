@@ -1,27 +1,46 @@
 use crate::bases::*;
-use generic_array::{ArrayLength, GenericArray};
-use typenum::{U103, U31, U40, U55};
 
-pub type FreeData<N> = GenericArray<u8, N>;
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub struct FreeData<const N: usize>([u8; N]);
 
-impl<N: ArrayLength<u8>> Producable for FreeData<N> {
+impl<const N: usize> Producable for FreeData<N> {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {
-        let mut s = GenericArray::default();
+        let mut s = [0; N];
         flux.read_exact(s.as_mut_slice())?;
-        Ok(s)
+        Ok(Self(s))
     }
 }
-impl<N: ArrayLength<u8>> SizedProducable for FreeData<N> {
-    type Size = N;
+impl<const N: usize> SizedProducable for FreeData<N> {
+    const SIZE: usize = N;
 }
-impl<N: ArrayLength<u8>> Writable for FreeData<N> {
+
+impl<const N: usize> Writable for FreeData<N> {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_data(self.as_slice())
+        stream.write_data(&self.0)
     }
 }
 
-pub type FreeData31 = FreeData<U31>;
-pub type FreeData40 = FreeData<U40>;
-pub type FreeData55 = FreeData<U55>;
-pub type FreeData103 = FreeData<U103>;
+impl<const N: usize> Default for FreeData<N> {
+    fn default() -> Self {
+        Self([0; N])
+    }
+}
+
+impl<const N: usize> std::ops::Deref for FreeData<N> {
+    type Target = [u8; N];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<const N: usize> From<[u8; N]> for FreeData<N> {
+    fn from(input: [u8; N]) -> Self {
+        Self(input)
+    }
+}
+
+pub type DirectoryPackFreeData = FreeData<31>;
+pub type ContentPackFreeData = FreeData<40>;
+pub type ManifestPackFreeData = FreeData<55>;
+pub type PackInfoFreeData = FreeData<103>;

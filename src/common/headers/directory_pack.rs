@@ -12,13 +12,13 @@ pub struct DirectoryPackHeader {
     pub entry_store_count: EntryStoreCount,
     pub index_count: IndexCount,
     pub value_store_count: ValueStoreCount,
-    pub free_data: FreeData31,
+    pub free_data: DirectoryPackFreeData,
 }
 
 impl DirectoryPackHeader {
     pub fn new(
         pack_info: PackHeaderInfo,
-        free_data: FreeData31,
+        free_data: DirectoryPackFreeData,
         indexes: (IndexCount, Offset),
         value_stores: (ValueStoreCount, Offset),
         entry_stores: (EntryStoreCount, Offset),
@@ -53,7 +53,7 @@ impl Producable for DirectoryPackHeader {
         let index_count = Count::<u32>::produce(flux)?.into();
         let entry_store_count = Count::<u32>::produce(flux)?.into();
         let value_store_count = Count::<u8>::produce(flux)?.into();
-        let free_data = FreeData31::produce(flux)?;
+        let free_data = DirectoryPackFreeData::produce(flux)?;
         Ok(DirectoryPackHeader {
             pack_header,
             entry_store_ptr_pos,
@@ -131,7 +131,7 @@ mod tests {
                 index_count: IndexCount::from(0x50_u32),
                 entry_store_count: EntryStoreCount::from(0x60_u32),
                 value_store_count: ValueStoreCount::from(0x05_u8),
-                free_data: FreeData31::clone_from_slice(&[0xff; 31]),
+                free_data: [0xff; 31].into(),
             }
         );
     }

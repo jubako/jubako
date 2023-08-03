@@ -37,7 +37,7 @@ fn shannon_entropy(data: &Reader) -> Result<f32> {
 pub struct ContentPackCreator {
     app_vendor_id: u32,
     pack_id: PackId,
-    free_data: FreeData40,
+    free_data: ContentPackFreeData,
     content_infos: Vec<ContentInfo>,
     raw_open_cluster: Option<ClusterCreator>,
     comp_open_cluster: Option<ClusterCreator>,
@@ -68,7 +68,7 @@ impl ContentPackCreator {
         path: P,
         pack_id: PackId,
         app_vendor_id: u32,
-        free_data: FreeData40,
+        free_data: ContentPackFreeData,
         compression: CompressionType,
     ) -> Result<Self> {
         Self::new_with_progress(
@@ -85,7 +85,7 @@ impl ContentPackCreator {
         path: P,
         pack_id: PackId,
         app_vendor_id: u32,
-        free_data: FreeData40,
+        free_data: ContentPackFreeData,
         compression: CompressionType,
         progress: Arc<dyn Progress>,
     ) -> Result<Self> {
@@ -109,7 +109,7 @@ impl ContentPackCreator {
         file: File,
         pack_id: PackId,
         app_vendor_id: u32,
-        free_data: FreeData40,
+        free_data: ContentPackFreeData,
         compression: CompressionType,
     ) -> Result<Self> {
         Self::new_from_file_with_progress(
@@ -126,7 +126,7 @@ impl ContentPackCreator {
         mut file: File,
         pack_id: PackId,
         app_vendor_id: u32,
-        free_data: FreeData40,
+        free_data: ContentPackFreeData,
         compression: CompressionType,
         progress: Arc<dyn Progress>,
     ) -> Result<Self> {
@@ -241,7 +241,7 @@ impl ContentPackCreator {
                 uuid: header.pack_header.uuid,
                 pack_id: self.pack_id,
                 pack_kind: PackKind::Content,
-                free_data: FreeData103::clone_from_slice(&[0; 103]),
+                free_data: Default::default(),
                 pack_size,
                 check_info,
             },

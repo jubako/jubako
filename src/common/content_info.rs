@@ -1,5 +1,4 @@
 use crate::bases::*;
-use typenum::U4;
 
 #[derive(Debug)]
 pub struct ContentInfo {
@@ -30,7 +29,7 @@ impl Producable for ContentInfo {
 }
 
 impl SizedProducable for ContentInfo {
-    type Size = U4;
+    const SIZE: usize = 4;
 }
 
 impl Writable for ContentInfo {
