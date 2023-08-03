@@ -8,6 +8,7 @@ pub enum PackKind {
     Manifest,
     Directory,
     Content,
+    Container,
 }
 
 impl Producable for PackKind {
@@ -18,6 +19,7 @@ impl Producable for PackKind {
             b'm' => Ok(PackKind::Manifest),
             b'd' => Ok(PackKind::Directory),
             b'c' => Ok(PackKind::Content),
+            b'C' => Ok(PackKind::Container),
             _ => Err(format_error!(&format!("Invalid pack kind {kind}"), flux)),
         }
     }
@@ -29,6 +31,7 @@ impl Writable for PackKind {
             PackKind::Manifest => stream.write_u8(b'm'),
             PackKind::Directory => stream.write_u8(b'd'),
             PackKind::Content => stream.write_u8(b'c'),
+            PackKind::Container => stream.write_u8(b'C'),
         }
     }
 }
@@ -46,6 +49,7 @@ impl Producable for FullPackKind {
                 b'm' => Ok(PackKind::Manifest),
                 b'd' => Ok(PackKind::Directory),
                 b'c' => Ok(PackKind::Content),
+                b'C' => Ok(PackKind::Container),
                 _ => Err(format_error!("Invalid pack kind", flux)),
             }
         }

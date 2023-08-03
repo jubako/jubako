@@ -1,88 +1,93 @@
-use super::{Embedded, PackData};
+use super::{PackData, ValueStore};
 use crate::bases::*;
 use crate::common::{CheckInfo, ManifestCheckStream, ManifestPackHeader, PackHeaderInfo, PackInfo};
-use std::fs::OpenOptions;
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::path::{Path, PathBuf};
 
 pub struct ManifestPackCreator {
     app_vendor_id: u32,
-    free_data: FreeData63,
-    packs: Vec<PackData>,
-    path: PathBuf,
+    free_data: FreeData55,
+    packs: Vec<(PackData, Vec<u8>)>,
+    value_store: ValueStore,
 }
 
 impl ManifestPackCreator {
-    pub fn new<P: AsRef<Path>>(path: P, app_vendor_id: u32, free_data: FreeData63) -> Self {
+    pub fn new(app_vendor_id: u32, free_data: FreeData55) -> Self {
         ManifestPackCreator {
             app_vendor_id,
             free_data,
             packs: vec![],
-            path: path.as_ref().into(),
+            value_store: ValueStore::new_indexed(),
         }
     }
 
-    pub fn add_pack(&mut self, pack_info: PackData) {
-        self.packs.push(pack_info);
+    pub fn add_pack(&mut self, pack_info: PackData, locator: Vec<u8>) {
+        println!("Adding new pack with {}", pack_info.uuid);
+        self.packs.push((pack_info, locator));
     }
 
-    pub fn finalize(self) -> Result<String> {
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&self.path)?;
-        file.seek(SeekFrom::Start(128))?;
+    pub fn finalize<O: Write + Read + Seek>(self, file: &mut O) -> Result<uuid::Uuid> {
+        let origin_offset = file.stream_position()?;
+        file.seek(SeekFrom::Current(128))?;
 
         let mut pack_infos = vec![];
+        let mut free_data_ids = vec![];
+
         let nb_packs = self.packs.len() as u8;
-        for pack_data in self.packs.into_iter() {
-            let current_pos = file.tell();
-            let sub_offset = match pack_data.embedded {
-                Embedded::Yes => Offset::zero(),
-                Embedded::No(_) => pack_data.check_info_pos,
-            };
-            std::io::copy(
-                &mut pack_data.reader.create_flux_from(sub_offset),
-                &mut file,
-            )?;
+
+        for (pack_data, _locator) in &self.packs {
+            let free_data_id = self
+                .value_store
+                .borrow_mut()
+                .add_value(pack_data.free_data.as_slice());
+            free_data_ids.push(free_data_id);
+        }
+
+        self.value_store.borrow_mut().finalize(0.into());
+
+        for ((pack_data, locator), free_data_id) in self.packs.into_iter().zip(free_data_ids) {
+            let current_pos = file.stream_position()? - origin_offset;
+            pack_data.check_info.write(file)?;
             pack_infos.push(PackInfo::new(
                 pack_data,
-                current_pos,
-                self.path.parent().unwrap(),
+                0,
+                free_data_id.get().into(),
+                current_pos.into(),
+                locator,
             ));
         }
 
-        let packs_offset = file.tell();
+        let value_store_pos = self.value_store.borrow_mut().write(file)?;
+
+        let packs_offset = file.stream_position()? - origin_offset;
         // Write the pack_info
         for pack_info in &pack_infos {
-            pack_info.write(&mut file)?;
+            pack_info.write(file)?;
         }
 
-        let check_offset = file.tell();
+        let check_offset = file.stream_position()? - origin_offset;
         let pack_size: Size = (check_offset + 33 + 64).into();
 
-        file.rewind()?;
+        file.seek(SeekFrom::Start(origin_offset))?;
         let header = ManifestPackHeader::new(
-            PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset),
+            PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset.into()),
             self.free_data,
-            (nb_packs - 1).into(),
+            nb_packs.into(),
+            value_store_pos,
         );
-        header.write(&mut file)?;
-        file.rewind()?;
+        header.write(file)?;
+        file.seek(SeekFrom::Start(origin_offset))?;
 
-        let mut check_stream = ManifestCheckStream::new(&mut file, packs_offset, nb_packs.into());
+        let mut check_stream = ManifestCheckStream::new(file, packs_offset.into(), nb_packs.into());
         let check_info = CheckInfo::new_blake3(&mut check_stream)?;
-        check_info.write(&mut file)?;
+        check_info.write(file)?;
 
-        file.rewind()?;
+        file.seek(SeekFrom::Start(origin_offset))?;
         let mut tail_buffer = [0u8; 64];
         file.read_exact(&mut tail_buffer)?;
         tail_buffer.reverse();
         file.seek(SeekFrom::End(0))?;
         file.write_all(&tail_buffer)?;
 
-        Ok(self.path.to_str().unwrap().into())
+        Ok(header.pack_header.uuid)
     }
 }

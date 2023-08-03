@@ -1,9 +1,12 @@
+mod container_pack;
 mod content_pack;
 mod directory_pack;
 mod manifest_pack;
 
 use crate::bases::*;
 pub use crate::bases::{FileSource, Reader};
+use crate::common::{CheckInfo, PackKind};
+pub use container_pack::ContainerPackCreator;
 pub use content_pack::{CacheProgress, CachedContentPackCreator, ContentPackCreator, Progress};
 pub use directory_pack::{
     schema, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, IndexedValueStore,
@@ -34,9 +37,9 @@ mod private {
 
 pub struct PackData {
     pub uuid: uuid::Uuid,
+    pub pack_size: Size,
+    pub pack_kind: PackKind,
     pub pack_id: PackId,
     pub free_data: FreeData103,
-    pub reader: Reader,
-    pub check_info_pos: Offset,
-    pub embedded: Embedded,
+    pub check_info: CheckInfo,
 }

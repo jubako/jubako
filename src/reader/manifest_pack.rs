@@ -1,11 +1,11 @@
 use std::cell::OnceCell;
 
 use crate::bases::*;
-use crate::common::{
-    CheckInfo, ManifestCheckStream, ManifestPackHeader, Pack, PackInfo, PackKind, PackPos,
-};
+use crate::common::{CheckInfo, ManifestCheckStream, ManifestPackHeader, Pack, PackInfo, PackKind};
+use crate::reader::directory_pack::{ValueStore, ValueStoreTrait};
 use std::cmp;
 use std::io::Read;
+
 use uuid::Uuid;
 
 pub struct ManifestPack {
@@ -14,6 +14,7 @@ pub struct ManifestPack {
     directory_pack_info: PackInfo,
     pack_infos: Vec<PackInfo>,
     check_info: OnceCell<CheckInfo>,
+    value_store: Option<ValueStore>,
     max_id: u8,
 }
 
@@ -22,20 +23,33 @@ impl ManifestPack {
         let mut flux = reader.create_flux_all();
         let header = ManifestPackHeader::produce(&mut flux)?;
         flux.seek(header.packs_offset());
-        let directory_pack_info = PackInfo::produce(&mut flux)?;
+        let mut directory_pack_info = None;
         let mut pack_infos: Vec<PackInfo> = Vec::with_capacity(header.pack_count.into_usize());
         let mut max_id = 0;
         for _i in header.pack_count {
             let pack_info = PackInfo::produce(&mut flux)?;
-            max_id = cmp::max(max_id, pack_info.pack_id.into_u8());
-            pack_infos.push(pack_info);
+            println!("Parsing {}", pack_info.uuid);
+            match pack_info.pack_kind {
+                PackKind::Directory => directory_pack_info = Some(pack_info),
+                _ => {
+                    max_id = cmp::max(max_id, pack_info.pack_id.into_u8());
+                    pack_infos.push(pack_info);
+                }
+            }
         }
+        let vs_posinfo = header.value_store_posinfo;
+        let value_store = if !vs_posinfo.is_zero() {
+            Some(ValueStore::new(&reader, vs_posinfo)?)
+        } else {
+            None
+        };
         Ok(Self {
             header,
             reader,
-            directory_pack_info,
+            directory_pack_info: directory_pack_info.unwrap(),
             pack_infos,
             check_info: OnceCell::new(),
+            value_store,
             max_id,
         })
     }
@@ -73,17 +87,16 @@ impl ManifestPack {
         Err(Error::new_arg())
     }
 
-    fn check_manifest_only(&self) -> Result<bool> {
-        let check_info = self.get_check_info()?;
-        let mut check_flux = self
-            .reader
-            .create_flux_to(End::Offset(self.header.pack_header.check_info_pos));
-        let mut check_stream = ManifestCheckStream::new(
-            &mut check_flux,
-            self.header.packs_offset(),
-            self.header.pack_count + 1,
-        );
-        check_info.check(&mut check_stream as &mut dyn Read)
+    pub fn get_free_data(&self, pack_id: PackId) -> Result<Option<&[u8]>> {
+        let pack_info = if pack_id.into_u8() == 0 {
+            &self.directory_pack_info
+        } else {
+            self.get_content_pack_info(pack_id)?
+        };
+        Ok(match &self.value_store {
+            None => None,
+            Some(v) => Some(v.get_data(pack_info.free_data_id, None)?),
+        })
     }
 }
 
@@ -107,37 +120,22 @@ impl Pack for ManifestPack {
         self.header.pack_header.file_size
     }
     fn check(&self) -> Result<bool> {
-        if !self.check_manifest_only()? {
-            return Ok(false);
-        }
-        let packs = std::iter::once(&self.directory_pack_info).chain(self.pack_infos.iter());
-        for pack_info in packs {
-            println!("Check sub pack {pack_info:?}");
-            if let PackPos::Offset(o) = pack_info.pack_pos {
-                let check_info = {
-                    let mut checkinfo_stream =
-                        self.reader.create_flux_from(pack_info.check_info_pos);
-                    CheckInfo::produce(&mut checkinfo_stream)?
-                };
-                let valid = check_info.check(
-                    &mut self
-                        .reader
-                        .create_flux(o, End::Size(pack_info.pack_size - check_info.size())),
-                )?;
-                println!("=> valid : {valid}");
-                if !valid {
-                    return Ok(false);
-                }
-            }
-        }
-        Ok(true)
+        let check_info = self.get_check_info()?;
+        let mut check_flux = self
+            .reader
+            .create_flux_to(End::Offset(self.header.pack_header.check_info_pos));
+        let mut check_stream = ManifestCheckStream::new(
+            &mut check_flux,
+            self.header.packs_offset(),
+            self.header.pack_count,
+        );
+        check_info.check(&mut check_stream as &mut dyn Read)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::PackPos;
     use std::io;
     use std::sync::Arc;
 
@@ -147,7 +145,7 @@ mod tests {
         {
             let content = Arc::get_mut(&mut content).unwrap();
             content.extend_from_slice(&[
-                0x6a, 0x62, 0x6b, 0x6d, // magic
+                b'j', b'b', b'k', b'm', // magic
                 0x01, 0x00, 0x00, 0x00, // app_vendor_id
                 0x01, // major_version
                 0x02, // minor_version
@@ -158,52 +156,61 @@ mod tests {
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x80, // check_info_pos
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
-                0x02, // pack_count
+                0x03, // pack_count
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Value Store pos
             ]);
-            content.extend_from_slice(&[0xff; 63]);
+            content.extend_from_slice(&[0xff; 55]);
 
+            // Offset 128
             // First packInfo (directory pack)
             content.extend_from_slice(&[
                 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d,
                 0x1e, 0x1f, // pack uuid
-                0x00, //pack id
-            ]);
-            content.extend_from_slice(&[0xf0; 103]);
-            content.extend_from_slice(&[
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, // pack size
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, // pack check offset
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, // pack offset
+                b'd', // pack_kind
+                0x00, //pack id
+                0x00, // pack_group
+                0x00, // padding
+                0x00, 0x00, // free_data_id
             ]);
-            content.extend_from_slice(&[0x00; 112]);
+            // Offset 128 + 38 = 166
+            content.extend_from_slice(&[0x00; 218]); // empty pack_location
+
+            // Offset 128 + 256 = 382
 
             // Second packInfo (first content pack)
             content.extend_from_slice(&[
                 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d,
                 0x2e, 0x2f, // pack uuid
-                0x01, //pack id
-            ]);
-            content.extend_from_slice(&[0xf1; 103]);
-            content.extend_from_slice(&[
                 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, // pack size
                 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0xff, // pack check offset
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, // pack offset
+                b'c', //pack_kind
+                0x01, //pack id
+                0x00, // pack_group
+                0x00, // padding
+                0x00, 0x00, // free_data_id
             ]);
-            content.extend_from_slice(&[0x00; 112]);
+            content.extend_from_slice(&[0x00; 218]); // empty pack_location
+
+            // Offset 382 + 256 = 638
 
             // Third packInfo (second content pack)
             content.extend_from_slice(&[
                 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d,
                 0x3e, 0x3f, // pack uuid
-                0x02, //pack id
-            ]);
-            content.extend_from_slice(&[0xf2; 103]);
-            content.extend_from_slice(&[
                 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, // pack size
                 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, // pack check offset
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // pack offset
+                b'c', // pack_kind
+                0x02, //pack id
+                0x00, // pack_group
+                0x00, // padding
+                0x00, 0x00, // free_data_id
                 8, b'p', b'a', b'c', b'k', b'p', b'a', b't', b'h',
             ]);
-            content.extend_from_slice(&[0x00; 112 - 9]);
+            content.extend_from_slice(&[0x00; 218 - 9]);
+
+            // Offset 638 + 256 = 894
         }
         let hash = {
             let mut hasher = blake3::Hasher::new();
@@ -219,6 +226,7 @@ mod tests {
             content.push(0x01);
             content.extend(hash.as_bytes());
         }
+        println!("Offset 300:320 is {:?}", &content[310..320]);
         let reader = Reader::new_from_arc(content, End::None);
         let main_pack = ManifestPack::new(reader).unwrap();
         assert_eq!(main_pack.kind(), PackKind::Manifest);
@@ -232,9 +240,7 @@ mod tests {
             ])
         );
         assert_eq!(main_pack.size(), Size::new(881));
-        assert!(main_pack.check_manifest_only().unwrap());
-        // The pack offset are random. So check of embedded packs will fails.
-        assert!(main_pack.check().is_err());
+        assert!(main_pack.check().unwrap());
         assert_eq!(
             main_pack.get_directory_pack_info(),
             &PackInfo {
@@ -243,10 +249,12 @@ mod tests {
                     0x1d, 0x1e, 0x1f
                 ]),
                 pack_id: PackId::from(0),
-                free_data: FreeData103::clone_from_slice(&[0xf0; 103]),
+                pack_kind: PackKind::Directory,
+                pack_group: 0,
+                free_data_id: ValueIdx::from(0).into(),
                 pack_size: Size::new(0xffff),
                 check_info_pos: Offset::new(0xff),
-                pack_pos: PackPos::Offset(Offset::new(0xff00))
+                pack_location: vec![],
             }
         );
         assert_eq!(
@@ -257,10 +265,12 @@ mod tests {
                     0x2d, 0x2e, 0x2f
                 ]),
                 pack_id: PackId::from(1),
-                free_data: FreeData103::clone_from_slice(&[0xf1; 103]),
+                pack_kind: PackKind::Content,
+                pack_group: 0,
+                free_data_id: ValueIdx::from(0).into(),
                 pack_size: Size::new(0xffffff),
                 check_info_pos: Offset::new(0xff00ff),
-                pack_pos: PackPos::Offset(Offset::new(0xff00))
+                pack_location: vec![],
             }
         );
         assert_eq!(
@@ -271,10 +281,13 @@ mod tests {
                     0x3d, 0x3e, 0x3f
                 ]),
                 pack_id: PackId::from(2),
-                free_data: FreeData103::clone_from_slice(&[0xf2; 103]),
+                pack_kind: PackKind::Content,
+                pack_group: 0,
+                free_data_id: ValueIdx::from(0).into(),
+
                 pack_size: Size::new(0xffffff),
                 check_info_pos: Offset::new(0xffffff),
-                pack_pos: PackPos::Path("packpath".into())
+                pack_location: vec![b'p', b'a', b'c', b'k', b'p', b'a', b't', b'h'],
             }
         );
         assert!(main_pack.get_content_pack_info(PackId::from(3)).is_err());

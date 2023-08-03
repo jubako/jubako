@@ -16,6 +16,8 @@ test_suite! {
     use std::io::Read;
     use crate::Entry as TestEntry;
     use std::collections::HashMap;
+    use std::sync::Arc;
+    use std::fs::OpenOptions;
 
     #[derive(Clone, Copy, Debug)]
     pub enum ValueStoreKind {
@@ -68,7 +70,7 @@ test_suite! {
         }
     }
 
-    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<TestEntry>) -> Result<creator::PackData> {
+    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<TestEntry>) -> Result<(creator::PackData, jubako::Reader)> {
         let mut creator = creator::ContentPackCreator::new(
             "/tmp/contentPack.jbkc",
             jubako::PackId::from(1),
@@ -80,13 +82,12 @@ test_suite! {
             let content = entry.content.clone().into_bytes();
             creator.add_content(content.into())?;
         }
-        let pack_info = creator.finalize(Some("/tmp/contentPack.jbkc".into()))?;
-        Ok(pack_info)
+        let (file, pack_info) = creator.finalize()?;
+        Ok((pack_info, jubako::FileSource::new(file)?.into()))
     }
 
-    fn create_directory_pack(value_store_kind: ValueStoreKind, entries: &Vec<TestEntry>) -> Result<creator::PackData> {
+    fn create_directory_pack(value_store_kind: ValueStoreKind, entries: &Vec<TestEntry>) -> Result<(creator::PackData, jubako::Reader)> {
         let mut creator = creator::DirectoryPackCreator::new(
-            "/tmp/directoryPack.jbkd",
             jubako::PackId::from(1),
             1,
             jubako::FreeData31::clone_from_slice(&[0xff; 31])
@@ -123,32 +124,75 @@ test_suite! {
             entry_store_idx,
             (entries.len() as u32).into(),
             jubako::EntryIdx::from(0).into());
-        let pack_info = creator.finalize(Some("/tmp/directoryPack.jbkd".into())).unwrap();
-        Ok(pack_info)
+
+        let mut directory_file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open("/tmp/directoryPack.jbkd")?;
+        let pack_info = creator.finalize(&mut directory_file).unwrap();
+        Ok((pack_info, jubako::FileSource::open("/tmp/directoryPack.jbkd").unwrap().into()))
     }
 
     fn create_main_pack(directory_pack: creator::PackData, content_pack:creator::PackData) -> Result<String> {
         let mut creator = creator::ManifestPackCreator::new(
-            "/tmp/mainPack.jbkm",
             1,
-            jubako::FreeData63::clone_from_slice(&[0xff; 63])
+            jubako::FreeData55::clone_from_slice(&[0xff; 55])
         );
 
-        creator.add_pack(directory_pack);
-        creator.add_pack(content_pack);
-        creator.finalize()?;
+        creator.add_pack(directory_pack, "/tmp/directoryPack.jbkd".into());
+        creator.add_pack(content_pack, "/tmp/contentPack.jbkc".into());
+
+        let mut main_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open("/tmp/mainPack.jbkm")?;
+
+        let uuid = creator.finalize(&mut main_file)?;
+        println!("manifest uuid: {uuid}");
         Ok("/tmp/mainPack.jbkm".to_string())
+    }
+
+    struct Locator(pub HashMap<uuid::Uuid, jubako::Reader>);
+
+    impl Locator {
+        pub fn new() -> Self {
+            Self (Default::default())
+        }
+
+        pub fn add(&mut self, uuid: uuid::Uuid, reader: jubako::Reader) {
+            self.0.insert(uuid, reader);
+        }
+    }
+
+    impl jubako::reader::PackLocatorTrait for Locator {
+        fn locate(&self, uuid: uuid::Uuid, _helper: &[u8]) -> jubako::Result<Option<jubako::Reader>> {
+            println!("Search for {uuid}");
+            println!("We have {:?}", self.0);
+            Ok(self.0.get(&uuid).cloned())
+        }
     }
 
 
 
     test test_content_pack(compression, value_store_kind, articles) {
-        let content_info = create_content_pack(compression.val, &articles.val).unwrap();
-        let directory_info = create_directory_pack(value_store_kind.val, &articles.val).unwrap();
+        let (content_info, content_reader) = create_content_pack(compression.val, &articles.val).unwrap();
+        let (directory_info, directory_reader) = create_directory_pack(value_store_kind.val, &articles.val).unwrap();
+
+        let mut locator = Locator::new();
+        println!("content_info.uuid: {}", content_info.uuid);
+        println!("directory_info.uuid: {}", directory_info.uuid);
+        locator.add(content_info.uuid, content_reader);
+        locator.add(directory_info.uuid, directory_reader);
+
         let main_path = create_main_pack(directory_info, content_info).unwrap();
 
-        let container = jubako::reader::Container::new(main_path).unwrap();
-        assert_eq!(container.pack_count(), 1.into());
+
+        let container = jubako::reader::Container::new_with_locator(main_path, Arc::new(locator)).unwrap();
+        assert_eq!(container.pack_count(), 2.into());
         assert!(container.check().unwrap());
         println!("Read directory pack");
         let directory_pack = container.get_directory_pack();
