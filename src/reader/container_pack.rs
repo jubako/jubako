@@ -59,7 +59,7 @@ impl ContainerPack {
         self.packs.get(uuid).cloned()
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a uuid::Uuid, &'a Reader)> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = (&Uuid, &Reader)> {
         self.packs.iter()
     }
 
