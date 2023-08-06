@@ -15,7 +15,7 @@ pub struct ManifestPack {
     pack_infos: Vec<PackInfo>,
     check_info: OnceLock<CheckInfo>,
     value_store: Option<ValueStore>,
-    max_id: u8,
+    max_id: u16,
 }
 
 impl ManifestPack {
@@ -31,7 +31,7 @@ impl ManifestPack {
             match pack_info.pack_kind {
                 PackKind::Directory => directory_pack_info = Some(pack_info),
                 _ => {
-                    max_id = cmp::max(max_id, pack_info.pack_id.into_u8());
+                    max_id = cmp::max(max_id, pack_info.pack_id.into_u16());
                     pack_infos.push(pack_info);
                 }
             }
@@ -58,7 +58,7 @@ impl ManifestPack {
     pub fn pack_count(&self) -> PackCount {
         self.header.pack_count
     }
-    pub fn max_id(&self) -> u8 {
+    pub fn max_id(&self) -> u16 {
         self.max_id
     }
 
@@ -87,7 +87,7 @@ impl ManifestPack {
     }
 
     pub fn get_free_data(&self, pack_id: PackId) -> Result<Option<&[u8]>> {
-        let pack_info = if pack_id.into_u8() == 0 {
+        let pack_info = if pack_id.into_u16() == 0 {
             &self.directory_pack_info
         } else {
             self.get_content_pack_info(pack_id)?
@@ -155,10 +155,10 @@ mod tests {
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x80, // check_info_pos
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
-                0x03, // pack_count
+                0x00, 0x03, // pack_count
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Value Store pos
             ]);
-            content.extend_from_slice(&[0xff; 55]);
+            content.extend_from_slice(&[0xff; 54]);
 
             // Offset 128
             // First packInfo (directory pack)
@@ -167,11 +167,10 @@ mod tests {
                 0x1e, 0x1f, // pack uuid
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, // pack size
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, // pack check offset
+                0x00, 0x00, //pack id
                 b'd', // pack_kind
-                0x00, //pack id
-                0x00, // pack_group
-                0x00, // padding
-                0x00, 0x00, // free_data_id
+                0xF0, // pack_group
+                0x00, 0x01, // free_data_id
             ]);
             // Offset 128 + 38 = 166
             content.extend_from_slice(&[0x00; 218]); // empty pack_location
@@ -184,10 +183,9 @@ mod tests {
                 0x2e, 0x2f, // pack uuid
                 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, // pack size
                 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0xff, // pack check offset
+                0x00, 0x01, //pack id
                 b'c', //pack_kind
-                0x01, //pack id
                 0x00, // pack_group
-                0x00, // padding
                 0x00, 0x00, // free_data_id
             ]);
             content.extend_from_slice(&[0x00; 218]); // empty pack_location
@@ -200,10 +198,9 @@ mod tests {
                 0x3e, 0x3f, // pack uuid
                 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, // pack size
                 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, // pack check offset
+                0x00, 0x02, //pack id,
                 b'c', // pack_kind
-                0x02, //pack id
                 0x00, // pack_group
-                0x00, // padding
                 0x00, 0x00, // free_data_id
                 8, b'p', b'a', b'c', b'k', b'p', b'a', b't', b'h',
             ]);
@@ -248,8 +245,8 @@ mod tests {
                 ]),
                 pack_id: PackId::from(0),
                 pack_kind: PackKind::Directory,
-                pack_group: 0,
-                free_data_id: ValueIdx::from(0).into(),
+                pack_group: 240,
+                free_data_id: ValueIdx::from(1).into(),
                 pack_size: Size::new(0xffff),
                 check_info_pos: Offset::new(0xff),
                 pack_location: vec![],

@@ -339,7 +339,7 @@ specific! {u32, EntryStoreIdx(Idx), EntryStoreCount, "EntryStore"}
 specific! {u32, ClusterIdx(Idx), ClusterCount, "Cluster"}
 specific! {u32, ContentIdx(Idx), ContentCount, "Content"}
 specific! {u32, IndexIdx(Idx), IndexCount, "Index"}
-specific! {u8,  PackId(Id), PackCount, "Pack"}
+specific! {u16, PackId(Id), PackCount, "Pack"}
 specific! {u8,  ValueStoreIdx(Idx), ValueStoreCount, "ValueStore"}
 specific! {u16,  BlobIdx(Idx), BlobCount, "Blob"}
 specific! {u8,  PropertyIdx(Idx), PropertyCount, "Property"}

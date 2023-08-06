@@ -34,7 +34,7 @@ impl ManifestPackHeader {
 
 impl SizedProducable for ManifestPackHeader {
     const SIZE: usize =
-        PackHeader::SIZE + Count::<u8>::SIZE + SizedOffset::SIZE + ManifestPackFreeData::SIZE;
+        PackHeader::SIZE + Count::<u16>::SIZE + SizedOffset::SIZE + ManifestPackFreeData::SIZE;
 }
 
 impl Producable for ManifestPackHeader {
@@ -44,7 +44,7 @@ impl Producable for ManifestPackHeader {
         if pack_header.magic != PackKind::Manifest {
             return Err(format_error!("Pack Magic is not ManifestPack"));
         }
-        let pack_count = Count::<u8>::produce(flux)?.into();
+        let pack_count = Count::<u16>::produce(flux)?.into();
         let value_store_posinfo = SizedOffset::produce(flux)?;
         let free_data = ManifestPackFreeData::produce(flux)?;
         Ok(Self {
@@ -86,10 +86,10 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xee, // check_info_pos
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
-            0x02, // pack_count
+            0x00, 0x02, // pack_count
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Valuestoreoffset
         ];
-        content.extend_from_slice(&[0xff; 55]);
+        content.extend_from_slice(&[0xff; 54]);
         let reader = Reader::from(content);
         let mut flux = reader.create_flux_all();
         assert_eq!(
@@ -109,7 +109,7 @@ mod tests {
                 },
                 pack_count: PackCount::from(2),
                 value_store_posinfo: SizedOffset::new(Size::zero(), Offset::zero()),
-                free_data: [0xff; 55].into(),
+                free_data: [0xff; 54].into(),
             }
         );
     }

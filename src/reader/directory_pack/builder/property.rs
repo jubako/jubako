@@ -336,14 +336,21 @@ impl PropertyBuilderTrait for ArrayProperty {
 pub struct ContentProperty {
     offset: Offset,
     pack_id_default: Option<PackId>,
+    pack_id_size: ByteSize,
     content_id_size: ByteSize,
 }
 
 impl ContentProperty {
-    pub fn new(offset: Offset, pack_id_default: Option<PackId>, content_id_size: ByteSize) -> Self {
+    pub fn new(
+        offset: Offset,
+        pack_id_default: Option<PackId>,
+        pack_id_size: ByteSize,
+        content_id_size: ByteSize,
+    ) -> Self {
         Self {
             offset,
             pack_id_default,
+            pack_id_size,
             content_id_size,
         }
     }
@@ -353,9 +360,16 @@ impl TryFrom<&layout::Property> for ContentProperty {
     type Error = String;
     fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
         match p.kind {
-            layout::PropertyKind::ContentAddress(content_id_size, pack_id_default) => Ok(
-                ContentProperty::new(p.offset, pack_id_default, content_id_size),
-            ),
+            layout::PropertyKind::ContentAddress(
+                pack_id_size,
+                content_id_size,
+                pack_id_default,
+            ) => Ok(ContentProperty::new(
+                p.offset,
+                pack_id_default,
+                pack_id_size,
+                content_id_size,
+            )),
             _ => Err("Invalid key".to_string()),
         }
     }
@@ -368,7 +382,7 @@ impl PropertyBuilderTrait for ContentProperty {
             self.content_id_size as usize + if self.pack_id_default.is_some() { 0 } else { 1 };
         let mut flux = reader.create_flux(self.offset, End::new_size(content_size));
         let pack_id = match self.pack_id_default {
-            None => flux.read_u8()?.into(),
+            None => (flux.read_usized(self.pack_id_size)? as u16).into(),
             Some(d) => d,
         };
 
@@ -395,10 +409,11 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
     ) -> std::result::Result<Self, Self::Error> {
         let (p, value_storage) = p_vs;
         Ok(match &p.kind {
-            &PropertyKind::ContentAddress(content_id_size, pack_id_default) => {
+            &PropertyKind::ContentAddress(pack_id_size, content_id_size, pack_id_default) => {
                 Self::ContentAddress(ContentProperty::new(
                     p.offset,
                     pack_id_default,
+                    pack_id_size,
                     content_id_size,
                 ))
             }
@@ -1244,34 +1259,56 @@ mod tests {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
         let reader = Reader::new(content, End::None);
 
-        let prop = ContentProperty::new(Offset::new(0), None, ByteSize::U3);
+        let prop = ContentProperty::new(Offset::new(0), None, ByteSize::U1, ByteSize::U3);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
             ContentAddress::new(PackId::from(0xFE), ContentIdx::from(0xDCBA98))
         );
 
-        let prop = ContentProperty::new(Offset::new(2), None, ByteSize::U3);
+        let prop = ContentProperty::new(Offset::new(2), None, ByteSize::U1, ByteSize::U3);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
             ContentAddress::new(PackId::from(0xBA), ContentIdx::from(0x987654))
         );
 
-        let prop = ContentProperty::new(Offset::new(2), None, ByteSize::U2);
+        let prop = ContentProperty::new(Offset::new(2), None, ByteSize::U1, ByteSize::U2);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
             ContentAddress::new(PackId::from(0xBA), ContentIdx::from(0x9876))
         );
 
-        let prop = ContentProperty::new(Offset::new(2), Some(PackId::from(0xFF)), ByteSize::U3);
+        let prop = ContentProperty::new(
+            Offset::new(2),
+            Some(PackId::from(0xFF)),
+            ByteSize::U1,
+            ByteSize::U3,
+        );
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
             ContentAddress::new(PackId::from(0xFF), ContentIdx::from(0xBA9876))
         );
 
-        let prop = ContentProperty::new(Offset::new(2), Some(PackId::from(0xFF)), ByteSize::U1);
+        let prop = ContentProperty::new(
+            Offset::new(2),
+            Some(PackId::from(0xFF)),
+            ByteSize::U1,
+            ByteSize::U1,
+        );
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
             ContentAddress::new(PackId::from(0xFF), ContentIdx::from(0xBA))
+        );
+
+        let prop = ContentProperty::new(Offset::new(0), None, ByteSize::U2, ByteSize::U3);
+        assert_eq!(
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            ContentAddress::new(PackId::from(0xFEDC), ContentIdx::from(0xBA9876))
+        );
+
+        let prop = ContentProperty::new(Offset::new(2), None, ByteSize::U2, ByteSize::U3);
+        assert_eq!(
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            ContentAddress::new(PackId::from(0xBA98), ContentIdx::from(0x765432))
         );
     }
 }

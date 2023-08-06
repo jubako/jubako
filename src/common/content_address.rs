@@ -19,7 +19,7 @@ impl ContentAddress {
 impl Producable for ContentAddress {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {
-        let pack_id = flux.read_u8()?;
+        let pack_id = flux.read_u8()? as u16;
         let content_id = flux.read_usized(ByteSize::U3)? as u32;
         Ok(ContentAddress {
             pack_id: pack_id.into(),
@@ -30,7 +30,8 @@ impl Producable for ContentAddress {
 
 impl Writable for ContentAddress {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        let data: u32 = (self.pack_id.into_u32() << 24) | (self.content_id.into_u32() & 0x00FFFFFF);
+        let data: u32 = ((self.pack_id.into_u32() & 0x000000FF) << 24)
+            | (self.content_id.into_u32() & 0x00FFFFFF);
         stream.write_u32(data)
     }
 }

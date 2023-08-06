@@ -157,7 +157,7 @@ mod tests {
                 0,
                 vec![
                     RawProperty::new(
-                        PropertyKind::ContentAddress(ByteSize::U3, None),
+                        PropertyKind::ContentAddress(ByteSize::U1, ByteSize::U3, None),
                         4,
                         Some("V0".to_string()),
                     ),

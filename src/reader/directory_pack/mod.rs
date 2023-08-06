@@ -354,7 +354,7 @@ mod tests {
             0b0101_0001, 0b001_00000, 0x00, 1, b'A', // Char1[0] + deported 1, idx 0x00
             0b0101_0001, 0b001_00010, 0x00, 1, b'B',// Char1[2] + deported 1, idx 0x00
             0b0010_0010, 1, b'C', // u24
-            0b0001_0110, 1, b'D', // content address
+            0b0001_0010, 1, b'D', // content address
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x41, // data size
         ]);
         // Add a entry_store_ptr (offset 164+65+29=258/0x102)

@@ -182,6 +182,7 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                     }
                     schema::Property::ContentAddress {
                         pack_id_counter: _,
+                        pack_id_size: _,
                         content_id_size: _,
                         name,
                     } => {

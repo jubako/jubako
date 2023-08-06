@@ -20,6 +20,11 @@ impl Writable for Id<u8> {
         stream.write_u8(self.0)
     }
 }
+impl Writable for Id<u16> {
+    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+        stream.write_u16(self.0)
+    }
+}
 impl Writable for Id<u32> {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         stream.write_u32(self.0)

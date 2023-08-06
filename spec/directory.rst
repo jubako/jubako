@@ -275,14 +275,15 @@ Content Address
 ``contentAddress`` is used to point to a specific blob.
 
 A ``contentAddress`` is composed of two parts :
-- The first byte is the ``pack_id`` (The pack in which find the content)
-- The last bytes (1, 2 or 3. Equal to ``0b00SS+1``) are the ``content_id`` (The identifier of the content in the pack)
+- The first bytes (1 or 2) are the ``pack_id`` (The pack in which find the content)
+- The last bytes (1, 2, 3 or 4. Equal to ``0b00SS+1``) are the ``content_id`` (The identifier of the content in the pack)
 
-``0b0PCC`` describes the size of the pack_id:
-- ``P`` is the size of the pack_id.
-  If it is 1, the pack_id is present in the entry.
-  If it is 0, the pack_id is described as a complement byte.
+``0bDPCC`` describes the size of the pack_id:
+- ``P + 1`` is the size of the pack_id.
 - ``CC + 1`` is the size of the ``content_id``
+
+If ``D`` is 1, the key info is followed by ``P+1`` bytes wich are the value of the pack_id.
+The entry doesn't contain the pack_id and reader must use the default value as value for the property.
 
 
 Unsigned and Signed Integer

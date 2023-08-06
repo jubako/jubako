@@ -87,7 +87,7 @@ impl Container {
         let reader = Reader::from(FileSource::open(path)?);
         let container_pack = Arc::new(locate_pack(reader)?);
         let reader = container_pack
-            .get_pack_reader_from_idx(PackId::from(container_pack.pack_count().into_u8() - 1))
+            .get_pack_reader_from_idx(PackId::from(container_pack.pack_count().into_u16() - 1))
             .unwrap();
 
         let manifest_pack =

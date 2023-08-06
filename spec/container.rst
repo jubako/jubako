@@ -16,8 +16,8 @@ Field Name    Type     Offset Description
 ============= ======== ====== ===========
 magic         u32      0      The magic number to detect the type of the file
 version       u8       4      The version of the container
-packCount     u8       5      The number of pack contained in the container.
-_padding      [u8;2]   6
+packCount     u16      5      The number of pack contained in the container.
+_padding      u8       7
 size          Size     8     The size of the file (include header and tail)
 
 The size of of this header, is 16 bytes.

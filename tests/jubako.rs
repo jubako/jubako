@@ -153,7 +153,7 @@ impl IndexStore {
         data.push(0x03); // key count
         data.extend(&[0b0101_0001, 0b001_00000, 0x00]); // The first key, a char1[0] + deported(1) idx 0
         data.extend(&[2, b'V', b'0']); // The name of the first key "V0"
-        data.extend(&[0b0001_0100]); // The second key, the content address (1 for the pack_id + 1 for the value_id)
+        data.extend(&[0b0001_0000]); // The second key, the content address (1 for the pack_id + 1 for the value_id)
         data.extend(&[2, b'V', b'1']); // The name of the second key "V1"
         data.extend(&[0b0010_0001]); // The third key, the u16
         data.extend(&[2, b'V', b'2']); // The name of the third key "V2"
@@ -224,7 +224,7 @@ impl CheckInfo {
 
 struct PackInfo {
     uuid: uuid::Uuid,
-    pack_id: u8,
+    pack_id: u16,
     pack_kind: u8,
     pack_size: u64,
     pack_path: String,
@@ -237,10 +237,9 @@ impl PackInfo {
         data.extend(self.uuid.as_bytes());
         data.extend(self.pack_size.to_be_bytes());
         data.extend(check_info_pos.to_be_bytes());
+        data.extend(self.pack_id.to_be_bytes());
         data.push(self.pack_kind);
-        data.push(self.pack_id);
         data.push(0); // pack_group
-        data.push(0); // padding
         data.extend(&[0; 2]); // free data id
         let path_data = self.pack_path.as_bytes();
         data.extend((path_data.len() as u8).to_be_bytes());
@@ -454,9 +453,9 @@ test_suite! {
         file.write_all(&file_size.to_be_bytes())?;
         file.write_all(&check_info_pos.to_be_bytes())?;
         file.write_all(&[0x00;16])?; // reserved
-        file.write_all(&[0x02])?; // number of pack
+        file.write_all(&[0x00, 0x02])?; // number of pack
         file.write_all(&[0x00; 8])?; // Value store offset
-        file.write_all(&[0xff;55])?; // free_data
+        file.write_all(&[0xff;54])?; // free_data
 
         assert_eq!(directory_check_info_pos, file.seek(SeekFrom::End(0))?);
         file.write_all(&directory_pack.check_info.bytes())?;

@@ -10,7 +10,7 @@ Field Name    Type    Offset Description
 ============= ======= ====== ===========
 entryPtrPos   Offset  0      A Offset to a array of entryInfo.
 clusterPtrPos Offset  8      A Offset to a array of cluster SizedOffset.
-entryCount    u24     16     Number of entry in the pack (max of 2^24 entry per pack)
+entryCount    u32     16     Number of entry in the pack (max of 2^32 entries per pack)
 clusterCount  u32     20     Number of cluster in the pack (max of 2^20)
 freeData      [u8,40] 24
 ============= ======= ====== ===========
