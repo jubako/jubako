@@ -86,9 +86,6 @@ where
             let mut watchdog = 50;
             while !self.entries.is_sorted_by(compare_opt) {
                 debug!(".");
-                /*for entry in &self.entries {
-                    println!("- {:?}/{:?}", entry.value(1.into()), entry.value(0.into()));
-                }*/
                 self.entries.sort_by(compare);
                 set_entry_idx(&mut self.entries);
                 watchdog -= 1;

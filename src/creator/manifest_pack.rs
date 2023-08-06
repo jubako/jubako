@@ -21,7 +21,6 @@ impl ManifestPackCreator {
     }
 
     pub fn add_pack(&mut self, pack_info: PackData, locator: Vec<u8>) {
-        println!("Adding new pack with {}", pack_info.uuid);
         self.packs.push((pack_info, locator));
     }
 
