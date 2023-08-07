@@ -137,7 +137,7 @@ mod tests {
         impl builder::BuilderTrait for Builder {
             type Entry = Entry;
             fn create_entry(&self, idx: EntryIdx) -> Result<Self::Entry> {
-                Ok(Entry::new(idx.into_u16()))
+                Ok(Entry::new(idx.into_u32() as u16))
             }
         }
 
