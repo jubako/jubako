@@ -57,17 +57,17 @@ where
     }
 }
 
-pub trait EntryStoreTrait: WritableTell {
-    fn finalize(&mut self);
+pub trait EntryStoreTrait {
+    fn finalize(self: Box<Self>) -> Box<dyn WritableTell>;
 }
 
 impl<PN, VN, Entry> EntryStoreTrait for EntryStore<PN, VN, Entry>
 where
     PN: PropertyName + std::fmt::Debug,
-    VN: VariantName + std::fmt::Debug,
-    Entry: FullEntryTrait<PN, VN>,
+    VN: VariantName + std::fmt::Debug + 'static,
+    Entry: FullEntryTrait<PN, VN> + 'static,
 {
-    fn finalize(&mut self) {
+    fn finalize(mut self: Box<Self>) -> Box<dyn WritableTell> {
         set_entry_idx(&mut self.entries);
         if let Some(keys) = &self.schema.sort_keys {
             let compare = |a: &Entry, b: &Entry| a.compare(&mut keys.iter(), b);
@@ -84,15 +84,31 @@ where
             }
         }
 
-        for entry in &self.entries {
+        for entry in &mut self.entries {
             self.schema.process(entry);
         }
 
         debug!("Schema is {:#?}", self.schema);
+
+        let layout = self.schema.finalize();
+        Box::new(FinalEntryStore {
+            entries: self.entries,
+            layout,
+        })
     }
 }
 
-impl<PN, VN, Entry> WritableTell for EntryStore<PN, VN, Entry>
+pub struct FinalEntryStore<PN, VN, Entry>
+where
+    PN: PropertyName,
+    VN: VariantName,
+    Entry: FullEntryTrait<PN, VN>,
+{
+    entries: Vec<Entry>,
+    layout: super::layout::Entry<PN, VN>,
+}
+
+impl<PN, VN, Entry> WritableTell for FinalEntryStore<PN, VN, Entry>
 where
     PN: PropertyName + std::fmt::Debug,
     VN: VariantName + std::fmt::Debug,
@@ -107,15 +123,14 @@ where
     }
 
     fn write(&mut self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
-        let layout = self.schema.finalize();
-        debug!("Layout is {layout:#?}");
+        debug!("Layout is {:#?}", self.layout);
         for entry in &self.entries {
-            layout.write_entry(entry, stream)?;
+            self.layout.write_entry(entry, stream)?;
         }
         let offset = stream.tell();
         stream.write_u8(0x00)?; // kind
-        layout.write(stream)?;
-        stream.write_u64((self.entries.len() * layout.entry_size as usize) as u64)?;
+        self.layout.write(stream)?;
+        stream.write_u64((self.entries.len() * self.layout.entry_size as usize) as u64)?;
         let size = stream.tell() - offset;
         Ok(SizedOffset { size, offset })
     }

@@ -14,6 +14,18 @@ impl<T: Default> Default for PropertySize<T> {
     }
 }
 
+impl<T> From<PropertySize<T>> for ByteSize
+where
+    T: Ord + std::ops::Shr<Output = T> + From<u8>,
+{
+    fn from(p: PropertySize<T>) -> ByteSize {
+        match p {
+            PropertySize::<T>::Fixed(size) => size,
+            PropertySize::<T>::Auto(max) => needed_bytes(max),
+        }
+    }
+}
+
 impl<T> std::fmt::Debug for PropertySize<T>
 where
     T: std::fmt::Debug,
@@ -47,6 +59,15 @@ where
                 }
             }
             Self::Many => {}
+        }
+    }
+}
+
+impl<T> From<ValueCounter<T>> for Option<T> {
+    fn from(v: ValueCounter<T>) -> Option<T> {
+        match v {
+            ValueCounter::One(d) => Some(d),
+            _ => None,
         }
     }
 }
@@ -250,52 +271,26 @@ impl<PN: PropertyName> Property<PN> {
         }
     }
 
-    pub fn finalize(&self) -> layout::Property<PN> {
+    pub fn finalize(self) -> layout::Property<PN> {
         match self {
             Self::UnsignedInt {
                 counter,
                 size,
                 name,
-            } => {
-                let size = match size {
-                    PropertySize::Fixed(size) => *size,
-                    PropertySize::Auto(max) => needed_bytes(*max),
-                };
-                match counter {
-                    ValueCounter::One(d) => layout::Property::UnsignedInt {
-                        size,
-                        default: Some(*d),
-                        name: *name,
-                    },
-                    _ => layout::Property::UnsignedInt {
-                        size,
-                        default: None,
-                        name: *name,
-                    },
-                }
-            }
+            } => layout::Property::UnsignedInt {
+                size: size.into(),
+                default: counter.into(),
+                name,
+            },
             Self::SignedInt {
                 counter,
                 size,
                 name,
-            } => {
-                let size = match size {
-                    PropertySize::Fixed(size) => *size,
-                    PropertySize::Auto(max) => needed_bytes(*max),
-                };
-                match counter {
-                    ValueCounter::One(d) => layout::Property::SignedInt {
-                        size,
-                        default: Some(*d),
-                        name: *name,
-                    },
-                    _ => layout::Property::SignedInt {
-                        size,
-                        default: None,
-                        name: *name,
-                    },
-                }
-            }
+            } => layout::Property::SignedInt {
+                size: size.into(),
+                default: counter.into(),
+                name,
+            },
             Self::Array {
                 max_array_size,
                 fixed_array_size,
@@ -304,35 +299,22 @@ impl<PN: PropertyName> Property<PN> {
             } => {
                 let value_id_size = store_handle.borrow().key_size();
                 layout::Property::Array {
-                    array_size_size: Some(match max_array_size {
-                        PropertySize::Fixed(size) => *size,
-                        PropertySize::Auto(max) => needed_bytes(*max),
-                    }),
-                    fixed_array_size: *fixed_array_size as u8,
+                    array_size_size: Some(max_array_size.into()),
+                    fixed_array_size: fixed_array_size as u8,
                     deported_info: Some((value_id_size, store_handle.clone())),
-                    name: *name,
+                    name,
                 }
             }
             Self::ContentAddress {
                 pack_id_counter,
                 content_id_size,
                 name,
-            } => {
-                let default = match pack_id_counter {
-                    ValueCounter::One(d) => Some(*d),
-                    _ => None,
-                };
-                let size = match content_id_size {
-                    PropertySize::Fixed(size) => *size,
-                    PropertySize::Auto(max) => needed_bytes(*max),
-                };
-                layout::Property::ContentAddress {
-                    size,
-                    default,
-                    name: *name,
-                }
-            }
-            Self::Padding(size) => layout::Property::Padding(*size),
+            } => layout::Property::ContentAddress {
+                size: content_id_size.into(),
+                default: pack_id_counter.into(),
+                name,
+            },
+            Self::Padding(size) => layout::Property::Padding(size),
         }
     }
 }
