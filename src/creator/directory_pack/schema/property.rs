@@ -8,6 +8,22 @@ pub enum PropertySize<T> {
     Auto(T),
 }
 
+impl<T> PropertySize<T>
+where
+    T: Ord + std::ops::Shr<Output = T> + From<u8> + Copy,
+{
+    fn process(&mut self, v: T) {
+        match self {
+            Self::Fixed(size) => {
+                assert!(*size >= needed_bytes(v));
+            }
+            Self::Auto(max) => {
+                *max = cmp::max(*max, v);
+            }
+        }
+    }
+}
+
 impl<T: Default> Default for PropertySize<T> {
     fn default() -> Self {
         PropertySize::Auto(Default::default())
@@ -191,14 +207,7 @@ impl<PN: PropertyName> Property<PN> {
             } => {
                 if let Value::Unsigned(value) = entry.value(name) {
                     counter.process(value.get());
-                    match size {
-                        PropertySize::Fixed(size) => {
-                            assert!(*size >= needed_bytes(value.get()));
-                        }
-                        PropertySize::Auto(max) => {
-                            *max = cmp::max(*max, value.get());
-                        }
-                    }
+                    size.process(value.get());
                 } else {
                     panic!("Value type doesn't correspond to property");
                 }
@@ -210,14 +219,7 @@ impl<PN: PropertyName> Property<PN> {
             } => {
                 if let Value::Signed(value) = entry.value(name) {
                     counter.process(value.get());
-                    match size {
-                        PropertySize::Fixed(size) => {
-                            assert!(*size >= needed_bytes(value.get()));
-                        }
-                        PropertySize::Auto(max) => {
-                            *max = cmp::max(*max, value.get());
-                        }
-                    }
+                    size.process(value.get());
                 } else {
                     panic!("Value type doesn't correspond to property");
                 }
@@ -229,14 +231,7 @@ impl<PN: PropertyName> Property<PN> {
             } => {
                 if let Value::Content(c) = entry.value(name) {
                     pack_id_counter.process(c.pack_id.into_u8());
-                    match content_id_size {
-                        PropertySize::Fixed(size) => {
-                            assert!(*size >= needed_bytes(c.content_id.into_u32()));
-                        }
-                        PropertySize::Auto(max) => {
-                            *max = cmp::max(*max, c.content_id.into_u32());
-                        }
-                    }
+                    content_id_size.process(c.content_id.into_u32());
                 } else {
                     panic!("Value type doesn't correspond to property");
                 }
@@ -253,14 +248,7 @@ impl<PN: PropertyName> Property<PN> {
                     value_id: _,
                 } = entry.value(name)
                 {
-                    match max_array_size {
-                        PropertySize::Fixed(fixed_size) => {
-                            assert!(*fixed_size >= needed_bytes(*size));
-                        }
-                        PropertySize::Auto(max) => {
-                            *max = cmp::max(*max, *size);
-                        }
-                    }
+                    max_array_size.process(*size);
                 } else {
                     panic!("Value type doesn't correspond to property");
                 }
