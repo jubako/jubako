@@ -24,7 +24,6 @@ where
     VN: VariantName,
     Entry: FullEntryTrait<PN, VN>,
 {
-    idx: Late<EntryStoreIdx>,
     entries: Vec<Entry>,
     pub schema: schema::Schema<PN, VN>,
 }
@@ -37,7 +36,6 @@ where
 {
     pub fn new(schema: schema::Schema<PN, VN>) -> Self {
         Self {
-            idx: Default::default(),
             entries: vec![],
             schema,
         }
@@ -50,10 +48,6 @@ where
         entry_idx
     }
 
-    pub fn get_idx(&self) -> EntryStoreIdx {
-        self.idx.get()
-    }
-
     pub fn len(&self) -> usize {
         self.entries.len()
     }
@@ -64,7 +58,6 @@ where
 }
 
 pub trait EntryStoreTrait: WritableTell {
-    fn set_idx(&mut self, idx: EntryStoreIdx);
     fn finalize(&mut self);
 }
 
@@ -74,10 +67,6 @@ where
     VN: VariantName + std::fmt::Debug,
     Entry: FullEntryTrait<PN, VN>,
 {
-    fn set_idx(&mut self, idx: EntryStoreIdx) {
-        self.idx.set(idx)
-    }
-
     fn finalize(&mut self) {
         set_entry_idx(&mut self.entries);
         if let Some(keys) = &self.schema.sort_keys {

@@ -34,9 +34,8 @@ impl DirectoryPackCreator {
         self.value_stores.push(value_store);
     }
 
-    pub fn add_entry_store(&mut self, mut entry_store: Box<dyn EntryStoreTrait>) -> EntryStoreIdx {
+    pub fn add_entry_store(&mut self, entry_store: Box<dyn EntryStoreTrait>) -> EntryStoreIdx {
         let idx = (self.entry_stores.len() as u32).into();
-        entry_store.set_idx(idx);
         self.entry_stores.push(entry_store);
         idx
     }
