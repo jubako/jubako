@@ -6,11 +6,11 @@ use uuid::Uuid;
 #[derive(Debug, PartialEq, Eq)]
 pub struct DirectoryPackHeader {
     pub pack_header: PackHeader,
+    pub index_ptr_pos: Offset,
     pub entry_store_ptr_pos: Offset,
     pub value_store_ptr_pos: Offset,
-    pub index_ptr_pos: Offset,
-    pub entry_store_count: EntryStoreCount,
     pub index_count: IndexCount,
+    pub entry_store_count: EntryStoreCount,
     pub value_store_count: ValueStoreCount,
     pub free_data: DirectoryPackFreeData,
 }
