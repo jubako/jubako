@@ -311,7 +311,7 @@ where
 
 struct Index {
     store_id: EntryStoreIdx,
-    extra_data: ContentAddress,
+    free_data: IndexFreeData,
     index_key: PropertyIdx,
     name: String,
     count: EntryCount,
@@ -321,7 +321,7 @@ struct Index {
 impl Index {
     pub fn new(
         name: &str,
-        extra_data: ContentAddress,
+        free_data: IndexFreeData,
         index_key: PropertyIdx,
         store_id: EntryStoreIdx,
         count: EntryCount,
@@ -329,7 +329,7 @@ impl Index {
     ) -> Self {
         Index {
             store_id,
-            extra_data,
+            free_data,
             index_key,
             name: name.to_string(),
             count,
@@ -347,7 +347,7 @@ impl super::private::WritableTell for Index {
         self.store_id.write(stream)?;
         self.count.write(stream)?;
         self.offset.get().write(stream)?;
-        self.extra_data.write(stream)?;
+        self.free_data.write(stream)?;
         self.index_key.write(stream)?;
         PString::write_string(self.name.as_ref(), stream)?;
         Ok(())

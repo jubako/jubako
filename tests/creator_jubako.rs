@@ -116,7 +116,7 @@ test_suite! {
         let entry_store_idx = creator.add_entry_store(entry_store);
         creator.create_index(
             "Super index",
-            jubako::ContentAddress::new(0.into(), 0.into()),
+            Default::default(),
             0.into(),
             entry_store_idx,
             (entries.len() as u32).into(),

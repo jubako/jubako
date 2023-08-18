@@ -20,7 +20,8 @@ pub use count::Count;
 pub use delayed::{Bound, Late, Vow, Word};
 pub use error::{Error, ErrorKind, FormatError, Result};
 pub use free_data::{
-    ContentPackFreeData, DirectoryPackFreeData, ManifestPackFreeData, PackInfoFreeData,
+    ContentPackFreeData, DirectoryPackFreeData, IndexFreeData, ManifestPackFreeData,
+    PackInfoFreeData,
 };
 pub use id::Id;
 pub use idx::{Idx, IndexTrait};

@@ -44,3 +44,4 @@ pub type DirectoryPackFreeData = FreeData<31>;
 pub type ContentPackFreeData = FreeData<40>;
 pub type ManifestPackFreeData = FreeData<54>;
 pub type PackInfoFreeData = FreeData<103>;
+pub type IndexFreeData = FreeData<4>;

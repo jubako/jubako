@@ -367,7 +367,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, // store_id
             0x00, 0x00, 0x00, 0x04, // entry_count (use only 4 from the 5 available)
             0x00, 0x00, 0x00, 0x01, // entry offset (skip the first one)
-            0x00, 0x00, 0x00, 0x00, // extra_data
+            0x00, 0x00, 0x00, 0x00, // free_data
             0x00, // index_property (use the first pstring a binary search property
             0x08, b'm', b'y', b' ', b'i', b'n', b'd', b'e', b'x', // Pstring "my index"
         ]);

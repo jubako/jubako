@@ -381,16 +381,13 @@ It is a simple header describing the index and where to find the data.
 Header
 ------
 
-The first kind of index know by Jubako implementation is a listing of entry, along with
-some metadata
-
 ============= ================== ================= =============
 Field Name    Type               Offset            Description
 ============= ================== ================= =============
 storeId       u32                0                 The entry store where to find the entries.
 entryCount    u32                4                 The number of entries in the index.
 entryOffset   u32                8                 The offset of the first entry in the entry store.
-extraData     ``contentAddress`` 12                Some content for the index. Used a extra data.
+freeData      [u8;4]             12                Some data specific type are free to use
 indexKey      u8                 16                | The primary key of the index.
                                                    | 0 if no primary key.
                                                    | 1 for the first key.

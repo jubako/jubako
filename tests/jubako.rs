@@ -191,10 +191,10 @@ impl Index {
         data.extend(self.store_id.to_be_bytes()); // store_id
         data.extend(self.entry_count.to_be_bytes()); // entry_count
         data.extend(0_u32.to_be_bytes()); // entry_offset
-        data.extend(0_u32.to_be_bytes()); // extra_data
+        data.extend([0; 4]); // free_data
         data.extend(self.index_key.to_be_bytes()); // index_key
         data.push(self.index_name.len() as u8);
-        data.extend(self.index_name.bytes()); // The third key, the u16
+        data.extend(self.index_name.bytes()); // The index name
         self.tail_size = Some(data.len() as u16);
         data
     }
@@ -364,10 +364,10 @@ test_suite! {
         file.write_all(&[0x00;24])?; // index_ptr_offset, entry_store_ptr_offset, key_store_ptr_offset, to be write after
         file.write_all(&1_u32.to_be_bytes())?; // index count
         file.write_all(&1_u32.to_be_bytes())?; // entry_store count
-        file.write_all(&1_u8.to_be_bytes())?; // key_store count
+        file.write_all(&1_u8.to_be_bytes())?; // value_store count
         file.write_all(&[0xff;31])?; // free_data
 
-        let key_store_ptr_offset = {
+        let value_store_ptr_offset = {
             let mut key_store = KeyStore::new(entries);
             file.write_all(&key_store.data_bytes())?;
             let key_store_offset = file.seek(SeekFrom::Current(0))?.to_be_bytes();
@@ -405,7 +405,7 @@ test_suite! {
         file.seek(SeekFrom::Start(64))?;
         file.write_all(&index_ptr_offset.to_be_bytes())?;
         file.write_all(&index_store_ptr_offset.to_be_bytes())?;
-        file.write_all(&key_store_ptr_offset.to_be_bytes())?;
+        file.write_all(&value_store_ptr_offset.to_be_bytes())?;
 
         file.seek(SeekFrom::Start(0))?;
         let mut hasher = blake3::Hasher::new();
