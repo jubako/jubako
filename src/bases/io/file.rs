@@ -59,34 +59,6 @@ impl Source for FileSource {
             Ok(v) => Ok(v),
         }
     }
-    fn into_memory(self: Arc<Self>, region: Region) -> Result<(Arc<dyn Source>, Region)> {
-        if region.size().into_u64() < 1024 {
-            let mut f = self.lock().unwrap();
-            let mut buf = Vec::with_capacity(region.size().into_usize());
-            let mut uninit: BorrowedBuf = buf.spare_capacity_mut().into();
-            f.seek(SeekFrom::Start(region.begin().into_u64()))?;
-            f.read_buf_exact(uninit.unfilled())?;
-            unsafe {
-                buf.set_len(region.size().into_usize());
-            }
-            Ok((
-                Arc::new(buf),
-                Region::new_from_size(Offset::zero(), region.size()),
-            ))
-        } else {
-            let mut mmap_options = MmapOptions::new();
-            mmap_options
-                .offset(region.begin().into_u64())
-                .len(region.size().into_usize())
-                .populate();
-            let mmap =
-                unsafe { mmap_options.map(self.source.lock().unwrap().get_ref().as_raw_fd())? };
-            Ok((
-                Arc::new(mmap),
-                Region::new_from_size(Offset::zero(), region.size()),
-            ))
-        }
-    }
 
     fn into_memory_source(
         self: Arc<Self>,
