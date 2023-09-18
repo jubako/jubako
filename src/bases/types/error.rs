@@ -1,6 +1,7 @@
 use crate::bases::*;
 
 use std::any::Demand;
+#[cfg(debug_assertions)]
 use std::backtrace::Backtrace;
 use std::fmt;
 use std::string::FromUtf8Error;
@@ -54,16 +55,24 @@ pub enum ErrorKind {
 
 pub struct Error {
     pub error: ErrorKind,
+    #[cfg(debug_assertions)]
     bt: Backtrace,
 }
 
 impl Error {
+    #[cfg(debug_assertions)]
     pub fn new(error: ErrorKind) -> Error {
         Error {
             error,
             bt: Backtrace::capture(),
         }
     }
+
+    #[cfg(not(debug_assertions))]
+    pub fn new(error: ErrorKind) -> Error {
+        Error { error }
+    }
+
     pub fn new_arg() -> Error {
         Error::new(ErrorKind::Arg)
     }
@@ -125,6 +134,7 @@ impl fmt::Display for Error {
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Kind: {:?}", self.error)?;
+        #[cfg(debug_assertions)]
         writeln!(f, "BT: {}", self.bt)?;
         Ok(())
     }
@@ -132,6 +142,7 @@ impl fmt::Debug for Error {
 
 impl std::error::Error for Error {
     fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+        #[cfg(debug_assertions)]
         demand.provide_ref::<Backtrace>(&self.bt);
         match &self.error {
             ErrorKind::Io(e) => demand.provide_ref::<std::io::Error>(e),
