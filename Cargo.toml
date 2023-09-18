@@ -23,7 +23,7 @@ lz4 = { version = "1.23.2", optional = true }
 zstd = { version = "0.12", optional = true }
 rust-lzma = { version = "0.5", optional = true }
 clap = { version = "3.2.15", features = ["derive"] }
-lru = "0.8.1"
+lru = "0.11.1"
 memmap2 = "0.5.7"
 pathdiff = "0.2.1"
 spmc = "0.3.0"

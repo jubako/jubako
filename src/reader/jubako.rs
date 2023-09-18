@@ -1,4 +1,4 @@
-use std::cell::OnceCell;
+use std::sync::OnceLock;
 
 use super::container_pack::ContainerPack;
 use super::content_pack::ContentPack;
@@ -18,7 +18,7 @@ pub struct Container {
     directory_pack: Arc<DirectoryPack>,
     value_storage: Arc<ValueStorage>,
     entry_storage: Arc<EntryStorage>,
-    packs: Vec<OnceCell<ContentPack>>,
+    packs: Vec<OnceLock<ContentPack>>,
 }
 
 fn parse_header(buffer: [u8; 64]) -> Result<(PackKind, Size)> {

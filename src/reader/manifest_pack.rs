@@ -1,4 +1,4 @@
-use std::cell::OnceCell;
+use std::sync::OnceLock;
 
 use crate::bases::*;
 use crate::common::{CheckInfo, ManifestCheckStream, ManifestPackHeader, Pack, PackInfo, PackKind};
@@ -13,7 +13,7 @@ pub struct ManifestPack {
     reader: Reader,
     directory_pack_info: PackInfo,
     pack_infos: Vec<PackInfo>,
-    check_info: OnceCell<CheckInfo>,
+    check_info: OnceLock<CheckInfo>,
     value_store: Option<ValueStore>,
     max_id: u8,
 }
@@ -47,7 +47,7 @@ impl ManifestPack {
             reader,
             directory_pack_info: directory_pack_info.unwrap(),
             pack_infos,
-            check_info: OnceCell::new(),
+            check_info: OnceLock::new(),
             value_store,
             max_id,
         })
