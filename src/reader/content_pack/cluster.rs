@@ -183,7 +183,7 @@ mod tests {
         cluster_data.extend_from_slice(&[
             comp as u8,       // compression
             0x01,             // offset_size
-            0x00, 0x03,       // blob_count
+            0x03, 0x00,       // blob_count
             data.len() as u8, // raw data size
             0x0f,             // Data size
             0x05,             // Offset of blob 1

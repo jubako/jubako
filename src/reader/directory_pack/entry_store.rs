@@ -95,7 +95,7 @@ mod tests {
         #[rustfmt::skip]
         let content = vec![
             0x00, // kind
-            0x00, 0x6D,  //entry_size (108)
+            0x6D, 0x00,  //entry_size (108)
             0x00,        // variant count
             0x10,       // property count (16)
             0b0000_0111, // padding (8)       offset: 0
@@ -113,7 +113,7 @@ mod tests {
             0b0101_0010, 0b111_00000, 0x0F, 3 , b'V', b'1', b'1', // char2[0] + deported(7), idx 0x0F   offset: 84
             0b0101_0001, 0b001_00010, 0x0F, 3 , b'V', b'1', b'2', // char1[2] + deported(1), idx 0x0F   offset: 93
             0b0101_0010, 0b111_00010, 0x0F, 3 , b'V', b'1', b'3', // char2[2] + deported(7), idx 0x0F   offset: 97
-            0b0001_1100, 0x02, 0x01, 3 , b'V', b'1', b'4', // content address, with default 0x0201 and 1 byte of data offset: 108
+            0b0001_1100, 0x01, 0x02, 3 , b'V', b'1', b'4', // content address, with default 0x0201 and 1 byte of data offset: 108
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size           offset: 109
         ];
         let size = Size::from(content.len());
@@ -231,7 +231,7 @@ mod tests {
         #[rustfmt::skip]
         let content = vec![
             0x00, // kind
-            0x00, 0x1F,  //entry_size (32)
+            0x1F, 0x00,  //entry_size (32)
             0x02,        // variant count
             0x0B,        // property count (9)
             0b0000_0110, // padding (7)       offset: 0

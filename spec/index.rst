@@ -17,8 +17,7 @@ Base Structures
 Integer
 -------
 
-All integers are bigendian. This allow comparison of integer to be made the
-same way as comparison of bytes array.
+All integers are little endian.
 
 Size of integer are specified with the number of bits.
 - A 8 bits unsigned integer is called u8

@@ -160,43 +160,43 @@ mod tests {
         let reader = reader.unwrap();
         assert_eq!(reader.read_u8(Offset::zero()).unwrap(), 0x00_u8);
         assert_eq!(reader.read_u8(Offset::new(1)).unwrap(), 0x01_u8);
-        assert_eq!(reader.read_u16(Offset::new(2)).unwrap(), 0x0203_u16);
-        assert_eq!(reader.read_u32(Offset::zero()).unwrap(), 0x00010203_u32);
-        assert_eq!(reader.read_u32(Offset::new(4)).unwrap(), 0x04050607_u32);
+        assert_eq!(reader.read_u16(Offset::new(2)).unwrap(), 0x0302_u16);
+        assert_eq!(reader.read_u32(Offset::zero()).unwrap(), 0x03020100_u32);
+        assert_eq!(reader.read_u32(Offset::new(4)).unwrap(), 0x07060504_u32);
         assert_eq!(
             reader.read_u64(Offset::zero()).unwrap(),
-            0x0001020304050607_u64
+            0x0706050403020100_u64
         );
 
         assert_eq!(reader.read_i8(Offset::zero()).unwrap(), 0x00_i8);
         assert_eq!(reader.read_i8(Offset::new(1)).unwrap(), 0x01_i8);
-        assert_eq!(reader.read_i16(Offset::new(2)).unwrap(), 0x0203_i16);
-        assert_eq!(reader.read_i32(Offset::zero()).unwrap(), 0x00010203_i32);
-        assert_eq!(reader.read_i32(Offset::new(4)).unwrap(), 0x04050607_i32);
+        assert_eq!(reader.read_i16(Offset::new(2)).unwrap(), 0x0302_i16);
+        assert_eq!(reader.read_i32(Offset::zero()).unwrap(), 0x03020100_i32);
+        assert_eq!(reader.read_i32(Offset::new(4)).unwrap(), 0x07060504_i32);
         assert_eq!(
             reader.read_i64(Offset::zero()).unwrap(),
-            0x0001020304050607_i64
+            0x0706050403020100_i64
         );
 
         assert_eq!(reader.read_u8(Offset::new(8)).unwrap(), 0x08_u8);
         assert!(reader.read_u8(Offset::new(9)).is_err());
-        assert_eq!(reader.read_u16(Offset::new(7)).unwrap(), 0x0708_u16);
+        assert_eq!(reader.read_u16(Offset::new(7)).unwrap(), 0x0807_u16);
         assert!(reader.read_u16(Offset::new(8)).is_err());
-        assert_eq!(reader.read_u32(Offset::new(5)).unwrap(), 0x05060708_u32);
+        assert_eq!(reader.read_u32(Offset::new(5)).unwrap(), 0x08070605_u32);
         assert!(reader.read_u32(Offset::new(6)).is_err());
         assert_eq!(
             reader.read_u64(Offset::new(1)).unwrap(),
-            0x0102030405060708_u64
+            0x0807060504030201_u64
         );
         assert!(reader.read_u64(Offset::new(2)).is_err());
 
         let reader1 = reader.create_sub_reader(Offset::new(1), End::None);
         assert_eq!(reader1.read_u8(Offset::zero()).unwrap(), 0x01_u8);
-        assert_eq!(reader1.read_u16(Offset::new(1)).unwrap(), 0x0203_u16);
-        assert_eq!(reader1.read_u32(Offset::new(3)).unwrap(), 0x04050607_u32);
+        assert_eq!(reader1.read_u16(Offset::new(1)).unwrap(), 0x0302_u16);
+        assert_eq!(reader1.read_u32(Offset::new(3)).unwrap(), 0x07060504_u32);
         assert_eq!(
             reader1.read_u64(Offset::zero()).unwrap(),
-            0x0102030405060708_u64
+            0x0807060504030201_u64
         );
         assert!(reader1.read_u64(Offset::new(1)).is_err());
     }
@@ -216,31 +216,31 @@ mod tests {
         assert_eq!(reader.read_i8(Offset::zero()).unwrap(), -0x02_i8);
         assert_eq!(reader.read_u8(Offset::new(1)).unwrap(), 0xDC_u8);
         assert_eq!(reader.read_i8(Offset::new(1)).unwrap(), -0x24_i8);
-        assert_eq!(reader.read_u16(Offset::zero()).unwrap(), 0xFEDC_u16);
-        assert_eq!(reader.read_i16(Offset::zero()).unwrap(), -0x0124_i16);
-        assert_eq!(reader.read_u16(Offset::new(2)).unwrap(), 0xBA98_u16);
-        assert_eq!(reader.read_i16(Offset::new(2)).unwrap(), -0x4568_i16);
-        assert_eq!(reader.read_u32(Offset::zero()).unwrap(), 0xFEDCBA98_u32);
-        assert_eq!(reader.read_i32(Offset::zero()).unwrap(), -0x01234568_i32);
-        assert_eq!(reader.read_u32(Offset::new(3)).unwrap(), 0x98765432_u32);
-        assert_eq!(reader.read_i32(Offset::new(3)).unwrap(), -0x6789ABCE_i32);
-        assert_eq!(reader.read_u32(Offset::new(4)).unwrap(), 0x76543210_u32);
-        assert_eq!(reader.read_i32(Offset::new(4)).unwrap(), 0x76543210_i32);
+        assert_eq!(reader.read_u16(Offset::zero()).unwrap(), 0xDCFE_u16);
+        assert_eq!(reader.read_i16(Offset::zero()).unwrap(), -0x2302_i16);
+        assert_eq!(reader.read_u16(Offset::new(2)).unwrap(), 0x98BA_u16);
+        assert_eq!(reader.read_i16(Offset::new(2)).unwrap(), -0x6746_i16);
+        assert_eq!(reader.read_u32(Offset::zero()).unwrap(), 0x98BADCFE_u32);
+        assert_eq!(reader.read_i32(Offset::zero()).unwrap(), -0x67452302_i32);
+        assert_eq!(reader.read_u32(Offset::new(3)).unwrap(), 0x32547698_u32);
+        assert_eq!(reader.read_i32(Offset::new(3)).unwrap(), 0x32547698_i32);
+        assert_eq!(reader.read_u32(Offset::new(4)).unwrap(), 0x10325476_u32);
+        assert_eq!(reader.read_i32(Offset::new(4)).unwrap(), 0x10325476_i32);
         assert_eq!(
             reader.read_u64(Offset::zero()).unwrap(),
-            0xFEDCBA9876543210_u64
+            0x1032547698BADCFE_u64
         );
         assert_eq!(
             reader.read_i64(Offset::zero()).unwrap(),
-            -0x0123456789ABCDF0_i64
+            0x1032547698BADCFE_i64
         );
         assert_eq!(
             reader.read_u64(Offset::new(1)).unwrap(),
-            0xDCBA9876543210FF_u64
+            0xFF1032547698BADC_u64
         );
         assert_eq!(
             reader.read_i64(Offset::new(1)).unwrap(),
-            -0x23456789ABCDEF01_i64
+            -0x00EFCDAB89674524_i64
         );
 
         assert_eq!(
@@ -261,63 +261,63 @@ mod tests {
         );
         assert_eq!(
             reader.read_usized(Offset::zero(), ByteSize::U2).unwrap(),
-            0xFEDC_u64
+            0xDCFE_u64
         );
         assert_eq!(
             reader.read_isized(Offset::zero(), ByteSize::U2).unwrap(),
-            -0x0124_i64
+            -0x2302_i64
         );
         assert_eq!(
             reader.read_usized(Offset::zero(), ByteSize::U3).unwrap(),
-            0xFEDCBA_u64
+            0xBADCFE_u64
         );
         assert_eq!(
             reader.read_isized(Offset::zero(), ByteSize::U3).unwrap(),
-            -0x012346_i64
+            -0x452302_i64
         );
         assert_eq!(
             reader.read_isized(Offset::new(1), ByteSize::U3).unwrap(),
-            -0x234568_i64
+            -0x674524_i64
         );
         assert_eq!(
             reader.read_usized(Offset::zero(), ByteSize::U4).unwrap(),
-            0xFEDCBA98_u64
+            0x98BADCFE_u64
         );
         assert_eq!(
             reader.read_isized(Offset::zero(), ByteSize::U4).unwrap(),
-            -0x01234568_i64
+            -0x67452302_i64
         );
         assert_eq!(
             reader.read_usized(Offset::zero(), ByteSize::U5).unwrap(),
-            0xFEDCBA9876_u64
+            0x7698BADCFE_u64
         );
         assert_eq!(
             reader.read_isized(Offset::zero(), ByteSize::U5).unwrap(),
-            -0x012345678A_i64
+            0x7698BADCFE_i64
         );
         assert_eq!(
             reader.read_usized(Offset::zero(), ByteSize::U6).unwrap(),
-            0xFEDCBA987654_u64
+            0x547698BADCFE_u64
         );
         assert_eq!(
             reader.read_isized(Offset::zero(), ByteSize::U6).unwrap(),
-            -0x0123456789AC_i64
+            0x547698BADCFE_i64
         );
         assert_eq!(
             reader.read_usized(Offset::zero(), ByteSize::U7).unwrap(),
-            0xFEDCBA98765432_u64
+            0x32547698BADCFE_u64
         );
         assert_eq!(
             reader.read_isized(Offset::zero(), ByteSize::U7).unwrap(),
-            -0x0123456789ABCE_i64
+            0x32547698BADCFE_i64
         );
         assert_eq!(
             reader.read_usized(Offset::zero(), ByteSize::U8).unwrap(),
-            0xFEDCBA9876543210_u64
+            0x1032547698BADCFE_u64
         );
         assert_eq!(
             reader.read_isized(Offset::zero(), ByteSize::U8).unwrap(),
-            -0x0123456789ABCDF0_i64
+            0x1032547698BADCFE_i64
         );
     }
 
@@ -337,28 +337,28 @@ mod tests {
         assert_eq!(flux.tell(), Offset::new(1));
         assert_eq!(flux.read_u8().unwrap(), 0x01_u8);
         assert_eq!(flux.tell(), Offset::new(2));
-        assert_eq!(flux.read_u16().unwrap(), 0x0203_u16);
+        assert_eq!(flux.read_u16().unwrap(), 0x0302_u16);
         assert_eq!(flux.tell(), Offset::new(4));
         flux = reader.create_flux_all();
-        assert_eq!(flux.read_u32().unwrap(), 0x00010203_u32);
-        assert_eq!(flux.read_u32().unwrap(), 0x04050607_u32);
+        assert_eq!(flux.read_u32().unwrap(), 0x03020100_u32);
+        assert_eq!(flux.read_u32().unwrap(), 0x07060504_u32);
         assert_eq!(flux.tell(), Offset::new(8));
         assert!(flux.read_u64().is_err());
         flux = reader.create_flux_all();
-        assert_eq!(flux.read_u64().unwrap(), 0x0001020304050607_u64);
+        assert_eq!(flux.read_u64().unwrap(), 0x0706050403020100_u64);
         assert_eq!(flux.tell(), Offset::new(8));
 
         let mut flux1 = reader.create_flux_from(Offset::from(1_u64));
         assert_eq!(flux1.tell(), Offset::zero());
         assert_eq!(flux1.read_u8().unwrap(), 0x01_u8);
         assert_eq!(flux1.tell(), Offset::new(1));
-        assert_eq!(flux1.read_u16().unwrap(), 0x0203_u16);
+        assert_eq!(flux1.read_u16().unwrap(), 0x0302_u16);
         assert_eq!(flux1.tell(), Offset::new(3));
-        assert_eq!(flux1.read_u32().unwrap(), 0x04050607_u32);
+        assert_eq!(flux1.read_u32().unwrap(), 0x07060504_u32);
         assert_eq!(flux1.tell(), Offset::new(7));
         assert!(flux1.read_u64().is_err());
         flux1 = reader.create_flux_from(Offset::new(1));
-        assert_eq!(flux1.read_u64().unwrap(), 0x0102030405060708_u64);
+        assert_eq!(flux1.read_u64().unwrap(), 0x0807060504030201_u64);
         assert_eq!(flux1.tell(), Offset::new(8));
 
         flux = reader.create_flux_from(Offset::zero());

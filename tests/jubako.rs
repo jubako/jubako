@@ -51,11 +51,11 @@ impl Cluster {
         let mut data = vec![];
         data.push(self.compression as u8);
         data.push(0x08); // offset size [TODO] Use better size
-        data.extend((self.entries_offset.len() as u16).to_be_bytes()); // blob_count
-        data.extend((self.entries_offset[self.entries_offset.len() - 1] as u64).to_be_bytes()); //raw data size
-        data.extend((self.data_size.unwrap() as u64).to_be_bytes()); // data size
+        data.extend((self.entries_offset.len() as u16).to_le_bytes()); // blob_count
+        data.extend((self.entries_offset[self.entries_offset.len() - 1] as u64).to_le_bytes()); //raw data size
+        data.extend((self.data_size.unwrap() as u64).to_le_bytes()); // data size
         for offset in &self.entries_offset[..(self.entries_offset.len() - 1)] {
-            data.extend((*offset as u64).to_be_bytes());
+            data.extend((*offset as u64).to_le_bytes());
         }
         self.tail_size = Some(data.len() as u16);
         data
@@ -100,11 +100,11 @@ impl KeyStore {
     pub fn tail_bytes(&mut self) -> Vec<u8> {
         let mut data = vec![];
         data.push(0x01); // kind
-        data.extend((self.entries_offset.len() as u64).to_be_bytes()); // key count
+        data.extend((self.entries_offset.len() as u64).to_le_bytes()); // key count
         data.push(0x08); // offset size [TODO] Use a better size
-        data.extend((self.entries_offset[self.entries_offset.len() - 1] as u64).to_be_bytes()); //data size
+        data.extend((self.entries_offset[self.entries_offset.len() - 1] as u64).to_le_bytes()); //data size
         for offset in &self.entries_offset[..(self.entries_offset.len() - 1)] {
-            data.extend((*offset as u64).to_be_bytes());
+            data.extend((*offset as u64).to_le_bytes());
         }
         self.tail_size = Some(data.len() as u16);
         data
@@ -131,8 +131,8 @@ impl IndexStore {
             // - The content : a content address(1)
             // - The words counts : a u16
             data.extend(&[entry.path.as_bytes().len() as u8, idx].to_vec());
-            data.extend(&(idx as u16 + 0x0100_u16).to_be_bytes().to_vec());
-            data.extend(&entry.word_count.to_be_bytes().to_vec());
+            data.extend(&(((idx as u16) << 8) + 0x01_u16).to_le_bytes().to_vec());
+            data.extend(&entry.word_count.to_le_bytes().to_vec());
             idx += 1;
         }
         IndexStore {
@@ -148,7 +148,7 @@ impl IndexStore {
     pub fn tail_bytes(&mut self) -> Vec<u8> {
         let mut data = vec![];
         data.push(0x00); // kind
-        data.extend(6_u16.to_be_bytes()); // entry_size
+        data.extend(6_u16.to_le_bytes()); // entry_size
         data.push(0x00); // variant count
         data.push(0x03); // key count
         data.extend(&[0b0101_0001, 0b001_00000, 0x00]); // The first key, a char1[0] + deported(1) idx 0
@@ -157,7 +157,7 @@ impl IndexStore {
         data.extend(&[2, b'V', b'1']); // The name of the second key "V1"
         data.extend(&[0b0010_0001]); // The third key, the u16
         data.extend(&[2, b'V', b'2']); // The name of the third key "V2"
-        data.extend((self.data.len() as u64).to_be_bytes()); //data size
+        data.extend((self.data.len() as u64).to_le_bytes()); //data size
         self.tail_size = Some(data.len() as u16);
         data
     }
@@ -188,11 +188,11 @@ impl Index {
 
     pub fn bytes(&mut self) -> Vec<u8> {
         let mut data = vec![];
-        data.extend(self.store_id.to_be_bytes()); // store_id
-        data.extend(self.entry_count.to_be_bytes()); // entry_count
-        data.extend(0_u32.to_be_bytes()); // entry_offset
+        data.extend(self.store_id.to_le_bytes()); // store_id
+        data.extend(self.entry_count.to_le_bytes()); // entry_count
+        data.extend(0_u32.to_le_bytes()); // entry_offset
         data.extend([0; 4]); // free_data
-        data.extend(self.index_key.to_be_bytes()); // index_key
+        data.extend(self.index_key.to_le_bytes()); // index_key
         data.push(self.index_name.len() as u8);
         data.extend(self.index_name.bytes()); // The index name
         self.tail_size = Some(data.len() as u16);
@@ -235,14 +235,14 @@ impl PackInfo {
     pub fn bytes(&self, check_info_pos: u64) -> Vec<u8> {
         let mut data = vec![];
         data.extend(self.uuid.as_bytes());
-        data.extend(self.pack_size.to_be_bytes());
-        data.extend(check_info_pos.to_be_bytes());
-        data.extend(self.pack_id.to_be_bytes());
+        data.extend(self.pack_size.to_le_bytes());
+        data.extend(check_info_pos.to_le_bytes());
+        data.extend(self.pack_id.to_le_bytes());
         data.push(self.pack_kind);
         data.push(0); // pack_group
         data.extend(&[0; 2]); // free data id
         let path_data = self.pack_path.as_bytes();
-        data.extend((path_data.len() as u8).to_be_bytes());
+        data.extend((path_data.len() as u8).to_le_bytes());
         data.extend(path_data);
         data.extend(vec![0; 256 - data.len()]);
         data
@@ -303,26 +303,26 @@ test_suite! {
         file.write_all(&[0x00;6])?; // padding
         file.write_all(&[0x00;16])?; // file size and checksum pos, to be write after
         file.write_all(&[0x00;16])?; // reserved
-        file.write_all(&0x80_u64.to_be_bytes())?; // entry_ptr_offset
-        file.write_all(&((0x80+4*entries.len()) as u64).to_be_bytes())?; // cluster_ptr_offset
-        file.write_all(&(entries.len() as u32).to_be_bytes())?; // entry count
-        file.write_all(&1_u32.to_be_bytes())?; // cluster count
+        file.write_all(&0x80_u64.to_le_bytes())?; // entry_ptr_offset
+        file.write_all(&((0x80+4*entries.len()) as u64).to_le_bytes())?; // cluster_ptr_offset
+        file.write_all(&(entries.len() as u32).to_le_bytes())?; // entry count
+        file.write_all(&1_u32.to_le_bytes())?; // cluster count
         file.write_all(&[0xff;40])?; // free_data
         file.write_all(&[0x00, 0x00, 0x00, 0x00])?; // first entry info
-        file.write_all(&[0x00, 0x00, 0x00, 0x01])?; // second entry info
+        file.write_all(&[0x01, 0x00, 0x00, 0x00])?; // second entry info
         let cluster_ptr_info_offset = file.seek(SeekFrom::Current(0))?;
         file.write_all(&[0x00;8])?; // cluster offset.
         let mut cluster = Cluster::new(compression, &entries);
         file.write_all(&cluster.data_bytes())?;
-        let cluster_info_offset = file.seek(SeekFrom::Current(0))?.to_be_bytes();
+        let cluster_info_offset = file.seek(SeekFrom::Current(0))?.to_le_bytes();
         file.write_all(&cluster.tail_bytes())?;
         file.seek(SeekFrom::Start(cluster_ptr_info_offset))?;
-        file.write_all(&cluster.tail_size().to_be_bytes())?;
-        file.write_all(&cluster_info_offset[2..])?;
+        file.write_all(&cluster.tail_size().to_le_bytes())?;
+        file.write_all(&cluster_info_offset[..6])?;
         let checksum_pos = file.seek(SeekFrom::End(0))?;
         file.seek(SeekFrom::Start(32))?;
-        file.write_all(&(checksum_pos+33).to_be_bytes())?;
-        file.write_all(&checksum_pos.to_be_bytes())?;
+        file.write_all(&(checksum_pos+33).to_le_bytes())?;
+        file.write_all(&checksum_pos.to_le_bytes())?;
 
         file.seek(SeekFrom::Start(0))?;
         let mut hasher = blake3::Hasher::new();
@@ -353,7 +353,7 @@ test_suite! {
                         .open("/tmp/directoryPack.jbkd")?;
         file.write_all(&[
             0x6a, 0x62, 0x6b, 0x64,
-            0x01, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x01,
             0x00, 0x00,
         ])?;
         let uuid = Uuid::new_v4();
@@ -362,50 +362,50 @@ test_suite! {
         file.write_all(&[0x00;16])?; // file size and checksum pos, to be write after
         file.write_all(&[0x00;16])?; // reserved
         file.write_all(&[0x00;24])?; // index_ptr_offset, entry_store_ptr_offset, key_store_ptr_offset, to be write after
-        file.write_all(&1_u32.to_be_bytes())?; // index count
-        file.write_all(&1_u32.to_be_bytes())?; // entry_store count
-        file.write_all(&1_u8.to_be_bytes())?; // value_store count
+        file.write_all(&1_u32.to_le_bytes())?; // index count
+        file.write_all(&1_u32.to_le_bytes())?; // entry_store count
+        file.write_all(&1_u8.to_le_bytes())?; // value_store count
         file.write_all(&[0xff;31])?; // free_data
 
         let value_store_ptr_offset = {
             let mut key_store = KeyStore::new(entries);
             file.write_all(&key_store.data_bytes())?;
-            let key_store_offset = file.seek(SeekFrom::Current(0))?.to_be_bytes();
+            let key_store_offset = file.seek(SeekFrom::Current(0))?.to_le_bytes();
             file.write_all(&key_store.tail_bytes())?;
             let key_store_ptr_offset = file.seek(SeekFrom::Current(0))?;
-            file.write_all(&key_store.tail_size().to_be_bytes())?;
-            file.write_all(&key_store_offset[2..])?;
+            file.write_all(&key_store.tail_size().to_le_bytes())?;
+            file.write_all(&key_store_offset[..6])?;
             key_store_ptr_offset
         };
 
         let index_store_ptr_offset = {
             let mut index_store = IndexStore::new(entries);
             file.write_all(&index_store.data_bytes())?;
-            let index_store_offset = file.seek(SeekFrom::Current(0))?.to_be_bytes();
+            let index_store_offset = file.seek(SeekFrom::Current(0))?.to_le_bytes();
             file.write_all(&index_store.tail_bytes())?;
             let index_store_ptr_offset = file.seek(SeekFrom::Current(0))?;
-            file.write_all(&index_store.tail_size().to_be_bytes())?;
-            file.write_all(&index_store_offset[2..])?;
+            file.write_all(&index_store.tail_size().to_le_bytes())?;
+            file.write_all(&index_store_offset[..6])?;
             index_store_ptr_offset
         };
 
         let index_ptr_offset = {
             let mut index = Index::new(entries);
-            let index_offset = file.seek(SeekFrom::Current(0))?.to_be_bytes();
+            let index_offset = file.seek(SeekFrom::Current(0))?.to_le_bytes();
             file.write_all(&index.bytes())?;
             let index_ptr_offset = file.seek(SeekFrom::Current(0))?;
-            file.write_all(&index.tail_size().to_be_bytes())?;
-            file.write_all(&index_offset[2..])?;
+            file.write_all(&index.tail_size().to_le_bytes())?;
+            file.write_all(&index_offset[..6])?;
             index_ptr_offset
         };
         let checksum_pos = file.seek(SeekFrom::End(0))?;
         file.seek(SeekFrom::Start(32))?;
-        file.write_all(&(checksum_pos+33).to_be_bytes())?;
-        file.write_all(&checksum_pos.to_be_bytes())?;
+        file.write_all(&(checksum_pos+33).to_le_bytes())?;
+        file.write_all(&checksum_pos.to_le_bytes())?;
         file.seek(SeekFrom::Start(64))?;
-        file.write_all(&index_ptr_offset.to_be_bytes())?;
-        file.write_all(&index_store_ptr_offset.to_be_bytes())?;
-        file.write_all(&value_store_ptr_offset.to_be_bytes())?;
+        file.write_all(&index_ptr_offset.to_le_bytes())?;
+        file.write_all(&index_store_ptr_offset.to_le_bytes())?;
+        file.write_all(&value_store_ptr_offset.to_le_bytes())?;
 
         file.seek(SeekFrom::Start(0))?;
         let mut hasher = blake3::Hasher::new();
@@ -445,15 +445,15 @@ test_suite! {
                         .open("/tmp/mainPack.jbkm")?;
         file.write_all(&[
             0x6a, 0x62, 0x6b, 0x6d,
-            0x01, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x01,
             0x00, 0x00,
         ])?;
         file.write_all(uuid.as_bytes())?;
         file.write_all(&[0x00;6])?; // padding
-        file.write_all(&file_size.to_be_bytes())?;
-        file.write_all(&check_info_pos.to_be_bytes())?;
+        file.write_all(&file_size.to_le_bytes())?;
+        file.write_all(&check_info_pos.to_le_bytes())?;
         file.write_all(&[0x00;16])?; // reserved
-        file.write_all(&[0x00, 0x02])?; // number of pack
+        file.write_all(&[0x02, 0x00])?; // number of pack
         file.write_all(&[0x00; 8])?; // Value store offset
         file.write_all(&[0xff;54])?; // free_data
 

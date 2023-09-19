@@ -26,16 +26,15 @@ impl Producable for SizedOffset {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {
         let data = flux.read_u64()?;
-        let offset = Offset::from(data & 0xFF_FF_FF_FF_FF_FF_u64);
-        let size = Size::from(data >> 48);
+        let size = Size::from(data & 0xFF_FF_u64);
+        let offset = Offset::from(data >> 16);
         Ok(Self::new(size, offset))
     }
 }
 
 impl Writable for SizedOffset {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        let data: u64 =
-            (self.size.into_u64() << 48) + (self.offset.into_u64() & 0xFF_FF_FF_FF_FF_FF_u64);
+        let data: u64 = (self.offset.into_u64() << 16) + (self.size.into_u64() & 0xFF_FF_u64);
         stream.write_u64(data)
     }
 }

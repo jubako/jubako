@@ -93,6 +93,8 @@ impl IndexedValueStore {
         let offset_size = ByteSize::produce(flux)?;
         let data_size: Size = flux.read_usized(offset_size)?.into();
         let value_count = value_count.into_usize();
+        // [FIXME] A lot of value means a lot of allocation.
+        // A wrong value here (or a carefully choosen one) may break our program.
         let mut value_offsets: Vec<Offset> = Vec::with_capacity(value_count + 1);
         // [TODO] Handle 32 and 16 bits
         let uninit = value_offsets.spare_capacity_mut();
@@ -157,7 +159,7 @@ mod tests {
                 0x21, 0x22, 0x23, // Data of entry 1
                 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of entry 2
                 0x00, // kind
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, // data_size
+                0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // data_size
             ]
         );
         let value_store =
@@ -167,11 +169,11 @@ mod tests {
                 assert_eq!(plainvaluestore.reader.size(), Size::from(0x0F_u64));
                 assert_eq!(
                     plainvaluestore.reader.read_u64(Offset::zero()).unwrap(),
-                    0x1112131415212223_u64
+                    0x2322211514131211_u64
                 );
                 assert_eq!(
                     plainvaluestore.reader.read_u64(Offset::new(7)).unwrap(),
-                    0x2331323334353637_u64
+                    0x3736353433323123_u64
                 );
             }
             _ => panic!("Wrong type"),
@@ -200,7 +202,7 @@ mod tests {
                 0x21, 0x22, 0x23, // Data of entry 1
                 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of entry 2
                 0x01, // kind
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, // value count
+                0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value count
                 0x01, // offset_size
                 0x0f, // data_size
                 0x05, // Offset of entry 1
@@ -218,14 +220,14 @@ mod tests {
                 assert_eq!(indexedvaluestore.reader.size(), Size::from(0x0f_u64));
                 assert_eq!(
                     indexedvaluestore.reader.read_u64(Offset::zero()).unwrap(),
-                    0x1112131415212223_u64
+                    0x2322211514131211_u64
                 );
                 assert_eq!(
                     indexedvaluestore
                         .reader
                         .read_usized(Offset::new(8), ByteSize::U7)
                         .unwrap(),
-                    0x31323334353637_u64
+                    0x37363534333231_u64
                 );
             }
             _ => panic!("Wrong type"),
