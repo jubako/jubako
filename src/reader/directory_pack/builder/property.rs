@@ -6,6 +6,7 @@ use crate::reader::directory_pack::raw_layout::{DeportedDefault, PropertyKind};
 use crate::reader::directory_pack::raw_value::{Array, Extend, RawValue};
 use crate::reader::directory_pack::ValueStoreTrait;
 use std::sync::Arc;
+use zerocopy::byteorder::{ByteOrder, LittleEndian as LE};
 
 // The properties here are pretty close from the layout::Property.
 // The main difference is that layout::Property is not typed:
@@ -69,10 +70,9 @@ impl IntProperty {
     ) -> Result<Self> {
         match deported_default {
             DeportedDefault::Value(default) => {
-                use crate::bases::primitive::read_to_u64;
                 let default_data =
                     store.get_data(default.into(), Some(Size::from(size as u8 as usize)))?;
-                let default = read_to_u64(size as u8 as usize, default_data);
+                let default = LE::read_uint(default_data, size as u8 as usize);
                 Ok(IntProperty::new(offset, size, Some(default), None))
             }
             DeportedDefault::KeySize(key_size) => Ok(IntProperty::new(
@@ -111,7 +111,6 @@ impl PropertyBuilderTrait for IntProperty {
             Some(v) => v,
             None => match &self.deported {
                 Some((key_size, value_store)) => {
-                    use crate::bases::primitive::read_to_u64;
                     let key = match key_size {
                         ByteSize::U1 => reader.read_u8(self.offset)? as u64,
                         ByteSize::U2 => reader.read_u16(self.offset)? as u64,
@@ -121,7 +120,7 @@ impl PropertyBuilderTrait for IntProperty {
                     };
                     let value_data = value_store
                         .get_data(key.into(), Some(Size::from(self.size as u8 as usize)))?;
-                    read_to_u64(self.size as u8 as usize, value_data)
+                    LE::read_uint(value_data, self.size as u8 as usize)
                 }
                 None => match self.size {
                     ByteSize::U1 => reader.read_u8(self.offset)? as u64,
@@ -166,10 +165,9 @@ impl SignedProperty {
     ) -> Result<Self> {
         match deported_default {
             DeportedDefault::Value(default) => {
-                use crate::bases::primitive::read_to_i64;
                 let default_data =
                     store.get_data(default.into(), Some(Size::from(size as u8 as usize)))?;
-                let default = read_to_i64(size as u8 as usize, default_data);
+                let default = LE::read_int(default_data, size as u8 as usize);
                 Ok(SignedProperty::new(offset, size, Some(default), None))
             }
             DeportedDefault::KeySize(key_size) => Ok(SignedProperty::new(
@@ -210,7 +208,6 @@ impl PropertyBuilderTrait for SignedProperty {
             Some(v) => v,
             None => match &self.deported {
                 Some((key_size, value_store)) => {
-                    use crate::bases::primitive::read_to_i64;
                     let key = match key_size {
                         ByteSize::U1 => reader.read_u8(self.offset)? as u64,
                         ByteSize::U2 => reader.read_u16(self.offset)? as u64,
@@ -223,7 +220,7 @@ impl PropertyBuilderTrait for SignedProperty {
                     };
                     let value_data = value_store
                         .get_data(key.into(), Some(Size::from(self.size as u8 as usize)))?;
-                    read_to_i64(self.size as u8 as usize, value_data)
+                    LE::read_int(value_data, self.size as u8 as usize)
                 }
                 None => match self.size {
                     ByteSize::U1 => reader.read_i8(self.offset)? as i64,
