@@ -79,8 +79,9 @@ test_suite! {
             compression
         )?;
         for entry in entries {
-            let content = entry.content.clone().into_bytes();
-            creator.add_content(content.into())?;
+            let content = entry.content.clone();
+            let content = std::io::Cursor::new(content);
+            creator.add_content(content)?;
         }
         let (file, pack_info) = creator.finalize()?;
         Ok((pack_info, jubako::FileSource::new(file)?.into()))

@@ -51,7 +51,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Now we have "configured" our container, let's add some content:
     let content: Vec<u8> = "A super content prime quality for our test container".into();
-    let content_id = content_pack.add_content(content.into())?;
+    let content = std::io::Cursor::new(content);
+    let content_id = content_pack.add_content(content)?;
     entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
         &entry_store.schema,
         Some("FirstVariant"), // Variant 0

@@ -3,18 +3,20 @@ use super::Progress;
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::sync::{mpsc, Arc, Condvar, Mutex};
 use std::thread::{spawn, JoinHandle};
 
+type InputData = Vec<Box<dyn Read + Send>>;
+
 #[cfg(feature = "lz4")]
 fn lz4_compress<'b>(
-    data: &mut Vec<Reader>,
+    data: &mut InputData,
     stream: &'b mut dyn OutStream,
 ) -> Result<&'b mut dyn OutStream> {
     let mut encoder = lz4::EncoderBuilder::new().level(16).build(stream)?;
-    for in_reader in data.drain(..) {
-        std::io::copy(&mut in_reader.create_flux_all(), &mut encoder)?;
+    for mut in_reader in data.drain(..) {
+        std::io::copy(&mut in_reader, &mut encoder)?;
     }
     let (stream, err) = encoder.finish();
     err?;
@@ -24,7 +26,7 @@ fn lz4_compress<'b>(
 #[cfg(not(feature = "lz4"))]
 #[allow(clippy::ptr_arg)]
 fn lz4_compress<'b>(
-    _data: &mut Vec<Reader>,
+    _data: &mut InputData,
     _stream: &'b mut dyn OutStream,
 ) -> Result<&'b mut dyn OutStream> {
     Err("Lz4 compression is not supported by this configuration."
@@ -34,12 +36,12 @@ fn lz4_compress<'b>(
 
 #[cfg(feature = "lzma")]
 fn lzma_compress<'b>(
-    data: &mut Vec<Reader>,
+    data: &mut InputData,
     stream: &'b mut dyn OutStream,
 ) -> Result<&'b mut dyn OutStream> {
     let mut encoder = lzma::LzmaWriter::new_compressor(stream, 9)?;
-    for in_reader in data.drain(..) {
-        std::io::copy(&mut in_reader.create_flux_all(), &mut encoder)?;
+    for mut in_reader in data.drain(..) {
+        std::io::copy(&mut in_reader, &mut encoder)?;
     }
     Ok(encoder.finish()?)
 }
@@ -47,7 +49,7 @@ fn lzma_compress<'b>(
 #[cfg(not(feature = "lzma"))]
 #[allow(clippy::ptr_arg)]
 fn lzma_compress<'b>(
-    _data: &mut Vec<Reader>,
+    _data: &mut InputData,
     _stream: &'b mut dyn OutStream,
 ) -> Result<&'b mut dyn OutStream> {
     Err("Lzma compression is not supported by this configuration."
@@ -57,14 +59,14 @@ fn lzma_compress<'b>(
 
 #[cfg(feature = "zstd")]
 fn zstd_compress<'b>(
-    data: &mut Vec<Reader>,
+    data: &mut InputData,
     stream: &'b mut dyn OutStream,
 ) -> Result<&'b mut dyn OutStream> {
     let mut encoder = zstd::Encoder::new(stream, 19)?;
     encoder.include_contentsize(false)?;
     //encoder.long_distance_matching(true);
-    for in_reader in data.drain(..) {
-        std::io::copy(&mut in_reader.create_flux_all(), &mut encoder)?;
+    for mut in_reader in data.drain(..) {
+        std::io::copy(&mut in_reader, &mut encoder)?;
     }
     Ok(encoder.finish()?)
 }
@@ -72,7 +74,7 @@ fn zstd_compress<'b>(
 #[cfg(not(feature = "zstd"))]
 #[allow(clippy::ptr_arg)]
 fn zstd_compress<'b>(
-    _data: &mut Vec<Reader>,
+    _data: &mut InputData,
     _stream: &'b mut dyn OutStream,
 ) -> Result<&'b mut dyn OutStream> {
     Err("Zstd compression is not supported by this configuration."
@@ -204,8 +206,8 @@ impl ClusterWriter {
     }
 
     fn write_cluster_data(&mut self, cluster: &mut ClusterCreator) -> Result<()> {
-        for d in cluster.data.drain(..) {
-            std::io::copy(&mut d.create_flux_all(), &mut self.file)?;
+        for mut d in cluster.data.drain(..) {
+            std::io::copy(&mut d, &mut self.file)?;
         }
         Ok(())
     }

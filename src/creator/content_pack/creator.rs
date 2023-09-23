@@ -5,21 +5,27 @@ use crate::bases::*;
 use crate::common::{
     CheckInfo, CompressionType, ContentInfo, ContentPackHeader, PackHeaderInfo, PackKind,
 };
-use crate::creator::PackData;
+use crate::creator::{InputReader, PackData};
 use std::cell::Cell;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::sync::Arc;
 
-fn shannon_entropy(data: &Reader) -> Result<f32> {
+fn shannon_entropy<R>(data: &mut R) -> Result<f32>
+where
+    R: InputReader,
+{
     let mut entropy = 0.0;
     let mut counts = [0; 256];
-    let size = std::cmp::min(1024, data.size().into_usize());
-    let mut data = data.create_flux_all();
+    let mut buf = [0; 1024];
+    let size = std::cmp::min(data.size().into_usize(), 1024);
 
-    for _ in 0..size {
-        counts[data.read_u8()? as usize] += 1;
+    let buf = &mut buf[..size];
+    data.read_exact(buf)?;
+
+    for byte in buf {
+        counts[*byte as usize] += 1;
     }
 
     for &count in &counts {
@@ -155,7 +161,10 @@ impl ContentPackCreator {
         ClusterCreator::new(cluster_id.into())
     }
 
-    fn get_open_cluster<'s>(&'s mut self, content: &Reader) -> Result<&'s mut ClusterCreator> {
+    fn get_open_cluster<'s, R>(&'s mut self, content: &mut R) -> Result<&'s mut ClusterCreator>
+    where
+        R: InputReader,
+    {
         let entropy = shannon_entropy(content)?;
         let compress_content = entropy <= 6.0;
         // Let's get raw cluster
@@ -181,9 +190,11 @@ impl ContentPackCreator {
         }
     }
 
-    pub fn add_content(&mut self, content: Reader) -> Result<ContentIdx> {
-        self.progress.content_added(content.size());
-        let cluster = self.get_open_cluster(&content)?;
+    pub fn add_content<R: InputReader + 'static>(&mut self, mut content: R) -> Result<ContentIdx> {
+        let content_size = content.size();
+        self.progress.content_added(content_size);
+        let cluster = self.get_open_cluster(&mut content)?;
+        content.seek(SeekFrom::Start(0))?;
         let content_info = cluster.add_content(content)?;
         self.content_infos.push(content_info);
         Ok(((self.content_infos.len() - 1) as u32).into())

@@ -1,9 +1,11 @@
 use crate::bases::*;
 use crate::common::ContentInfo;
+use crate::creator::InputReader;
+use std::io::{Cursor, Read};
 
 pub struct ClusterCreator {
     pub index: ClusterIdx,
-    pub data: Vec<Reader>,
+    pub data: Vec<Box<dyn Read + Send>>,
     pub offsets: Vec<usize>,
 }
 
@@ -38,13 +40,18 @@ impl ClusterCreator {
         self.data.is_empty()
     }
 
-    pub fn add_content(&mut self, mut content: Reader) -> Result<ContentInfo> {
+    pub fn add_content<R: InputReader + 'static>(&mut self, mut content: R) -> Result<ContentInfo> {
         assert!(self.offsets.len() < MAX_BLOBS_PER_CLUSTER);
-        if content.size() < CLUSTER_SIZE {
-            content = content.create_sub_memory_reader(Offset::zero(), End::None)?;
-        }
+        let content_size = content.size();
+        let content: Box<dyn Read + Send> = if content_size < CLUSTER_SIZE {
+            let mut bytes = Vec::with_capacity(content_size.into_usize());
+            content.read_to_end(&mut bytes)?;
+            Box::new(Cursor::new(bytes))
+        } else {
+            Box::new(content)
+        };
         let idx = self.offsets.len() as u16;
-        let new_offset = self.offsets.last().unwrap_or(&0) + content.size().into_usize();
+        let new_offset = self.offsets.last().unwrap_or(&0) + content_size.into_usize();
         self.data.push(content);
         self.offsets.push(new_offset);
         Ok(ContentInfo::new(self.index, BlobIdx::from(idx)))
