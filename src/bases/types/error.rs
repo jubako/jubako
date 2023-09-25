@@ -1,6 +1,5 @@
 use crate::bases::*;
 
-use std::any::Demand;
 #[cfg(debug_assertions)]
 use std::backtrace::Backtrace;
 use std::fmt;
@@ -141,14 +140,14 @@ impl fmt::Debug for Error {
 }
 
 impl std::error::Error for Error {
-    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+    fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {
         #[cfg(debug_assertions)]
-        demand.provide_ref::<Backtrace>(&self.bt);
+        request.provide_ref::<Backtrace>(&self.bt);
         match &self.error {
-            ErrorKind::Io(e) => demand.provide_ref::<std::io::Error>(e),
-            ErrorKind::Format(e) => demand.provide_ref::<FormatError>(e),
-            ErrorKind::Other(e) => demand.provide_ref::<String>(e),
-            _ => demand, /* Nothing*/
+            ErrorKind::Io(e) => request.provide_ref::<std::io::Error>(e),
+            ErrorKind::Format(e) => request.provide_ref::<FormatError>(e),
+            ErrorKind::Other(e) => request.provide_ref::<String>(e),
+            _ => request, /* Nothing*/
         };
     }
 }
