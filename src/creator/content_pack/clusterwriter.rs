@@ -2,12 +2,13 @@ use super::cluster::ClusterCreator;
 use super::Progress;
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
+use crate::creator::{InputReader, MaybeFileReader};
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::sync::{mpsc, Arc, Condvar, Mutex};
 use std::thread::{spawn, JoinHandle};
 
-type InputData = Vec<Box<dyn Read + Send>>;
+type InputData = Vec<Box<dyn InputReader>>;
 
 #[cfg(feature = "lz4")]
 fn lz4_compress<'b>(
@@ -205,11 +206,17 @@ impl ClusterWriter {
         }
     }
 
-    fn write_cluster_data(&mut self, cluster: &mut ClusterCreator) -> Result<()> {
-        for mut d in cluster.data.drain(..) {
-            std::io::copy(&mut d, &mut self.file)?;
+    fn write_cluster_data(&mut self, cluster_data: InputData) -> Result<u64> {
+        let mut copied = 0;
+        for d in cluster_data.into_iter() {
+            copied += match d.get_file_source() {
+                MaybeFileReader::Yes(mut input_file) => {
+                    std::io::copy(&mut input_file, &mut self.file)?
+                }
+                MaybeFileReader::No(mut reader) => std::io::copy(reader.as_mut(), &mut self.file)?,
+            };
         }
-        Ok(())
+        Ok(copied)
     }
 
     fn write_cluster_tail(&mut self, cluster: &ClusterCreator, raw_data_size: Size) -> Result<()> {
@@ -234,7 +241,8 @@ impl ClusterWriter {
         self.progress
             .handle_cluster(cluster.index().into_u32(), false);
         let start_offset = self.file.tell();
-        self.write_cluster_data(&mut cluster)?;
+        let written = self.write_cluster_data(cluster.data.split_off(0))?;
+        assert_eq!(written, cluster.data_size().into_u64());
         let tail_offset = self.file.tell();
         self.write_cluster_tail(&cluster, tail_offset - start_offset)?;
         let tail_size = self.file.tell() - tail_offset;
