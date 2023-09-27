@@ -12,8 +12,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         "test.jbkc",
         jbk::PackId::from(1), // The pack id as referenced in the container
         VENDOR_ID,
-        Default::default(),         // Put whatever you what, this is for you
-        jbk::CompressionType::Zstd, // How to compress
+        Default::default(), // Put whatever you what, this is for you
+        jbk::creator::Compression::zstd(), // How to compress
     )?;
 
     let mut directory_pack = jbk::creator::DirectoryPackCreator::new(

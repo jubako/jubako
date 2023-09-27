@@ -2,7 +2,7 @@ use super::cluster::ClusterCreator;
 use super::Progress;
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
-use crate::creator::{InputReader, MaybeFileReader};
+use crate::creator::{Compression, InputReader, MaybeFileReader};
 use std::fs::File;
 use std::io::Write;
 use std::sync::{mpsc, Arc, Condvar, Mutex};
@@ -14,8 +14,9 @@ type InputData = Vec<Box<dyn InputReader>>;
 fn lz4_compress<'b>(
     data: &mut InputData,
     stream: &'b mut dyn OutStream,
+    level: u32,
 ) -> Result<&'b mut dyn OutStream> {
-    let mut encoder = lz4::EncoderBuilder::new().level(16).build(stream)?;
+    let mut encoder = lz4::EncoderBuilder::new().level(level).build(stream)?;
     for mut in_reader in data.drain(..) {
         std::io::copy(&mut in_reader, &mut encoder)?;
     }
@@ -29,6 +30,7 @@ fn lz4_compress<'b>(
 fn lz4_compress<'b>(
     _data: &mut InputData,
     _stream: &'b mut dyn OutStream,
+    _level: u32,
 ) -> Result<&'b mut dyn OutStream> {
     Err("Lz4 compression is not supported by this configuration."
         .to_string()
@@ -39,8 +41,9 @@ fn lz4_compress<'b>(
 fn lzma_compress<'b>(
     data: &mut InputData,
     stream: &'b mut dyn OutStream,
+    level: u32,
 ) -> Result<&'b mut dyn OutStream> {
-    let mut encoder = lzma::LzmaWriter::new_compressor(stream, 9)?;
+    let mut encoder = lzma::LzmaWriter::new_compressor(stream, level)?;
     for mut in_reader in data.drain(..) {
         std::io::copy(&mut in_reader, &mut encoder)?;
     }
@@ -52,6 +55,7 @@ fn lzma_compress<'b>(
 fn lzma_compress<'b>(
     _data: &mut InputData,
     _stream: &'b mut dyn OutStream,
+    _level: u32,
 ) -> Result<&'b mut dyn OutStream> {
     Err("Lzma compression is not supported by this configuration."
         .to_string()
@@ -62,10 +66,12 @@ fn lzma_compress<'b>(
 fn zstd_compress<'b>(
     data: &mut InputData,
     stream: &'b mut dyn OutStream,
+    level: i32,
 ) -> Result<&'b mut dyn OutStream> {
-    let mut encoder = zstd::Encoder::new(stream, 19)?;
+    let mut encoder = zstd::Encoder::new(stream, level)?;
     encoder.include_contentsize(false)?;
-    //encoder.long_distance_matching(true);
+    encoder.include_checksum(false)?;
+    encoder.window_log(23)?;
     for mut in_reader in data.drain(..) {
         std::io::copy(&mut in_reader, &mut encoder)?;
     }
@@ -77,6 +83,7 @@ fn zstd_compress<'b>(
 fn zstd_compress<'b>(
     _data: &mut InputData,
     _stream: &'b mut dyn OutStream,
+    _level: i32,
 ) -> Result<&'b mut dyn OutStream> {
     Err("Zstd compression is not supported by this configuration."
         .to_string()
@@ -84,7 +91,7 @@ fn zstd_compress<'b>(
 }
 
 pub struct ClusterCompressor {
-    compression: CompressionType,
+    compression: Compression,
     input: spmc::Receiver<ClusterCreator>,
     output: mpsc::Sender<WriteTask>,
     nb_cluster_in_queue: Arc<(Mutex<usize>, Condvar)>,
@@ -93,7 +100,7 @@ pub struct ClusterCompressor {
 
 impl ClusterCompressor {
     pub fn new(
-        compression: CompressionType,
+        compression: Compression,
         input: spmc::Receiver<ClusterCreator>,
         output: mpsc::Sender<WriteTask>,
         nb_cluster_in_queue: Arc<(Mutex<usize>, Condvar)>,
@@ -114,10 +121,10 @@ impl ClusterCompressor {
         outstream: &mut dyn OutStream,
     ) -> Result<()> {
         match &self.compression {
-            CompressionType::None => unreachable!(),
-            CompressionType::Lz4 => lz4_compress(&mut cluster.data, outstream)?,
-            CompressionType::Lzma => lzma_compress(&mut cluster.data, outstream)?,
-            CompressionType::Zstd => zstd_compress(&mut cluster.data, outstream)?,
+            Compression::None => unreachable!(),
+            Compression::Lz4(level) => lz4_compress(&mut cluster.data, outstream, *level)?,
+            Compression::Lzma(level) => lzma_compress(&mut cluster.data, outstream, *level)?,
+            Compression::Zstd(level) => zstd_compress(&mut cluster.data, outstream, *level)?,
         };
         Ok(())
     }
@@ -130,7 +137,7 @@ impl ClusterCompressor {
     ) -> Result<()> {
         let offset_size = needed_bytes(cluster.data_size().into_u64());
         let cluster_header = ClusterHeader::new(
-            self.compression,
+            self.compression.into(),
             offset_size,
             BlobCount::from(cluster.offsets.len() as u16),
         );
@@ -289,13 +296,13 @@ pub struct ClusterWriterProxy {
     fusion_tx: mpsc::Sender<WriteTask>,
     nb_cluster_in_queue: Arc<(Mutex<usize>, Condvar)>,
     max_queue_size: usize,
-    compression: CompressionType,
+    compression: Compression,
 }
 
 impl ClusterWriterProxy {
     pub fn new(
         file: File,
-        compression: CompressionType,
+        compression: Compression,
         nb_thread: usize,
         progress: Arc<dyn Progress>,
     ) -> Self {
@@ -339,7 +346,12 @@ impl ClusterWriterProxy {
     }
 
     pub fn write_cluster(&mut self, cluster: ClusterCreator, compressed: bool) {
-        if compressed && self.compression != CompressionType::None {
+        let should_compress = if let Compression::None = self.compression {
+            false
+        } else {
+            compressed
+        };
+        if should_compress {
             let (count, cvar) = &*self.nb_cluster_in_queue;
             let mut count = cvar
                 .wait_while(count.lock().unwrap(), |c| *c >= self.max_queue_size)

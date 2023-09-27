@@ -5,7 +5,7 @@ mod manifest_pack;
 
 use crate::bases::*;
 pub use crate::bases::{FileSource, Reader};
-use crate::common::{CheckInfo, PackKind};
+use crate::common::{CheckInfo, CompressionType, PackKind};
 pub use container_pack::ContainerPackCreator;
 pub use content_pack::{CacheProgress, CachedContentPackCreator, ContentPackCreator, Progress};
 pub use directory_pack::{
@@ -147,5 +147,38 @@ impl InputReader for InputFile {
     fn get_file_source(mut self: Box<Self>) -> MaybeFileReader {
         self.rewind().unwrap();
         MaybeFileReader::Yes(self.source.take(self.len))
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum Compression {
+    None,
+    Lz4(u32),
+    Lzma(u32),
+    Zstd(i32),
+}
+
+impl Compression {
+    pub fn lz4() -> Compression {
+        Compression::Lz4(16)
+    }
+
+    pub fn lzma() -> Compression {
+        Compression::Lzma(9)
+    }
+
+    pub fn zstd() -> Compression {
+        Compression::Zstd(5)
+    }
+}
+
+impl From<Compression> for CompressionType {
+    fn from(c: Compression) -> Self {
+        match c {
+            Compression::None => CompressionType::None,
+            Compression::Lz4(_) => CompressionType::Lz4,
+            Compression::Lzma(_) => CompressionType::Lzma,
+            Compression::Zstd(_) => CompressionType::Zstd,
+        }
     }
 }

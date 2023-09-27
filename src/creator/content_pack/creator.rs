@@ -2,10 +2,8 @@ use super::cluster::ClusterCreator;
 use super::clusterwriter::ClusterWriterProxy;
 use super::Progress;
 use crate::bases::*;
-use crate::common::{
-    CheckInfo, CompressionType, ContentInfo, ContentPackHeader, PackHeaderInfo, PackKind,
-};
-use crate::creator::{InputReader, PackData};
+use crate::common::{CheckInfo, ContentInfo, ContentPackHeader, PackHeaderInfo, PackKind};
+use crate::creator::{Compression, InputReader, PackData};
 use std::cell::Cell;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -75,7 +73,7 @@ impl ContentPackCreator {
         pack_id: PackId,
         app_vendor_id: u32,
         free_data: ContentPackFreeData,
-        compression: CompressionType,
+        compression: Compression,
     ) -> Result<Self> {
         Self::new_with_progress(
             path,
@@ -92,7 +90,7 @@ impl ContentPackCreator {
         pack_id: PackId,
         app_vendor_id: u32,
         free_data: ContentPackFreeData,
-        compression: CompressionType,
+        compression: Compression,
         progress: Arc<dyn Progress>,
     ) -> Result<Self> {
         let file = OpenOptions::new()
@@ -116,7 +114,7 @@ impl ContentPackCreator {
         pack_id: PackId,
         app_vendor_id: u32,
         free_data: ContentPackFreeData,
-        compression: CompressionType,
+        compression: Compression,
     ) -> Result<Self> {
         Self::new_from_file_with_progress(
             file,
@@ -133,7 +131,7 @@ impl ContentPackCreator {
         pack_id: PackId,
         app_vendor_id: u32,
         free_data: ContentPackFreeData,
-        compression: CompressionType,
+        compression: Compression,
         progress: Arc<dyn Progress>,
     ) -> Result<Self> {
         file.seek(SeekFrom::Start(128))?;
