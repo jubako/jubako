@@ -166,7 +166,7 @@ impl ContentPackCreator {
         let entropy = shannon_entropy(content)?;
         let compress_content = entropy <= 6.0;
         // Let's get raw cluster
-        if let Some(cluster) = self.cluster_to_close(content.size(), compress_content) {
+        if let Some(cluster) = self.setup_slot_and_get_to_close(content.size(), compress_content) {
             self.cluster_writer.write_cluster(cluster, compress_content);
         }
         Ok(open_cluster_ref!(mut self, compress_content)
@@ -174,7 +174,13 @@ impl ContentPackCreator {
             .unwrap())
     }
 
-    fn cluster_to_close(&mut self, size: Size, compressed: bool) -> Option<ClusterCreator> {
+    /// Setup a clusterCreator for the slot (compressed or not)
+    /// and return a existing clusterCreator to close if a full cluster was present.
+    fn setup_slot_and_get_to_close(
+        &mut self,
+        size: Size,
+        compressed: bool,
+    ) -> Option<ClusterCreator> {
         if let Some(cluster) = open_cluster_ref!(self, compressed).as_ref() {
             if cluster.is_full(size) {
                 let new_cluster = self.open_cluster(compressed);
