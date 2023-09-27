@@ -158,7 +158,7 @@ impl ContentPackCreator {
     fn open_cluster(&self, compressed: bool) -> ClusterCreator {
         let cluster_id = self.next_cluster_id.replace(self.next_cluster_id.get() + 1);
         self.progress.new_cluster(cluster_id, compressed);
-        ClusterCreator::new(cluster_id.into())
+        ClusterCreator::new(cluster_id.into(), compressed)
     }
 
     fn get_open_cluster<'s, R>(&'s mut self, content: &mut R) -> Result<&'s mut ClusterCreator>
