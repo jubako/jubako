@@ -75,7 +75,7 @@ where
             let mut watchdog = 50;
             while !self.entries.is_sorted_by(compare_opt) {
                 debug!(".");
-                self.entries.sort_by(compare);
+                self.entries.sort_unstable_by(compare);
                 set_entry_idx(&mut self.entries);
                 watchdog -= 1;
                 if watchdog == 0 {
