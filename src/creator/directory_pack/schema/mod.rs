@@ -43,13 +43,13 @@ impl<PN: PropertyName, VN: VariantName> Schema<PN, VN> {
         }
     }
 
-    pub fn finalize(&self) -> layout::Entry<PN, VN> {
+    pub fn finalize(self) -> layout::Entry<PN, VN> {
         let common_layout = self.common.finalize(None);
         let mut variants_layout = Vec::new();
         let mut variants_map = HashMap::new();
-        for (name, variant) in &self.variants {
+        for (name, variant) in self.variants {
             variants_layout.push(variant.finalize(Some(name.to_string())));
-            variants_map.insert(*name, (variants_layout.len() as u8 - 1).into());
+            variants_map.insert(name, (variants_layout.len() as u8 - 1).into());
         }
         let entry_size = if variants_layout.is_empty() {
             common_layout.entry_size()

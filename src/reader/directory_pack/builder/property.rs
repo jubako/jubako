@@ -115,12 +115,9 @@ impl PropertyBuilderTrait for IntProperty {
                     let key = match key_size {
                         ByteSize::U1 => reader.read_u8(self.offset)? as u64,
                         ByteSize::U2 => reader.read_u16(self.offset)? as u64,
-                        ByteSize::U3 | ByteSize::U4 => {
-                            reader.read_usized(self.offset, self.size)?
-                        }
-                        ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
-                            reader.read_usized(self.offset, self.size)?
-                        }
+                        ByteSize::U4 => reader.read_u32(self.offset)? as u64,
+                        ByteSize::U8 => reader.read_u64(self.offset)?,
+                        _ => reader.read_usized(self.offset, *key_size)?,
                     };
                     let value_data = value_store
                         .get_data(key.into(), Some(Size::from(self.size as u8 as usize)))?;
@@ -129,10 +126,9 @@ impl PropertyBuilderTrait for IntProperty {
                 None => match self.size {
                     ByteSize::U1 => reader.read_u8(self.offset)? as u64,
                     ByteSize::U2 => reader.read_u16(self.offset)? as u64,
-                    ByteSize::U3 | ByteSize::U4 => reader.read_usized(self.offset, self.size)?,
-                    ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
-                        reader.read_usized(self.offset, self.size)?
-                    }
+                    ByteSize::U4 => reader.read_u32(self.offset)? as u64,
+                    ByteSize::U8 => reader.read_u64(self.offset)?,
+                    _ => reader.read_usized(self.offset, self.size)?,
                 },
             },
         })

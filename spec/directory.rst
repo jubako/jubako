@@ -53,10 +53,10 @@ Field Name       Type    Offset Description
 ================ ======= ====== ===========
 indexPtrPos      Offset  0      A Offset to a array of index offsets.
 entryStorePtrPos Offset  8      A Offset to a array of entryStore offsets.
-keyStorePtrPos   Offset  16     A Offset to a array of keyStore offsets.
+valueStorePtrPos Offset  16     A Offset to a array of keyStore offsets.
 indexCount       u32     24     Number of index in the directory
 entryStoreCount  u32     28     Number of entryStore in the directory
-keyStoreCount    u8      32     Numbre of keyStore in the directory (16 store max).
+valueStoreCount  u8      32     Numbre of keyStore in the directory (16 store max).
 freeData         [u8,31] 33     Free data, application specific to extend the header
 ================ ======= ====== ===========
 

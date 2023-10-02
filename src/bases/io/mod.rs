@@ -14,7 +14,6 @@ pub trait Source: Sync + Send {
     fn size(&self) -> Size;
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()>;
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize>;
-    fn into_memory(self: Arc<Self>, region: Region) -> Result<(Arc<dyn Source>, Region)>;
 
     fn into_memory_source(
         self: Arc<Self>,
@@ -36,6 +35,7 @@ pub trait Source: Sync + Send {
 pub trait MemorySource: Source {
     fn get_slice(&self, region: Region) -> Result<&[u8]>;
     unsafe fn get_slice_unchecked(&self, region: Region) -> Result<&[u8]>;
+    fn into_source(self: Arc<Self>) -> Arc<dyn Source>;
 }
 
 impl fmt::Debug for dyn Source {

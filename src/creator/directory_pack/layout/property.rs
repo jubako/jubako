@@ -147,7 +147,7 @@ impl<PN: PropertyName> Writable for Property<PN> {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         match self {
             Property::VariantId(name) => {
-                let mut written = stream.write_u8(0b1000_0000)?;
+                let mut written = stream.write_u8(PropType::VariantId as u8)?;
                 written += PString::write_string(name.as_bytes(), stream)?;
                 Ok(written)
             }
@@ -158,7 +158,7 @@ impl<PN: PropertyName> Writable for Property<PN> {
                 name,
             } => {
                 let mut written = 0;
-                let keytype = 0b0101_0000
+                let keytype = PropType::Array as u8
                     + match array_size_size {
                         None => 0,
                         Some(s) => *s as usize as u8,
@@ -180,7 +180,7 @@ impl<PN: PropertyName> Writable for Property<PN> {
                 default,
                 name,
             } => {
-                let mut key_type = 0b0001_0000;
+                let mut key_type = PropType::ContentAddress as u8;
                 key_type += *size as u8 - 1;
                 let mut written = match default {
                     None => stream.write_u8(key_type + 0b0000_0100)?,
@@ -199,7 +199,7 @@ impl<PN: PropertyName> Writable for Property<PN> {
                 default,
                 name,
             } => {
-                let mut key_type = 0b0010_0000;
+                let mut key_type = PropType::UnsignedInt as u8;
                 key_type += *size as u8 - 1;
                 let mut written = match default {
                     None => stream.write_u8(key_type)?,
@@ -218,7 +218,7 @@ impl<PN: PropertyName> Writable for Property<PN> {
                 default,
                 name,
             } => {
-                let mut key_type = 0b0011_0000;
+                let mut key_type = PropType::SignedInt as u8;
                 key_type += *size as u8 - 1;
                 let mut written = match default {
                     None => stream.write_u8(key_type)?,
@@ -233,7 +233,7 @@ impl<PN: PropertyName> Writable for Property<PN> {
                 Ok(written)
             }
             Property::Padding(size) => {
-                let key_type = 0b0000_0000;
+                let key_type = PropType::Padding as u8;
                 stream.write_u8(key_type + (size - 1))
             }
         }

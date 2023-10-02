@@ -28,7 +28,6 @@ impl ManifestPack {
         let mut max_id = 0;
         for _i in header.pack_count {
             let pack_info = PackInfo::produce(&mut flux)?;
-            println!("Parsing {}", pack_info.uuid);
             match pack_info.pack_kind {
                 PackKind::Directory => directory_pack_info = Some(pack_info),
                 _ => {
@@ -226,7 +225,6 @@ mod tests {
             content.push(0x01);
             content.extend(hash.as_bytes());
         }
-        println!("Offset 300:320 is {:?}", &content[310..320]);
         let reader = Reader::new_from_arc(content, End::None);
         let main_pack = ManifestPack::new(reader).unwrap();
         assert_eq!(main_pack.kind(), PackKind::Manifest);

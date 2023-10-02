@@ -38,11 +38,11 @@ impl<PN: PropertyName> Properties<PN> {
         Self(keys)
     }
 
-    pub fn finalize(&self, variant_name: Option<String>) -> layout::Properties<PN> {
+    pub fn finalize(self, variant_name: Option<String>) -> layout::Properties<PN> {
         let variant = variant_name.map(layout::Property::VariantId);
         variant
             .into_iter()
-            .chain(self.0.iter().map(|p| p.finalize()))
+            .chain(self.0.into_iter().map(|p| p.finalize()))
             .collect()
     }
 

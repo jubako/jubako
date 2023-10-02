@@ -95,12 +95,14 @@ impl Array {
     }
 }
 
+#[derive(Debug)]
 enum ArrayIterMode<'a> {
     Base { data: &'a [u8], len: usize },
     Extend { data: &'a [u8], len: usize },
     End,
 }
 
+#[derive(Debug)]
 pub struct ArrayIter<'a> {
     array: &'a Array,
     mode: ArrayIterMode<'a>,
@@ -125,18 +127,26 @@ impl<'a> ArrayIter<'a> {
     }
 
     fn setup_extend(array: &Array) -> Result<ArrayIterMode> {
-        match &array.extend {
-            Some(extend) => {
-                let data = extend.store.get_data(
-                    extend.value_id,
-                    array.size.map(|v| v - Size::from(array.base_len as usize)),
-                )?;
-                Ok(ArrayIterMode::Extend {
-                    data,
-                    len: data.len(),
-                })
+        let known_size = array.size.map(|v| v.into_usize() - array.base_len as usize);
+        if let Some(0) = known_size {
+            Ok(ArrayIterMode::End)
+        } else {
+            match &array.extend {
+                Some(extend) => {
+                    let data = extend
+                        .store
+                        .get_data(extend.value_id, known_size.map(Size::from))?;
+                    if data.is_empty() {
+                        Ok(ArrayIterMode::End)
+                    } else {
+                        Ok(ArrayIterMode::Extend {
+                            data,
+                            len: data.len(),
+                        })
+                    }
+                }
+                None => Ok(ArrayIterMode::End),
             }
-            None => Ok(ArrayIterMode::End),
         }
     }
 }

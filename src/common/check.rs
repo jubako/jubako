@@ -79,8 +79,6 @@ impl CheckInfo {
             let mut hasher = blake3::Hasher::new();
             io::copy(source, &mut hasher)?;
             let hash = hasher.finalize();
-            println!("CheckInfo hash: {b3hash:?}");
-            println!("Found hash: {hash:?}");
             Ok(hash == b3hash)
         } else {
             Ok(true)

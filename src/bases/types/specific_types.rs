@@ -26,7 +26,7 @@ where
 }
 
 macro_rules! to_u64 {
-    ( $base: ty, $name: ty ) => {
+    ( $base: tt, $name: ty ) => {
         impl $name {
             pub fn into_u64(self) -> u64 {
                 self.0 .0 as u64
@@ -43,7 +43,7 @@ macro_rules! to_u64 {
 
 macro_rules! to_u32 {
     ( u64, $name: ty ) => {};
-    ( $base: ty, $name: ty ) => {
+    ( $base: tt, $name: ty ) => {
         impl $name {
             pub fn into_u32(self) -> u32 {
                 self.0 .0 as u32
@@ -61,7 +61,7 @@ macro_rules! to_u32 {
 macro_rules! to_u16 {
     ( u64, $name: ty ) => {};
     ( u32, $name: ty ) => {};
-    ( $base: ty, $name: ty ) => {
+    ( $base: tt, $name: ty ) => {
         impl $name {
             pub fn into_u16(self) -> u16 {
                 self.0 .0 as u16
@@ -80,7 +80,7 @@ macro_rules! to_u8 {
     ( u64, $name: ty ) => {};
     ( u32, $name: ty ) => {};
     ( u16, $name: ty ) => {};
-    ( $base: ty, $name: ty ) => {
+    ( $base: tt, $name: ty ) => {
         impl $name {
             pub fn into_u8(self) -> u8 {
                 self.0 .0 as u8
@@ -110,7 +110,7 @@ macro_rules! to_usize {
             self.0 .0 as usize
         }
     };
-    ( $base: ty ) => {
+    ( $base: tt ) => {
         // We can convert a u8 and u16 to usize all the time
         pub fn into_usize(self) -> usize {
             self.0 .0 as usize
@@ -181,7 +181,7 @@ macro_rules! def_type {
 }
 
 macro_rules! specific {
-    ( $base: ty, $idx_name:ident($inner_idx:ident), $count_name:ident, $base_name: expr ) => {
+    ( $base: tt, $idx_name:ident($inner_idx:ident), $count_name:ident, $base_name: expr ) => {
         // Declare our Index
         def_type! {$inner_idx, $base, $idx_name, $count_name}
 

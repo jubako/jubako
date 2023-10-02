@@ -8,9 +8,37 @@ pub enum PropertySize<T> {
     Auto(T),
 }
 
+impl<T> PropertySize<T>
+where
+    T: Ord + std::ops::Shr<Output = T> + From<u8> + Copy,
+{
+    fn process(&mut self, v: T) {
+        match self {
+            Self::Fixed(size) => {
+                assert!(*size >= needed_bytes(v));
+            }
+            Self::Auto(max) => {
+                *max = cmp::max(*max, v);
+            }
+        }
+    }
+}
+
 impl<T: Default> Default for PropertySize<T> {
     fn default() -> Self {
         PropertySize::Auto(Default::default())
+    }
+}
+
+impl<T> From<PropertySize<T>> for ByteSize
+where
+    T: Ord + std::ops::Shr<Output = T> + From<u8>,
+{
+    fn from(p: PropertySize<T>) -> ByteSize {
+        match p {
+            PropertySize::<T>::Fixed(size) => size,
+            PropertySize::<T>::Auto(max) => needed_bytes(max),
+        }
     }
 }
 
@@ -47,6 +75,15 @@ where
                 }
             }
             Self::Many => {}
+        }
+    }
+}
+
+impl<T> From<ValueCounter<T>> for Option<T> {
+    fn from(v: ValueCounter<T>) -> Option<T> {
+        match v {
+            ValueCounter::One(d) => Some(d),
+            _ => None,
         }
     }
 }
@@ -170,14 +207,7 @@ impl<PN: PropertyName> Property<PN> {
             } => {
                 if let Value::Unsigned(value) = entry.value(name) {
                     counter.process(value.get());
-                    match size {
-                        PropertySize::Fixed(size) => {
-                            assert!(*size >= needed_bytes(value.get()));
-                        }
-                        PropertySize::Auto(max) => {
-                            *max = cmp::max(*max, value.get());
-                        }
-                    }
+                    size.process(value.get());
                 } else {
                     panic!("Value type doesn't correspond to property");
                 }
@@ -189,14 +219,7 @@ impl<PN: PropertyName> Property<PN> {
             } => {
                 if let Value::Signed(value) = entry.value(name) {
                     counter.process(value.get());
-                    match size {
-                        PropertySize::Fixed(size) => {
-                            assert!(*size >= needed_bytes(value.get()));
-                        }
-                        PropertySize::Auto(max) => {
-                            *max = cmp::max(*max, value.get());
-                        }
-                    }
+                    size.process(value.get());
                 } else {
                     panic!("Value type doesn't correspond to property");
                 }
@@ -208,14 +231,7 @@ impl<PN: PropertyName> Property<PN> {
             } => {
                 if let Value::Content(c) = entry.value(name) {
                     pack_id_counter.process(c.pack_id.into_u8());
-                    match content_id_size {
-                        PropertySize::Fixed(size) => {
-                            assert!(*size >= needed_bytes(c.content_id.into_u32()));
-                        }
-                        PropertySize::Auto(max) => {
-                            *max = cmp::max(*max, c.content_id.into_u32());
-                        }
-                    }
+                    content_id_size.process(c.content_id.into_u32());
                 } else {
                     panic!("Value type doesn't correspond to property");
                 }
@@ -232,14 +248,7 @@ impl<PN: PropertyName> Property<PN> {
                     value_id: _,
                 } = entry.value(name)
                 {
-                    match max_array_size {
-                        PropertySize::Fixed(fixed_size) => {
-                            assert!(*fixed_size >= needed_bytes(*size));
-                        }
-                        PropertySize::Auto(max) => {
-                            *max = cmp::max(*max, *size);
-                        }
-                    }
+                    max_array_size.process(*size);
                 } else {
                     panic!("Value type doesn't correspond to property");
                 }
@@ -250,52 +259,26 @@ impl<PN: PropertyName> Property<PN> {
         }
     }
 
-    pub fn finalize(&self) -> layout::Property<PN> {
+    pub fn finalize(self) -> layout::Property<PN> {
         match self {
             Self::UnsignedInt {
                 counter,
                 size,
                 name,
-            } => {
-                let size = match size {
-                    PropertySize::Fixed(size) => *size,
-                    PropertySize::Auto(max) => needed_bytes(*max),
-                };
-                match counter {
-                    ValueCounter::One(d) => layout::Property::UnsignedInt {
-                        size,
-                        default: Some(*d),
-                        name: *name,
-                    },
-                    _ => layout::Property::UnsignedInt {
-                        size,
-                        default: None,
-                        name: *name,
-                    },
-                }
-            }
+            } => layout::Property::UnsignedInt {
+                size: size.into(),
+                default: counter.into(),
+                name,
+            },
             Self::SignedInt {
                 counter,
                 size,
                 name,
-            } => {
-                let size = match size {
-                    PropertySize::Fixed(size) => *size,
-                    PropertySize::Auto(max) => needed_bytes(*max),
-                };
-                match counter {
-                    ValueCounter::One(d) => layout::Property::SignedInt {
-                        size,
-                        default: Some(*d),
-                        name: *name,
-                    },
-                    _ => layout::Property::SignedInt {
-                        size,
-                        default: None,
-                        name: *name,
-                    },
-                }
-            }
+            } => layout::Property::SignedInt {
+                size: size.into(),
+                default: counter.into(),
+                name,
+            },
             Self::Array {
                 max_array_size,
                 fixed_array_size,
@@ -304,35 +287,22 @@ impl<PN: PropertyName> Property<PN> {
             } => {
                 let value_id_size = store_handle.borrow().key_size();
                 layout::Property::Array {
-                    array_size_size: Some(match max_array_size {
-                        PropertySize::Fixed(size) => *size,
-                        PropertySize::Auto(max) => needed_bytes(*max),
-                    }),
-                    fixed_array_size: *fixed_array_size as u8,
+                    array_size_size: Some(max_array_size.into()),
+                    fixed_array_size: fixed_array_size as u8,
                     deported_info: Some((value_id_size, store_handle.clone())),
-                    name: *name,
+                    name,
                 }
             }
             Self::ContentAddress {
                 pack_id_counter,
                 content_id_size,
                 name,
-            } => {
-                let default = match pack_id_counter {
-                    ValueCounter::One(d) => Some(*d),
-                    _ => None,
-                };
-                let size = match content_id_size {
-                    PropertySize::Fixed(size) => *size,
-                    PropertySize::Auto(max) => needed_bytes(*max),
-                };
-                layout::Property::ContentAddress {
-                    size,
-                    default,
-                    name: *name,
-                }
-            }
-            Self::Padding(size) => layout::Property::Padding(*size),
+            } => layout::Property::ContentAddress {
+                size: content_id_size.into(),
+                default: pack_id_counter.into(),
+                name,
+            },
+            Self::Padding(size) => layout::Property::Padding(size),
         }
     }
 }

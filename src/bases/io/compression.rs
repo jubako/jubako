@@ -175,12 +175,6 @@ impl Source for SeekableDecoder {
         Ok(())
     }
 
-    fn into_memory(self: Arc<Self>, region: Region) -> Result<(Arc<dyn Source>, Region)> {
-        debug_assert!(region.end().is_valid(self.size()));
-        self.decode_to(region.end());
-        Ok((self, region))
-    }
-
     fn into_memory_source(
         self: Arc<Self>,
         region: Region,
@@ -301,6 +295,10 @@ impl MemorySource for SeekableDecoder {
     unsafe fn get_slice_unchecked(&self, region: Region) -> Result<&[u8]> {
         debug_assert!(region.end().is_valid(self.size()));
         Ok(&self.decoded_slice()[region.begin().into_usize()..region.end().into_usize()])
+    }
+
+    fn into_source(self: Arc<Self>) -> Arc<dyn Source> {
+        self
     }
 }
 

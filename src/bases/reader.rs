@@ -54,10 +54,14 @@ impl Reader {
         let region = self.region.cut_rel(offset, end);
         SubReader::new_from_parts(&self.source, region)
     }
+
     pub fn create_sub_memory_reader(&self, offset: Offset, end: End) -> Result<Reader> {
         let region = self.region.cut_rel(offset, end);
-        let (source, region) = Arc::clone(&self.source).into_memory(region)?;
-        Ok(Reader { source, region })
+        let (source, region) = Arc::clone(&self.source).into_memory_source(region)?;
+        Ok(Reader {
+            source: source.into_source(),
+            region,
+        })
     }
 
     pub fn into_memory_reader(&self, offset: Offset, end: End) -> Result<MemoryReader> {

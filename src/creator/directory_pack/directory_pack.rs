@@ -34,9 +34,8 @@ impl DirectoryPackCreator {
         self.value_stores.push(value_store);
     }
 
-    pub fn add_entry_store(&mut self, mut entry_store: Box<dyn EntryStoreTrait>) -> EntryStoreIdx {
+    pub fn add_entry_store(&mut self, entry_store: Box<dyn EntryStoreTrait>) -> EntryStoreIdx {
         let idx = (self.entry_stores.len() as u32).into();
-        entry_store.set_idx(idx);
         self.entry_stores.push(entry_store);
         idx
     }
@@ -70,9 +69,11 @@ impl DirectoryPackCreator {
         }
 
         info!("----- Finalize entry_stores -----");
-        for entry_store in &mut self.entry_stores {
-            entry_store.finalize();
-        }
+        let finalized_entry_store: Vec<Box<dyn WritableTell>> = self
+            .entry_stores
+            .into_iter()
+            .map(|e| e.finalize())
+            .collect();
 
         info!("----- Write indexes -----");
         let mut indexes_offsets = vec![];
@@ -82,7 +83,7 @@ impl DirectoryPackCreator {
 
         info!("----- Write entry_stores -----");
         let mut entry_stores_offsets = vec![];
-        for entry_store in &mut self.entry_stores {
+        for mut entry_store in finalized_entry_store {
             entry_stores_offsets.push(entry_store.write(file)?);
         }
 

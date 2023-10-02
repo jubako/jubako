@@ -1,6 +1,5 @@
 #![feature(once_cell_try)]
 #![feature(read_buf)]
-#![feature(provide_any)]
 #![feature(error_generic_member_access)]
 #![feature(step_trait)]
 #![feature(slice_ptr_len)]

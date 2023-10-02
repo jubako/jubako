@@ -4,23 +4,23 @@ use std::fmt::Debug;
 const JBK_MAGIC: u32 = u32::from_be_bytes(*b"\0jbk");
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
 pub enum PackKind {
-    Manifest,
-    Directory,
-    Content,
-    Container,
+    Manifest = b'm',
+    Directory = b'd',
+    Content = b'c',
+    Container = b'C',
 }
 
 impl Producable for PackKind {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {
-        let kind = flux.read_u8()?;
-        match kind {
+        match flux.read_u8()? {
             b'm' => Ok(PackKind::Manifest),
             b'd' => Ok(PackKind::Directory),
             b'c' => Ok(PackKind::Content),
             b'C' => Ok(PackKind::Container),
-            _ => Err(format_error!(&format!("Invalid pack kind {kind}"), flux)),
+            kind => Err(format_error!(&format!("Invalid pack kind {kind}"), flux)),
         }
     }
 }
@@ -30,12 +30,7 @@ impl SizedProducable for PackKind {
 
 impl Writable for PackKind {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        match self {
-            PackKind::Manifest => stream.write_u8(b'm'),
-            PackKind::Directory => stream.write_u8(b'd'),
-            PackKind::Content => stream.write_u8(b'c'),
-            PackKind::Container => stream.write_u8(b'C'),
-        }
+        stream.write_u8(*self as u8)
     }
 }
 
@@ -53,7 +48,7 @@ impl Producable for FullPackKind {
                 b'd' => Ok(PackKind::Directory),
                 b'c' => Ok(PackKind::Content),
                 b'C' => Ok(PackKind::Container),
-                _ => Err(format_error!("Invalid pack kind", flux)),
+                kind => Err(format_error!(&format!("Invalid pack kind {kind}"), flux)),
             }
         }
     }

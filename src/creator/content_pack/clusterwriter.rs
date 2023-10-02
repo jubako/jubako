@@ -61,7 +61,6 @@ fn zstd_compress<'b>(
     stream: &'b mut dyn OutStream,
 ) -> Result<&'b mut dyn OutStream> {
     let mut encoder = zstd::Encoder::new(stream, 19)?;
-    encoder.multithread(8)?;
     encoder.include_contentsize(false)?;
     //encoder.long_distance_matching(true);
     for in_reader in data.drain(..) {

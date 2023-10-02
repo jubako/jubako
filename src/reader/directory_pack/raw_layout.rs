@@ -84,11 +84,12 @@ impl Producable for RawProperty {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {
         let propinfo = flux.read_u8()?;
-        let proptype = propinfo >> 4;
+        let proptype =
+            PropType::try_from(propinfo & 0xF0).map_err::<Error, _>(|e| format_error!(&e, flux))?;
         let propdata = propinfo & 0x0F;
         let (propsize, kind, name) = match proptype {
-            0b0000 => (propdata as u16 + 1, PropertyKind::Padding, None),
-            0b0001 => {
+            PropType::Padding => (propdata as u16 + 1, PropertyKind::Padding, None),
+            PropType::ContentAddress => {
                 let content_id_size = (propdata & 0b0011) as u16 + 1;
                 let pack_id_default = if (propdata & 0b0100) == 0 {
                     Some(flux.read_u8()?.into())
@@ -104,13 +105,13 @@ impl Producable for RawProperty {
                     Some(String::from_utf8(PString::produce(flux)?)?),
                 )
             }
-            0b0010 | 0b0011 => {
+            PropType::UnsignedInt | PropType::SignedInt => {
                 let default_value = (propdata & 0b1000) != 0;
                 let int_size = ByteSize::try_from((propdata & 0x07) as usize + 1).unwrap();
                 if default_value {
                     (
                         0,
-                        if proptype == 0b0010 {
+                        if proptype == PropType::UnsignedInt {
                             PropertyKind::UnsignedInt(int_size, Some(flux.read_usized(int_size)?))
                         } else {
                             PropertyKind::SignedInt(int_size, Some(flux.read_isized(int_size)?))
@@ -120,7 +121,7 @@ impl Producable for RawProperty {
                 } else {
                     (
                         (int_size as usize) as u16,
-                        if proptype == 0b0010 {
+                        if proptype == PropType::UnsignedInt {
                             PropertyKind::UnsignedInt(int_size, None)
                         } else {
                             PropertyKind::SignedInt(int_size, None)
@@ -129,10 +130,8 @@ impl Producable for RawProperty {
                     )
                 }
             }
-            0b0100 => {
-                todo!() // Redirection and SubRange
-            }
-            0b0101 => {
+
+            PropType::Array => {
                 let default_value = (propdata & 0b1000) != 0;
                 let size_size = propdata & 0x07;
                 let size_size = if size_size != 0 {
@@ -187,12 +186,12 @@ impl Producable for RawProperty {
                     )
                 }
             }
-            0b1000 => (
+            PropType::VariantId => (
                 1,
                 PropertyKind::VariantId,
                 Some(String::from_utf8(PString::produce(flux)?)?),
             ),
-            0b1010 | 0b1011 => {
+            PropType::DeportedUnsignedInt | PropType::DeportedSignedInt => {
                 let default_value = (propdata & 0b1000) != 0;
                 let int_size = ByteSize::try_from((propdata & 0x07) as usize + 1).unwrap();
                 let key_id_size =
@@ -202,7 +201,7 @@ impl Producable for RawProperty {
                     let key_value = flux.read_usized(key_id_size)?;
                     (
                         0,
-                        if proptype == 0b1010 {
+                        if proptype == PropType::DeportedUnsignedInt {
                             PropertyKind::DeportedUnsignedInt(
                                 int_size,
                                 key_store_id,
@@ -220,7 +219,7 @@ impl Producable for RawProperty {
                 } else {
                     (
                         (key_id_size as usize) as u16,
-                        if proptype == 0b1010 {
+                        if proptype == PropType::DeportedUnsignedInt {
                             PropertyKind::DeportedUnsignedInt(
                                 int_size,
                                 key_store_id,
@@ -236,12 +235,6 @@ impl Producable for RawProperty {
                         Some(String::from_utf8(PString::produce(flux)?)?),
                     )
                 }
-            }
-            _ => {
-                return Err(format_error!(
-                    &format!("Invalid property type ({proptype})"),
-                    flux
-                ))
             }
         };
         Ok(Self {
