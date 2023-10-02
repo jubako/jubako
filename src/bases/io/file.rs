@@ -1,5 +1,5 @@
 use crate::bases::*;
-use memmap2::MmapOptions;
+use memmap2::{Advice, MmapOptions};
 use primitive::*;
 use std::fs::File;
 use std::io;
@@ -85,6 +85,8 @@ impl Source for FileSource {
                 .populate();
             let mmap =
                 unsafe { mmap_options.map(self.source.lock().unwrap().get_ref().as_raw_fd())? };
+            mmap.advise(Advice::populate_read())?;
+            mmap.advise(Advice::will_need())?;
             Ok((
                 Arc::new(mmap),
                 Region::new_from_size(Offset::zero(), region.size()),
