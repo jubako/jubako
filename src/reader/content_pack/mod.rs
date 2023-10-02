@@ -4,19 +4,18 @@ use crate::bases::*;
 use crate::common::{CheckInfo, ContentInfo, ContentPackHeader, Pack, PackKind};
 use cluster::Cluster;
 use lru::LruCache;
-use std::cell::{Cell, RefCell};
 use std::io::Read;
 use std::num::NonZeroUsize;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use uuid::Uuid;
 
 pub struct ContentPack {
     header: ContentPackHeader,
     content_infos: ArrayReader<ContentInfo, u32>,
     cluster_ptrs: ArrayReader<SizedOffset, u32>,
-    cluster_cache: RefCell<LruCache<ClusterIdx, Arc<Cluster>>>,
+    cluster_cache: Mutex<LruCache<ClusterIdx, Arc<Cluster>>>,
     reader: Reader,
-    check_info: Cell<Option<CheckInfo>>,
+    check_info: OnceLock<CheckInfo>,
 }
 
 impl ContentPack {
@@ -36,9 +35,9 @@ impl ContentPack {
             header,
             content_infos,
             cluster_ptrs,
-            cluster_cache: RefCell::new(LruCache::new(NonZeroUsize::new(20).unwrap())),
+            cluster_cache: Mutex::new(LruCache::new(NonZeroUsize::new(20).unwrap())),
             reader,
-            check_info: Cell::new(None),
+            check_info: OnceLock::new(),
         })
     }
 
@@ -52,16 +51,9 @@ impl ContentPack {
     }
 
     fn get_cluster(&self, cluster_index: ClusterIdx) -> Result<Arc<Cluster>> {
-        let mut cache = self.cluster_cache.borrow_mut();
-        let cached = cache.get(&cluster_index);
-        Ok(match cached {
-            Some(c) => c.clone(),
-            None => {
-                let cluster = self._get_cluster(cluster_index)?;
-                cache.put(cluster_index, cluster.clone());
-                cluster
-            }
-        })
+        let mut cache = self.cluster_cache.lock().unwrap();
+        let cached = cache.try_get_or_insert(cluster_index, || self._get_cluster(cluster_index))?;
+        Ok(cached.clone())
     }
 
     pub fn get_content(&self, index: ContentIdx) -> Result<Reader> {
@@ -107,20 +99,16 @@ impl Pack for ContentPack {
         self.header.pack_header.file_size
     }
     fn check(&self) -> Result<bool> {
-        if self.check_info.get().is_none() {
+        let check_info = self.check_info.get_or_try_init(|| {
             let mut checkinfo_flux = self
                 .reader
                 .create_flux_from(self.header.pack_header.check_info_pos);
-            let check_info = CheckInfo::produce(&mut checkinfo_flux)?;
-            self.check_info.set(Some(check_info));
-        }
+            CheckInfo::produce(&mut checkinfo_flux)
+        })?;
         let mut check_flux = self
             .reader
             .create_flux_to(End::Offset(self.header.pack_header.check_info_pos));
-        self.check_info
-            .get()
-            .unwrap()
-            .check(&mut check_flux as &mut dyn Read)
+        check_info.check(&mut check_flux as &mut dyn Read)
     }
 }
 
