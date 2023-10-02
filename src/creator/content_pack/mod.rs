@@ -3,8 +3,10 @@ mod clusterwriter;
 mod creator;
 
 use crate::bases::*;
+use crate::creator::InputReader;
 pub use creator::ContentPackCreator;
 use std::collections::{hash_map::Entry, HashMap};
+use std::io::SeekFrom;
 use std::rc::Rc;
 
 pub trait Progress: Send + Sync {
@@ -36,10 +38,14 @@ impl CachedContentPackCreator {
         }
     }
 
-    pub fn add_content(&mut self, content: Reader) -> Result<ContentIdx> {
+    pub fn add_content<R>(&mut self, mut content: R) -> Result<ContentIdx>
+    where
+        R: InputReader + 'static,
+    {
         let mut hasher = blake3::Hasher::new();
-        std::io::copy(&mut content.create_flux_all(), &mut hasher)?;
+        std::io::copy(&mut content, &mut hasher)?;
         let hash = hasher.finalize();
+        content.seek(SeekFrom::Start(0))?;
         match self.cache.entry(hash) {
             Entry::Vacant(e) => {
                 let content_idx = self.content_pack.add_content(content)?;

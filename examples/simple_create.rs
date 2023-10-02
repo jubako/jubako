@@ -12,8 +12,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         "test.jbkc",
         jbk::PackId::from(1), // The pack id as referenced in the container
         VENDOR_ID,
-        Default::default(),         // Put whatever you what, this is for you
-        jbk::CompressionType::Zstd, // How to compress
+        Default::default(), // Put whatever you what, this is for you
+        jbk::creator::Compression::zstd(), // How to compress
     )?;
 
     let mut directory_pack = jbk::creator::DirectoryPackCreator::new(
@@ -51,7 +51,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Now we have "configured" our container, let's add some content:
     let content: Vec<u8> = "A super content prime quality for our test container".into();
-    let content_id = content_pack.add_content(content.into())?;
+    let content = std::io::Cursor::new(content);
+    let content_id = content_pack.add_content(content)?;
     entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
         &entry_store.schema,
         Some("FirstVariant"), // Variant 0

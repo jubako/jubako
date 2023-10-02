@@ -25,16 +25,16 @@ test_suite! {
         Indexed,
     }
 
-    fixture compression(c: jubako::CompressionType) -> jubako::CompressionType {
+    fixture compression(c: creator::Compression) -> creator::Compression {
         params {
             vec![
-                jubako::CompressionType::None,
+                creator::Compression::None,
                 #[cfg(feature="lz4")]
-                jubako::CompressionType::Lz4,
+                creator::Compression::lz4(),
                 #[cfg(feature="lzma")]
-                jubako::CompressionType::Lzma,
+                creator::Compression::lzma(),
                 #[cfg(feature="zstd")]
-                jubako::CompressionType::Zstd,
+                creator::Compression::zstd(),
             ].into_iter()
         }
         setup(&mut self) {
@@ -70,7 +70,7 @@ test_suite! {
         }
     }
 
-    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<TestEntry>) -> Result<(creator::PackData, jubako::Reader)> {
+    fn create_content_pack(compression: creator::Compression, entries:&Vec<TestEntry>) -> Result<(creator::PackData, jubako::Reader)> {
         let mut creator = creator::ContentPackCreator::new(
             "/tmp/contentPack.jbkc",
             jubako::PackId::from(1),
@@ -79,8 +79,9 @@ test_suite! {
             compression
         )?;
         for entry in entries {
-            let content = entry.content.clone().into_bytes();
-            creator.add_content(content.into())?;
+            let content = entry.content.clone();
+            let content = std::io::Cursor::new(content);
+            creator.add_content(content)?;
         }
         let (file, pack_info) = creator.finalize()?;
         Ok((pack_info, jubako::FileSource::new(file)?.into()))
