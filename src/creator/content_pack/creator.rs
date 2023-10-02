@@ -127,9 +127,12 @@ impl ContentPackCreator {
         progress: Arc<dyn Progress>,
     ) -> Result<Self> {
         file.seek(SeekFrom::Start(128))?;
-        let nb_threads = std::thread::available_parallelism()
-            .unwrap_or(8.try_into().unwrap())
-            .get();
+        let nb_threads = std::cmp::max(
+            std::thread::available_parallelism()
+                .unwrap_or(8.try_into().unwrap())
+                .get(),
+            2,
+        ) - 1;
         let cluster_writer =
             ClusterWriterProxy::new(file, compression, nb_threads, Arc::clone(&progress));
         Ok(Self {

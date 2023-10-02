@@ -84,7 +84,7 @@ pub trait FullEntryTrait<PN: PropertyName, VN: VariantName>: EntryTrait<PN, VN> 
 #[derive(Debug)]
 pub struct BasicEntry<PN: PropertyName, VN: VariantName> {
     variant_name: Option<VN>,
-    values: HashMap<PN, Value>,
+    values: Vec<(PN, Value)>,
     idx: Vow<EntryIdx>,
 }
 
@@ -229,7 +229,7 @@ impl<PN: PropertyName, VN: VariantName> BasicEntry<PN, VN> {
     ) -> Self {
         Self {
             variant_name,
-            values,
+            values: values.into_iter().collect(),
             idx,
         }
     }
@@ -240,7 +240,10 @@ impl<PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for BasicEntry<PN, VN
         self.variant_name.as_ref()
     }
     fn value(&self, name: &PN) -> &Value {
-        &self.values[name]
+        match self.values.iter().find(|&e| e.0 == *name) {
+            Some(e) => &e.1,
+            None => panic!("{} should be in entry", name.to_string()),
+        }
     }
     fn value_count(&self) -> PropertyCount {
         (self.values.len() as u8).into()
