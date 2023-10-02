@@ -10,19 +10,11 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::sync::Arc;
 
-fn shannon_entropy<R>(data: &mut R) -> Result<f32>
-where
-    R: InputReader,
-{
+fn shannon_entropy(data: &[u8]) -> Result<f32> {
     let mut entropy = 0.0;
     let mut counts = [0; 256];
-    let mut buf = [0; 1024];
-    let size = std::cmp::min(data.size().into_usize(), 1024);
 
-    let buf = &mut buf[..size];
-    data.read_exact(buf)?;
-
-    for byte in buf {
+    for byte in data {
         counts[*byte as usize] += 1;
     }
 
@@ -31,7 +23,7 @@ where
             continue;
         }
 
-        let p: f32 = (count as f32) / (size as f32);
+        let p: f32 = (count as f32) / (data.len() as f32);
         entropy -= p * p.log(2.0);
     }
 
@@ -159,14 +151,15 @@ impl ContentPackCreator {
         ClusterCreator::new(cluster_id.into(), compressed)
     }
 
-    fn get_open_cluster<'s, R>(&'s mut self, content: &mut R) -> Result<&'s mut ClusterCreator>
-    where
-        R: InputReader,
-    {
-        let entropy = shannon_entropy(content)?;
+    fn get_open_cluster<'s>(
+        &'s mut self,
+        head: &[u8],
+        content_size: Size,
+    ) -> Result<&'s mut ClusterCreator> {
+        let entropy = shannon_entropy(head)?;
         let compress_content = entropy <= 6.0;
         // Let's get raw cluster
-        if let Some(cluster) = self.setup_slot_and_get_to_close(content.size(), compress_content) {
+        if let Some(cluster) = self.setup_slot_and_get_to_close(content_size, compress_content) {
             self.cluster_writer.write_cluster(cluster, compress_content);
         }
         Ok(open_cluster_ref!(mut self, compress_content)
@@ -197,7 +190,11 @@ impl ContentPackCreator {
     pub fn add_content<R: InputReader + 'static>(&mut self, mut content: R) -> Result<ContentIdx> {
         let content_size = content.size();
         self.progress.content_added(content_size);
-        let cluster = self.get_open_cluster(&mut content)?;
+        let mut head = Vec::with_capacity(1024);
+        {
+            content.by_ref().take(1024).read_to_end(&mut head)?;
+        }
+        let cluster = self.get_open_cluster(&head, content_size)?;
         content.seek(SeekFrom::Start(0))?;
         let content_info = cluster.add_content(content)?;
         self.content_infos.push(content_info);
