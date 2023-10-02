@@ -1,7 +1,7 @@
 use crate::bases::*;
 use std::fmt::Debug;
 
-const JBK_MAGIC: u32 = u32::from_be_bytes(*b"\0jbk");
+const JBK_MAGIC: [u8; 3] = *b"jbk";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
@@ -39,11 +39,12 @@ pub(crate) struct FullPackKind(pub PackKind);
 impl Producable for FullPackKind {
     type Output = PackKind;
     fn produce(flux: &mut Flux) -> Result<Self::Output> {
-        let magic = flux.read_u32()?;
-        if (magic >> 8) != JBK_MAGIC {
+        let mut magic = [0; 3];
+        flux.read_exact(&mut magic)?;
+        if magic != JBK_MAGIC {
             Err(format_error!("Not a JBK kind", flux))
         } else {
-            match (magic & 0xFF) as u8 {
+            match flux.read_u8()? {
                 b'm' => Ok(PackKind::Manifest),
                 b'd' => Ok(PackKind::Directory),
                 b'c' => Ok(PackKind::Content),

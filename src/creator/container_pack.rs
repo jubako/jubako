@@ -43,7 +43,7 @@ impl ContainerPackCreator {
         let pack_size: Size = (self.file.tell().into_u64() + HEADER_SIZE).into();
 
         self.file.rewind()?;
-        let header = ContainerPackHeader::new(PackCount::from(self.packs.len() as u8), pack_size);
+        let header = ContainerPackHeader::new(PackCount::from(self.packs.len() as u16), pack_size);
         header.write(&mut self.file)?;
 
         self.file.rewind()?;

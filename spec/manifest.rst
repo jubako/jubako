@@ -15,9 +15,9 @@ This pack header is followed by a mainHeader.
 ================ =========== ====== ===========
 Field Name       Type        Offset Description
 ================ =========== ====== ===========
-packCount        u8          0      Number of packInfo slots.
-valueStoreOffset SizedOffset 1      The offset of a valuestore
-freeData         [u8,55]     9      Free data, application specific to extend the header
+packCount        u16         0      Number of packInfo slots.
+valueStoreOffset SizedOffset 2      The offset of a valuestore
+freeData         [u8,54]     10     Free data, application specific to extend the header
 
 The size of of this header, is 64 bytes. Associated to the common pack header, the total header size is 128 bytes.
 FreeData is a 53 bytes free space to extend the header with application specific information.
@@ -45,13 +45,12 @@ uuid             [u8,16]   0      The id of the pack
                                   Must be equal to the id in the packheader of the pointed pack
 packSize         Size      16     The size of the pack.
 packCheckInfoPos Offset    24     The checkInfo of the pack (mandatory)
-packKind         u8        32     | The kind of the pack.
+packId           u16       32     The id of the pack.
+packKind         u8        34     | The kind of the pack.
                                   | b'm' for manifest pack
                                   | b'c' for content pack
                                   | b'd' for directory pack
-packId           u8        33     The id of the pack.
-packGroup        u8        34     Reserved
-_padding         u8        35     Reserved
+packGroup        u8        35     Reserved
 freeDataId       u16       36     A id in the value store. Application specific.
 packLocation     [u8,218]  38     A string locating the pack file
 ================ ========= ====== ===========

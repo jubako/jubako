@@ -44,7 +44,7 @@ impl ContainerPack {
     }
 
     pub fn pack_count(&self) -> PackCount {
-        (self.packs.len() as u8).into()
+        (self.packs.len() as u16).into()
     }
 
     pub fn get_pack_uuid(&self, idx: PackId) -> uuid::Uuid {

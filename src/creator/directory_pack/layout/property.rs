@@ -12,8 +12,9 @@ pub enum Property<PN: PropertyName> {
         name: PN,
     },
     ContentAddress {
-        size: ByteSize,
-        default: Option<u8>,
+        content_id_size: ByteSize,
+        pack_id_size: ByteSize,
+        default: Option<u16>,
         name: PN,
     },
     UnsignedInt {
@@ -52,12 +53,14 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .field("name", &name.to_string())
                 .finish(),
             ContentAddress {
-                size,
+                content_id_size,
+                pack_id_size,
                 default,
                 name,
             } => f
                 .debug_struct("ContentAddress")
-                .field("size", &size)
+                .field("content_id_size", &content_id_size)
+                .field("pack_id_size", &pack_id_size)
                 .field("default", &default)
                 .field("size", &self.size())
                 .field("name", &name.to_string())
@@ -112,10 +115,17 @@ impl<PN: PropertyName> Property<PN> {
                     }
             }
             Property::ContentAddress {
-                size,
+                content_id_size,
+                pack_id_size,
                 default,
                 name: _,
-            } => (if default.is_some() { 0 } else { 1 }) + *size as usize as u16,
+            } => {
+                (if default.is_some() {
+                    0
+                } else {
+                    *pack_id_size as u16
+                }) + *content_id_size as u16
+            }
             Property::UnsignedInt {
                 size,
                 default,
@@ -176,18 +186,22 @@ impl<PN: PropertyName> Writable for Property<PN> {
                 Ok(written)
             }
             Property::ContentAddress {
-                size,
+                content_id_size,
+                pack_id_size,
                 default,
                 name,
             } => {
                 let mut key_type = PropType::ContentAddress as u8;
-                key_type += *size as u8 - 1;
+                key_type += *content_id_size as u8 - 1;
+                if let ByteSize::U2 = pack_id_size {
+                    key_type |= 0b0000_0100;
+                }
                 let mut written = match default {
-                    None => stream.write_u8(key_type + 0b0000_0100)?,
+                    None => stream.write_u8(key_type)?,
                     Some(d) => {
                         let mut written = 0;
-                        written += stream.write_u8(key_type)?;
-                        written += stream.write_u8(*d)?;
+                        written += stream.write_u8(key_type + 0b0000_1000)?;
+                        written += stream.write_usized(*d as u64, *pack_id_size)?;
                         written
                     }
                 };

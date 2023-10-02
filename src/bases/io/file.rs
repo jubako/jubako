@@ -1,6 +1,5 @@
 use crate::bases::*;
 use memmap2::{Advice, MmapOptions};
-use primitive::*;
 use std::fs::File;
 use std::io;
 use std::io::BorrowedBuf;
@@ -9,6 +8,9 @@ use std::ops::Deref;
 use std::os::unix::prelude::AsRawFd;
 use std::sync::Arc;
 use std::sync::Mutex;
+use zerocopy::byteorder::little_endian::{I16, I32, I64, U16, U32, U64};
+use zerocopy::byteorder::{ByteOrder, LittleEndian as LE};
+use zerocopy::AsBytes;
 
 pub struct FileSource {
     source: Mutex<io::BufReader<File>>,
@@ -99,11 +101,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        let mut buf = [0u8; 1];
+        let mut ret: u8 = 0;
         let mut f = self.source.lock().unwrap();
         f.seek(SeekFrom::Start(offset.into_u64()))?;
-        f.read_exact(&mut buf)?;
-        Ok(read_u8(&buf))
+        f.read_exact(ret.as_bytes_mut())?;
+        Ok(ret)
     }
 
     fn read_u16(&self, offset: Offset) -> Result<u16> {
@@ -111,11 +113,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
+        let mut ret = U16::ZERO;
         let mut f = self.lock().unwrap();
-        let mut buf = [0u8; 2];
         f.seek(SeekFrom::Start(offset.into_u64()))?;
-        f.read_exact(&mut buf)?;
-        Ok(read_u16(&buf))
+        f.read_exact(ret.as_bytes_mut())?;
+        Ok(ret.get())
     }
 
     fn read_u32(&self, offset: Offset) -> Result<u32> {
@@ -123,11 +125,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        let mut buf = [0u8; 4];
+        let mut ret = U32::ZERO;
         let mut f = self.lock().unwrap();
         f.seek(SeekFrom::Start(offset.into_u64()))?;
-        f.read_exact(&mut buf)?;
-        Ok(read_u32(&buf))
+        f.read_exact(ret.as_bytes_mut())?;
+        Ok(ret.get())
     }
 
     fn read_u64(&self, offset: Offset) -> Result<u64> {
@@ -135,11 +137,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        let mut buf = [0u8; 8];
+        let mut ret = U64::ZERO;
         let mut f = self.lock().unwrap();
         f.seek(SeekFrom::Start(offset.into_u64()))?;
-        f.read_exact(&mut buf)?;
-        Ok(read_u64(&buf))
+        f.read_exact(ret.as_bytes_mut())?;
+        Ok(ret.get())
     }
 
     fn read_usized(&self, offset: Offset, size: ByteSize) -> Result<u64> {
@@ -147,11 +149,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        let mut buf = [0u8; 8];
+        let mut ret = U64::ZERO;
         let mut f = self.lock().unwrap();
         f.seek(SeekFrom::Start(offset.into_u64()))?;
-        f.read_exact(&mut buf[..size as usize])?;
-        Ok(read_to_u64(size as usize, &buf))
+        f.read_exact(&mut ret.as_bytes_mut()[..size as usize])?;
+        Ok(ret.get())
     }
 
     fn read_i8(&self, offset: Offset) -> Result<i8> {
@@ -159,11 +161,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        let mut buf = [0u8; 1];
+        let mut ret: i8 = 0;
         let mut f = self.lock().unwrap();
         f.seek(SeekFrom::Start(offset.into_u64()))?;
-        f.read_exact(&mut buf)?;
-        Ok(read_i8(&buf))
+        f.read_exact(ret.as_bytes_mut())?;
+        Ok(ret)
     }
 
     fn read_i16(&self, offset: Offset) -> Result<i16> {
@@ -171,11 +173,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        let mut buf = [0u8; 2];
+        let mut ret = I16::ZERO;
         let mut f = self.lock().unwrap();
         f.seek(SeekFrom::Start(offset.into_u64()))?;
-        f.read_exact(&mut buf)?;
-        Ok(read_i16(&buf))
+        f.read_exact(ret.as_bytes_mut())?;
+        Ok(ret.get())
     }
 
     fn read_i32(&self, offset: Offset) -> Result<i32> {
@@ -183,12 +185,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        let mut buf = [0u8; 4];
+        let mut ret = I32::ZERO;
         let mut f = self.lock().unwrap();
-
         f.seek(SeekFrom::Start(offset.into_u64()))?;
-        f.read_exact(&mut buf)?;
-        Ok(read_i32(&buf))
+        f.read_exact(ret.as_bytes_mut())?;
+        Ok(ret.get())
     }
 
     fn read_i64(&self, offset: Offset) -> Result<i64> {
@@ -196,11 +197,11 @@ impl Source for FileSource {
         if !end.is_valid(self.size()) {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
-        let mut buf = [0u8; 8];
+        let mut ret = I64::ZERO;
         let mut f = self.lock().unwrap();
         f.seek(SeekFrom::Start(offset.into_u64()))?;
-        f.read_exact(&mut buf)?;
-        Ok(read_i64(&buf))
+        f.read_exact(ret.as_bytes_mut())?;
+        Ok(ret.get())
     }
 
     fn read_isized(&self, offset: Offset, size: ByteSize) -> Result<i64> {
@@ -212,6 +213,6 @@ impl Source for FileSource {
         let mut f = self.lock().unwrap();
         f.seek(SeekFrom::Start(offset.into_u64()))?;
         f.read_exact(&mut buf[..size as usize])?;
-        Ok(read_to_i64(size as usize, &buf))
+        Ok(LE::read_int(&buf, size as usize))
     }
 }

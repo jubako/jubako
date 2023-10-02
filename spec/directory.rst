@@ -275,14 +275,15 @@ Content Address
 ``contentAddress`` is used to point to a specific blob.
 
 A ``contentAddress`` is composed of two parts :
-- The first byte is the ``pack_id`` (The pack in which find the content)
-- The last bytes (1, 2 or 3. Equal to ``0b00SS+1``) are the ``content_id`` (The identifier of the content in the pack)
+- The first bytes (1 or 2) are the ``pack_id`` (The pack in which find the content)
+- The last bytes (1, 2, 3 or 4. Equal to ``0b00SS+1``) are the ``content_id`` (The identifier of the content in the pack)
 
-``0b0PCC`` describes the size of the pack_id:
-- ``P`` is the size of the pack_id.
-  If it is 1, the pack_id is present in the entry.
-  If it is 0, the pack_id is described as a complement byte.
+``0bDPCC`` describes the size of the pack_id:
+- ``P + 1`` is the size of the pack_id.
 - ``CC + 1`` is the size of the ``content_id``
+
+If ``D`` is 1, the key info is followed by ``P+1`` bytes wich are the value of the pack_id.
+The entry doesn't contain the pack_id and reader must use the default value as value for the property.
 
 
 Unsigned and Signed Integer
@@ -380,16 +381,13 @@ It is a simple header describing the index and where to find the data.
 Header
 ------
 
-The first kind of index know by Jubako implementation is a listing of entry, along with
-some metadata
-
 ============= ================== ================= =============
 Field Name    Type               Offset            Description
 ============= ================== ================= =============
 storeId       u32                0                 The entry store where to find the entries.
 entryCount    u32                4                 The number of entries in the index.
 entryOffset   u32                8                 The offset of the first entry in the entry store.
-extraData     ``contentAddress`` 12                Some content for the index. Used a extra data.
+freeData      [u8;4]             12                Some data specific type are free to use
 indexKey      u8                 16                | The primary key of the index.
                                                    | 0 if no primary key.
                                                    | 1 for the first key.

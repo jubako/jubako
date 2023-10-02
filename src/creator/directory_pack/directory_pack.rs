@@ -1,6 +1,6 @@
 use super::{entry_store, value_store, Index};
 use crate::bases::*;
-use crate::common::{CheckInfo, ContentAddress, DirectoryPackHeader, PackHeaderInfo, PackKind};
+use crate::common::{CheckInfo, DirectoryPackHeader, PackHeaderInfo, PackKind};
 use crate::creator::private::WritableTell;
 use crate::creator::PackData;
 use entry_store::EntryStoreTrait;
@@ -43,13 +43,13 @@ impl DirectoryPackCreator {
     pub fn create_index(
         &mut self,
         name: &str,
-        extra_data: ContentAddress,
+        free_data: IndexFreeData,
         index_key: PropertyIdx,
         store_id: EntryStoreIdx,
         count: EntryCount,
         offset: Word<EntryIdx>,
     ) {
-        let index = Index::new(name, extra_data, index_key, store_id, count, offset);
+        let index = Index::new(name, free_data, index_key, store_id, count, offset);
         self.indexes.push(index);
     }
 

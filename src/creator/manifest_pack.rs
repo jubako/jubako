@@ -31,7 +31,7 @@ impl ManifestPackCreator {
         let mut pack_infos = vec![];
         let mut free_data_ids = vec![];
 
-        let nb_packs = self.packs.len() as u8;
+        let nb_packs = self.packs.len() as u16;
 
         for (pack_data, _locator) in &self.packs {
             let free_data_id = self

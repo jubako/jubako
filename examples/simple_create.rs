@@ -95,8 +95,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     // One index to access our entries.
     directory_pack.create_index(
         "My own index",
-        jubako::ContentAddress::new(0.into(), 0.into()), // A pointer to a content which can be used to store whatever you what (nothing here)
-        0.into(),                                        // The index is not sorted
+        Default::default(),
+        0.into(), // The index is not sorted
         entry_store_id,
         3.into(),                         // 3 entries
         jubako::EntryIdx::from(0).into(), // Offset 0

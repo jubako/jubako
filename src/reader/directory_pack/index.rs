@@ -1,6 +1,5 @@
 use super::{EntryRange, EntryStorage, EntryStore, RangeTrait};
 use crate::bases::*;
-use crate::common::ContentAddress;
 use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -8,7 +7,7 @@ pub struct IndexHeader {
     pub store_id: EntryStoreIdx,
     pub entry_count: EntryCount,
     pub entry_offset: EntryIdx,
-    pub extra_data: ContentAddress,
+    pub free_data: IndexFreeData,
     pub index_property: u8,
     pub name: String,
 }
@@ -19,14 +18,14 @@ impl Producable for IndexHeader {
         let store_id = Idx::<u32>::produce(flux)?.into();
         let entry_count = Count::<u32>::produce(flux)?.into();
         let entry_offset = Idx::<u32>::produce(flux)?.into();
-        let extra_data = ContentAddress::produce(flux)?;
+        let free_data = IndexFreeData::produce(flux)?;
         let index_property = flux.read_u8()?;
         let name = String::from_utf8(PString::produce(flux)?)?;
         Ok(Self {
             store_id,
             entry_count,
             entry_offset,
-            extra_data,
+            free_data,
             index_property,
             name,
         })
@@ -85,10 +84,10 @@ mod tests {
     #[test]
     fn test_index() {
         let content = vec![
-            0x00, 0x00, 0x00, 0x01, // store_id
-            0x00, 0x00, 0xff, 0x00, // entry_count
-            0x00, 0x00, 0x00, 0x02, // entry_offset
-            0x05, 0x00, 0x00, 0x01, // extra_data
+            0x01, 0x00, 0x00, 0x00, // store_id
+            0x00, 0xff, 0x00, 0x00, // entry_count
+            0x02, 0x00, 0x00, 0x00, // entry_offset
+            0x00, 0x00, 0x00, 0x00, // free data
             0x01, // index_property
             0x05, 0x48, 0x65, 0x6C, 0x6C, 0x6F, // PString Hello
         ];
@@ -101,10 +100,7 @@ mod tests {
                 store_id: EntryStoreIdx::from(1),
                 entry_count: EntryCount::from(0xff00),
                 entry_offset: EntryIdx::from(2),
-                extra_data: ContentAddress {
-                    pack_id: PackId::from(5),
-                    content_id: ContentIdx::from(1)
-                },
+                free_data: [0x00; 4].into(),
                 index_property: 1,
                 name: String::from("Hello")
             }

@@ -106,7 +106,8 @@ pub enum Property<PN: PropertyName> {
         name: PN,
     },
     ContentAddress {
-        pack_id_counter: ValueCounter<u8>,
+        pack_id_counter: ValueCounter<u16>,
+        pack_id_size: PropertySize<u16>,
         content_id_size: PropertySize<u32>,
         name: PN,
     },
@@ -151,11 +152,13 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .finish(),
             Self::ContentAddress {
                 pack_id_counter,
+                pack_id_size,
                 content_id_size,
                 name,
             } => f
                 .debug_struct("ContentAddress")
                 .field("pack_id_counter", &pack_id_counter)
+                .field("pack_id_size", &pack_id_size)
                 .field("content_id_size", &content_id_size)
                 .field("name", &name.to_string())
                 .finish(),
@@ -193,6 +196,7 @@ impl<PN: PropertyName> Property<PN> {
     pub fn new_content_address(name: PN) -> Self {
         Property::ContentAddress {
             pack_id_counter: Default::default(),
+            pack_id_size: Default::default(),
             content_id_size: Default::default(),
             name,
         }
@@ -226,11 +230,13 @@ impl<PN: PropertyName> Property<PN> {
             }
             Self::ContentAddress {
                 pack_id_counter,
+                pack_id_size,
                 content_id_size,
                 name,
             } => {
                 if let Value::Content(c) = entry.value(name) {
-                    pack_id_counter.process(c.pack_id.into_u8());
+                    pack_id_counter.process(c.pack_id.into_u16());
+                    pack_id_size.process(c.pack_id.into_u16());
                     content_id_size.process(c.content_id.into_u32());
                 } else {
                     panic!("Value type doesn't correspond to property");
@@ -295,10 +301,12 @@ impl<PN: PropertyName> Property<PN> {
             }
             Self::ContentAddress {
                 pack_id_counter,
+                pack_id_size,
                 content_id_size,
                 name,
             } => layout::Property::ContentAddress {
-                size: content_id_size.into(),
+                content_id_size: content_id_size.into(),
+                pack_id_size: pack_id_size.into(),
                 default: pack_id_counter.into(),
                 name,
             },

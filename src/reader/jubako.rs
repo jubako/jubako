@@ -11,6 +11,8 @@ use crate::common::{ContentAddress, FullPackKind, Pack, PackKind};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
+use zerocopy::little_endian::U64;
+use zerocopy::FromBytes;
 
 pub struct Container {
     manifest_pack: ManifestPack,
@@ -28,11 +30,13 @@ fn parse_header(buffer: [u8; 64]) -> Result<(PackKind, Size)> {
     Ok(match kind {
         PackKind::Directory | PackKind::Content => (kind, Size::zero()),
         PackKind::Container => {
-            let size: Size = primitive::read_u64(&buffer[8..16]).into();
+            let size = U64::read_from(&buffer[8..16]).unwrap();
+            let size: Size = size.get().into();
             (kind, size)
         }
         PackKind::Manifest => {
-            let size: Size = primitive::read_u64(&buffer[32..40]).into();
+            let size = U64::read_from(&buffer[32..40]).unwrap();
+            let size: Size = size.get().into();
             (kind, size)
         }
     })
@@ -87,7 +91,7 @@ impl Container {
         let reader = Reader::from(FileSource::open(path)?);
         let container_pack = Arc::new(locate_pack(reader)?);
         let reader = container_pack
-            .get_pack_reader_from_idx(PackId::from(container_pack.pack_count().into_u8() - 1))
+            .get_pack_reader_from_idx(PackId::from(container_pack.pack_count().into_u16() - 1))
             .unwrap();
 
         let manifest_pack =

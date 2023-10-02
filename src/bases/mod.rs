@@ -4,7 +4,6 @@ mod cache;
 mod flux;
 mod io;
 mod memory_reader;
-pub mod primitive;
 mod prop_type;
 mod reader;
 mod stream;

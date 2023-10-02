@@ -88,18 +88,21 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     }
                 }
                 Property::ContentAddress {
-                    size,
+                    content_id_size,
+                    pack_id_size,
                     default,
                     name,
                 } => {
                     let value = entry.value(name);
                     if let Value::Content(value) = value {
                         if let Some(d) = default {
-                            assert_eq!(*d, value.pack_id.into_u8());
+                            assert_eq!(*d, value.pack_id.into_u16());
                         } else {
-                            written += stream.write_u8(value.pack_id.into_u8())?;
+                            written +=
+                                stream.write_usized(value.pack_id.into_u64(), *pack_id_size)?;
                         }
-                        written += stream.write_usized(value.content_id.into_u64(), *size)?;
+                        written +=
+                            stream.write_usized(value.content_id.into_u64(), *content_id_size)?;
                     } else {
                         return Err("Not a Content".to_string().into());
                     }

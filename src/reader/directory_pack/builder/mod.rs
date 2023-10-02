@@ -157,7 +157,7 @@ mod tests {
                 0,
                 vec![
                     RawProperty::new(
-                        PropertyKind::ContentAddress(ByteSize::U3, None),
+                        PropertyKind::ContentAddress(ByteSize::U1, ByteSize::U3, None),
                         4,
                         Some("V0".to_string()),
                     ),
@@ -188,9 +188,9 @@ mod tests {
             assert!(entry.get_variant_id().unwrap().is_none());
             assert_eq!(
                 entry.get_value("V0").unwrap(),
-                RawValue::Content(ContentAddress::new(0.into(), 1.into()))
+                RawValue::Content(ContentAddress::new(0.into(), 0x010000.into()))
             );
-            assert!(entry.get_value("V11").unwrap() == RawValue::U16(0x8899));
+            assert!(entry.get_value("V11").unwrap() == RawValue::U16(0x9988));
         }
 
         {
@@ -199,9 +199,9 @@ mod tests {
             assert!(entry.get_variant_id().unwrap().is_none());
             assert_eq!(
                 entry.get_value("V0").unwrap(),
-                RawValue::Content(ContentAddress::new(1.into(), 2.into()))
+                RawValue::Content(ContentAddress::new(1.into(), 0x020000.into()))
             );
-            assert!(entry.get_value("V11").unwrap() == RawValue::U16(0x6677));
+            assert!(entry.get_value("V11").unwrap() == RawValue::U16(0x7766));
         }
     }
 
@@ -261,12 +261,12 @@ mod tests {
         let entry_reader = Reader::from(vec![
             0x00, // Variant id entry 0
             0x04, 0xFF, 0xEE, 0xDD, 0xCC, // array entry 0
-            0x88, 0x99, // uint entry 0
+            0x99, 0x88, // uint entry 0
             0x01, // variant id entry 1
             0xFF, 0xEE, // array entry 1,
             0x00, 0x00, // Padding entry 1
             0xCC, // signed int entry 1
-            0x88, 0x99, // uint entry 1
+            0x99, 0x88, // uint entry 1
         ]);
         let store = Arc::new(EntryStore::Plain(PlainStore {
             layout,

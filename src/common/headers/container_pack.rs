@@ -27,8 +27,8 @@ impl Producable for ContainerPackHeader {
             return Err(format_error!("Pack Magic is not ContainerPack"));
         }
         let version = flux.read_u8()?;
-        let pack_count = flux.read_u8()?.into();
-        flux.skip(Size::new(2))?;
+        let pack_count = flux.read_u16()?.into();
+        flux.skip(Size::new(1))?;
         let file_size = Size::produce(flux)?;
         Ok(ContainerPackHeader {
             version,
@@ -41,8 +41,8 @@ impl Producable for ContainerPackHeader {
 impl SizedProducable for ContainerPackHeader {
     const SIZE: usize = FullPackKind::SIZE
          + 1 // version
-         + 1 // packCount
-         + 2 //padding
+         + 2 // packCount
+         + 1 //padding
          + Size::SIZE;
 }
 
@@ -51,8 +51,8 @@ impl Writable for ContainerPackHeader {
         let mut written = 0;
         written += FullPackKind(PackKind::Container).write(stream)?;
         written += stream.write_u8(self.version)?;
-        written += stream.write_u8(self.pack_count.into_u8())?;
-        written += stream.write_data(&[0_u8; 2])?;
+        written += stream.write_u16(self.pack_count.into_u16())?;
+        written += stream.write_data(&[0_u8; 1])?;
         written += self.file_size.write(stream)?;
         Ok(written)
     }
@@ -67,9 +67,9 @@ mod tests {
         let content = vec![
             0x6a, 0x62, 0x6b, 0x43, // magic
             0x01, // version
-            0x05, // pack_count
-            0x00, 0x00, // padding
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, // file_size
+            0x05, 0x00, // pack_count
+            0x00, // padding
+            0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size
         ];
         let reader = Reader::from(content);
         let mut flux = reader.create_flux_all();
@@ -77,7 +77,7 @@ mod tests {
             ContainerPackHeader::produce(&mut flux).unwrap(),
             ContainerPackHeader {
                 version: 0x01_u8,
-                pack_count: 0x05_u8.into(),
+                pack_count: 0x05_u16.into(),
                 file_size: Size::from(0xffff_u64),
             }
         );

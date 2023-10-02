@@ -1,7 +1,7 @@
 use crate::bases::*;
-use primitive::*;
 use std::io::Read;
 use std::sync::Arc;
+use zerocopy::byteorder::{ByteOrder, LittleEndian as LE};
 
 impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
     fn size(&self) -> Size {
@@ -41,7 +41,7 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
         let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
-        Ok(read_u8(slice))
+        Ok(slice[0])
     }
 
     fn read_u16(&self, offset: Offset) -> Result<u16> {
@@ -50,7 +50,7 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
         let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
-        Ok(read_u16(slice))
+        Ok(LE::read_u16(slice))
     }
 
     fn read_u32(&self, offset: Offset) -> Result<u32> {
@@ -59,7 +59,7 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
         let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
-        Ok(read_u32(slice))
+        Ok(LE::read_u32(slice))
     }
 
     fn read_u64(&self, offset: Offset) -> Result<u64> {
@@ -68,7 +68,7 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
         let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
-        Ok(read_u64(slice))
+        Ok(LE::read_u64(slice))
     }
 
     fn read_usized(&self, offset: Offset, size: ByteSize) -> Result<u64> {
@@ -77,7 +77,7 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
         let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
-        Ok(read_to_u64(size as usize, slice))
+        Ok(LE::read_uint(slice, size as usize))
     }
 
     fn read_i8(&self, offset: Offset) -> Result<i8> {
@@ -86,7 +86,7 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
         let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
-        Ok(read_i8(slice))
+        Ok(slice[0] as i8)
     }
 
     fn read_i16(&self, offset: Offset) -> Result<i16> {
@@ -95,7 +95,7 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
         let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
-        Ok(read_i16(slice))
+        Ok(LE::read_i16(slice))
     }
 
     fn read_i32(&self, offset: Offset) -> Result<i32> {
@@ -104,7 +104,7 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
         let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
-        Ok(read_i32(slice))
+        Ok(LE::read_i32(slice))
     }
 
     fn read_i64(&self, offset: Offset) -> Result<i64> {
@@ -113,7 +113,7 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
         let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
-        Ok(read_i64(slice))
+        Ok(LE::read_i64(slice))
     }
 
     fn read_isized(&self, offset: Offset, size: ByteSize) -> Result<i64> {
@@ -122,7 +122,7 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
             return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
         }
         let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
-        Ok(read_to_i64(size as usize, slice))
+        Ok(LE::read_int(slice, size as usize))
     }
 }
 

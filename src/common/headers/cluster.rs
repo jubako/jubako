@@ -51,7 +51,7 @@ mod tests {
         let reader = Reader::from(vec![
             0x00, // compression
             0x01, // offset_size
-            0x00, 0x02, // blob_count
+            0x02, 0x00, // blob_count
         ]);
         let mut flux = reader.create_flux_all();
         assert_eq!(

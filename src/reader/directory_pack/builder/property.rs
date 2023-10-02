@@ -6,6 +6,7 @@ use crate::reader::directory_pack::raw_layout::{DeportedDefault, PropertyKind};
 use crate::reader::directory_pack::raw_value::{Array, Extend, RawValue};
 use crate::reader::directory_pack::ValueStoreTrait;
 use std::sync::Arc;
+use zerocopy::byteorder::{ByteOrder, LittleEndian as LE};
 
 // The properties here are pretty close from the layout::Property.
 // The main difference is that layout::Property is not typed:
@@ -69,10 +70,9 @@ impl IntProperty {
     ) -> Result<Self> {
         match deported_default {
             DeportedDefault::Value(default) => {
-                use crate::bases::primitive::read_to_u64;
                 let default_data =
                     store.get_data(default.into(), Some(Size::from(size as u8 as usize)))?;
-                let default = read_to_u64(size as u8 as usize, default_data);
+                let default = LE::read_uint(default_data, size as u8 as usize);
                 Ok(IntProperty::new(offset, size, Some(default), None))
             }
             DeportedDefault::KeySize(key_size) => Ok(IntProperty::new(
@@ -111,7 +111,6 @@ impl PropertyBuilderTrait for IntProperty {
             Some(v) => v,
             None => match &self.deported {
                 Some((key_size, value_store)) => {
-                    use crate::bases::primitive::read_to_u64;
                     let key = match key_size {
                         ByteSize::U1 => reader.read_u8(self.offset)? as u64,
                         ByteSize::U2 => reader.read_u16(self.offset)? as u64,
@@ -121,7 +120,7 @@ impl PropertyBuilderTrait for IntProperty {
                     };
                     let value_data = value_store
                         .get_data(key.into(), Some(Size::from(self.size as u8 as usize)))?;
-                    read_to_u64(self.size as u8 as usize, value_data)
+                    LE::read_uint(value_data, self.size as u8 as usize)
                 }
                 None => match self.size {
                     ByteSize::U1 => reader.read_u8(self.offset)? as u64,
@@ -166,10 +165,9 @@ impl SignedProperty {
     ) -> Result<Self> {
         match deported_default {
             DeportedDefault::Value(default) => {
-                use crate::bases::primitive::read_to_i64;
                 let default_data =
                     store.get_data(default.into(), Some(Size::from(size as u8 as usize)))?;
-                let default = read_to_i64(size as u8 as usize, default_data);
+                let default = LE::read_int(default_data, size as u8 as usize);
                 Ok(SignedProperty::new(offset, size, Some(default), None))
             }
             DeportedDefault::KeySize(key_size) => Ok(SignedProperty::new(
@@ -210,7 +208,6 @@ impl PropertyBuilderTrait for SignedProperty {
             Some(v) => v,
             None => match &self.deported {
                 Some((key_size, value_store)) => {
-                    use crate::bases::primitive::read_to_i64;
                     let key = match key_size {
                         ByteSize::U1 => reader.read_u8(self.offset)? as u64,
                         ByteSize::U2 => reader.read_u16(self.offset)? as u64,
@@ -223,7 +220,7 @@ impl PropertyBuilderTrait for SignedProperty {
                     };
                     let value_data = value_store
                         .get_data(key.into(), Some(Size::from(self.size as u8 as usize)))?;
-                    read_to_i64(self.size as u8 as usize, value_data)
+                    LE::read_int(value_data, self.size as u8 as usize)
                 }
                 None => match self.size {
                     ByteSize::U1 => reader.read_i8(self.offset)? as i64,
@@ -336,14 +333,21 @@ impl PropertyBuilderTrait for ArrayProperty {
 pub struct ContentProperty {
     offset: Offset,
     pack_id_default: Option<PackId>,
+    pack_id_size: ByteSize,
     content_id_size: ByteSize,
 }
 
 impl ContentProperty {
-    pub fn new(offset: Offset, pack_id_default: Option<PackId>, content_id_size: ByteSize) -> Self {
+    pub fn new(
+        offset: Offset,
+        pack_id_default: Option<PackId>,
+        pack_id_size: ByteSize,
+        content_id_size: ByteSize,
+    ) -> Self {
         Self {
             offset,
             pack_id_default,
+            pack_id_size,
             content_id_size,
         }
     }
@@ -353,9 +357,16 @@ impl TryFrom<&layout::Property> for ContentProperty {
     type Error = String;
     fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
         match p.kind {
-            layout::PropertyKind::ContentAddress(content_id_size, pack_id_default) => Ok(
-                ContentProperty::new(p.offset, pack_id_default, content_id_size),
-            ),
+            layout::PropertyKind::ContentAddress(
+                pack_id_size,
+                content_id_size,
+                pack_id_default,
+            ) => Ok(ContentProperty::new(
+                p.offset,
+                pack_id_default,
+                pack_id_size,
+                content_id_size,
+            )),
             _ => Err("Invalid key".to_string()),
         }
     }
@@ -368,7 +379,7 @@ impl PropertyBuilderTrait for ContentProperty {
             self.content_id_size as usize + if self.pack_id_default.is_some() { 0 } else { 1 };
         let mut flux = reader.create_flux(self.offset, End::new_size(content_size));
         let pack_id = match self.pack_id_default {
-            None => flux.read_u8()?.into(),
+            None => (flux.read_usized(self.pack_id_size)? as u16).into(),
             Some(d) => d,
         };
 
@@ -395,10 +406,11 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
     ) -> std::result::Result<Self, Self::Error> {
         let (p, value_storage) = p_vs;
         Ok(match &p.kind {
-            &PropertyKind::ContentAddress(content_id_size, pack_id_default) => {
+            &PropertyKind::ContentAddress(pack_id_size, content_id_size, pack_id_default) => {
                 Self::ContentAddress(ContentProperty::new(
                     p.offset,
                     pack_id_default,
+                    pack_id_size,
                     content_id_size,
                 ))
             }
@@ -488,56 +500,56 @@ mod tests {
         assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xBA);
 
         let prop = IntProperty::new(Offset::new(0), ByteSize::U2, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xFEDC);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xDCFE);
         let prop = IntProperty::new(Offset::new(2), ByteSize::U2, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xBA98);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x98BA);
 
         let prop = IntProperty::new(Offset::new(0), ByteSize::U3, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xFEDCBA);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xBADCFE);
         let prop = IntProperty::new(Offset::new(2), ByteSize::U3, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xBA9876);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x7698BA);
 
         let prop = IntProperty::new(Offset::new(0), ByteSize::U4, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xFEDCBA98);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x98BADCFE);
         let prop = IntProperty::new(Offset::new(2), ByteSize::U4, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xBA987654);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x547698BA);
 
         let prop = IntProperty::new(Offset::new(0), ByteSize::U5, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xFEDCBA9876);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x7698BADCFE);
         let prop = IntProperty::new(Offset::new(2), ByteSize::U5, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xBA98765432);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x32547698BA);
 
         let prop = IntProperty::new(Offset::new(0), ByteSize::U6, None, None);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            0xFEDCBA987654
+            0x547698BADCFE
         );
         let prop = IntProperty::new(Offset::new(2), ByteSize::U6, None, None);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            0xBA9876543210
+            0x1032547698BA
         );
 
         let prop = IntProperty::new(Offset::new(0), ByteSize::U7, None, None);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            0xFEDCBA98765432
+            0x32547698BADCFE
         );
         let prop = IntProperty::new(Offset::new(2), ByteSize::U7, None, None);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            0xBA9876543210ff
+            0xFF1032547698BA
         );
 
         let prop = IntProperty::new(Offset::new(0), ByteSize::U8, None, None);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            0xFEDCBA9876543210
+            0x1032547698BADCFE
         );
         let prop = IntProperty::new(Offset::new(1), ByteSize::U8, None, None);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            0xDCBA9876543210ff
+            0xFF1032547698BADC
         );
     }
 
@@ -551,56 +563,56 @@ mod tests {
         assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x46);
 
         let prop = SignedProperty::new(Offset::new(0), ByteSize::U2, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x0124);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x2302);
         let prop = SignedProperty::new(Offset::new(2), ByteSize::U2, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x4568);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x6746);
 
         let prop = SignedProperty::new(Offset::new(0), ByteSize::U3, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x012346);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x452302);
         let prop = SignedProperty::new(Offset::new(2), ByteSize::U3, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x45678a);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x7698BA);
 
         let prop = SignedProperty::new(Offset::new(0), ByteSize::U4, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x01234568);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x67452302);
         let prop = SignedProperty::new(Offset::new(2), ByteSize::U4, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x456789ac);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x547698BA);
 
         let prop = SignedProperty::new(Offset::new(0), ByteSize::U5, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x012345678a);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x7698BADCFE);
         let prop = SignedProperty::new(Offset::new(2), ByteSize::U5, None, None);
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x456789abce);
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x32547698BA);
 
         let prop = SignedProperty::new(Offset::new(0), ByteSize::U6, None, None);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            -0x0123456789ac
+            0x547698BADCFE
         );
         let prop = SignedProperty::new(Offset::new(2), ByteSize::U6, None, None);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            -0x456789abcdf0
+            0x1032547698BA
         );
 
         let prop = SignedProperty::new(Offset::new(0), ByteSize::U7, None, None);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            -0x0123456789abce
+            0x32547698BADCFE
         );
         let prop = SignedProperty::new(Offset::new(2), ByteSize::U7, None, None);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            -0x456789abcdef01
+            -0x00efcdab896746
         );
 
         let prop = SignedProperty::new(Offset::new(0), ByteSize::U8, None, None);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            -0x0123456789abcdf0
+            0x1032547698BADCFE
         );
         let prop = SignedProperty::new(Offset::new(1), ByteSize::U8, None, None);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            -0x23456789abcdef01
+            -0x00efcdab89674524
         );
     }
 
@@ -658,7 +670,7 @@ mod tests {
     #[test]
     fn test_deported_int() {
         let value_store = Arc::new(mock::ValueStore::new());
-        let content = vec![0x00, 0x01, 0x02, 0x03, 0x04, 0x1A, 0x04, 0x20, 0xff];
+        let content = vec![0x01, 0x00, 0x02, 0x03, 0x04, 0x1A, 0x04, 0x20, 0x04, 0xff];
         let reader = Reader::new(content, End::None);
 
         let prop = IntProperty::new(
@@ -666,15 +678,15 @@ mod tests {
             ByteSize::U1, // Size of the integer
             None,
             Some((ByteSize::U1, value_store.clone())), // Size of the key
-        );
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0);
+        ); // key is 0x01
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 1);
 
         let prop = IntProperty::new(
             Offset::new(2),
             ByteSize::U1, // Size of the integer
             None,
             Some((ByteSize::U1, value_store.clone())),
-        );
+        ); // key is 0x02
         assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 2);
 
         let prop = IntProperty::new(
@@ -682,47 +694,47 @@ mod tests {
             ByteSize::U1, // Size of the integer
             None,
             Some((ByteSize::U2, value_store.clone())),
-        );
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x01);
+        ); // key is 0x0001
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 1);
 
         let prop = IntProperty::new(
             Offset::new(0),
             ByteSize::U2, // Size of the integer
             None,
             Some((ByteSize::U1, value_store.clone())),
-        );
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x0001);
+        ); // key is 0x01
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x0201);
 
         let prop = IntProperty::new(
             Offset::new(0),
             ByteSize::U2, // Size of the integer
             None,
             Some((ByteSize::U2, value_store.clone())),
-        );
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x0102);
+        ); // key is 0x0001
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x0201);
 
         let prop = IntProperty::new(
             Offset::new(0),
             ByteSize::U3, // Size of the integer
             None,
             Some((ByteSize::U1, value_store.clone())),
-        );
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x000102);
+        ); // key is 0x001
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x030201);
 
         let prop = IntProperty::new(
             Offset::new(2),
             ByteSize::U3, // Size of the integer
             None,
             Some((ByteSize::U1, value_store.clone())),
-        );
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x020304);
+        ); // key is 0x02
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x040302);
 
         let prop = IntProperty::new(
             Offset::new(4),
             ByteSize::U1, // Size of the integer
             None,
             Some((ByteSize::U1, value_store.clone())),
-        );
+        ); // key is 0x04
         assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x04);
 
         let prop = IntProperty::new(
@@ -730,57 +742,57 @@ mod tests {
             ByteSize::U2, // Size of the integer
             None,
             Some((ByteSize::U1, value_store.clone())),
-        );
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x0405);
+        ); // key is 0x04
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x0504);
 
         let prop = IntProperty::new(
-            Offset::new(4),
+            Offset::new(5),
             ByteSize::U1, // Size of the integer
             None,
             Some((ByteSize::U2, value_store.clone())),
-        );
+        ); // key is 0x041A
         assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x96);
 
         let prop = IntProperty::new(
-            Offset::new(4),
+            Offset::new(5),
             ByteSize::U2, // Size of the integer
             None,
             Some((ByteSize::U2, value_store.clone())),
-        );
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x9697);
+        ); // key is 0x041A
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x9796);
 
         let prop = IntProperty::new(
-            Offset::new(6),
+            Offset::new(7),
             ByteSize::U1, // Size of the integer
             None,
             Some((ByteSize::U2, value_store.clone())),
-        );
+        ); // key is 0x0420
         assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x9C);
 
         let prop = IntProperty::new(
-            Offset::new(6),
+            Offset::new(7),
             ByteSize::U8, // Size of the integer
             None,
             Some((ByteSize::U2, value_store.clone())),
-        );
+        ); // key is 0x0420
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            0x9C9D9E9FA0A1A2A3
+            0xA3A2A1A09F9E9D9C
         );
 
         let prop = IntProperty::new(
-            Offset::new(6),
+            Offset::new(7),
             ByteSize::U8, // Size of the integer
             Some(20),
             Some((ByteSize::U2, value_store.clone())),
-        );
+        ); // key is 0x0420 (but we don't care as we have a default value of 20)
         assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 20);
     }
 
     #[test]
     fn test_deported_sint() {
         let value_store = Arc::new(mock::ValueStore::new());
-        let content = vec![0x00, 0x01, 0x02, 0x03, 0x04, 0x1A, 0x04, 0x20, 0xff];
+        let content = vec![0x01, 0x00, 0x02, 0x03, 0x04, 0x1A, 0x04, 0x20, 0x04, 0xff];
         let reader = Reader::new(content, End::None);
 
         let prop = SignedProperty::new(
@@ -788,15 +800,15 @@ mod tests {
             ByteSize::U1, // Size of the integer
             None,
             Some((ByteSize::U1, value_store.clone())), // Size of the key
-        );
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0);
+        ); // key is 0x01
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 1);
 
         let prop = SignedProperty::new(
             Offset::new(2),
             ByteSize::U1, // Size of the integer
             None,
             Some((ByteSize::U1, value_store.clone())),
-        );
+        ); // key is 0x02
         assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 2);
 
         let prop = SignedProperty::new(
@@ -804,7 +816,7 @@ mod tests {
             ByteSize::U1, // Size of the integer
             None,
             Some((ByteSize::U2, value_store.clone())),
-        );
+        ); // key is 0x0001
         assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x01);
 
         let prop = SignedProperty::new(
@@ -812,39 +824,39 @@ mod tests {
             ByteSize::U2, // Size of the integer
             None,
             Some((ByteSize::U1, value_store.clone())),
-        );
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x0001);
+        ); // key is 0x01
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x0201);
 
         let prop = SignedProperty::new(
             Offset::new(0),
             ByteSize::U2, // Size of the integer
             None,
             Some((ByteSize::U2, value_store.clone())),
-        );
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x0102);
+        ); // key is 0x0001
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x0201);
 
         let prop = SignedProperty::new(
             Offset::new(0),
             ByteSize::U3, // Size of the integer
             None,
             Some((ByteSize::U1, value_store.clone())),
-        );
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x000102);
+        ); // key is 0x01
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x030201);
 
         let prop = SignedProperty::new(
             Offset::new(2),
             ByteSize::U3, // Size of the integer
             None,
             Some((ByteSize::U1, value_store.clone())),
-        );
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x020304);
+        ); // key is 0x02
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x040302);
 
         let prop = SignedProperty::new(
             Offset::new(4),
             ByteSize::U1, // Size of the integer
             None,
             Some((ByteSize::U1, value_store.clone())),
-        );
+        ); // key is 0x04
         assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x04);
 
         let prop = SignedProperty::new(
@@ -852,59 +864,59 @@ mod tests {
             ByteSize::U2, // Size of the integer
             None,
             Some((ByteSize::U1, value_store.clone())),
-        );
-        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x0405);
+        ); // key is 0x04
+        assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0x0504);
 
         let prop = SignedProperty::new(
-            Offset::new(4),
+            Offset::new(5),
             ByteSize::U1, // Size of the integer
             None,
             Some((ByteSize::U2, value_store.clone())),
-        );
+        ); // key is 0x041A
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
             -106_i64 //0x96_i8 overflowing
         );
 
         let prop = SignedProperty::new(
-            Offset::new(4),
+            Offset::new(5),
             ByteSize::U2, // Size of the integer
             None,
             Some((ByteSize::U2, value_store.clone())),
-        );
+        ); // key is 0x041A
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            -26985_i64 // 0x9697_i16 overflowing
+            -0x686A_i64 // 0x9796_i16 overflowing
         );
 
         let prop = SignedProperty::new(
-            Offset::new(6),
+            Offset::new(7),
             ByteSize::U1, // Size of the integer
             None,
             Some((ByteSize::U2, value_store.clone())),
-        );
+        ); //  key is 0x0420
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
             -100_i64 // 0x9C_i8 overflowing
         );
 
         let prop = SignedProperty::new(
-            Offset::new(6),
+            Offset::new(7),
             ByteSize::U8, // Size of the integer
             None,
             Some((ByteSize::U2, value_store.clone())),
-        );
+        ); // key is 0x0420
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            -7161393424017284445_i64 // 0x9C9D9E9FA0A1A2A3 overflowing
+            -0x5C5D5E5F60616264_i64 // 0xA3A2A1A09F9E9D9C overflowing
         );
 
         let prop = SignedProperty::new(
-            Offset::new(6),
+            Offset::new(7),
             ByteSize::U8, // Size of the integer
             Some(-20),
             Some((ByteSize::U2, value_store.clone())),
-        );
+        ); // key is 0x0420 (but we don't care as we have a default value of 20)
         assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -20);
     }
 
@@ -1038,11 +1050,11 @@ mod tests {
         let reader = Reader::new(content, End::None);
         let value_store = Arc::new(fake::ValueStore {}) as Arc<dyn ValueStoreTrait>;
         let prop = ArrayProperty::new(
-            Offset::new(0),
-            Some(ByteSize::U1),
-            0,
-            Some((ByteSize::U1, Arc::clone(&value_store))),
-            None,
+            Offset::new(0),                                 // offset on the entry
+            Some(ByteSize::U1),                             // Size of the size of the array
+            0,                                              // fixed array size
+            Some((ByteSize::U1, Arc::clone(&value_store))), // Size of the key
+            None,                                           // default
         );
         assert_eq!(
             FakeArray::new(
@@ -1083,7 +1095,7 @@ mod tests {
                 Some(Size::new(0xFE)),
                 BaseArray::default(),
                 0,
-                Some(0xDCBA.into())
+                Some(0xBADC.into())
             ),
             prop.create(&reader.as_sub_reader()).unwrap(),
         );
@@ -1099,7 +1111,7 @@ mod tests {
                 Some(Size::new(0xBA)),
                 BaseArray::default(),
                 0,
-                Some(0x9876.into())
+                Some(0x7698.into())
             ),
             prop.create(&reader.as_sub_reader()).unwrap(),
         );
@@ -1182,7 +1194,7 @@ mod tests {
                 Some(Size::new(0xFE)),
                 BaseArray::new(&[0xDC, 0xBA, 0x98]),
                 3,
-                Some(0x765432.into())
+                Some(0x325476.into())
             ),
             prop.create(&reader.as_sub_reader()).unwrap(),
         );
@@ -1198,7 +1210,7 @@ mod tests {
                 Some(Size::new(0xBA)),
                 BaseArray::new(&[0x98, 0x76, 0x54]),
                 3,
-                Some(0x3210ff.into())
+                Some(0xff1032.into())
             ),
             prop.create(&reader.as_sub_reader()).unwrap(),
         );
@@ -1244,34 +1256,56 @@ mod tests {
         let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
         let reader = Reader::new(content, End::None);
 
-        let prop = ContentProperty::new(Offset::new(0), None, ByteSize::U3);
+        let prop = ContentProperty::new(Offset::new(0), None, ByteSize::U1, ByteSize::U3);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            ContentAddress::new(PackId::from(0xFE), ContentIdx::from(0xDCBA98))
+            ContentAddress::new(PackId::from(0xFE), ContentIdx::from(0x98BADC))
         );
 
-        let prop = ContentProperty::new(Offset::new(2), None, ByteSize::U3);
+        let prop = ContentProperty::new(Offset::new(2), None, ByteSize::U1, ByteSize::U3);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            ContentAddress::new(PackId::from(0xBA), ContentIdx::from(0x987654))
+            ContentAddress::new(PackId::from(0xBA), ContentIdx::from(0x547698))
         );
 
-        let prop = ContentProperty::new(Offset::new(2), None, ByteSize::U2);
+        let prop = ContentProperty::new(Offset::new(2), None, ByteSize::U1, ByteSize::U2);
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            ContentAddress::new(PackId::from(0xBA), ContentIdx::from(0x9876))
+            ContentAddress::new(PackId::from(0xBA), ContentIdx::from(0x7698))
         );
 
-        let prop = ContentProperty::new(Offset::new(2), Some(PackId::from(0xFF)), ByteSize::U3);
+        let prop = ContentProperty::new(
+            Offset::new(2),
+            Some(PackId::from(0xFF)),
+            ByteSize::U1,
+            ByteSize::U3,
+        );
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
-            ContentAddress::new(PackId::from(0xFF), ContentIdx::from(0xBA9876))
+            ContentAddress::new(PackId::from(0xFF), ContentIdx::from(0x7698BA))
         );
 
-        let prop = ContentProperty::new(Offset::new(2), Some(PackId::from(0xFF)), ByteSize::U1);
+        let prop = ContentProperty::new(
+            Offset::new(2),
+            Some(PackId::from(0xFF)),
+            ByteSize::U1,
+            ByteSize::U1,
+        );
         assert_eq!(
             prop.create(&reader.as_sub_reader()).unwrap(),
             ContentAddress::new(PackId::from(0xFF), ContentIdx::from(0xBA))
+        );
+
+        let prop = ContentProperty::new(Offset::new(0), None, ByteSize::U2, ByteSize::U3);
+        assert_eq!(
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            ContentAddress::new(PackId::from(0xDCFE), ContentIdx::from(0x7698BA))
+        );
+
+        let prop = ContentProperty::new(Offset::new(2), None, ByteSize::U2, ByteSize::U3);
+        assert_eq!(
+            prop.create(&reader.as_sub_reader()).unwrap(),
+            ContentAddress::new(PackId::from(0x98BA), ContentIdx::from(0x325476))
         );
     }
 }
