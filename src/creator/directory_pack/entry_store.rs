@@ -6,17 +6,19 @@ use rayon::prelude::*;
 
 use log::debug;
 
-fn set_entry_idx<PN, VN, Entry>(entries: &mut Vec<Entry>)
+#[inline]
+fn set_entry_idx<PN, VN, Entry>(entries: &mut [Entry])
 where
     PN: PropertyName,
     VN: VariantName,
-    Entry: FullEntryTrait<PN, VN>,
+    Entry: FullEntryTrait<PN, VN> + Send + Sync,
 {
-    let mut idx: EntryIdx = 0.into();
-    for entry in entries {
-        entry.set_idx(idx);
-        idx += 1;
-    }
+    assert!(entries.len() <= u32::MAX as usize);
+    //(0u32..).zip(entries.iter_mut()).for_each(|(idx, entry)| entry.set_idx(idx.into()))
+    entries
+        .par_iter_mut()
+        .enumerate()
+        .for_each(|(idx, entry)| entry.set_idx((idx as u32).into()))
 }
 
 pub struct EntryStore<PN, VN, Entry>
@@ -58,23 +60,28 @@ where
     }
 }
 
-pub trait EntryStoreTrait {
+pub trait EntryStoreTrait: Sync + Send {
     fn finalize(self: Box<Self>) -> Box<dyn WritableTell>;
 }
 
 impl<PN, VN, Entry> EntryStoreTrait for EntryStore<PN, VN, Entry>
 where
     PN: PropertyName + std::fmt::Debug + Sync,
-    VN: VariantName + std::fmt::Debug + 'static,
-    Entry: FullEntryTrait<PN, VN> + Send + 'static,
+    VN: VariantName + std::fmt::Debug + Sync + 'static,
+    Entry: FullEntryTrait<PN, VN> + Send + Sync + 'static,
 {
     fn finalize(mut self: Box<Self>) -> Box<dyn WritableTell> {
         set_entry_idx(&mut self.entries);
         if let Some(keys) = &self.schema.sort_keys {
             let compare = |a: &Entry, b: &Entry| a.compare(&mut keys.iter(), b);
-            let compare_opt = |a: &Entry, b: &Entry| Some(a.compare(&mut keys.iter(), b));
+            self.entries.par_sort_unstable_by(compare);
+            set_entry_idx(&mut self.entries);
             let mut watchdog = 50;
-            while !self.entries.is_sorted_by(compare_opt) {
+            while !self
+                .entries
+                .par_windows(2)
+                .all(|w| w[0].compare(&mut keys.iter(), &w[1]).is_le())
+            {
                 debug!(".");
                 self.entries.par_sort_unstable_by(compare);
                 set_entry_idx(&mut self.entries);

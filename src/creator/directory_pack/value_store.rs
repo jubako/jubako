@@ -2,20 +2,37 @@ use crate::bases::*;
 use crate::creator::private::WritableTell;
 use rayon::prelude::*;
 
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone)]
-pub struct StoreHandle(Rc<RefCell<ValueStore>>);
+pub struct StoreHandle(Arc<RwLock<ValueStore>>);
+
+impl StoreHandle {
+    pub fn key_size(&self) -> ByteSize {
+        self.0.read().unwrap().key_size()
+    }
+
+    pub fn get_idx(&self) -> Option<ValueStoreIdx> {
+        self.0.read().unwrap().get_idx()
+    }
+
+    pub fn add_value(&self, data: &[u8]) -> Bound<u64> {
+        self.0.write().unwrap().add_value(data)
+    }
+
+    pub fn finalize(&self, idx: ValueStoreIdx) {
+        self.0.write().unwrap().finalize(idx)
+    }
+}
 
 impl From<ValueStore> for StoreHandle {
     fn from(s: ValueStore) -> Self {
-        Self(Rc::new(RefCell::new(s)))
+        Self(Arc::new(RwLock::new(s)))
     }
 }
 
 impl std::ops::Deref for StoreHandle {
-    type Target = Rc<RefCell<ValueStore>>;
+    type Target = Arc<RwLock<ValueStore>>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }

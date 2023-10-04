@@ -180,7 +180,7 @@ impl<PN: PropertyName> Writable for Property<PN> {
                 } << 5;
                 written += stream.write_u8(key_size + fixed_array_size)?;
                 if let Some((_, store)) = deported_info {
-                    written += store.borrow().get_idx().unwrap().write(stream)?;
+                    written += store.get_idx().unwrap().write(stream)?;
                 }
                 written += PString::write_string(name.to_string().as_bytes(), stream)?;
                 Ok(written)

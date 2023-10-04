@@ -34,14 +34,11 @@ impl ManifestPackCreator {
         let nb_packs = self.packs.len() as u16;
 
         for (pack_data, _locator) in &self.packs {
-            let free_data_id = self
-                .value_store
-                .borrow_mut()
-                .add_value(pack_data.free_data.as_slice());
+            let free_data_id = self.value_store.add_value(pack_data.free_data.as_slice());
             free_data_ids.push(free_data_id);
         }
 
-        self.value_store.borrow_mut().finalize(0.into());
+        self.value_store.finalize(0.into());
 
         for ((pack_data, locator), free_data_id) in self.packs.into_iter().zip(free_data_ids) {
             let current_pos = file.stream_position()? - origin_offset;
@@ -55,7 +52,7 @@ impl ManifestPackCreator {
             ));
         }
 
-        let value_store_pos = self.value_store.borrow_mut().write(file)?;
+        let value_store_pos = self.value_store.write().unwrap().write(file)?;
 
         let packs_offset = file.stream_position()? - origin_offset;
         // Write the pack_info

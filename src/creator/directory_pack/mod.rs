@@ -143,7 +143,7 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                         if let common::Value::Array(mut data) = value {
                             let size = data.len();
                             let to_store = data.split_off(cmp::min(*fixed_array_size, data.len()));
-                            let value_id = store_handle.borrow_mut().add_value(&to_store);
+                            let value_id = store_handle.add_value(&to_store);
                             return Some((
                                 *name,
                                 Value::Array {
