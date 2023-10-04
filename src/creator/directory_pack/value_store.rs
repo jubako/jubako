@@ -4,34 +4,79 @@ use crate::creator::private::WritableTell;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub trait ValueStoreTrait: WritableTell + std::fmt::Debug {
-    fn add_value(&mut self, data: &[u8]) -> Bound<u64>;
-    fn key_size(&self) -> ByteSize;
-    fn get_idx(&self) -> Option<ValueStoreIdx>;
-    fn finalize(&mut self, idx: ValueStoreIdx);
+#[derive(Debug, Clone)]
+pub struct StoreHandle(Rc<RefCell<ValueStore>>);
+
+impl From<ValueStore> for StoreHandle {
+    fn from(s: ValueStore) -> Self {
+        Self(Rc::new(RefCell::new(s)))
+    }
 }
 
-#[derive(Debug, Clone)]
-pub struct ValueStore(Rc<RefCell<dyn ValueStoreTrait>>);
-
-impl std::ops::Deref for ValueStore {
-    type Target = Rc<RefCell<dyn ValueStoreTrait>>;
+impl std::ops::Deref for StoreHandle {
+    type Target = Rc<RefCell<ValueStore>>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
+#[derive(Debug)]
+pub enum ValueStore {
+    Plain(PlainValueStore),
+    Indexed(IndexedValueStore),
+}
+
 impl ValueStore {
-    pub fn new_plain() -> Self {
-        Self(Rc::new(RefCell::new(
-            PlainValueStore(BaseValueStore::new()),
-        )))
+    pub fn new_plain() -> StoreHandle {
+        Self::Plain(PlainValueStore(BaseValueStore::new())).into()
     }
 
-    pub fn new_indexed() -> ValueStore {
-        Self(Rc::new(RefCell::new(IndexedValueStore(
-            BaseValueStore::new(),
-        ))))
+    pub fn new_indexed() -> StoreHandle {
+        Self::Indexed(IndexedValueStore(BaseValueStore::new())).into()
+    }
+
+    pub fn finalize(&mut self, idx: ValueStoreIdx) {
+        match self {
+            Self::Plain(ref mut s) => s.finalize(idx),
+            Self::Indexed(ref mut s) => s.finalize(idx),
+        }
+    }
+
+    pub fn add_value(&mut self, data: &[u8]) -> Bound<u64> {
+        match self {
+            Self::Plain(s) => s.add_value(data),
+            Self::Indexed(s) => s.add_value(data),
+        }
+    }
+
+    pub fn key_size(&self) -> ByteSize {
+        match &self {
+            Self::Plain(s) => s.key_size(),
+            Self::Indexed(s) => s.key_size(),
+        }
+    }
+
+    pub fn get_idx(&self) -> Option<ValueStoreIdx> {
+        match &self {
+            Self::Plain(s) => s.get_idx(),
+            Self::Indexed(s) => s.get_idx(),
+        }
+    }
+}
+
+impl WritableTell for ValueStore {
+    fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
+        match self {
+            Self::Plain(s) => s.write_data(stream),
+            Self::Indexed(s) => s.write_data(stream),
+        }
+    }
+
+    fn write_tail(&mut self, stream: &mut dyn OutStream) -> Result<()> {
+        match self {
+            Self::Plain(s) => s.write_tail(stream),
+            Self::Indexed(s) => s.write_tail(stream),
+        }
     }
 }
 
@@ -67,9 +112,7 @@ impl PlainValueStore {
     fn size(&self) -> Size {
         self.0.size
     }
-}
 
-impl ValueStoreTrait for PlainValueStore {
     fn finalize(&mut self, idx: ValueStoreIdx) {
         self.0.idx = Some(idx);
         self.0.sorted_indirect.sort_by_key(|e| &self.0.data[e.0]);
@@ -143,7 +186,7 @@ impl std::fmt::Debug for PlainValueStore {
 
 pub struct IndexedValueStore(BaseValueStore);
 
-impl ValueStoreTrait for IndexedValueStore {
+impl IndexedValueStore {
     fn finalize(&mut self, idx: ValueStoreIdx) {
         self.0.idx = Some(idx);
         self.0.sorted_indirect.sort_by_key(|e| &self.0.data[e.0]);

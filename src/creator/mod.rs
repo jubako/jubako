@@ -10,7 +10,7 @@ pub use container_pack::ContainerPackCreator;
 pub use content_pack::{CacheProgress, CachedContentPackCreator, ContentPackCreator, Progress};
 pub use directory_pack::{
     schema, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, IndexedValueStore,
-    PlainValueStore, PropertyName, Value, ValueStore, ValueTransformer, VariantName,
+    PlainValueStore, PropertyName, StoreHandle, Value, ValueStore, ValueTransformer, VariantName,
 };
 pub use manifest_pack::ManifestPackCreator;
 use std::io::{Read, Seek, SeekFrom};

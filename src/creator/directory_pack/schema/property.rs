@@ -1,5 +1,5 @@
 use super::super::layout;
-use super::{EntryTrait, PropertyName, Value, ValueStore, VariantName};
+use super::{EntryTrait, PropertyName, StoreHandle, Value, VariantName};
 use crate::bases::*;
 use std::cmp;
 
@@ -102,7 +102,7 @@ pub enum Property<PN: PropertyName> {
     Array {
         max_array_size: PropertySize<usize>,
         fixed_array_size: usize,
-        store_handle: ValueStore,
+        store_handle: StoreHandle,
         name: PN,
     },
     ContentAddress {
@@ -184,7 +184,7 @@ impl<PN: PropertyName> Property<PN> {
         }
     }
 
-    pub fn new_array(fixed_array_size: usize, store_handle: ValueStore, name: PN) -> Self {
+    pub fn new_array(fixed_array_size: usize, store_handle: StoreHandle, name: PN) -> Self {
         Property::Array {
             max_array_size: Default::default(),
             fixed_array_size,
