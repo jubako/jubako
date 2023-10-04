@@ -1,5 +1,6 @@
 use crate::bases::*;
 use crate::creator::private::WritableTell;
+use rayon::prelude::*;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -115,7 +116,9 @@ impl PlainValueStore {
 
     fn finalize(&mut self, idx: ValueStoreIdx) {
         self.0.idx = Some(idx);
-        self.0.sorted_indirect.sort_by_key(|e| &self.0.data[e.0]);
+        self.0
+            .sorted_indirect
+            .par_sort_unstable_by_key(|e| &self.0.data[e.0]);
         let mut offset = 0;
         let mut last_data_idx: Option<usize> = None;
         for (idx, vow) in self.0.sorted_indirect.iter_mut() {
@@ -189,7 +192,9 @@ pub struct IndexedValueStore(BaseValueStore);
 impl IndexedValueStore {
     fn finalize(&mut self, idx: ValueStoreIdx) {
         self.0.idx = Some(idx);
-        self.0.sorted_indirect.sort_by_key(|e| &self.0.data[e.0]);
+        self.0
+            .sorted_indirect
+            .par_sort_by_key(|e| &self.0.data[e.0]);
         for (idx, (_, vow)) in self.0.sorted_indirect.iter().enumerate() {
             vow.fulfil(idx as u64);
         }
