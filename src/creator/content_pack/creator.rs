@@ -126,7 +126,7 @@ impl ContentPackCreator {
         compression: Compression,
         progress: Arc<dyn Progress>,
     ) -> Result<Self> {
-        file.seek(SeekFrom::Start(128))?;
+        file.seek(SeekFrom::Start(ContentPackHeader::SIZE as u64))?;
         let nb_threads = std::cmp::max(
             std::thread::available_parallelism()
                 .unwrap_or(8.try_into().unwrap())

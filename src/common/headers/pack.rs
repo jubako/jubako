@@ -74,8 +74,10 @@ impl SizedProducable for PackHeader {
         + 1 // major
         + 1 // minor
         + Uuid::SIZE
+        + 6 // padding
         + Size::SIZE
-        + Offset::SIZE;
+        + Offset::SIZE
+        + 16; // padding
 }
 
 impl Writable for PackHeader {
