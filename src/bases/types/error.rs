@@ -48,6 +48,7 @@ pub enum ErrorKind {
     Format(FormatError),
     NotAJbk,
     Arg,
+    OtherError(Box<dyn std::error::Error + Send + Sync>),
     Other(String),
     OtherStatic(&'static str),
 }
@@ -117,6 +118,12 @@ impl From<&'static str> for Error {
     }
 }
 
+impl From<Box<dyn std::error::Error + Sync + Send>> for Error {
+    fn from(e: Box<dyn std::error::Error + Sync + Send>) -> Error {
+        Error::new(ErrorKind::OtherError(e))
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.error {
@@ -126,6 +133,7 @@ impl fmt::Display for Error {
             ErrorKind::Arg => write!(f, "Invalid argument"),
             ErrorKind::Other(e) => write!(f, "Unknown error : {e}"),
             ErrorKind::OtherStatic(e) => write!(f, "Unknown error : {e}"),
+            ErrorKind::OtherError(e) => write!(f, "Other error : {e}"),
         }
     }
 }
