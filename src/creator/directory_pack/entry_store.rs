@@ -2,6 +2,7 @@ use super::schema;
 use super::{FullEntryTrait, PropertyName, VariantName};
 use crate::bases::*;
 use crate::creator::private::WritableTell;
+use rayon::prelude::*;
 
 use log::debug;
 
@@ -63,9 +64,9 @@ pub trait EntryStoreTrait {
 
 impl<PN, VN, Entry> EntryStoreTrait for EntryStore<PN, VN, Entry>
 where
-    PN: PropertyName + std::fmt::Debug,
+    PN: PropertyName + std::fmt::Debug + Sync,
     VN: VariantName + std::fmt::Debug + 'static,
-    Entry: FullEntryTrait<PN, VN> + 'static,
+    Entry: FullEntryTrait<PN, VN> + Send + 'static,
 {
     fn finalize(mut self: Box<Self>) -> Box<dyn WritableTell> {
         set_entry_idx(&mut self.entries);
@@ -75,7 +76,7 @@ where
             let mut watchdog = 50;
             while !self.entries.is_sorted_by(compare_opt) {
                 debug!(".");
-                self.entries.sort_unstable_by(compare);
+                self.entries.par_sort_unstable_by(compare);
                 set_entry_idx(&mut self.entries);
                 watchdog -= 1;
                 if watchdog == 0 {

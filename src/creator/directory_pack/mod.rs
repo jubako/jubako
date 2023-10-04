@@ -14,10 +14,10 @@ use std::cmp;
 use std::collections::HashMap;
 pub use value_store::{IndexedValueStore, PlainValueStore, StoreHandle, ValueStore};
 
-pub trait PropertyName: ToString + std::cmp::Eq + std::hash::Hash + Copy + 'static {}
+pub trait PropertyName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send + 'static {}
 impl PropertyName for &'static str {}
 
-pub trait VariantName: ToString + std::cmp::Eq + std::hash::Hash + Copy {}
+pub trait VariantName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send {}
 impl VariantName for &str {}
 
 #[derive(Debug, PartialEq)]
@@ -76,7 +76,7 @@ pub trait EntryTrait<PN: PropertyName, VN: VariantName> {
     fn get_idx(&self) -> Bound<EntryIdx>;
 }
 
-pub trait FullEntryTrait<PN: PropertyName, VN: VariantName>: EntryTrait<PN, VN> {
+pub trait FullEntryTrait<PN: PropertyName, VN: VariantName>: EntryTrait<PN, VN> + Send {
     fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PN>, other: &Self)
         -> std::cmp::Ordering;
 }
