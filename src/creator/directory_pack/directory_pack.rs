@@ -4,7 +4,7 @@ use crate::common::{CheckInfo, DirectoryPackHeader, PackHeaderInfo, PackKind};
 use crate::creator::private::WritableTell;
 use crate::creator::PackData;
 use entry_store::EntryStoreTrait;
-use std::io::{BufWriter, Read, Seek, SeekFrom, Write};
+use std::io::{BufWriter, Seek, SeekFrom, Write};
 use value_store::StoreHandle;
 
 use log::info;
@@ -53,10 +53,7 @@ impl DirectoryPackCreator {
         self.indexes.push(index);
     }
 
-    pub fn finalize<O: OutStream + Read + std::fmt::Debug>(
-        mut self,
-        file: &mut O,
-    ) -> Result<PackData> {
+    pub fn finalize<O: InOutStream>(mut self, file: &mut O) -> Result<PackData> {
         let origin_offset = file.stream_position()?;
         let to_skip =
             128 + 8 * (self.value_stores.len() + self.entry_stores.len() + self.indexes.len());

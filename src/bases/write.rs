@@ -1,11 +1,12 @@
 use crate::bases::*;
+use std::fmt::Debug;
 pub use std::io::Result as IoResult;
-use std::io::{Seek, Write};
+use std::io::{Read, Seek, Write};
 use zerocopy::byteorder::little_endian::{U16, U32, U64};
 use zerocopy::{AsBytes, ByteOrder, LittleEndian as LE};
 
 /// A OutStream is a object on which we can write data.
-pub trait OutStream: Write + Seek + Send {
+pub trait OutStream: Write + Seek + Send + Debug {
     fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64>;
 
     fn tell(&mut self) -> Offset {
@@ -50,6 +51,8 @@ pub trait OutStream: Write + Seek + Send {
     }
 }
 
+pub trait InOutStream: OutStream + Read {}
+
 /// A Writable is a object we can write on a `Write` trait.
 pub trait Writable {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize>;
@@ -82,7 +85,7 @@ where
 
 impl<T> OutStream for std::io::BufWriter<T>
 where
-    T: Write + Seek + Send,
+    T: Write + Seek + Send + Debug,
 {
     fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
         match reader.get_file_source() {
@@ -102,3 +105,5 @@ where
         self.inner_mut().copy(reader)
     }
 }
+
+impl<T> InOutStream for T where T: OutStream + Read {}

@@ -207,7 +207,7 @@ impl<O: OutStream + 'static> ContentPackCreator<O> {
     }
 }
 
-impl<O: OutStream + Read + std::fmt::Debug> ContentPackCreator<O> {
+impl<O: InOutStream> ContentPackCreator<O> {
     pub fn finalize(mut self) -> Result<(O, PackData)> {
         if let Some(cluster) = self.raw_open_cluster.take() {
             if !cluster.is_empty() {
