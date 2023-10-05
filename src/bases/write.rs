@@ -6,6 +6,8 @@ use zerocopy::{AsBytes, ByteOrder, LittleEndian as LE};
 
 /// A OutStream is a object on which we can write data.
 pub trait OutStream: Write + Seek {
+    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64>;
+
     fn tell(&mut self) -> Offset {
         self.stream_position().unwrap().into()
     }
@@ -53,4 +55,50 @@ pub trait Writable {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize>;
 }
 
-impl<T> OutStream for T where T: Write + Seek {}
+impl OutStream for std::fs::File {
+    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
+        match reader.get_file_source() {
+            crate::creator::MaybeFileReader::Yes(mut input_file) => {
+                std::io::copy(&mut input_file, self)
+            }
+            crate::creator::MaybeFileReader::No(mut reader) => std::io::copy(reader.as_mut(), self),
+        }
+    }
+}
+
+impl<T> OutStream for std::io::Cursor<T>
+where
+    std::io::Cursor<T>: Write + Seek + Send + std::fmt::Debug,
+{
+    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
+        match reader.get_file_source() {
+            crate::creator::MaybeFileReader::Yes(mut input_file) => {
+                std::io::copy(&mut input_file, self)
+            }
+            crate::creator::MaybeFileReader::No(mut reader) => std::io::copy(reader.as_mut(), self),
+        }
+    }
+}
+
+impl<T> OutStream for std::io::BufWriter<T>
+where
+    T: Write + Seek,
+{
+    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
+        match reader.get_file_source() {
+            crate::creator::MaybeFileReader::Yes(mut input_file) => {
+                std::io::copy(&mut input_file, self)
+            }
+            crate::creator::MaybeFileReader::No(mut reader) => std::io::copy(reader.as_mut(), self),
+        }
+    }
+}
+
+impl<O> OutStream for Skip<O>
+where
+    O: OutStream,
+{
+    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
+        self.inner_mut().copy(reader)
+    }
+}

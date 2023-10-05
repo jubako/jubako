@@ -2,7 +2,7 @@ use super::cluster::ClusterCreator;
 use super::Progress;
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
-use crate::creator::{Compression, InputReader, MaybeFileReader};
+use crate::creator::{Compression, InputReader};
 use std::fs::File;
 use std::io::Write;
 use std::sync::{mpsc, Arc, Condvar, Mutex};
@@ -216,12 +216,7 @@ impl ClusterWriter {
     fn write_cluster_data(&mut self, cluster_data: InputData) -> Result<u64> {
         let mut copied = 0;
         for d in cluster_data.into_iter() {
-            copied += match d.get_file_source() {
-                MaybeFileReader::Yes(mut input_file) => {
-                    std::io::copy(&mut input_file, &mut self.file)?
-                }
-                MaybeFileReader::No(mut reader) => std::io::copy(reader.as_mut(), &mut self.file)?,
-            };
+            copied += self.file.copy(d)?;
         }
         Ok(copied)
     }

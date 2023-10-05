@@ -13,7 +13,7 @@ test_suite! {
     use jubako::creator::schema;
     use jubako::Result;
     use jubako::reader::{Range, EntryTrait};
-    use std::io::Read;
+    use std::io::{Read, Seek};
     use crate::Entry as TestEntry;
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -129,7 +129,8 @@ test_suite! {
                 .truncate(true)
                 .open("/tmp/directoryPack.jbkd")?;
         let pack_info = creator.finalize(&mut directory_file).unwrap();
-        Ok((pack_info, jubako::FileSource::open("/tmp/directoryPack.jbkd").unwrap().into()))
+        directory_file.rewind().unwrap();
+        Ok((pack_info, jubako::FileSource::new(directory_file).unwrap().into()))
     }
 
     fn create_main_pack(directory_pack: creator::PackData, content_pack:creator::PackData) -> Result<String> {

@@ -219,16 +219,19 @@ impl ContentPackCreator {
         let (mut file, cluster_addresses) = self.cluster_writer.finalize()?;
         let clusters_offset = file.tell();
         let nb_clusters = cluster_addresses.len();
+
+        let mut buffered = std::io::BufWriter::new(file);
+
         for address in cluster_addresses {
-            address.get().write(&mut file)?;
+            address.get().write(&mut buffered)?;
         }
-        let content_infos_offset = file.tell();
+        let content_infos_offset = buffered.tell();
         for content_info in &self.content_infos {
-            content_info.write(&mut file)?;
+            content_info.write(&mut buffered)?;
         }
-        let check_offset = file.tell();
+        let check_offset = buffered.tell();
         let pack_size: Size = (check_offset + 33 + 64).into();
-        file.rewind()?;
+        buffered.rewind()?;
         let header = ContentPackHeader::new(
             PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset),
             self.free_data,
@@ -237,7 +240,11 @@ impl ContentPackCreator {
             content_infos_offset,
             (self.content_infos.len() as u32).into(),
         );
-        header.write(&mut file)?;
+        header.write(&mut buffered)?;
+
+        buffered.flush()?;
+        let mut file = buffered.into_inner().unwrap();
+
         file.rewind()?;
         let check_info = CheckInfo::new_blake3(&mut file)?;
         check_info.write(&mut file)?;

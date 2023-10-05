@@ -4,7 +4,7 @@ use crate::common::{CheckInfo, DirectoryPackHeader, PackHeaderInfo, PackKind};
 use crate::creator::private::WritableTell;
 use crate::creator::PackData;
 use entry_store::EntryStoreTrait;
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{BufWriter, Read, Seek, SeekFrom, Write};
 use value_store::StoreHandle;
 
 use log::info;
@@ -53,7 +53,10 @@ impl DirectoryPackCreator {
         self.indexes.push(index);
     }
 
-    pub fn finalize<O: Write + Read + Seek>(mut self, file: &mut O) -> Result<PackData> {
+    pub fn finalize<O: OutStream + Read + std::fmt::Debug>(
+        mut self,
+        file: &mut O,
+    ) -> Result<PackData> {
         let origin_offset = file.stream_position()?;
         let to_skip =
             128 + 8 * (self.value_stores.len() + self.entry_stores.len() + self.indexes.len());
@@ -75,40 +78,45 @@ impl DirectoryPackCreator {
             .map(|e| e.finalize())
             .collect();
 
+        let mut buffered = BufWriter::new(file);
+
         info!("----- Write indexes -----");
         let mut indexes_offsets = vec![];
         for index in &mut self.indexes {
-            indexes_offsets.push(index.write(file)?);
+            indexes_offsets.push(index.write(&mut buffered)?);
         }
 
         info!("----- Write entry_stores -----");
         let mut entry_stores_offsets = vec![];
         for mut entry_store in finalized_entry_store {
-            entry_stores_offsets.push(entry_store.write(file)?);
+            entry_stores_offsets.push(entry_store.write(&mut buffered)?);
         }
 
         info!("----- Write value_stores -----");
         let mut value_stores_offsets = vec![];
         for value_store in &self.value_stores {
-            value_stores_offsets.push(value_store.borrow_mut().write(file)?);
+            value_stores_offsets.push(value_store.borrow_mut().write(&mut buffered)?);
         }
 
-        file.seek(SeekFrom::Start(origin_offset + 128))?;
+        buffered.seek(SeekFrom::Start(origin_offset + 128))?;
         info!("----- Write indexes offsets -----");
-        let indexes_ptr_offsets = file.stream_position()? - origin_offset;
+        let indexes_ptr_offsets = buffered.stream_position()? - origin_offset;
         for offset in &indexes_offsets {
-            offset.write(file)?;
+            offset.write(&mut buffered)?;
         }
         info!("----- Write value_stores offsets -----");
-        let value_stores_ptr_offsets = file.stream_position()? - origin_offset;
+        let value_stores_ptr_offsets = buffered.stream_position()? - origin_offset;
         for offset in &value_stores_offsets {
-            offset.write(file)?;
+            offset.write(&mut buffered)?;
         }
         info!("----- Write entry_stores offsets -----");
-        let entry_stores_ptr_offsets = file.stream_position()? - origin_offset;
+        let entry_stores_ptr_offsets = buffered.stream_position()? - origin_offset;
         for offset in &entry_stores_offsets {
-            offset.write(file)?;
+            offset.write(&mut buffered)?;
         }
+
+        buffered.flush()?;
+        let file = buffered.into_inner().unwrap();
 
         info!("----- Write header -----");
         let check_offset = file.seek(SeekFrom::End(0))? - origin_offset;
