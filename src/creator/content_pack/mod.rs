@@ -12,6 +12,7 @@ use std::rc::Rc;
 pub trait Progress: Send + Sync {
     fn new_cluster(&self, _cluster_idx: u32, _compressed: bool) {}
     fn handle_cluster(&self, _cluster_idx: u32, _compressed: bool) {}
+    fn handle_cluster_written(&self, _cluster_idx: u32) {}
     fn content_added(&self, _size: Size) {}
 }
 

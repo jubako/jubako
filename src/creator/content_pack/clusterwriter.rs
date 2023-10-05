@@ -275,6 +275,7 @@ where
                     (sized_offset, idx)
                 }
             };
+            self.progress.handle_cluster_written(idx.into_u32());
             let idx = idx.into_usize();
             if self.cluster_addresses.len() <= idx {
                 self.cluster_addresses.resize(idx + 1, Default::default());
