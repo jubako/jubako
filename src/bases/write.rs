@@ -106,4 +106,13 @@ where
     }
 }
 
+impl<O> OutStream for Box<O>
+where
+    O: OutStream + ?Sized,
+{
+    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
+        self.as_mut().copy(reader)
+    }
+}
+
 impl<T> InOutStream for T where T: OutStream + Read {}
