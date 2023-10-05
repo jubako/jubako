@@ -23,14 +23,14 @@ pub trait CacheProgress {
 
 impl CacheProgress for () {}
 
-pub struct CachedContentPackCreator {
-    content_pack: ContentPackCreator,
+pub struct CachedContentPackCreator<O: OutStream + 'static> {
+    content_pack: ContentPackCreator<O>,
     cache: HashMap<blake3::Hash, ContentIdx>,
     progress: Rc<dyn CacheProgress>,
 }
 
-impl CachedContentPackCreator {
-    pub fn new(content_pack: ContentPackCreator, progress: Rc<dyn CacheProgress>) -> Self {
+impl<O: OutStream> CachedContentPackCreator<O> {
+    pub fn new(content_pack: ContentPackCreator<O>, progress: Rc<dyn CacheProgress>) -> Self {
         Self {
             content_pack,
             cache: Default::default(),
@@ -59,7 +59,7 @@ impl CachedContentPackCreator {
         }
     }
 
-    pub fn into_inner(self) -> ContentPackCreator {
+    pub fn into_inner(self) -> ContentPackCreator<O> {
         self.content_pack
     }
 }

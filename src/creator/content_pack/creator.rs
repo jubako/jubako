@@ -30,7 +30,7 @@ fn shannon_entropy(data: &[u8]) -> Result<f32> {
     Ok(entropy)
 }
 
-pub struct ContentPackCreator {
+pub struct ContentPackCreator<O: OutStream + 'static> {
     app_vendor_id: u32,
     pack_id: PackId,
     free_data: ContentPackFreeData,
@@ -38,7 +38,7 @@ pub struct ContentPackCreator {
     raw_open_cluster: Option<ClusterCreator>,
     comp_open_cluster: Option<ClusterCreator>,
     next_cluster_id: Cell<u32>,
-    cluster_writer: ClusterWriterProxy,
+    cluster_writer: ClusterWriterProxy<O>,
     progress: Arc<dyn Progress>,
 }
 
@@ -59,7 +59,7 @@ macro_rules! open_cluster_ref {
     };
 }
 
-impl ContentPackCreator {
+impl ContentPackCreator<File> {
     pub fn new<P: AsRef<Path>>(
         path: P,
         pack_id: PackId,
@@ -91,7 +91,7 @@ impl ContentPackCreator {
             .create(true)
             .truncate(true)
             .open(&path)?;
-        Self::new_from_file_with_progress(
+        Self::new_from_output_with_progress(
             file,
             pack_id,
             app_vendor_id,
@@ -100,15 +100,17 @@ impl ContentPackCreator {
             progress,
         )
     }
+}
 
-    pub fn new_from_file(
-        file: File,
+impl<O: OutStream + 'static> ContentPackCreator<O> {
+    pub fn new_from_output(
+        file: O,
         pack_id: PackId,
         app_vendor_id: u32,
         free_data: ContentPackFreeData,
         compression: Compression,
     ) -> Result<Self> {
-        Self::new_from_file_with_progress(
+        Self::new_from_output_with_progress(
             file,
             pack_id,
             app_vendor_id,
@@ -118,8 +120,8 @@ impl ContentPackCreator {
         )
     }
 
-    pub fn new_from_file_with_progress(
-        mut file: File,
+    pub fn new_from_output_with_progress(
+        mut file: O,
         pack_id: PackId,
         app_vendor_id: u32,
         free_data: ContentPackFreeData,
@@ -203,8 +205,10 @@ impl ContentPackCreator {
         self.content_infos.push(content_info);
         Ok(((self.content_infos.len() - 1) as u32).into())
     }
+}
 
-    pub fn finalize(mut self) -> Result<(File, PackData)> {
+impl<O: OutStream + Read + std::fmt::Debug> ContentPackCreator<O> {
+    pub fn finalize(mut self) -> Result<(O, PackData)> {
         if let Some(cluster) = self.raw_open_cluster.take() {
             if !cluster.is_empty() {
                 self.cluster_writer.write_cluster(cluster, false);
@@ -256,7 +260,6 @@ impl ContentPackCreator {
         file.seek(SeekFrom::End(0))?;
         file.write_all(&tail_buffer)?;
 
-        file.rewind()?;
         Ok((
             file,
             PackData {

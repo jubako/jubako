@@ -83,7 +83,8 @@ test_suite! {
             let content = std::io::Cursor::new(content);
             creator.add_content(content)?;
         }
-        let (file, pack_info) = creator.finalize()?;
+        let (mut file, pack_info) = creator.finalize()?;
+        file.rewind()?;
         Ok((pack_info, jubako::FileSource::new(file)?.into()))
     }
 

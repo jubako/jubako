@@ -5,7 +5,7 @@ use zerocopy::byteorder::little_endian::{U16, U32, U64};
 use zerocopy::{AsBytes, ByteOrder, LittleEndian as LE};
 
 /// A OutStream is a object on which we can write data.
-pub trait OutStream: Write + Seek {
+pub trait OutStream: Write + Seek + Send {
     fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64>;
 
     fn tell(&mut self) -> Offset {
@@ -82,7 +82,7 @@ where
 
 impl<T> OutStream for std::io::BufWriter<T>
 where
-    T: Write + Seek,
+    T: Write + Seek + Send,
 {
     fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
         match reader.get_file_source() {
