@@ -1,7 +1,7 @@
 use crate::bases::*;
 use crate::common::{ContainerPackHeader, PackLocator};
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 pub struct ContainerPackCreator {
@@ -9,20 +9,37 @@ pub struct ContainerPackCreator {
     file: File,
 }
 
+#[derive(Debug)]
+pub struct InContainerFile {
+    file: Skip<File>,
+    packs: Vec<PackLocator>,
+}
+
 const HEADER_SIZE: u64 = ContainerPackHeader::SIZE as u64;
 
 impl ContainerPackCreator {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let mut file = OpenOptions::new()
+        let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(true)
             .open(path)?;
+        Self::from_file(file)
+    }
+
+    pub fn from_file(mut file: File) -> Result<Self> {
         file.seek(SeekFrom::Start(HEADER_SIZE))?;
         Ok(ContainerPackCreator {
             packs: vec![],
             file,
+        })
+    }
+
+    pub fn into_file(self) -> Result<InContainerFile> {
+        Ok(InContainerFile {
+            file: Skip::new(self.file)?,
+            packs: self.packs,
         })
     }
 
@@ -54,5 +71,49 @@ impl ContainerPackCreator {
         self.file.write_all(&tail_buffer)?;
 
         Ok(())
+    }
+}
+
+impl InContainerFile {
+    pub fn close(mut self, uuid: uuid::Uuid) -> Result<ContainerPackCreator> {
+        let pack_size = self.file.seek(SeekFrom::End(0))?;
+        self.file.seek(SeekFrom::Start(0))?;
+        let mut file = self.file.into_inner();
+        let pack_offset = file.stream_position()?;
+        file.seek(SeekFrom::End(0))?;
+        let pack_locator = PackLocator::new(uuid, pack_size.into(), pack_offset.into());
+        self.packs.push(pack_locator);
+        Ok(ContainerPackCreator {
+            file,
+            packs: self.packs,
+        })
+    }
+}
+
+impl Seek for InContainerFile {
+    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
+        self.file.seek(pos)
+    }
+}
+
+impl Write for InContainerFile {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.file.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.file.flush()
+    }
+}
+
+impl Read for InContainerFile {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.file.read(buf)
+    }
+}
+
+impl OutStream for InContainerFile {
+    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
+        self.file.copy(reader)
     }
 }

@@ -20,6 +20,10 @@ where
 }
 
 impl<R> Skip<R> {
+    pub fn into_inner(self) -> R {
+        self.inner
+    }
+
     pub fn inner_mut(&mut self) -> &mut R {
         &mut self.inner
     }
