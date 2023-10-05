@@ -26,9 +26,9 @@ impl ContainerPackCreator {
         })
     }
 
-    pub fn add_pack(&mut self, uuid: uuid::Uuid, reader: Reader) -> Result<()> {
+    pub fn add_pack<I: Read>(&mut self, uuid: uuid::Uuid, reader: &mut I) -> Result<()> {
         let pack_offset = self.file.tell();
-        std::io::copy(&mut reader.create_flux_all(), &mut self.file)?;
+        std::io::copy(reader, &mut self.file)?;
         let pack_size = self.file.tell() - pack_offset;
         let pack_locator = PackLocator::new(uuid, pack_size, pack_offset);
         self.packs.push(pack_locator);
