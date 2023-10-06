@@ -34,7 +34,7 @@ impl ManifestPackCreator {
         let nb_packs = self.packs.len() as u16;
 
         for (pack_data, _locator) in &self.packs {
-            let free_data_id = self.value_store.add_value(pack_data.free_data.as_slice());
+            let free_data_id = self.value_store.add_value(pack_data.free_data.to_vec());
             free_data_ids.push(free_data_id);
         }
 

@@ -27,7 +27,7 @@ pub enum Value {
     Signed(Word<i64>),
     Array {
         size: usize,
-        data: Vec<u8>,
+        data: Box<[u8]>,
         value_id: Bound<u64>,
     },
 }
@@ -84,7 +84,7 @@ pub trait FullEntryTrait<PN: PropertyName, VN: VariantName>: EntryTrait<PN, VN> 
 #[derive(Debug)]
 pub struct BasicEntry<PN: PropertyName, VN: VariantName> {
     variant_name: Option<VN>,
-    values: Vec<(PN, Value)>,
+    values: Box<[(PN, Value)]>,
     idx: Vow<EntryIdx>,
 }
 
@@ -143,12 +143,12 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                         if let common::Value::Array(mut data) = value {
                             let size = data.len();
                             let to_store = data.split_off(cmp::min(*fixed_array_size, data.len()));
-                            let value_id = store_handle.add_value(&to_store);
+                            let value_id = store_handle.add_value(to_store);
                             return Some((
                                 *name,
                                 Value::Array {
                                     size,
-                                    data,
+                                    data: data.into_boxed_slice(),
                                     value_id,
                                 },
                             ));

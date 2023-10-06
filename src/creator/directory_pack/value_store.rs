@@ -17,7 +17,7 @@ impl StoreHandle {
         self.0.read().unwrap().get_idx()
     }
 
-    pub fn add_value(&self, data: &[u8]) -> Bound<u64> {
+    pub fn add_value(&self, data: Vec<u8>) -> Bound<u64> {
         self.0.write().unwrap().add_value(data)
     }
 
@@ -61,7 +61,7 @@ impl ValueStore {
         }
     }
 
-    pub fn add_value(&mut self, data: &[u8]) -> Bound<u64> {
+    pub fn add_value(&mut self, data: Vec<u8>) -> Bound<u64> {
         match self {
             Self::Plain(s) => s.add_value(data),
             Self::Indexed(s) => s.add_value(data),
@@ -101,7 +101,7 @@ impl WritableTell for ValueStore {
 
 pub struct BaseValueStore {
     idx: Option<ValueStoreIdx>,
-    data: Vec<Vec<u8>>,
+    data: Vec<Box<[u8]>>,
     sorted_indirect: Vec<(usize, Vow<u64>)>,
     size: Size,
 }
@@ -116,8 +116,8 @@ impl BaseValueStore {
         }
     }
 
-    pub fn add_value(&mut self, data: &[u8]) -> Bound<u64> {
-        self.data.push(data.to_vec());
+    pub fn add_value(&mut self, data: Vec<u8>) -> Bound<u64> {
+        self.data.push(data.into());
         let vow = Vow::new(0);
         let bound = vow.bind();
         self.sorted_indirect.push((self.data.len() - 1, vow));
@@ -158,7 +158,7 @@ impl PlainValueStore {
         self.0.size = offset.into();
     }
 
-    fn add_value(&mut self, data: &[u8]) -> Bound<u64> {
+    fn add_value(&mut self, data: Vec<u8>) -> Bound<u64> {
         self.0.add_value(data)
     }
 
@@ -220,10 +220,11 @@ impl IndexedValueStore {
         }
     }
 
-    fn add_value(&mut self, data: &[u8]) -> Bound<u64> {
+    fn add_value(&mut self, data: Vec<u8>) -> Bound<u64> {
+        // [TODO] This is a long search when we have a lot of values...
         for (idx, vow) in self.0.sorted_indirect.iter() {
             let existing_data = &self.0.data[*idx];
-            if data == existing_data.as_slice() {
+            if data == existing_data.as_ref() {
                 // We have found a duplicate
                 return vow.bind();
             }
