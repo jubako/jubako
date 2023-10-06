@@ -4,6 +4,7 @@ use std::fmt;
 /// A identifier for a object.
 /// Identifier is somehow a simple integer, but without computation.
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Default, Hash)]
+#[repr(transparent)]
 pub struct Id<T>(pub T);
 
 impl Producable for Id<u8> {

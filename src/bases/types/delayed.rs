@@ -3,6 +3,7 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 
 #[derive(Default, Debug, Clone)]
+#[repr(transparent)]
 pub struct Late<T: Copy>(Cell<Option<T>>);
 
 impl<T: Copy> Late<T> {
@@ -38,6 +39,7 @@ where
 // V: data View (how the data is viewed (get) by the bound)
 
 #[derive(Debug, Default)]
+#[repr(transparent)]
 pub struct Vow<S: Copy>(Arc<Mutex<S>>);
 
 impl<S> Vow<S>
@@ -62,6 +64,7 @@ where
 }
 
 #[derive(Clone, Debug)]
+#[repr(transparent)]
 pub struct Bound<S>(Arc<Mutex<S>>)
 where
     S: Copy + PartialEq;
@@ -84,6 +87,7 @@ where
     }
 }
 
+#[repr(transparent)]
 pub struct Word<T: Copy>(Box<dyn Fn() -> T + Sync + Send>);
 
 impl<T> std::fmt::Debug for Word<T>

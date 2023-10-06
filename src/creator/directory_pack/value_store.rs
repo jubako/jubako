@@ -5,6 +5,7 @@ use rayon::prelude::*;
 use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone)]
+#[repr(transparent)]
 pub struct StoreHandle(Arc<RwLock<ValueStore>>);
 
 impl StoreHandle {
@@ -124,6 +125,7 @@ impl BaseValueStore {
     }
 }
 
+#[repr(transparent)]
 pub struct PlainValueStore(BaseValueStore);
 
 impl PlainValueStore {
@@ -204,6 +206,7 @@ impl std::fmt::Debug for PlainValueStore {
     }
 }
 
+#[repr(transparent)]
 pub struct IndexedValueStore(BaseValueStore);
 
 impl IndexedValueStore {

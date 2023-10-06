@@ -2,10 +2,12 @@ use super::super::{layout, EntryTrait, PropertyName, VariantName};
 use super::property::Property;
 
 #[derive(Debug)]
+#[repr(transparent)]
 pub struct Properties<PN: PropertyName>(Vec<Property<PN>>);
 pub type CommonProperties<PN> = Properties<PN>;
 
 #[derive(Debug)]
+#[repr(transparent)]
 pub struct VariantProperties<PN: PropertyName>(pub Vec<Property<PN>>);
 
 impl<PN: PropertyName> std::ops::Deref for Properties<PN> {

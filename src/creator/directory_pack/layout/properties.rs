@@ -6,6 +6,7 @@ use crate::bases::*;
 use crate::creator::directory_pack::EntryTrait;
 
 #[derive(Debug)]
+#[repr(transparent)]
 pub struct Properties<PN: PropertyName>(Vec<Property<PN>>);
 
 impl<PN: PropertyName> std::ops::Deref for Properties<PN> {
