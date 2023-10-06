@@ -43,7 +43,7 @@ impl<O: OutStream> CachedContentPackCreator<O> {
         R: InputReader + 'static,
     {
         let mut hasher = blake3::Hasher::new();
-        std::io::copy(&mut content, &mut hasher)?;
+        hasher.update_reader(&mut content)?;
         let hash = hasher.finalize();
         content.seek(SeekFrom::Start(0))?;
         match self.cache.entry(hash) {

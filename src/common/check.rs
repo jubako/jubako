@@ -1,7 +1,7 @@
 use crate::bases::*;
 use std::cmp;
 use std::fmt::Debug;
-use std::io::{self, Read};
+use std::io::Read;
 
 #[derive(Clone, Copy)]
 pub enum CheckKind {
@@ -69,7 +69,7 @@ impl Writable for CheckInfo {
 impl CheckInfo {
     pub fn new_blake3(source: &mut dyn Read) -> Result<Self> {
         let mut hasher = blake3::Hasher::new();
-        io::copy(source, &mut hasher)?;
+        hasher.update_reader(source)?;
         let hash = hasher.finalize();
         Ok(Self { b3hash: Some(hash) })
     }
@@ -77,7 +77,7 @@ impl CheckInfo {
     pub fn check(&self, source: &mut dyn Read) -> Result<bool> {
         if let Some(b3hash) = self.b3hash {
             let mut hasher = blake3::Hasher::new();
-            io::copy(source, &mut hasher)?;
+            hasher.update_reader(source)?;
             let hash = hasher.finalize();
             Ok(hash == b3hash)
         } else {
