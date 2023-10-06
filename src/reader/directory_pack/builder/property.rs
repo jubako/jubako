@@ -1229,7 +1229,7 @@ mod tests {
             Some((2, BaseArray::new(&[0x01, 0x02]), None)),
         );
         assert_eq!(
-            FakeArray::new(Some(Size::new(2)), BaseArray::new(&[0x01, 0x02]), 3, None),
+            FakeArray::new(Some(Size::new(2)), BaseArray::new(&[0x01, 0x02]), 2, None),
             prop.create(&reader.as_sub_reader()).unwrap(),
         );
 
