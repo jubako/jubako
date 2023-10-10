@@ -4,6 +4,12 @@ use rayon::prelude::*;
 
 use std::sync::{Arc, RwLock};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValueStoreKind {
+    Plain,
+    Indexed,
+}
+
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct StoreHandle(Arc<RwLock<ValueStore>>);
@@ -23,6 +29,10 @@ impl StoreHandle {
 
     pub fn finalize(&self, idx: ValueStoreIdx) {
         self.0.write().unwrap().finalize(idx)
+    }
+
+    pub fn kind(&self) -> ValueStoreKind {
+        self.0.read().unwrap().kind()
     }
 }
 
@@ -79,6 +89,13 @@ impl ValueStore {
         match &self {
             Self::Plain(s) => s.get_idx(),
             Self::Indexed(s) => s.get_idx(),
+        }
+    }
+
+    pub fn kind(&self) -> ValueStoreKind {
+        match &self {
+            Self::Plain(_) => ValueStoreKind::Plain,
+            Self::Indexed(_) => ValueStoreKind::Indexed,
         }
     }
 }

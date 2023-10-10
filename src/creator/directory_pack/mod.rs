@@ -13,7 +13,9 @@ pub use entry_store::EntryStore;
 use std::cmp;
 use std::collections::HashMap;
 pub use value::Value;
-pub use value_store::{IndexedValueStore, PlainValueStore, StoreHandle, ValueStore};
+pub use value_store::{
+    IndexedValueStore, PlainValueStore, StoreHandle, ValueStore, ValueStoreKind,
+};
 
 pub trait PropertyName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send + 'static {}
 impl PropertyName for &'static str {}
