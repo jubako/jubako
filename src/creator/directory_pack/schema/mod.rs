@@ -5,7 +5,7 @@ pub use properties::{CommonProperties, VariantProperties};
 pub use property::Property;
 use std::collections::HashMap;
 
-use super::{layout, EntryTrait, PropertyName, Value, ValueStore, VariantName};
+use super::{layout, EntryTrait, PropertyName, StoreHandle, Value, VariantName};
 use properties::Properties;
 
 #[derive(Debug)]

@@ -6,4 +6,4 @@ pub use entry::Entry;
 pub use properties::Properties;
 pub use property::Property;
 
-use super::{Value, ValueStore};
+use super::{StoreHandle, Value};

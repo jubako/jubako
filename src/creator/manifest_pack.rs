@@ -1,4 +1,4 @@
-use super::{PackData, ValueStore};
+use super::{private::WritableTell, PackData, StoreHandle, ValueStore};
 use crate::bases::*;
 use crate::common::{CheckInfo, ManifestCheckStream, ManifestPackHeader, PackHeaderInfo, PackInfo};
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -7,7 +7,7 @@ pub struct ManifestPackCreator {
     app_vendor_id: u32,
     free_data: ManifestPackFreeData,
     packs: Vec<(PackData, Vec<u8>)>,
-    value_store: ValueStore,
+    value_store: StoreHandle,
 }
 
 impl ManifestPackCreator {

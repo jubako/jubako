@@ -12,7 +12,7 @@ pub use directory_pack::DirectoryPackCreator;
 pub use entry_store::EntryStore;
 use std::cmp;
 use std::collections::HashMap;
-pub use value_store::{IndexedValueStore, PlainValueStore, ValueStore, ValueStoreTrait};
+pub use value_store::{IndexedValueStore, PlainValueStore, StoreHandle, ValueStore};
 
 pub trait PropertyName: ToString + std::cmp::Eq + std::hash::Hash + Copy + 'static {}
 impl PropertyName for &'static str {}

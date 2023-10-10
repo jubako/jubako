@@ -5,7 +5,7 @@ use crate::creator::private::WritableTell;
 use crate::creator::PackData;
 use entry_store::EntryStoreTrait;
 use std::io::{Read, Seek, SeekFrom, Write};
-use value_store::ValueStore;
+use value_store::StoreHandle;
 
 use log::info;
 
@@ -13,7 +13,7 @@ pub struct DirectoryPackCreator {
     app_vendor_id: u32,
     pack_id: PackId,
     free_data: DirectoryPackFreeData,
-    value_stores: Vec<ValueStore>,
+    value_stores: Vec<StoreHandle>,
     entry_stores: Vec<Box<dyn EntryStoreTrait>>,
     indexes: Vec<Index>,
 }
@@ -30,7 +30,7 @@ impl DirectoryPackCreator {
         }
     }
 
-    pub fn add_value_store(&mut self, value_store: ValueStore) {
+    pub fn add_value_store(&mut self, value_store: StoreHandle) {
         self.value_stores.push(value_store);
     }
 

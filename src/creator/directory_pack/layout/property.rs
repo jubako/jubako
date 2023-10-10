@@ -1,5 +1,5 @@
 use super::super::PropertyName;
-use super::ValueStore;
+use super::StoreHandle;
 use crate::bases::Writable;
 use crate::bases::*;
 
@@ -8,7 +8,7 @@ pub enum Property<PN: PropertyName> {
     Array {
         array_size_size: Option<ByteSize>,
         fixed_array_size: u8,
-        deported_info: Option<(ByteSize, ValueStore)>,
+        deported_info: Option<(ByteSize, StoreHandle)>,
         name: PN,
     },
     ContentAddress {
