@@ -66,36 +66,96 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     deported_info,
                     name,
                 } => {
-                    let value = entry.value(name);
-                    if let Value::Array {
-                        size,
-                        data,
-                        value_id,
-                    } = value
-                    {
-                        if let Some(array_size_size) = array_size_size {
-                            written += stream.write_usized(*size as u64, *array_size_size)?;
+                    match entry.value(name).as_ref() {
+                        Value::Array0(a) => {
+                            if let Some(array_size_size) = array_size_size {
+                                written += stream.write_usized(a.size as u64, *array_size_size)?;
+                            }
+                            written += stream.write_data(&a.data)?;
+                            // Data is truncate at fixed_array_size. We just want to write 0 if data is shorter than fixed_array_size
+                            written += stream.write_data(
+                                vec![0; *fixed_array_size as usize - a.data.len()].as_slice(),
+                            )?;
+                            if let Some((key_size, _)) = deported_info {
+                                written += stream.write_usized(a.value_id.get(), *key_size)?;
+                            }
                         }
-                        written += stream.write_data(data)?;
-                        // Data is truncate at fixed_array_size. We just want to write 0 if data is shorter than fixed_array_size
-                        written += stream.write_data(
-                            vec![0; *fixed_array_size as usize - data.len()].as_slice(),
-                        )?;
-                        if let Some((key_size, _)) = deported_info {
-                            written += stream.write_usized(value_id.get(), *key_size)?;
+                        Value::Array1(a) => {
+                            if let Some(array_size_size) = array_size_size {
+                                written += stream.write_usized(a.size as u64, *array_size_size)?;
+                            }
+                            written += stream.write_data(&a.data)?;
+                            // Data is truncate at fixed_array_size. We just want to write 0 if data is shorter than fixed_array_size
+                            written += stream.write_data(
+                                vec![0; *fixed_array_size as usize - a.data.len()].as_slice(),
+                            )?;
+                            if let Some((key_size, _)) = deported_info {
+                                written += stream.write_usized(a.value_id.get(), *key_size)?;
+                            }
                         }
-                    } else {
-                        return Err("Not a Array".to_string().into());
+                        Value::Array2(a) => {
+                            if let Some(array_size_size) = array_size_size {
+                                written += stream.write_usized(a.size as u64, *array_size_size)?;
+                            }
+                            written += stream.write_data(&a.data)?;
+                            // Data is truncate at fixed_array_size. We just want to write 0 if data is shorter than fixed_array_size
+                            written += stream.write_data(
+                                vec![0; *fixed_array_size as usize - a.data.len()].as_slice(),
+                            )?;
+                            if let Some((key_size, _)) = deported_info {
+                                written += stream.write_usized(a.value_id.get(), *key_size)?;
+                            }
+                        }
+                        Value::Array(a) => {
+                            if let Some(array_size_size) = array_size_size {
+                                written += stream.write_usized(a.size as u64, *array_size_size)?;
+                            }
+                            written += stream.write_data(&a.data)?;
+                            // Data is truncate at fixed_array_size. We just want to write 0 if data is shorter than fixed_array_size
+                            written += stream.write_data(
+                                vec![0; *fixed_array_size as usize - a.data.len()].as_slice(),
+                            )?;
+                            if let Some((key_size, _)) = deported_info {
+                                written += stream.write_usized(a.value_id.get(), *key_size)?;
+                            }
+                        }
+                        Value::IndirectArray(value_id) => {
+                            assert_eq!(*array_size_size, None); // We don't store the size of the array
+                            assert_eq!(*fixed_array_size, 0); // No fixed array
+                            if let Some((key_size, _)) = deported_info {
+                                written += stream.write_usized(value_id.get(), *key_size)?;
+                            } else {
+                                return Err(
+                                    "A indirect array need a array property with a deported info"
+                                        .to_string()
+                                        .into(),
+                                );
+                            }
+                        }
+                        _ => {
+                            return Err("Not a Array".to_string().into());
+                        }
                     }
                 }
+                Property::IndirectArray {
+                    value_id_size,
+                    store_handle: _,
+                    name,
+                } => match entry.value(name).as_ref() {
+                    Value::IndirectArray(value_id) => {
+                        written += stream.write_usized(value_id.get(), *value_id_size)?;
+                    }
+                    _ => {
+                        return Err("Not a indirect Array".to_string().into());
+                    }
+                },
                 Property::ContentAddress {
                     content_id_size,
                     pack_id_size,
                     default,
                     name,
-                } => {
-                    let value = entry.value(name);
-                    if let Value::Content(value) = value {
+                } => match entry.value(name).as_ref() {
+                    Value::Content(value) => {
                         if let Some(d) = default {
                             assert_eq!(*d, value.pack_id.into_u16());
                         } else {
@@ -104,42 +164,57 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                         }
                         written +=
                             stream.write_usized(value.content_id.into_u64(), *content_id_size)?;
-                    } else {
+                    }
+                    _ => {
                         return Err("Not a Content".to_string().into());
                     }
-                }
+                },
                 Property::UnsignedInt {
                     size,
                     default,
                     name,
-                } => {
-                    let value = entry.value(name);
-                    if let Value::Unsigned(value) = value {
+                } => match entry.value(name).as_ref() {
+                    Value::Unsigned(value) => {
+                        if let Some(d) = default {
+                            assert_eq!(d, value);
+                        } else {
+                            written += stream.write_usized(*value, *size)?;
+                        }
+                    }
+                    Value::UnsignedWord(value) => {
                         if let Some(d) = default {
                             assert_eq!(*d, value.get());
                         } else {
                             written += stream.write_usized(value.get(), *size)?;
                         }
-                    } else {
+                    }
+                    _ => {
                         return Err("Not a unsigned".to_string().into());
                     }
-                }
+                },
                 Property::SignedInt {
                     size,
                     default,
                     name,
-                } => {
-                    let value = entry.value(name);
-                    if let Value::Signed(value) = value {
+                } => match entry.value(name).as_ref() {
+                    Value::Signed(value) => {
+                        if let Some(d) = default {
+                            assert_eq!(d, value);
+                        } else {
+                            written += stream.write_isized(*value, *size)?;
+                        }
+                    }
+                    Value::SignedWord(value) => {
                         if let Some(d) = default {
                             assert_eq!(*d, value.get());
                         } else {
                             written += stream.write_isized(value.get(), *size)?;
                         }
-                    } else {
+                    }
+                    _ => {
                         return Err("Not a unsigned".to_string().into());
                     }
-                }
+                },
                 Property::Padding(size) => {
                     let data = vec![0x00; *size as usize];
                     written += stream.write(&data)?;

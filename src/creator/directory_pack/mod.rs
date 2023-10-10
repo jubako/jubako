@@ -10,9 +10,10 @@ use crate::bases::*;
 use crate::common;
 pub use directory_pack::DirectoryPackCreator;
 pub use entry_store::EntryStore;
+use std::borrow::Cow;
 use std::cmp;
 use std::collections::HashMap;
-pub use value::Value;
+pub use value::{Array, ArrayS, Value};
 pub use value_store::{
     IndexedValueStore, PlainValueStore, StoreHandle, ValueStore, ValueStoreKind,
 };
@@ -24,8 +25,8 @@ pub trait VariantName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send {
 impl VariantName for &str {}
 
 pub trait EntryTrait<PN: PropertyName, VN: VariantName> {
-    fn variant_name(&self) -> Option<&VN>;
-    fn value(&self, name: &PN) -> &Value;
+    fn variant_name(&self) -> Option<Cow<VN>>;
+    fn value<'a>(&'a self, name: &PN) -> Cow<'a, Value>;
     fn value_count(&self) -> PropertyCount;
     fn set_idx(&mut self, idx: EntryIdx);
     fn get_idx(&self) -> Bound<EntryIdx>;
@@ -101,40 +102,67 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                             let value_id = store_handle.add_value(to_store);
                             return Some((
                                 *name,
-                                Value::Array {
-                                    size,
-                                    data: data.into_boxed_slice(),
-                                    value_id,
+                                match data.len() {
+                                    0 => Value::Array0(Box::new(ArrayS::<0> {
+                                        size,
+                                        value_id,
+                                        data: data.try_into().unwrap(),
+                                    })),
+                                    1 => Value::Array1(Box::new(ArrayS::<1> {
+                                        size,
+                                        value_id,
+                                        data: data.as_slice().try_into().unwrap(),
+                                    })),
+                                    2 => Value::Array2(Box::new(ArrayS::<2> {
+                                        size,
+                                        value_id,
+                                        data: data.try_into().unwrap(),
+                                    })),
+                                    _ => Value::Array(Box::new(Array {
+                                        size,
+                                        data: data.into_boxed_slice(),
+                                        value_id,
+                                    })),
                                 },
                             ));
                         } else {
                             panic!("Invalid value type");
                         }
                     }
+                    schema::Property::IndirectArray { store_handle, name } => {
+                        let value = self
+                            .values
+                            .remove(name)
+                            .unwrap_or_else(|| panic!("Cannot find entry {:?}", name.to_string()));
+                        if let common::Value::Array(data) = value {
+                            let value_id = store_handle.add_value(data);
+                            return Some((*name, Value::IndirectArray(value_id)));
+                        }
+                    }
                     schema::Property::UnsignedInt {
                         counter: _,
                         size: _,
                         name,
-                    } => {
-                        let value = self.values.remove(name).unwrap();
-                        if let common::Value::Unsigned(v) = value {
-                            return Some((*name, Value::Unsigned(v)));
-                        } else {
+                    } => match self.values.remove(name).unwrap() {
+                        common::Value::Unsigned(v) => {
+                            return Some((*name, Value::UnsignedWord(Box::new(v))));
+                        }
+                        _ => {
                             panic!("Invalid value type");
                         }
-                    }
+                    },
                     schema::Property::SignedInt {
                         counter: _,
                         size: _,
                         name,
-                    } => {
-                        let value = self.values.remove(name).unwrap();
-                        if let common::Value::Signed(v) = value {
-                            return Some((*name, Value::Signed(v)));
-                        } else {
+                    } => match self.values.remove(name).unwrap() {
+                        common::Value::Signed(v) => {
+                            return Some((*name, Value::SignedWord(Box::new(v))));
+                        }
+                        _ => {
                             panic!("Invalid value type");
                         }
-                    }
+                    },
                     schema::Property::ContentAddress {
                         pack_id_counter: _,
                         pack_id_size: _,
@@ -192,12 +220,12 @@ impl<PN: PropertyName, VN: VariantName> BasicEntry<PN, VN> {
 }
 
 impl<PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for BasicEntry<PN, VN> {
-    fn variant_name(&self) -> Option<&VN> {
-        self.variant_name.as_ref()
+    fn variant_name(&self) -> Option<Cow<VN>> {
+        self.variant_name.as_ref().map(Cow::Borrowed)
     }
-    fn value(&self, name: &PN) -> &Value {
+    fn value(&self, name: &PN) -> Cow<Value> {
         match self.values.iter().find(|&e| e.0 == *name) {
-            Some(e) => &e.1,
+            Some(e) => Cow::Borrowed(&e.1),
             None => panic!("{} should be in entry", name.to_string()),
         }
     }
@@ -216,10 +244,10 @@ impl<T, PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for Box<T>
 where
     T: EntryTrait<PN, VN>,
 {
-    fn variant_name(&self) -> Option<&VN> {
+    fn variant_name(&self) -> Option<Cow<VN>> {
         T::variant_name(self)
     }
-    fn value(&self, name: &PN) -> &Value {
+    fn value(&self, name: &PN) -> Cow<Value> {
         T::value(self, name)
     }
     fn value_count(&self) -> PropertyCount {
@@ -242,7 +270,7 @@ impl<PN: PropertyName, VN: VariantName> FullEntryTrait<PN, VN> for BasicEntry<PN
         for property_name in sort_keys {
             let self_value = self.value(property_name);
             let other_value = other.value(property_name);
-            match self_value.partial_cmp(other_value) {
+            match self_value.partial_cmp(&other_value) {
                 None => return cmp::Ordering::Greater,
                 Some(c) => match c {
                     cmp::Ordering::Less => return cmp::Ordering::Less,

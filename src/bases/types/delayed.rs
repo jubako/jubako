@@ -158,8 +158,9 @@ where
     }
 }
 
+#[derive(Clone)]
 #[repr(transparent)]
-pub struct Word<T: Copy>(Box<dyn Fn() -> T + Sync + Send>);
+pub struct Word<T: Copy>(Arc<dyn Fn() -> T + Sync + Send>);
 
 impl<T> std::fmt::Debug for Word<T>
 where
@@ -178,7 +179,7 @@ impl<T: Copy> Word<T> {
 
 impl<T: Copy + Sync + Send + 'static> From<T> for Word<T> {
     fn from(v: T) -> Self {
-        Self(Box::new(move || v))
+        Self(Arc::new(move || v))
     }
 }
 
@@ -188,7 +189,7 @@ where
     V: Copy,
 {
     fn from(b: Bound<S>) -> Self {
-        Self(Box::new(move || b.get().into()))
+        Self(Arc::new(move || b.get().into()))
     }
 }
 
@@ -197,7 +198,7 @@ where
     V: Copy,
 {
     fn from(f: Box<dyn Fn() -> V + Sync + Send>) -> Self {
-        Self(f)
+        Self(f.into())
     }
 }
 
@@ -206,7 +207,7 @@ where
     V: Copy + 'static,
 {
     fn from(f: fn() -> V) -> Self {
-        Self(Box::new(f))
+        Self(Arc::new(f))
     }
 }
 

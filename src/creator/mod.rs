@@ -9,8 +9,9 @@ use crate::common::{CheckInfo, CompressionType, PackKind};
 pub use container_pack::{ContainerPackCreator, InContainerFile};
 pub use content_pack::{CacheProgress, CachedContentPackCreator, ContentPackCreator, Progress};
 pub use directory_pack::{
-    schema, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, IndexedValueStore,
-    PlainValueStore, PropertyName, StoreHandle, Value, ValueStore, ValueTransformer, VariantName,
+    schema, Array, ArrayS, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait,
+    FullEntryTrait, IndexedValueStore, PlainValueStore, PropertyName, StoreHandle, Value,
+    ValueStore, ValueTransformer, VariantName,
 };
 pub use manifest_pack::ManifestPackCreator;
 use std::io::{Read, Seek, SeekFrom};
