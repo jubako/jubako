@@ -56,12 +56,12 @@ pub enum ValueStore {
 }
 
 impl ValueStore {
-    pub fn new_plain() -> StoreHandle {
-        Self::Plain(PlainValueStore(BaseValueStore::new())).into()
+    pub fn new_plain(size_hint: Option<usize>) -> StoreHandle {
+        Self::Plain(PlainValueStore(BaseValueStore::new(size_hint))).into()
     }
 
     pub fn new_indexed() -> StoreHandle {
-        Self::Indexed(IndexedValueStore(BaseValueStore::new())).into()
+        Self::Indexed(IndexedValueStore(BaseValueStore::new(None))).into()
     }
 
     pub fn finalize(&mut self, idx: ValueStoreIdx) {
@@ -124,11 +124,13 @@ pub struct BaseValueStore {
 }
 
 impl BaseValueStore {
-    pub fn new() -> Self {
+    pub fn new(size_hint: Option<usize>) -> Self {
+        let data = Vec::with_capacity(size_hint.unwrap_or(1024));
+        let sorted_indirect = Vec::with_capacity(size_hint.unwrap_or(1024));
         Self {
             idx: None,
-            data: vec![],
-            sorted_indirect: vec![],
+            data,
+            sorted_indirect,
             size: Size::zero(),
         }
     }

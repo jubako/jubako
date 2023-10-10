@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     // Entries have fixed sizes. We need to store variable length values in an extra store.
-    let value_store = jbk::creator::ValueStore::new_plain();
+    let value_store = jbk::creator::ValueStore::new_plain(None);
 
     // Our entry kind will have two variants.
     let entry_def = schema::Schema::new(
@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     // The store for our entries.
-    let mut entry_store = Box::new(jbk::creator::EntryStore::new(entry_def));
+    let mut entry_store = Box::new(jbk::creator::EntryStore::new(entry_def, None));
 
     // Now we have "configured" our container, let's add some content:
     let content: Vec<u8> = "A super content prime quality for our test container".into();

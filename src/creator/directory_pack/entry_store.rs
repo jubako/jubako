@@ -37,9 +37,9 @@ where
     VN: VariantName,
     Entry: FullEntryTrait<PN, VN>,
 {
-    pub fn new(schema: schema::Schema<PN, VN>) -> Self {
+    pub fn new(schema: schema::Schema<PN, VN>, size_hint: Option<usize>) -> Self {
         Self {
-            entries: vec![],
+            entries: Vec::with_capacity(size_hint.unwrap_or(1024)),
             schema,
         }
     }
