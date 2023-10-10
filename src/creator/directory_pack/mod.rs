@@ -6,6 +6,8 @@ pub mod schema;
 mod value;
 mod value_store;
 
+use static_assertions as sa;
+
 use crate::bases::*;
 use crate::common;
 pub use directory_pack::DirectoryPackCreator;
@@ -55,11 +57,13 @@ pub trait FullEntryTrait<PN: PropertyName, VN: VariantName>: EntryTrait<PN, VN> 
 }
 
 #[derive(Debug)]
-pub struct BasicEntry<PN: PropertyName, VN: VariantName> {
+pub struct BasicEntry<PN, VN> {
     variant_name: Option<VN>,
-    values: Box<[(PN, Value)]>,
+    names: Box<[PN]>,
+    values: Box<[Value]>,
     idx: Vow<EntryIdx>,
 }
+sa::assert_eq_size!(BasicEntry<u8, u8>, [u8; 48]);
 
 pub struct ValueTransformer<'a, PN: PropertyName> {
     keys: Box<dyn Iterator<Item = &'a schema::Property<PN>> + 'a>,
@@ -228,9 +232,11 @@ impl<PN: PropertyName, VN: VariantName> BasicEntry<PN, VN> {
         values: HashMap<PN, Value>,
         idx: Vow<EntryIdx>,
     ) -> Self {
+        let (names, values): (Vec<_>, Vec<_>) = values.into_iter().unzip();
         Self {
             variant_name,
-            values: values.into_iter().collect(),
+            names: names.into(),
+            values: values.into(),
             idx,
         }
     }
@@ -241,8 +247,8 @@ impl<PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for BasicEntry<PN, VN
         self.variant_name.as_ref().map(Cow::Borrowed)
     }
     fn value(&self, name: &PN) -> Cow<Value> {
-        match self.values.iter().find(|&e| e.0 == *name) {
-            Some(e) => Cow::Borrowed(&e.1),
+        match self.names.iter().position(|n| n == name) {
+            Some(i) => Cow::Borrowed(&self.values[i]),
             None => panic!("{} should be in entry", name.to_string()),
         }
     }
