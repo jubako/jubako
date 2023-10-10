@@ -146,8 +146,8 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .debug_struct("Array")
                 .field("may_array_size", &max_array_size)
                 .field("fixed_array_size", &fixed_array_size)
-                .field("store_idx", &store_handle.borrow().get_idx())
-                .field("key_size", &store_handle.borrow().key_size())
+                .field("store_idx", &store_handle.get_idx())
+                .field("key_size", &store_handle.key_size())
                 .field("name", &name.to_string())
                 .finish(),
             Self::ContentAddress {
@@ -291,7 +291,7 @@ impl<PN: PropertyName> Property<PN> {
                 store_handle,
                 name,
             } => {
-                let value_id_size = store_handle.borrow().key_size();
+                let value_id_size = store_handle.key_size();
                 layout::Property::Array {
                     array_size_size: Some(max_array_size.into()),
                     fixed_array_size: fixed_array_size as u8,

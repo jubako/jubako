@@ -1,20 +1,38 @@
 use crate::bases::*;
 use crate::creator::private::WritableTell;
+use rayon::prelude::*;
 
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone)]
-pub struct StoreHandle(Rc<RefCell<ValueStore>>);
+pub struct StoreHandle(Arc<RwLock<ValueStore>>);
+
+impl StoreHandle {
+    pub fn key_size(&self) -> ByteSize {
+        self.0.read().unwrap().key_size()
+    }
+
+    pub fn get_idx(&self) -> Option<ValueStoreIdx> {
+        self.0.read().unwrap().get_idx()
+    }
+
+    pub fn add_value(&self, data: &[u8]) -> Bound<u64> {
+        self.0.write().unwrap().add_value(data)
+    }
+
+    pub fn finalize(&self, idx: ValueStoreIdx) {
+        self.0.write().unwrap().finalize(idx)
+    }
+}
 
 impl From<ValueStore> for StoreHandle {
     fn from(s: ValueStore) -> Self {
-        Self(Rc::new(RefCell::new(s)))
+        Self(Arc::new(RwLock::new(s)))
     }
 }
 
 impl std::ops::Deref for StoreHandle {
-    type Target = Rc<RefCell<ValueStore>>;
+    type Target = Arc<RwLock<ValueStore>>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -115,7 +133,9 @@ impl PlainValueStore {
 
     fn finalize(&mut self, idx: ValueStoreIdx) {
         self.0.idx = Some(idx);
-        self.0.sorted_indirect.sort_by_key(|e| &self.0.data[e.0]);
+        self.0
+            .sorted_indirect
+            .par_sort_unstable_by_key(|e| &self.0.data[e.0]);
         let mut offset = 0;
         let mut last_data_idx: Option<usize> = None;
         for (idx, vow) in self.0.sorted_indirect.iter_mut() {
@@ -189,7 +209,9 @@ pub struct IndexedValueStore(BaseValueStore);
 impl IndexedValueStore {
     fn finalize(&mut self, idx: ValueStoreIdx) {
         self.0.idx = Some(idx);
-        self.0.sorted_indirect.sort_by_key(|e| &self.0.data[e.0]);
+        self.0
+            .sorted_indirect
+            .par_sort_by_key(|e| &self.0.data[e.0]);
         for (idx, (_, vow)) in self.0.sorted_indirect.iter().enumerate() {
             vow.fulfil(idx as u64);
         }

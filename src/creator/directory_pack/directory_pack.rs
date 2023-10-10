@@ -63,9 +63,7 @@ impl DirectoryPackCreator {
 
         info!("----- Finalize value_stores -----");
         for (idx, value_store) in &mut self.value_stores.iter().enumerate() {
-            value_store
-                .borrow_mut()
-                .finalize(ValueStoreIdx::from(idx as u8));
+            value_store.finalize(ValueStoreIdx::from(idx as u8));
         }
 
         info!("----- Finalize entry_stores -----");
@@ -92,7 +90,7 @@ impl DirectoryPackCreator {
         info!("----- Write value_stores -----");
         let mut value_stores_offsets = vec![];
         for value_store in &self.value_stores {
-            value_stores_offsets.push(value_store.borrow_mut().write(&mut buffered)?);
+            value_stores_offsets.push(value_store.write().unwrap().write(&mut buffered)?);
         }
 
         buffered.seek(SeekFrom::Start(origin_offset + 128))?;

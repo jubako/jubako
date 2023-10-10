@@ -1,5 +1,6 @@
 use std::cell::Cell;
-use std::rc::Rc;
+use std::fmt;
+use std::sync::{Arc, Mutex};
 
 #[derive(Default, Debug, Clone)]
 pub struct Late<T: Copy>(Cell<Option<T>>);
@@ -37,39 +38,53 @@ where
 // V: data View (how the data is viewed (get) by the bound)
 
 #[derive(Debug, Default)]
-pub struct Vow<S: Copy>(Rc<Cell<S>>);
+pub struct Vow<S: Copy>(Arc<Mutex<S>>);
 
-impl<S: Copy + 'static + std::fmt::Debug> Vow<S> {
+impl<S> Vow<S>
+where
+    S: Copy + fmt::Debug + PartialEq + 'static,
+{
     pub fn new(s: S) -> Self {
-        Self(Rc::new(Cell::new(s)))
+        Self(Arc::new(Mutex::new(s)))
     }
 
     pub fn fulfil(&self, value: S) {
-        self.0.set(value);
+        *self.0.lock().unwrap() = value;
     }
 
     pub fn get(&self) -> S {
-        self.0.as_ref().get()
+        *self.0.lock().unwrap()
     }
 
     pub fn bind(&self) -> Bound<S> {
-        Bound(Rc::clone(&self.0))
+        Bound(Arc::clone(&self.0))
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Bound<S: Copy>(Rc<Cell<S>>);
+#[derive(Clone, Debug)]
+pub struct Bound<S>(Arc<Mutex<S>>)
+where
+    S: Copy + PartialEq;
 
 impl<S> Bound<S>
 where
-    S: Copy,
+    S: Copy + PartialEq,
 {
     pub fn get(&self) -> S {
-        self.0.as_ref().get()
+        *self.0.lock().unwrap()
     }
 }
 
-pub struct Word<T: Copy>(Box<dyn Fn() -> T>);
+impl<S> PartialEq for Bound<S>
+where
+    S: Copy + PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.get() == other.get()
+    }
+}
+
+pub struct Word<T: Copy>(Box<dyn Fn() -> T + Sync + Send>);
 
 impl<T> std::fmt::Debug for Word<T>
 where
@@ -86,7 +101,7 @@ impl<T: Copy> Word<T> {
     }
 }
 
-impl<T: Copy + 'static> From<T> for Word<T> {
+impl<T: Copy + Sync + Send + 'static> From<T> for Word<T> {
     fn from(v: T) -> Self {
         Self(Box::new(move || v))
     }
@@ -94,7 +109,7 @@ impl<T: Copy + 'static> From<T> for Word<T> {
 
 impl<S, V> From<Bound<S>> for Word<V>
 where
-    S: Copy + Into<V> + 'static,
+    S: Copy + Into<V> + Send + PartialEq + 'static,
     V: Copy,
 {
     fn from(b: Bound<S>) -> Self {
@@ -102,11 +117,11 @@ where
     }
 }
 
-impl<V> From<Box<dyn Fn() -> V>> for Word<V>
+impl<V> From<Box<dyn Fn() -> V + Sync + Send>> for Word<V>
 where
     V: Copy,
 {
-    fn from(f: Box<dyn Fn() -> V>) -> Self {
+    fn from(f: Box<dyn Fn() -> V + Sync + Send>) -> Self {
         Self(f)
     }
 }
