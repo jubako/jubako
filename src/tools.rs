@@ -9,7 +9,7 @@ pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
     for infile in infiles {
         let in_container = open_pack(infile)?;
         for (uuid, reader) in in_container.iter() {
-            container.add_pack(*uuid, reader.clone())?;
+            container.add_pack(*uuid, &mut reader.create_flux_all())?;
         }
     }
 

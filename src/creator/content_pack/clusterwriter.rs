@@ -2,9 +2,7 @@ use super::cluster::ClusterCreator;
 use super::Progress;
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
-use crate::creator::{Compression, InputReader, MaybeFileReader};
-use std::fs::File;
-use std::io::Write;
+use crate::creator::{Compression, InputReader};
 use std::sync::{mpsc, Arc, Condvar, Mutex};
 use std::thread::{spawn, JoinHandle};
 
@@ -196,15 +194,18 @@ impl From<ClusterCreator> for WriteTask {
     }
 }
 
-pub struct ClusterWriter {
+pub struct ClusterWriter<O> {
     cluster_addresses: Vec<Late<SizedOffset>>,
-    file: File,
+    file: O,
     input: mpsc::Receiver<WriteTask>,
     progress: Arc<dyn Progress>,
 }
 
-impl ClusterWriter {
-    pub fn new(file: File, input: mpsc::Receiver<WriteTask>, progress: Arc<dyn Progress>) -> Self {
+impl<O> ClusterWriter<O>
+where
+    O: OutStream,
+{
+    pub fn new(file: O, input: mpsc::Receiver<WriteTask>, progress: Arc<dyn Progress>) -> Self {
         Self {
             cluster_addresses: vec![],
             file,
@@ -216,12 +217,7 @@ impl ClusterWriter {
     fn write_cluster_data(&mut self, cluster_data: InputData) -> Result<u64> {
         let mut copied = 0;
         for d in cluster_data.into_iter() {
-            copied += match d.get_file_source() {
-                MaybeFileReader::Yes(mut input_file) => {
-                    std::io::copy(&mut input_file, &mut self.file)?
-                }
-                MaybeFileReader::No(mut reader) => std::io::copy(reader.as_mut(), &mut self.file)?,
-            };
+            copied += self.file.copy(d)?;
         }
         Ok(copied)
     }
@@ -265,7 +261,7 @@ impl ClusterWriter {
         Ok(offset)
     }
 
-    pub fn run(mut self) -> Result<(File, Vec<Late<SizedOffset>>)> {
+    pub fn run(mut self) -> Result<(O, Vec<Late<SizedOffset>>)> {
         while let Ok(task) = self.input.recv() {
             let (sized_offset, idx) = match task {
                 WriteTask::Cluster(cluster) => {
@@ -289,9 +285,9 @@ impl ClusterWriter {
     }
 }
 
-pub struct ClusterWriterProxy {
+pub struct ClusterWriterProxy<O: OutStream> {
     worker_threads: Vec<JoinHandle<Result<()>>>,
-    thread_handle: JoinHandle<Result<(File, Vec<Late<SizedOffset>>)>>,
+    thread_handle: JoinHandle<Result<(O, Vec<Late<SizedOffset>>)>>,
     dispatch_tx: spmc::Sender<ClusterCreator>,
     fusion_tx: mpsc::Sender<WriteTask>,
     nb_cluster_in_queue: Arc<(Mutex<usize>, Condvar)>,
@@ -299,9 +295,9 @@ pub struct ClusterWriterProxy {
     compression: Compression,
 }
 
-impl ClusterWriterProxy {
+impl<O: OutStream + 'static> ClusterWriterProxy<O> {
     pub fn new(
-        file: File,
+        file: O,
         compression: Compression,
         nb_thread: usize,
         progress: Arc<dyn Progress>,
@@ -363,7 +359,7 @@ impl ClusterWriterProxy {
         }
     }
 
-    pub fn finalize(self) -> Result<(File, Vec<Late<SizedOffset>>)> {
+    pub fn finalize(self) -> Result<(O, Vec<Late<SizedOffset>>)> {
         drop(self.dispatch_tx);
         drop(self.fusion_tx);
         for thread in self.worker_threads {

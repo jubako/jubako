@@ -4,9 +4,9 @@ mod directory_pack;
 mod manifest_pack;
 
 use crate::bases::*;
-pub use crate::bases::{FileSource, Reader};
+pub use crate::bases::{FileSource, InOutStream, OutStream, Reader};
 use crate::common::{CheckInfo, CompressionType, PackKind};
-pub use container_pack::ContainerPackCreator;
+pub use container_pack::{ContainerPackCreator, InContainerFile};
 pub use content_pack::{CacheProgress, CachedContentPackCreator, ContentPackCreator, Progress};
 pub use directory_pack::{
     schema, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, IndexedValueStore,

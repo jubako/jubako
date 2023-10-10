@@ -30,7 +30,7 @@ fn shannon_entropy(data: &[u8]) -> Result<f32> {
     Ok(entropy)
 }
 
-pub struct ContentPackCreator {
+pub struct ContentPackCreator<O: OutStream + 'static> {
     app_vendor_id: u32,
     pack_id: PackId,
     free_data: ContentPackFreeData,
@@ -38,7 +38,7 @@ pub struct ContentPackCreator {
     raw_open_cluster: Option<ClusterCreator>,
     comp_open_cluster: Option<ClusterCreator>,
     next_cluster_id: Cell<u32>,
-    cluster_writer: ClusterWriterProxy,
+    cluster_writer: ClusterWriterProxy<O>,
     progress: Arc<dyn Progress>,
 }
 
@@ -59,7 +59,7 @@ macro_rules! open_cluster_ref {
     };
 }
 
-impl ContentPackCreator {
+impl ContentPackCreator<File> {
     pub fn new<P: AsRef<Path>>(
         path: P,
         pack_id: PackId,
@@ -91,7 +91,7 @@ impl ContentPackCreator {
             .create(true)
             .truncate(true)
             .open(&path)?;
-        Self::new_from_file_with_progress(
+        Self::new_from_output_with_progress(
             file,
             pack_id,
             app_vendor_id,
@@ -100,15 +100,17 @@ impl ContentPackCreator {
             progress,
         )
     }
+}
 
-    pub fn new_from_file(
-        file: File,
+impl<O: OutStream + 'static> ContentPackCreator<O> {
+    pub fn new_from_output(
+        file: O,
         pack_id: PackId,
         app_vendor_id: u32,
         free_data: ContentPackFreeData,
         compression: Compression,
     ) -> Result<Self> {
-        Self::new_from_file_with_progress(
+        Self::new_from_output_with_progress(
             file,
             pack_id,
             app_vendor_id,
@@ -118,15 +120,15 @@ impl ContentPackCreator {
         )
     }
 
-    pub fn new_from_file_with_progress(
-        mut file: File,
+    pub fn new_from_output_with_progress(
+        mut file: O,
         pack_id: PackId,
         app_vendor_id: u32,
         free_data: ContentPackFreeData,
         compression: Compression,
         progress: Arc<dyn Progress>,
     ) -> Result<Self> {
-        file.seek(SeekFrom::Start(128))?;
+        file.seek(SeekFrom::Start(ContentPackHeader::SIZE as u64))?;
         let nb_threads = std::cmp::max(
             std::thread::available_parallelism()
                 .unwrap_or(8.try_into().unwrap())
@@ -203,8 +205,10 @@ impl ContentPackCreator {
         self.content_infos.push(content_info);
         Ok(((self.content_infos.len() - 1) as u32).into())
     }
+}
 
-    pub fn finalize(mut self) -> Result<(File, PackData)> {
+impl<O: InOutStream> ContentPackCreator<O> {
+    pub fn finalize(mut self) -> Result<(O, PackData)> {
         if let Some(cluster) = self.raw_open_cluster.take() {
             if !cluster.is_empty() {
                 self.cluster_writer.write_cluster(cluster, false);
@@ -219,16 +223,19 @@ impl ContentPackCreator {
         let (mut file, cluster_addresses) = self.cluster_writer.finalize()?;
         let clusters_offset = file.tell();
         let nb_clusters = cluster_addresses.len();
+
+        let mut buffered = std::io::BufWriter::new(file);
+
         for address in cluster_addresses {
-            address.get().write(&mut file)?;
+            address.get().write(&mut buffered)?;
         }
-        let content_infos_offset = file.tell();
+        let content_infos_offset = buffered.tell();
         for content_info in &self.content_infos {
-            content_info.write(&mut file)?;
+            content_info.write(&mut buffered)?;
         }
-        let check_offset = file.tell();
+        let check_offset = buffered.tell();
         let pack_size: Size = (check_offset + 33 + 64).into();
-        file.rewind()?;
+        buffered.rewind()?;
         let header = ContentPackHeader::new(
             PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset),
             self.free_data,
@@ -237,7 +244,11 @@ impl ContentPackCreator {
             content_infos_offset,
             (self.content_infos.len() as u32).into(),
         );
-        header.write(&mut file)?;
+        header.write(&mut buffered)?;
+
+        buffered.flush()?;
+        let mut file = buffered.into_inner().unwrap();
+
         file.rewind()?;
         let check_info = CheckInfo::new_blake3(&mut file)?;
         check_info.write(&mut file)?;
@@ -249,7 +260,6 @@ impl ContentPackCreator {
         file.seek(SeekFrom::End(0))?;
         file.write_all(&tail_buffer)?;
 
-        file.rewind()?;
         Ok((
             file,
             PackData {

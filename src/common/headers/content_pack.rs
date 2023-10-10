@@ -55,6 +55,15 @@ impl Producable for ContentPackHeader {
     }
 }
 
+impl SizedProducable for ContentPackHeader {
+    const SIZE: usize = PackHeader::SIZE
+        + Offset::SIZE
+        + Offset::SIZE
+        + 4 // ContentCount::SIZE
+        + 4 // ClusterCount::SIZE
+        + ContentPackFreeData::SIZE;
+}
+
 impl Writable for ContentPackHeader {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         let mut written = 0;

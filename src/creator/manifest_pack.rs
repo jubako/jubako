@@ -1,7 +1,7 @@
 use super::{private::WritableTell, PackData, StoreHandle, ValueStore};
 use crate::bases::*;
 use crate::common::{CheckInfo, ManifestCheckStream, ManifestPackHeader, PackHeaderInfo, PackInfo};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::SeekFrom;
 
 pub struct ManifestPackCreator {
     app_vendor_id: u32,
@@ -24,7 +24,7 @@ impl ManifestPackCreator {
         self.packs.push((pack_info, locator));
     }
 
-    pub fn finalize<O: Write + Read + Seek>(self, file: &mut O) -> Result<uuid::Uuid> {
+    pub fn finalize<O: InOutStream>(self, file: &mut O) -> Result<uuid::Uuid> {
         let origin_offset = file.stream_position()?;
         file.seek(SeekFrom::Current(128))?;
 
