@@ -1,6 +1,6 @@
 use std::cell::Cell;
 use std::fmt;
-use std::sync::{Arc, Mutex};
+use std::sync::{atomic, Arc};
 
 #[derive(Default, Debug, Clone)]
 #[repr(transparent)]
@@ -38,24 +38,95 @@ where
 // S : data Source (what is the real value stored in the Vow)
 // V: data View (how the data is viewed (get) by the bound)
 
+pub trait SyncType {
+    type SyncType: std::fmt::Debug + Default + Sync + Send;
+    fn to_self(sync_val: &Self::SyncType) -> Self;
+    fn set(sync_val: &Self::SyncType, value: Self);
+    fn new(value: Self) -> Self::SyncType;
+}
+
+impl SyncType for u8 {
+    type SyncType = atomic::AtomicU8;
+
+    fn to_self(sync_val: &Self::SyncType) -> Self {
+        sync_val.load(atomic::Ordering::Relaxed)
+    }
+
+    fn set(sync_val: &Self::SyncType, value: Self) {
+        sync_val.store(value, atomic::Ordering::Relaxed)
+    }
+
+    fn new(value: Self) -> Self::SyncType {
+        Self::SyncType::new(value)
+    }
+}
+
+impl SyncType for u16 {
+    type SyncType = atomic::AtomicU16;
+
+    fn to_self(sync_val: &Self::SyncType) -> Self {
+        sync_val.load(atomic::Ordering::Relaxed)
+    }
+
+    fn set(sync_val: &Self::SyncType, value: Self) {
+        sync_val.store(value, atomic::Ordering::Relaxed)
+    }
+
+    fn new(value: Self) -> Self::SyncType {
+        Self::SyncType::new(value)
+    }
+}
+
+impl SyncType for u32 {
+    type SyncType = atomic::AtomicU32;
+
+    fn to_self(sync_val: &Self::SyncType) -> Self {
+        sync_val.load(atomic::Ordering::Relaxed)
+    }
+
+    fn set(sync_val: &Self::SyncType, value: Self) {
+        sync_val.store(value, atomic::Ordering::Relaxed)
+    }
+
+    fn new(value: Self) -> Self::SyncType {
+        Self::SyncType::new(value)
+    }
+}
+
+impl SyncType for u64 {
+    type SyncType = atomic::AtomicU64;
+
+    fn to_self(sync_val: &Self::SyncType) -> Self {
+        sync_val.load(atomic::Ordering::Relaxed)
+    }
+
+    fn set(sync_val: &Self::SyncType, value: Self) {
+        sync_val.store(value, atomic::Ordering::Relaxed)
+    }
+
+    fn new(value: Self) -> Self::SyncType {
+        Self::SyncType::new(value)
+    }
+}
+
 #[derive(Debug, Default)]
 #[repr(transparent)]
-pub struct Vow<S: Copy>(Arc<Mutex<S>>);
+pub struct Vow<S: Copy + SyncType>(Arc<<S as SyncType>::SyncType>);
 
 impl<S> Vow<S>
 where
-    S: Copy + fmt::Debug + PartialEq + 'static,
+    S: Copy + SyncType + fmt::Debug + PartialEq + 'static,
 {
     pub fn new(s: S) -> Self {
-        Self(Arc::new(Mutex::new(s)))
+        Self(Arc::new(<S as SyncType>::new(s)))
     }
 
     pub fn fulfil(&self, value: S) {
-        *self.0.lock().unwrap() = value;
+        <S as SyncType>::set(&self.0, value)
     }
 
     pub fn get(&self) -> S {
-        *self.0.lock().unwrap()
+        <S as SyncType>::to_self(&self.0)
     }
 
     pub fn bind(&self) -> Bound<S> {
@@ -65,22 +136,22 @@ where
 
 #[derive(Clone, Debug)]
 #[repr(transparent)]
-pub struct Bound<S>(Arc<Mutex<S>>)
+pub struct Bound<S>(Arc<<S as SyncType>::SyncType>)
 where
-    S: Copy + PartialEq;
+    S: Copy + SyncType + PartialEq;
 
 impl<S> Bound<S>
 where
-    S: Copy + PartialEq,
+    S: Copy + SyncType + PartialEq,
 {
     pub fn get(&self) -> S {
-        *self.0.lock().unwrap()
+        <S as SyncType>::to_self(&self.0)
     }
 }
 
 impl<S> PartialEq for Bound<S>
 where
-    S: Copy + PartialEq,
+    S: Copy + SyncType + PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.get() == other.get()
@@ -113,7 +184,7 @@ impl<T: Copy + Sync + Send + 'static> From<T> for Word<T> {
 
 impl<S, V> From<Bound<S>> for Word<V>
 where
-    S: Copy + Into<V> + Send + PartialEq + 'static,
+    S: Copy + Into<V> + SyncType + Send + PartialEq + 'static,
     V: Copy,
 {
     fn from(b: Bound<S>) -> Self {

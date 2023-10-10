@@ -7,6 +7,12 @@ use std::fmt;
 #[repr(transparent)]
 pub struct Id<T>(pub T);
 
+impl<T> Id<T> {
+    pub(crate) fn into_base(self) -> T {
+        self.0
+    }
+}
+
 impl Producable for Id<u8> {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {

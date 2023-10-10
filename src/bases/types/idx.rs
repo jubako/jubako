@@ -8,6 +8,12 @@ use std::ops::{Add, AddAssign};
 #[repr(transparent)]
 pub struct Idx<T>(pub T);
 
+impl<T> Idx<T> {
+    pub(crate) fn into_base(self) -> T {
+        self.0
+    }
+}
+
 impl Producable for Idx<u32> {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {

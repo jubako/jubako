@@ -17,7 +17,7 @@ mod specific_types;
 pub use base_array::BaseArray;
 pub use byte_size::ByteSize;
 pub use count::Count;
-pub use delayed::{Bound, Late, Vow, Word};
+pub use delayed::{Bound, Late, SyncType, Vow, Word};
 pub use error::{Error, ErrorKind, FormatError, Result};
 pub use free_data::{
     ContentPackFreeData, DirectoryPackFreeData, IndexFreeData, ManifestPackFreeData,
