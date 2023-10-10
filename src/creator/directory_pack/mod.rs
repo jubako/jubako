@@ -33,8 +33,25 @@ pub trait EntryTrait<PN: PropertyName, VN: VariantName> {
 }
 
 pub trait FullEntryTrait<PN: PropertyName, VN: VariantName>: EntryTrait<PN, VN> + Send {
-    fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PN>, other: &Self)
-        -> std::cmp::Ordering;
+    fn compare(
+        &self,
+        sort_keys: &mut dyn Iterator<Item = &PN>,
+        other: &Self,
+    ) -> std::cmp::Ordering {
+        for property_name in sort_keys {
+            let self_value = self.value(property_name);
+            let other_value = other.value(property_name);
+            match self_value.partial_cmp(&other_value) {
+                None => return cmp::Ordering::Greater,
+                Some(c) => match c {
+                    cmp::Ordering::Less => return cmp::Ordering::Less,
+                    cmp::Ordering::Greater => return cmp::Ordering::Greater,
+                    cmp::Ordering::Equal => continue,
+                },
+            }
+        }
+        cmp::Ordering::Greater
+    }
 }
 
 #[derive(Debug)]
@@ -261,27 +278,7 @@ where
     }
 }
 
-impl<PN: PropertyName, VN: VariantName> FullEntryTrait<PN, VN> for BasicEntry<PN, VN> {
-    fn compare(
-        &self,
-        sort_keys: &mut dyn Iterator<Item = &PN>,
-        other: &BasicEntry<PN, VN>,
-    ) -> cmp::Ordering {
-        for property_name in sort_keys {
-            let self_value = self.value(property_name);
-            let other_value = other.value(property_name);
-            match self_value.partial_cmp(&other_value) {
-                None => return cmp::Ordering::Greater,
-                Some(c) => match c {
-                    cmp::Ordering::Less => return cmp::Ordering::Less,
-                    cmp::Ordering::Greater => return cmp::Ordering::Greater,
-                    cmp::Ordering::Equal => continue,
-                },
-            }
-        }
-        cmp::Ordering::Greater
-    }
-}
+impl<PN: PropertyName, VN: VariantName> FullEntryTrait<PN, VN> for BasicEntry<PN, VN> {}
 
 impl<T, PN: PropertyName, VN: VariantName> FullEntryTrait<PN, VN> for Box<T>
 where
