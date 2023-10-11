@@ -166,6 +166,9 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                         name,
                     } => match self.values.remove(name).unwrap() {
                         common::Value::Unsigned(v) => {
+                            return Some((*name, Value::Unsigned(v)));
+                        }
+                        common::Value::UnsignedWord(v) => {
                             return Some((*name, Value::UnsignedWord(Box::new(v))));
                         }
                         _ => {
@@ -178,6 +181,9 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                         name,
                     } => match self.values.remove(name).unwrap() {
                         common::Value::Signed(v) => {
+                            return Some((*name, Value::Signed(v)));
+                        }
+                        common::Value::SignedWord(v) => {
                             return Some((*name, Value::SignedWord(Box::new(v))));
                         }
                         _ => {

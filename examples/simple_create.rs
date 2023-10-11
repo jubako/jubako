@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some("FirstVariant"), // Variant 0
         HashMap::from([
             ("AString", jbk::Value::Array("Super".into())),
-            ("AInteger", jbk::Value::Unsigned(50.into())),
+            ("AInteger", jbk::Value::Unsigned(50)),
             (
                 "TheContent",
                 jbk::Value::Content(jbk::ContentAddress::new(
@@ -74,8 +74,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some("SecondVariant"),
         HashMap::from([
             ("AString", jbk::Value::Array("Mega".into())),
-            ("AInteger", jbk::Value::Unsigned(42.into())),
-            ("AnotherInt", jbk::Value::Unsigned(5.into())),
+            ("AInteger", jbk::Value::Unsigned(42)),
+            ("AnotherInt", jbk::Value::Unsigned(5)),
         ]),
     ));
 
@@ -84,8 +84,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some("SecondVariant"),
         HashMap::from([
             ("AString", jbk::Value::Array("Hyper".into())),
-            ("AInteger", jbk::Value::Unsigned(45.into())),
-            ("AnotherInt", jbk::Value::Unsigned(2.into())),
+            ("AInteger", jbk::Value::Unsigned(45)),
+            ("AnotherInt", jbk::Value::Unsigned(2)),
         ]),
     ));
 
