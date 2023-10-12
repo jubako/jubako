@@ -11,7 +11,7 @@ fn set_entry_idx<PN, VN, Entry>(entries: &mut [Entry])
 where
     PN: PropertyName,
     VN: VariantName,
-    Entry: FullEntryTrait<PN, VN> + Send + Sync,
+    Entry: FullEntryTrait<PN, VN> + Send,
 {
     assert!(entries.len() <= u32::MAX as usize);
     //(0u32..).zip(entries.iter_mut()).for_each(|(idx, entry)| entry.set_idx(idx.into()))
@@ -60,7 +60,7 @@ where
     }
 }
 
-pub trait EntryStoreTrait: Sync + Send {
+pub trait EntryStoreTrait {
     fn finalize(self: Box<Self>) -> Box<dyn WritableTell>;
 }
 
@@ -68,7 +68,7 @@ impl<PN, VN, Entry> EntryStoreTrait for EntryStore<PN, VN, Entry>
 where
     PN: PropertyName + std::fmt::Debug + Sync,
     VN: VariantName + std::fmt::Debug + Sync + 'static,
-    Entry: FullEntryTrait<PN, VN> + Send + Sync + 'static,
+    Entry: FullEntryTrait<PN, VN> + Send + 'static,
 {
     fn finalize(mut self: Box<Self>) -> Box<dyn WritableTell> {
         set_entry_idx(&mut self.entries);
@@ -79,7 +79,7 @@ where
             let mut watchdog = 50;
             while !self
                 .entries
-                .par_windows(2)
+                .windows(2)
                 .all(|w| w[0].compare(&mut keys.iter(), &w[1]).is_le())
             {
                 debug!(".");
