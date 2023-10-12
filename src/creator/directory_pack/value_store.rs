@@ -1,6 +1,7 @@
 use crate::bases::*;
 use crate::creator::private::WritableTell;
 use rayon::prelude::*;
+use std::cell::Cell;
 
 use std::sync::{Arc, RwLock};
 
@@ -10,22 +11,45 @@ pub enum ValueStoreKind {
     Indexed,
 }
 
-#[derive(Debug, Clone)]
 pub struct ValueHandle {
-    store: StoreHandle,
-    idx: usize,
+    store: Cell<Option<StoreHandle>>,
+    idx: Cell<u64>,
+}
+
+impl std::fmt::Debug for ValueHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        f.debug_struct("ValueHandle")
+            .field("store", &"Unknown")
+            .field("idx", &self.idx.get())
+            .finish()
+    }
 }
 
 impl ValueHandle {
     fn new(store: &Arc<RwLock<ValueStore>>, idx: usize) -> Self {
         Self {
-            store: StoreHandle(Arc::clone(store)),
-            idx,
+            store: Cell::new(Some(StoreHandle(Arc::clone(store)))),
+            idx: Cell::new(idx as u64),
         }
     }
 
     pub fn get(&self) -> ValueIdx {
-        self.store.get(self.idx)
+        match self.store.take() {
+            None => self.idx.get().into(),
+            Some(store) => {
+                let idx = store.get(self.idx.get() as usize);
+                self.idx.set(idx.into_u64());
+                idx
+            }
+        }
+    }
+
+    pub fn clone_get(&self) -> Self {
+        let idx = self.get();
+        Self {
+            store: Cell::new(None),
+            idx: Cell::new(idx.into()),
+        }
     }
 }
 
@@ -37,8 +61,16 @@ impl PartialEq for ValueHandle {
 
 impl From<ValueHandle> for Word<u64> {
     fn from(value_handle: ValueHandle) -> Self {
-        let func: Box<dyn Fn() -> u64 + Sync + Send> =
-            Box::new(move || value_handle.store.get(value_handle.idx).into_u64());
+        let func: Box<dyn Fn() -> u64 + Sync + Send> = match value_handle.store.take() {
+            None => {
+                let idx = value_handle.idx.get();
+                Box::new(move || idx)
+            }
+            Some(store) => {
+                let idx = value_handle.idx.get() as usize;
+                Box::new(move || store.get(idx).into_u64())
+            }
+        };
         func.into()
     }
 }
@@ -167,6 +199,7 @@ pub struct BaseValueStore {
     sorted_indirect: Vec<usize>, // An array reindexing the data in sorted order.
     // data[sorted_indirect[i]].0 <= data[sorted_indirect[j]] for any i < j
     size: Size,
+    finalized: bool,
 }
 
 impl BaseValueStore {
@@ -178,6 +211,7 @@ impl BaseValueStore {
             data,
             sorted_indirect,
             size: Size::zero(),
+            finalized: false,
         }
     }
 
@@ -190,6 +224,9 @@ impl BaseValueStore {
     }
 
     fn get(&self, idx: usize) -> ValueIdx {
+        if !self.finalized {
+            panic!("We can get only on finalized store.");
+        }
         self.data[idx].1.into()
     }
 }
@@ -229,6 +266,7 @@ impl PlainValueStore {
             last_data_key = Some(*data_key);
         }
         self.0.size = offset.into();
+        self.0.finalized = true;
     }
 
     fn add_value(&mut self, data: Vec<u8>) -> usize {
@@ -296,6 +334,7 @@ impl IndexedValueStore {
         for (idx, data_key) in self.0.sorted_indirect.iter().enumerate() {
             self.0.data[*data_key].1 = idx as u64;
         }
+        self.0.finalized = true;
     }
 
     fn add_value(&mut self, data: Vec<u8>) -> usize {
