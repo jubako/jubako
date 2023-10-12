@@ -10,7 +10,7 @@ impl PropertyName for &'static str {}
 pub trait VariantName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send {}
 impl VariantName for &str {}
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub struct Array {
     pub size: usize,
     pub data: Box<[u8]>,
@@ -43,7 +43,7 @@ impl Array {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub struct ArrayS<const N: usize> {
     pub data: [u8; N],
     pub value_id: ValueHandle,
@@ -78,7 +78,7 @@ impl<const N: usize> ArrayS<N> {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 #[repr(u8)]
 pub enum Value {
     Content(ContentAddress),

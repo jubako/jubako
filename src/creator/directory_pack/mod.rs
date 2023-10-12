@@ -12,7 +12,6 @@ use crate::bases::*;
 use crate::common;
 pub use directory_pack::DirectoryPackCreator;
 pub use entry_store::EntryStore;
-use std::borrow::Cow;
 use std::cmp;
 use std::collections::HashMap;
 pub use value::{Array, ArrayS, Value};
@@ -27,8 +26,8 @@ pub trait VariantName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send {
 impl VariantName for &str {}
 
 pub trait EntryTrait<PN: PropertyName, VN: VariantName> {
-    fn variant_name(&self) -> Option<Cow<VN>>;
-    fn value<'a>(&'a self, name: &PN) -> Cow<'a, Value>;
+    fn variant_name(&self) -> Option<MayRef<VN>>;
+    fn value<'a>(&'a self, name: &PN) -> MayRef<'a, Value>;
     fn value_count(&self) -> PropertyCount;
     fn set_idx(&mut self, idx: EntryIdx);
     fn get_idx(&self) -> Bound<EntryIdx>;
@@ -249,12 +248,12 @@ impl<PN: PropertyName, VN: VariantName> BasicEntry<PN, VN> {
 }
 
 impl<PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for BasicEntry<PN, VN> {
-    fn variant_name(&self) -> Option<Cow<VN>> {
-        self.variant_name.as_ref().map(Cow::Borrowed)
+    fn variant_name(&self) -> Option<MayRef<VN>> {
+        self.variant_name.as_ref().map(MayRef::Borrowed)
     }
-    fn value(&self, name: &PN) -> Cow<Value> {
+    fn value(&self, name: &PN) -> MayRef<Value> {
         match self.names.iter().position(|n| n == name) {
-            Some(i) => Cow::Borrowed(&self.values[i]),
+            Some(i) => MayRef::Borrowed(&self.values[i]),
             None => panic!("{} should be in entry", name.to_string()),
         }
     }
@@ -273,10 +272,10 @@ impl<T, PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for Box<T>
 where
     T: EntryTrait<PN, VN>,
 {
-    fn variant_name(&self) -> Option<Cow<VN>> {
+    fn variant_name(&self) -> Option<MayRef<VN>> {
         T::variant_name(self)
     }
-    fn value(&self, name: &PN) -> Cow<Value> {
+    fn value(&self, name: &PN) -> MayRef<Value> {
         T::value(self, name)
     }
     fn value_count(&self) -> PropertyCount {

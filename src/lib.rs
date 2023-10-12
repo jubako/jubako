@@ -16,7 +16,7 @@ pub mod tools;
 
 pub use crate::bases::{
     Bound, ContentIdx, ContentPackFreeData, DirectoryPackFreeData, End, EntryCount, EntryIdx,
-    EntryRange, EntryStoreIdx, ErrorKind, FileSource, IndexFreeData, ManifestPackFreeData,
+    EntryRange, EntryStoreIdx, ErrorKind, FileSource, IndexFreeData, ManifestPackFreeData, MayRef,
     MemoryReader, Offset, PackId, PackInfoFreeData, PropertyCount, PropertyIdx, Reader, Result,
     Size, SubReader, ValueIdx, VariantIdx, Vow, Word,
 };
