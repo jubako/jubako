@@ -77,7 +77,8 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                                 vec![0; *fixed_array_size as usize - a.data.len()].as_slice(),
                             )?;
                             if let Some((key_size, _)) = deported_info {
-                                written += stream.write_usized(a.value_id.get(), *key_size)?;
+                                written +=
+                                    stream.write_usized(a.value_id.get().into_u64(), *key_size)?;
                             }
                         }
                         Value::Array1(a) => {
@@ -90,7 +91,8 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                                 vec![0; *fixed_array_size as usize - a.data.len()].as_slice(),
                             )?;
                             if let Some((key_size, _)) = deported_info {
-                                written += stream.write_usized(a.value_id.get(), *key_size)?;
+                                written +=
+                                    stream.write_usized(a.value_id.get().into_u64(), *key_size)?;
                             }
                         }
                         Value::Array2(a) => {
@@ -103,7 +105,8 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                                 vec![0; *fixed_array_size as usize - a.data.len()].as_slice(),
                             )?;
                             if let Some((key_size, _)) = deported_info {
-                                written += stream.write_usized(a.value_id.get(), *key_size)?;
+                                written +=
+                                    stream.write_usized(a.value_id.get().into_u64(), *key_size)?;
                             }
                         }
                         Value::Array(a) => {
@@ -116,14 +119,16 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                                 vec![0; *fixed_array_size as usize - a.data.len()].as_slice(),
                             )?;
                             if let Some((key_size, _)) = deported_info {
-                                written += stream.write_usized(a.value_id.get(), *key_size)?;
+                                written +=
+                                    stream.write_usized(a.value_id.get().into_u64(), *key_size)?;
                             }
                         }
                         Value::IndirectArray(value_id) => {
                             assert_eq!(*array_size_size, None); // We don't store the size of the array
                             assert_eq!(*fixed_array_size, 0); // No fixed array
                             if let Some((key_size, _)) = deported_info {
-                                written += stream.write_usized(value_id.get(), *key_size)?;
+                                written +=
+                                    stream.write_usized(value_id.get().into_u64(), *key_size)?;
                             } else {
                                 return Err(
                                     "A indirect array need a array property with a deported info"
@@ -143,7 +148,8 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     name,
                 } => match entry.value(name).as_ref() {
                     Value::IndirectArray(value_id) => {
-                        written += stream.write_usized(value_id.get(), *value_id_size)?;
+                        written +=
+                            stream.write_usized(value_id.get().into_u64(), *value_id_size)?;
                     }
                     _ => {
                         return Err("Not a indirect Array".to_string().into());

@@ -11,7 +11,7 @@ pub use content_pack::{CacheProgress, CachedContentPackCreator, ContentPackCreat
 pub use directory_pack::{
     schema, Array, ArrayS, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait,
     FullEntryTrait, IndexedValueStore, PlainValueStore, PropertyName, StoreHandle, Value,
-    ValueStore, ValueTransformer, VariantName,
+    ValueHandle, ValueStore, ValueTransformer, VariantName,
 };
 pub use manifest_pack::ManifestPackCreator;
 use std::io::{Read, Seek, SeekFrom};

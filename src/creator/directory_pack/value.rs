@@ -1,3 +1,4 @@
+use super::ValueHandle;
 use crate::bases::*;
 use crate::common::ContentAddress;
 use static_assertions as sa;
@@ -13,9 +14,9 @@ impl VariantName for &str {}
 pub struct Array {
     pub size: usize,
     pub data: Box<[u8]>,
-    pub value_id: Bound<u64>,
+    pub value_id: ValueHandle,
 }
-sa::assert_eq_size!(Array, [u8; 32]);
+sa::assert_eq_size!(Array, [u8; 40]);
 
 impl Array {
     fn cmp(&self, other: &Array) -> cmp::Ordering {
@@ -45,12 +46,12 @@ impl Array {
 #[derive(Debug, PartialEq, Clone)]
 pub struct ArrayS<const N: usize> {
     pub data: [u8; N],
-    pub value_id: Bound<u64>,
+    pub value_id: ValueHandle,
     pub size: usize,
 }
-sa::assert_eq_size!(ArrayS<0>, [u8; 16]);
-sa::assert_eq_size!(ArrayS<1>, [u8; 24]);
-sa::assert_eq_size!(ArrayS<2>, [u8; 24]);
+sa::assert_eq_size!(ArrayS<0>, [u8; 24]);
+sa::assert_eq_size!(ArrayS<1>, [u8; 32]);
+sa::assert_eq_size!(ArrayS<2>, [u8; 32]);
 
 impl<const N: usize> ArrayS<N> {
     fn cmp<const M: usize>(&self, other: &ArrayS<M>) -> cmp::Ordering {
@@ -85,7 +86,7 @@ pub enum Value {
     Signed(i64),
     UnsignedWord(Box<Word<u64>>),
     SignedWord(Box<Word<i64>>),
-    IndirectArray(Bound<u64>),
+    IndirectArray(Box<ValueHandle>),
     Array0(Box<ArrayS<0>>),
     Array1(Box<ArrayS<1>>),
     Array2(Box<ArrayS<2>>),

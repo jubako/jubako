@@ -17,7 +17,7 @@ use std::cmp;
 use std::collections::HashMap;
 pub use value::{Array, ArrayS, Value};
 pub use value_store::{
-    IndexedValueStore, PlainValueStore, StoreHandle, ValueStore, ValueStoreKind,
+    IndexedValueStore, PlainValueStore, StoreHandle, ValueHandle, ValueStore, ValueStoreKind,
 };
 
 pub trait PropertyName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send + 'static {}
@@ -157,7 +157,7 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                             .unwrap_or_else(|| panic!("Cannot find entry {:?}", name.to_string()));
                         if let common::Value::Array(data) = value {
                             let value_id = store_handle.add_value(data);
-                            return Some((*name, Value::IndirectArray(value_id)));
+                            return Some((*name, Value::IndirectArray(Box::new(value_id))));
                         }
                     }
                     schema::Property::UnsignedInt {

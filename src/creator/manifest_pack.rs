@@ -46,7 +46,7 @@ impl ManifestPackCreator {
             pack_infos.push(PackInfo::new(
                 pack_data,
                 0,
-                free_data_id.get().into(),
+                free_data_id.get(),
                 current_pos.into(),
                 locator,
             ));

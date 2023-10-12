@@ -11,6 +11,39 @@ pub enum ValueStoreKind {
 }
 
 #[derive(Debug, Clone)]
+pub struct ValueHandle {
+    store: StoreHandle,
+    idx: usize,
+}
+
+impl ValueHandle {
+    fn new(store: &Arc<RwLock<ValueStore>>, idx: usize) -> Self {
+        Self {
+            store: StoreHandle(Arc::clone(store)),
+            idx,
+        }
+    }
+
+    pub fn get(&self) -> ValueIdx {
+        self.store.get(self.idx)
+    }
+}
+
+impl PartialEq for ValueHandle {
+    fn eq(&self, other: &Self) -> bool {
+        self.get() == other.get()
+    }
+}
+
+impl From<ValueHandle> for Word<u64> {
+    fn from(value_handle: ValueHandle) -> Self {
+        let func: Box<dyn Fn() -> u64 + Sync + Send> =
+            Box::new(move || value_handle.store.get(value_handle.idx).into_u64());
+        func.into()
+    }
+}
+
+#[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct StoreHandle(Arc<RwLock<ValueStore>>);
 
@@ -23,8 +56,9 @@ impl StoreHandle {
         self.0.read().unwrap().get_idx()
     }
 
-    pub fn add_value(&self, data: Vec<u8>) -> Bound<u64> {
-        self.0.write().unwrap().add_value(data)
+    pub fn add_value(&self, data: Vec<u8>) -> ValueHandle {
+        let idx = self.0.write().unwrap().add_value(data);
+        ValueHandle::new(&self.0, idx)
     }
 
     pub fn finalize(&self, idx: ValueStoreIdx) {
@@ -33,6 +67,10 @@ impl StoreHandle {
 
     pub fn kind(&self) -> ValueStoreKind {
         self.0.read().unwrap().kind()
+    }
+
+    fn get(&self, idx: usize) -> ValueIdx {
+        self.0.read().unwrap().get(idx)
     }
 }
 
@@ -71,7 +109,7 @@ impl ValueStore {
         }
     }
 
-    pub fn add_value(&mut self, data: Vec<u8>) -> Bound<u64> {
+    pub fn add_value(&mut self, data: Vec<u8>) -> usize {
         match self {
             Self::Plain(s) => s.add_value(data),
             Self::Indexed(s) => s.add_value(data),
@@ -98,6 +136,13 @@ impl ValueStore {
             Self::Indexed(_) => ValueStoreKind::Indexed,
         }
     }
+
+    fn get(&self, idx: usize) -> ValueIdx {
+        match self {
+            Self::Plain(s) => s.get(idx),
+            Self::Indexed(s) => s.get(idx),
+        }
+    }
 }
 
 impl WritableTell for ValueStore {
@@ -118,8 +163,9 @@ impl WritableTell for ValueStore {
 
 pub struct BaseValueStore {
     idx: Option<ValueStoreIdx>,
-    data: Vec<Box<[u8]>>,
-    sorted_indirect: Vec<(usize, Vow<u64>)>,
+    data: Vec<(Box<[u8]>, u64)>, // The array storing the data and the index it will be written when sorted.
+    sorted_indirect: Vec<usize>, // An array reindexing the data in sorted order.
+    // data[sorted_indirect[i]].0 <= data[sorted_indirect[j]] for any i < j
     size: Size,
 }
 
@@ -135,12 +181,16 @@ impl BaseValueStore {
         }
     }
 
-    pub fn add_value(&mut self, data: Vec<u8>) -> Bound<u64> {
-        self.data.push(data.into());
-        let vow = Vow::new(0);
-        let bound = vow.bind();
-        self.sorted_indirect.push((self.data.len() - 1, vow));
-        bound
+    pub fn add_value(&mut self, data: Vec<u8>) -> usize {
+        // Let's act like if data is sorted when we add it
+        let key = self.data.len();
+        self.data.push((data.into(), 0));
+        self.sorted_indirect.push(key);
+        key
+    }
+
+    fn get(&self, idx: usize) -> ValueIdx {
+        self.data[idx].1.into()
     }
 }
 
@@ -156,29 +206,37 @@ impl PlainValueStore {
         self.0.idx = Some(idx);
         self.0
             .sorted_indirect
-            .par_sort_unstable_by_key(|e| &self.0.data[e.0]);
+            .par_sort_unstable_by_key(|e| &self.0.data[*e].0);
         let mut offset = 0;
-        let mut last_data_idx: Option<usize> = None;
-        for (idx, vow) in self.0.sorted_indirect.iter_mut() {
-            let data = &self.0.data[*idx];
-            if let Some(i) = last_data_idx {
-                if data == &self.0.data[i] {
+        let mut last_data_key: Option<usize> = None;
+        for data_key in self.0.sorted_indirect.iter_mut() {
+            //let data = &mut self.0.data[*data_key];
+            // If we have a last, it is the same data ?
+            if let Some(i) = last_data_key {
+                assert_ne!(*data_key, i);
+                //let last_data = &self.0.data[i];
+                if self.0.data[*data_key].0 == self.0.data[i].0 {
                     // We have a duplicate
-                    *idx = i;
-                    vow.fulfil(offset - (data.len() as u64));
+                    self.0.data[*data_key].1 = self.0.data[i].1;
+                    *data_key = i;
                     continue;
                 }
             }
             // No duplicate
-            vow.fulfil(offset);
-            offset += data.len() as u64;
-            last_data_idx = Some(*idx);
+            let data = &mut self.0.data[*data_key];
+            data.1 = offset;
+            offset += data.0.len() as u64;
+            last_data_key = Some(*data_key);
         }
         self.0.size = offset.into();
     }
 
-    fn add_value(&mut self, data: Vec<u8>) -> Bound<u64> {
+    fn add_value(&mut self, data: Vec<u8>) -> usize {
         self.0.add_value(data)
+    }
+
+    fn get(&self, idx: usize) -> ValueIdx {
+        self.0.get(idx)
     }
 
     fn key_size(&self) -> ByteSize {
@@ -192,17 +250,17 @@ impl PlainValueStore {
 
 impl WritableTell for PlainValueStore {
     fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
-        let mut last_data_idx: Option<usize> = None;
-        for (idx, _) in &self.0.sorted_indirect {
-            if let Some(i) = last_data_idx {
-                if *idx == i {
+        let mut last_data_key: Option<usize> = None;
+        for data_key in &self.0.sorted_indirect {
+            if let Some(i) = last_data_key {
+                if *data_key == i {
                     // We have a duplicate
                     // skip
                     continue;
                 }
             }
-            last_data_idx = Some(*idx);
-            stream.write_data(&self.0.data[*idx])?;
+            last_data_key = Some(*data_key);
+            stream.write_data(&self.0.data[*data_key].0)?;
         }
         Ok(())
     }
@@ -227,29 +285,35 @@ impl std::fmt::Debug for PlainValueStore {
 
 #[repr(transparent)]
 pub struct IndexedValueStore(BaseValueStore);
+// data[sorted_indirect[i]].1 == i
 
 impl IndexedValueStore {
     fn finalize(&mut self, idx: ValueStoreIdx) {
         self.0.idx = Some(idx);
         self.0
             .sorted_indirect
-            .par_sort_by_key(|e| &self.0.data[e.0]);
-        for (idx, (_, vow)) in self.0.sorted_indirect.iter().enumerate() {
-            vow.fulfil(idx as u64);
+            .par_sort_by_key(|e| &self.0.data[*e].0);
+        for (idx, data_key) in self.0.sorted_indirect.iter().enumerate() {
+            self.0.data[*data_key].1 = idx as u64;
         }
     }
 
-    fn add_value(&mut self, data: Vec<u8>) -> Bound<u64> {
+    fn add_value(&mut self, data: Vec<u8>) -> usize {
         // [TODO] This is a long search when we have a lot of values...
-        for (idx, vow) in self.0.sorted_indirect.iter() {
-            let existing_data = &self.0.data[*idx];
-            if data == existing_data.as_ref() {
-                // We have found a duplicate
-                return vow.bind();
-            }
+        if let Some(idx) = self
+            .0
+            .data
+            .iter()
+            .position(|(existing_data, _)| data == existing_data.as_ref())
+        {
+            return idx;
         }
         self.0.size += data.len();
         self.0.add_value(data)
+    }
+
+    fn get(&self, idx: usize) -> ValueIdx {
+        self.0.get(idx)
     }
 
     fn key_size(&self) -> ByteSize {
@@ -263,8 +327,8 @@ impl IndexedValueStore {
 
 impl WritableTell for IndexedValueStore {
     fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
-        for (idx, _) in &self.0.sorted_indirect {
-            stream.write_data(&self.0.data[*idx])?;
+        for idx in &self.0.sorted_indirect {
+            stream.write_data(&self.0.data[*idx].0)?;
         }
         Ok(())
     }
@@ -277,8 +341,8 @@ impl WritableTell for IndexedValueStore {
         offset_size.write(stream)?; // offset_size
         stream.write_usized(data_size, offset_size)?; // data size
         let mut offset = 0;
-        for (idx, _) in &self.0.sorted_indirect[..(self.0.sorted_indirect.len() - 1)] {
-            let data = &self.0.data[*idx];
+        for idx in &self.0.sorted_indirect[..(self.0.sorted_indirect.len() - 1)] {
+            let data = &self.0.data[*idx].0;
             offset += data.len() as u64;
             stream.write_usized(offset, offset_size)?;
         }
