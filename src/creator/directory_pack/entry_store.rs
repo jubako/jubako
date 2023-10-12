@@ -73,14 +73,14 @@ where
     fn finalize(mut self: Box<Self>) -> Box<dyn WritableTell> {
         set_entry_idx(&mut self.entries);
         if let Some(keys) = &self.schema.sort_keys {
-            let compare = |a: &Entry, b: &Entry| a.compare(&mut keys.iter(), b);
+            let compare = |a: &Entry, b: &Entry| a.compare(&keys, b);
             self.entries.par_sort_unstable_by(compare);
             set_entry_idx(&mut self.entries);
             let mut watchdog = 50;
             while !self
                 .entries
                 .windows(2)
-                .all(|w| w[0].compare(&mut keys.iter(), &w[1]).is_le())
+                .all(|w| w[0].compare(&keys, &w[1]).is_le())
             {
                 debug!(".");
                 self.entries.par_sort_unstable_by(compare);
