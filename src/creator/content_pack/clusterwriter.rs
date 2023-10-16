@@ -166,6 +166,7 @@ impl ClusterCompressor {
 
     pub fn run(mut self) -> Result<()> {
         while let Ok(cluster) = self.input.recv() {
+            //[TODO] Avoid allocation. Reuse the data once it is written ?
             let mut data = Vec::<u8>::with_capacity(1024 * 1024);
             let mut cursor = std::io::Cursor::new(&mut data);
             let cluster_idx = cluster.index();
@@ -223,6 +224,7 @@ where
     }
 
     fn write_cluster_tail(&mut self, cluster: &ClusterCreator, raw_data_size: Size) -> Result<()> {
+        //[TODO] Use a BufWriter here
         let offset_size = needed_bytes(cluster.data_size().into_u64());
         let cluster_header = ClusterHeader::new(
             CompressionType::None,
@@ -275,6 +277,7 @@ where
                     (sized_offset, idx)
                 }
             };
+            self.progress.handle_cluster_written(idx.into_u32());
             let idx = idx.into_usize();
             if self.cluster_addresses.len() <= idx {
                 self.cluster_addresses.resize(idx + 1, Default::default());

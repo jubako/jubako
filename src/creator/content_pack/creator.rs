@@ -10,6 +10,8 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::sync::Arc;
 
+use log::info;
+
 fn shannon_entropy(data: &[u8]) -> Result<f32> {
     let mut entropy = 0.0;
     let mut counts = [0; 256];
@@ -209,6 +211,8 @@ impl<O: OutStream + 'static> ContentPackCreator<O> {
 
 impl<O: InOutStream> ContentPackCreator<O> {
     pub fn finalize(mut self) -> Result<(O, PackData)> {
+        info!("======= Finalize creation =======");
+
         if let Some(cluster) = self.raw_open_cluster.take() {
             if !cluster.is_empty() {
                 self.cluster_writer.write_cluster(cluster, false);
@@ -220,8 +224,11 @@ impl<O: InOutStream> ContentPackCreator<O> {
             }
         }
 
+        info!("----- Finalize cluster_writer -----");
         let (mut file, cluster_addresses) = self.cluster_writer.finalize()?;
         let clusters_offset = file.tell();
+
+        info!("----- Write cluster addresses -----");
         let nb_clusters = cluster_addresses.len();
 
         let mut buffered = std::io::BufWriter::new(file);
@@ -229,6 +236,8 @@ impl<O: InOutStream> ContentPackCreator<O> {
         for address in cluster_addresses {
             address.get().write(&mut buffered)?;
         }
+
+        info!("----- Write content info -----");
         let content_infos_offset = buffered.tell();
         for content_info in &self.content_infos {
             content_info.write(&mut buffered)?;
@@ -236,6 +245,8 @@ impl<O: InOutStream> ContentPackCreator<O> {
         let check_offset = buffered.tell();
         let pack_size: Size = (check_offset + 33 + 64).into();
         buffered.rewind()?;
+
+        info!("----- Write header -----");
         let header = ContentPackHeader::new(
             PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset),
             self.free_data,
@@ -249,6 +260,7 @@ impl<O: InOutStream> ContentPackCreator<O> {
         buffered.flush()?;
         let mut file = buffered.into_inner().unwrap();
 
+        info!("----- Compute checksum -----");
         file.rewind()?;
         let check_info = CheckInfo::new_blake3(&mut file)?;
         check_info.write(&mut file)?;

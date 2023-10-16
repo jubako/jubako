@@ -34,12 +34,11 @@ pub trait EntryTrait<PN: PropertyName, VN: VariantName> {
 }
 
 pub trait FullEntryTrait<PN: PropertyName, VN: VariantName>: EntryTrait<PN, VN> + Send {
-    fn compare(
-        &self,
-        sort_keys: &mut dyn Iterator<Item = &PN>,
-        other: &Self,
-    ) -> std::cmp::Ordering {
-        for property_name in sort_keys {
+    fn compare<'i, I>(&self, sort_keys: &'i I, other: &Self) -> std::cmp::Ordering
+    where
+        I: IntoIterator<Item = &'i PN> + Copy,
+    {
+        for property_name in sort_keys.into_iter() {
             let self_value = self.value(property_name);
             let other_value = other.value(property_name);
             match self_value.partial_cmp(&other_value) {
@@ -295,7 +294,10 @@ impl<T, PN: PropertyName, VN: VariantName> FullEntryTrait<PN, VN> for Box<T>
 where
     T: FullEntryTrait<PN, VN>,
 {
-    fn compare(&self, sort_keys: &mut dyn Iterator<Item = &PN>, other: &Self) -> cmp::Ordering {
+    fn compare<'i, I>(&self, sort_keys: &'i I, other: &Self) -> std::cmp::Ordering
+    where
+        I: IntoIterator<Item = &'i PN> + Copy,
+    {
         T::compare(self, sort_keys, other)
     }
 }
