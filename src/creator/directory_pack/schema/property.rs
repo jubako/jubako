@@ -1,5 +1,5 @@
 use super::super::layout;
-use super::{EntryTrait, PropertyName, StoreHandle, Value, VariantName};
+use super::{EntryTrait, PropertyName, StoreHandle, Value, ValueStoreKind, VariantName};
 use crate::bases::*;
 use std::cmp;
 
@@ -105,6 +105,10 @@ pub enum Property<PN: PropertyName> {
         store_handle: StoreHandle,
         name: PN,
     },
+    IndirectArray {
+        store_handle: StoreHandle,
+        name: PN,
+    },
     ContentAddress {
         pack_id_counter: ValueCounter<u16>,
         pack_id_size: PropertySize<u16>,
@@ -150,6 +154,12 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .field("key_size", &store_handle.key_size())
                 .field("name", &name.to_string())
                 .finish(),
+            Self::IndirectArray { store_handle, name } => f
+                .debug_struct("IndirectArray")
+                .field("store_idx", &store_handle.get_idx())
+                .field("key_size", &store_handle.key_size())
+                .field("name", &name.to_string())
+                .finish(),
             Self::ContentAddress {
                 pack_id_counter,
                 pack_id_size,
@@ -185,11 +195,15 @@ impl<PN: PropertyName> Property<PN> {
     }
 
     pub fn new_array(fixed_array_size: usize, store_handle: StoreHandle, name: PN) -> Self {
-        Property::Array {
-            max_array_size: Default::default(),
-            fixed_array_size,
-            store_handle,
-            name,
+        if fixed_array_size == 0 && store_handle.kind() == ValueStoreKind::Indexed {
+            Property::IndirectArray { store_handle, name }
+        } else {
+            Property::Array {
+                max_array_size: Default::default(),
+                fixed_array_size,
+                store_handle,
+                name,
+            }
         }
     }
 
@@ -208,33 +222,43 @@ impl<PN: PropertyName> Property<PN> {
                 counter,
                 size,
                 name,
-            } => {
-                if let Value::Unsigned(value) = entry.value(name) {
+            } => match entry.value(name).as_ref() {
+                Value::Unsigned(value) => {
+                    counter.process(*value);
+                    size.process(*value);
+                }
+                Value::UnsignedWord(value) => {
                     counter.process(value.get());
                     size.process(value.get());
-                } else {
+                }
+                _ => {
                     panic!("Value type doesn't correspond to property");
                 }
-            }
+            },
             Self::SignedInt {
                 counter,
                 size,
                 name,
-            } => {
-                if let Value::Signed(value) = entry.value(name) {
+            } => match entry.value(name).as_ref() {
+                Value::Signed(value) => {
+                    counter.process(*value);
+                    size.process(*value);
+                }
+                Value::SignedWord(value) => {
                     counter.process(value.get());
                     size.process(value.get());
-                } else {
+                }
+                _ => {
                     panic!("Value type doesn't correspond to property");
                 }
-            }
+            },
             Self::ContentAddress {
                 pack_id_counter,
                 pack_id_size,
                 content_id_size,
                 name,
             } => {
-                if let Value::Content(c) = entry.value(name) {
+                if let Value::Content(c) = entry.value(name).as_ref() {
                     pack_id_counter.process(c.pack_id.into_u16());
                     pack_id_size.process(c.pack_id.into_u16());
                     content_id_size.process(c.content_id.into_u32());
@@ -247,17 +271,20 @@ impl<PN: PropertyName> Property<PN> {
                 fixed_array_size: _,
                 store_handle: _,
                 name,
-            } => {
-                if let Value::Array {
-                    size,
-                    data: _,
-                    value_id: _,
-                } = entry.value(name)
-                {
-                    max_array_size.process(*size);
-                } else {
+            } => match entry.value(name).as_ref() {
+                Value::Array(a) => max_array_size.process(a.size),
+                Value::Array0(a) => max_array_size.process(a.size),
+                Value::Array1(a) => max_array_size.process(a.size),
+                Value::Array2(a) => max_array_size.process(a.size),
+                _ => {
                     panic!("Value type doesn't correspond to property");
                 }
+            },
+            Self::IndirectArray {
+                store_handle: _,
+                name: _,
+            } => {
+                // Nothing to do
             }
             Self::Padding(_) => {
                 panic!("Padding cannot process a value");
@@ -296,6 +323,14 @@ impl<PN: PropertyName> Property<PN> {
                     array_size_size: Some(max_array_size.into()),
                     fixed_array_size: fixed_array_size as u8,
                     deported_info: Some((value_id_size, store_handle.clone())),
+                    name,
+                }
+            }
+            Self::IndirectArray { store_handle, name } => {
+                let value_id_size = store_handle.key_size();
+                layout::Property::IndirectArray {
+                    value_id_size,
+                    store_handle: store_handle.clone(),
                     name,
                 }
             }

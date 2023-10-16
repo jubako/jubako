@@ -23,7 +23,7 @@ impl<PN: PropertyName, VN: VariantName> Entry<PN, VN> {
         let written = if self.variants.is_empty() {
             Properties::write_entry(self.common.iter(), None, entry, stream)?
         } else {
-            let variant_id = self.variants_map[entry.variant_name().unwrap()];
+            let variant_id = self.variants_map[&entry.variant_name().unwrap()];
             let mut keys = self
                 .common
                 .iter()

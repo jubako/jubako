@@ -91,7 +91,7 @@ test_suite! {
     fn create_directory_pack(value_store_kind: ValueStoreKind, entries: &Vec<TestEntry>) -> Result<(creator::PackData, jubako::Reader)> {
         let mut creator = creator::DirectoryPackCreator::new(jubako::PackId::from(1), 1, Default::default());
         let value_store = match value_store_kind {
-            ValueStoreKind::Plain => creator::ValueStore::new_plain(),
+            ValueStoreKind::Plain => creator::ValueStore::new_plain(None),
             ValueStoreKind::Indexed => creator::ValueStore::new_indexed()
         };
         creator.add_value_store(value_store.clone());
@@ -105,7 +105,7 @@ test_suite! {
             None
         );
 
-        let mut entry_store = Box::new(creator::EntryStore::new(entry_def));
+        let mut entry_store = Box::new(creator::EntryStore::new(entry_def, None));
         for (idx, entry) in entries.iter().enumerate() {
             entry_store.add_entry(creator::BasicEntry::new_from_schema(&entry_store.schema, None, HashMap::from([
                 ("V0", jubako::Value::Array(entry.path.clone().into())),

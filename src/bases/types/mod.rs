@@ -7,6 +7,7 @@ mod delayed;
 mod free_data;
 mod id;
 mod idx;
+mod mayref;
 mod offset;
 mod pstring;
 mod range;
@@ -17,7 +18,7 @@ mod specific_types;
 pub use base_array::BaseArray;
 pub use byte_size::ByteSize;
 pub use count::Count;
-pub use delayed::{Bound, Late, Vow, Word};
+pub use delayed::{Bound, Late, SyncType, Vow, Word};
 pub use error::{Error, ErrorKind, FormatError, Result};
 pub use free_data::{
     ContentPackFreeData, DirectoryPackFreeData, IndexFreeData, ManifestPackFreeData,
@@ -25,6 +26,7 @@ pub use free_data::{
 };
 pub use id::Id;
 pub use idx::{Idx, IndexTrait};
+pub use mayref::MayRef;
 pub use offset::Offset;
 pub use pstring::PString;
 pub use range::{EntryRange, Range};

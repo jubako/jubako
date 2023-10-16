@@ -1,6 +1,7 @@
 use crate::bases::*;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[repr(transparent)]
 pub struct FreeData<const N: usize>([u8; N]);
 
 impl<const N: usize> Producable for FreeData<N> {

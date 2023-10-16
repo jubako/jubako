@@ -5,7 +5,7 @@ pub use properties::{CommonProperties, VariantProperties};
 pub use property::Property;
 use std::collections::HashMap;
 
-use super::{layout, EntryTrait, PropertyName, StoreHandle, Value, VariantName};
+use super::{layout, EntryTrait, PropertyName, StoreHandle, Value, ValueStoreKind, VariantName};
 use properties::Properties;
 
 #[derive(Debug)]
@@ -35,7 +35,7 @@ impl<PN: PropertyName, VN: VariantName> Schema<PN, VN> {
         self.common.process(entry);
         if let Some(variant_name) = entry.variant_name() {
             for (n, p) in &mut self.variants {
-                if n == variant_name {
+                if n == variant_name.as_ref() {
                     p.process(entry);
                     break;
                 }

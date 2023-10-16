@@ -7,6 +7,7 @@ use std::ops::{Add, AddAssign, Sub};
 /// We cannot use a usize as it is arch dependent.
 /// Let's define our own type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug, Default)]
+#[repr(transparent)]
 pub struct Size(u64);
 
 impl Size {

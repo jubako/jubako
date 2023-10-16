@@ -5,6 +5,7 @@ use std::ops::{Add, AddAssign};
 /// A count of object.
 /// All count object can be stored in a u32.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
+#[repr(transparent)]
 pub struct Count<T>(pub T);
 
 impl<T> From<T> for Count<T> {

@@ -4,7 +4,14 @@ use std::fmt;
 /// A identifier for a object.
 /// Identifier is somehow a simple integer, but without computation.
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Default, Hash)]
+#[repr(transparent)]
 pub struct Id<T>(pub T);
+
+impl<T> Id<T> {
+    pub(crate) fn into_base(self) -> T {
+        self.0
+    }
+}
 
 impl Producable for Id<u8> {
     type Output = Self;

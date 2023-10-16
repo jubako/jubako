@@ -11,6 +11,11 @@ pub enum Property<PN: PropertyName> {
         deported_info: Option<(ByteSize, StoreHandle)>,
         name: PN,
     },
+    IndirectArray {
+        value_id_size: ByteSize,
+        store_handle: StoreHandle,
+        name: PN,
+    },
     ContentAddress {
         content_id_size: ByteSize,
         pack_id_size: ByteSize,
@@ -50,6 +55,16 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .field("fixed_array_size", &fixed_array_size)
                 .field("deported_info", &deported_info)
                 .field("size", &self.size())
+                .field("name", &name.to_string())
+                .finish(),
+            IndirectArray {
+                value_id_size,
+                store_handle,
+                name,
+            } => f
+                .debug_struct("IndirectArray")
+                .field("value_id_size", &value_id_size)
+                .field("store_handle", &store_handle)
                 .field("name", &name.to_string())
                 .finish(),
             ContentAddress {
@@ -114,6 +129,11 @@ impl<PN: PropertyName> Property<PN> {
                         Some((s, _)) => *s as usize as u16,
                     }
             }
+            Property::IndirectArray {
+                value_id_size,
+                store_handle: _,
+                name: _,
+            } => *value_id_size as usize as u16,
             Property::ContentAddress {
                 content_id_size,
                 pack_id_size,
@@ -182,6 +202,17 @@ impl<PN: PropertyName> Writable for Property<PN> {
                 if let Some((_, store)) = deported_info {
                     written += store.get_idx().unwrap().write(stream)?;
                 }
+                written += PString::write_string(name.to_string().as_bytes(), stream)?;
+                Ok(written)
+            }
+            Property::IndirectArray {
+                value_id_size,
+                store_handle,
+                name,
+            } => {
+                let mut written = stream.write_u8(PropType::Array as u8)?;
+                written += stream.write_u8((*value_id_size as usize as u8) << 5)?;
+                written += store_handle.get_idx().unwrap().write(stream)?;
                 written += PString::write_string(name.to_string().as_bytes(), stream)?;
                 Ok(written)
             }

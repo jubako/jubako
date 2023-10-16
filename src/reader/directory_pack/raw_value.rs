@@ -200,14 +200,14 @@ impl RawValue {
     pub fn get(&self) -> Result<Value> {
         Ok(match self {
             RawValue::Content(c) => Value::Content(*c),
-            RawValue::U8(v) => Value::Unsigned((*v as u64).into()),
-            RawValue::U16(v) => Value::Unsigned((*v as u64).into()),
-            RawValue::U32(v) => Value::Unsigned((*v as u64).into()),
-            RawValue::U64(v) => Value::Unsigned((*v).into()),
-            RawValue::I8(v) => Value::Signed((*v as i64).into()),
-            RawValue::I16(v) => Value::Signed((*v as i64).into()),
-            RawValue::I32(v) => Value::Signed((*v as i64).into()),
-            RawValue::I64(v) => Value::Signed((*v).into()),
+            RawValue::U8(v) => Value::Unsigned(*v as u64),
+            RawValue::U16(v) => Value::Unsigned(*v as u64),
+            RawValue::U32(v) => Value::Unsigned(*v as u64),
+            RawValue::U64(v) => Value::Unsigned(*v),
+            RawValue::I8(v) => Value::Signed(*v as i64),
+            RawValue::I16(v) => Value::Signed(*v as i64),
+            RawValue::I32(v) => Value::Signed(*v as i64),
+            RawValue::I64(v) => Value::Signed(*v),
             RawValue::Array(a) => {
                 let mut vec = vec![];
                 a.resolve_to_vec(&mut vec)?;
@@ -258,6 +258,13 @@ impl RawValue {
         Ok(match other {
             Value::Content(_) => false,
             Value::Unsigned(v) => match self {
+                RawValue::U8(r) => PartialEq::eq(&(*r as u64), v),
+                RawValue::U16(r) => PartialEq::eq(&(*r as u64), v),
+                RawValue::U32(r) => PartialEq::eq(&(*r as u64), v),
+                RawValue::U64(r) => PartialEq::eq(r, v),
+                _ => false,
+            },
+            Value::UnsignedWord(v) => match self {
                 RawValue::U8(r) => PartialEq::eq(&(*r as u64), &v.get()),
                 RawValue::U16(r) => PartialEq::eq(&(*r as u64), &v.get()),
                 RawValue::U32(r) => PartialEq::eq(&(*r as u64), &v.get()),
@@ -265,6 +272,13 @@ impl RawValue {
                 _ => false,
             },
             Value::Signed(v) => match self {
+                RawValue::I8(r) => PartialEq::eq(&(*r as i64), v),
+                RawValue::I16(r) => PartialEq::eq(&(*r as i64), v),
+                RawValue::I32(r) => PartialEq::eq(&(*r as i64), v),
+                RawValue::I64(r) => PartialEq::eq(r, v),
+                _ => false,
+            },
+            Value::SignedWord(v) => match self {
                 RawValue::I8(r) => PartialEq::eq(&(*r as i64), &v.get()),
                 RawValue::I16(r) => PartialEq::eq(&(*r as i64), &v.get()),
                 RawValue::I32(r) => PartialEq::eq(&(*r as i64), &v.get()),
@@ -282,6 +296,13 @@ impl RawValue {
         match other {
             Value::Content(_) => Ok(None),
             Value::Unsigned(v) => Ok(match self {
+                RawValue::U8(r) => Some((*r as u64).cmp(v)),
+                RawValue::U16(r) => Some((*r as u64).cmp(v)),
+                RawValue::U32(r) => Some((*r as u64).cmp(v)),
+                RawValue::U64(r) => Some((*r).cmp(v)),
+                _ => None,
+            }),
+            Value::UnsignedWord(v) => Ok(match self {
                 RawValue::U8(r) => Some((*r as u64).cmp(&v.get())),
                 RawValue::U16(r) => Some((*r as u64).cmp(&v.get())),
                 RawValue::U32(r) => Some((*r as u64).cmp(&v.get())),
@@ -289,6 +310,13 @@ impl RawValue {
                 _ => None,
             }),
             Value::Signed(v) => Ok(match self {
+                RawValue::I8(r) => Some((*r as i64).cmp(v)),
+                RawValue::I16(r) => Some((*r as i64).cmp(v)),
+                RawValue::I32(r) => Some((*r as i64).cmp(v)),
+                RawValue::I64(r) => Some((*r).cmp(v)),
+                _ => None,
+            }),
+            Value::SignedWord(v) => Ok(match self {
                 RawValue::I8(r) => Some((*r as i64).cmp(&v.get())),
                 RawValue::I16(r) => Some((*r as i64).cmp(&v.get())),
                 RawValue::I32(r) => Some((*r as i64).cmp(&v.get())),
@@ -328,14 +356,14 @@ mod tests {
         fixture value(value: RawValue, expected: Value) -> () {
             params {
                 vec![
-                    (RawValue::U8(5),    Value::Unsigned(5.into())),
-                    (RawValue::U16(300), Value::Unsigned(300.into())),
-                    (RawValue::U32(5),   Value::Unsigned(5.into())),
-                    (RawValue::U64(5),   Value::Unsigned(5.into())),
-                    (RawValue::I8(5),    Value::Signed(5.into())),
-                    (RawValue::I16(5),   Value::Signed(5.into())),
-                    (RawValue::I32(5),   Value::Signed(5.into())),
-                    (RawValue::I64(5),   Value::Signed(5.into())),
+                    (RawValue::U8(5),    Value::Unsigned(5)),
+                    (RawValue::U16(300), Value::Unsigned(300)),
+                    (RawValue::U32(5),   Value::Unsigned(5)),
+                    (RawValue::U64(5),   Value::Unsigned(5)),
+                    (RawValue::I8(5),    Value::Signed(5)),
+                    (RawValue::I16(5),   Value::Signed(5)),
+                    (RawValue::I32(5),   Value::Signed(5)),
+                    (RawValue::I64(5),   Value::Signed(5)),
                     (RawValue::Array(Array{
                        size: Some(Size::new(10)),
                        base: BaseArray::new(b"Bye "),

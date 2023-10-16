@@ -1,4 +1,4 @@
-use super::{Count, Id, Idx};
+use super::{Count, Id, Idx, SyncType};
 
 trait Next {
     fn next(self) -> Self;
@@ -172,10 +172,12 @@ macro_rules! impl_add {
 macro_rules! def_type {
     ( Id, $base:ty, $idx_name:ident, $count_name:ident ) => {
         #[derive(PartialEq, Eq, Copy, Clone, Hash, Default)]
+        #[repr(transparent)]
         pub struct $idx_name(pub Id<$base>);
     };
     ( Idx, $base:ty, $idx_name:ident, $count_name:ident ) => {
         #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Default)]
+        #[repr(transparent)]
         pub struct $idx_name(pub Idx<$base>);
     };
 }
@@ -187,12 +189,31 @@ macro_rules! specific {
 
         impl $idx_name {
             to_usize!($base);
+            fn into_base(self) -> $base {
+                self.0.into_base()
+            }
         }
 
         to_u64!($base, $idx_name);
         to_u32!($base, $idx_name);
         to_u16!($base, $idx_name);
         to_u8!($base, $idx_name);
+
+        impl SyncType for $idx_name {
+            type SyncType = <$base as SyncType>::SyncType;
+
+            fn to_self(sync_val: &Self::SyncType) -> Self {
+                <$base as SyncType>::to_self(sync_val).into()
+            }
+
+            fn set(sync_val: &Self::SyncType, value: Self) {
+                <$base as SyncType>::set(sync_val, value.into_base())
+            }
+
+            fn new(value: Self) -> Self::SyncType {
+                <$base as SyncType>::new(value.into_base())
+            }
+        }
 
         impl Next for $idx_name {
             fn next(self) -> Self {
@@ -247,6 +268,7 @@ macro_rules! specific {
 
         // Declare our Count
         #[derive(PartialEq, Eq, Copy, Clone)]
+        #[repr(transparent)]
         pub struct $count_name(pub Count<$base>);
 
         impl $count_name {
