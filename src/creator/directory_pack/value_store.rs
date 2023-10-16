@@ -389,10 +389,12 @@ impl WritableTell for IndexedValueStore {
         offset_size.write(stream)?; // offset_size
         stream.write_usized(data_size, offset_size)?; // data size
         let mut offset = 0;
-        for idx in &self.0.sorted_indirect[..(self.0.sorted_indirect.len() - 1)] {
-            let data = &self.0.data[*idx].0;
-            offset += data.len() as u64;
-            stream.write_usized(offset, offset_size)?;
+        if !self.0.sorted_indirect.is_empty() {
+            for idx in &self.0.sorted_indirect[..(self.0.sorted_indirect.len() - 1)] {
+                let data = &self.0.data[*idx].0;
+                offset += data.len() as u64;
+                stream.write_usized(offset, offset_size)?;
+            }
         }
         Ok(())
     }
@@ -406,5 +408,30 @@ impl std::fmt::Debug for IndexedValueStore {
             .field("key_size", &self.key_size())
             .field("data count", &self.0.data.len())
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_empty_plain() -> Result<()> {
+        let creator = ValueStore::new_plain(None);
+        creator.finalize(0.into());
+        let buffer = vec![];
+        let mut out_stream = std::io::Cursor::new(buffer);
+        creator.write().unwrap().write(&mut out_stream)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty_indexed() -> Result<()> {
+        let creator = ValueStore::new_indexed();
+        creator.finalize(0.into());
+        let buffer = vec![];
+        let mut out_stream = std::io::Cursor::new(buffer);
+        creator.write().unwrap().write(&mut out_stream)?;
+        Ok(())
     }
 }

@@ -111,14 +111,18 @@ Field Name     Type               Offset Description
 storeType      u8                 0      The type of the store.
 entryCount     u32                1      The number of entry in the store.
 offsetSize     u8                 5      The number of bytes to represent the offsets
-dataSize       uN                 6      The size of the data store.
                                          This size define the size of the offset in the
                                          index.
+dataSize       uN                 6      The size of the data store.
 offset1                                  The offset of the second entry
                                          (and the size of first entry)
 ...
-offsetN
+offsetN                                  The offset of the last entry.
 ============== ================== ====== ===========
+
+If ``entryCount`` == 1, there is no ``offsetX``. The size of the only value is ``dataSize``.
+If ``entryCount```== 0, there is no ``offsetX``. ``dataSize`` == 0.
+
 
 Indexed Store with size [TODO]
 ------------------------------
