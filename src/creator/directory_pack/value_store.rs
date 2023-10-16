@@ -339,16 +339,25 @@ impl IndexedValueStore {
 
     fn add_value(&mut self, data: Vec<u8>) -> usize {
         // [TODO] This is a long search when we have a lot of values...
-        if let Some(idx) = self
-            .0
-            .data
-            .iter()
-            .position(|(existing_data, _)| data == existing_data.as_ref())
-        {
-            return idx;
+        let potential_idx = if self.0.data.len() >= 1024 {
+            let d = data.as_slice();
+            self.0
+                .data
+                .par_iter()
+                .position_any(|(existing_data, _)| d == existing_data.as_ref())
+        } else {
+            self.0
+                .data
+                .iter()
+                .position(|(existing_data, _)| data == existing_data.as_ref())
+        };
+        match potential_idx {
+            Some(idx) => idx,
+            None => {
+                self.0.size += data.len();
+                self.0.add_value(data)
+            }
         }
-        self.0.size += data.len();
-        self.0.add_value(data)
     }
 
     fn get(&self, idx: usize) -> ValueIdx {
