@@ -45,14 +45,13 @@ impl ClusterCreator {
     pub fn add_content<R: InputReader + 'static>(&mut self, mut content: R) -> Result<ContentInfo> {
         assert!(self.offsets.len() < MAX_BLOBS_PER_CLUSTER);
         let content_size = content.size();
-        let content: Box<dyn InputReader> =
-            if self.compressed && content_size < (CLUSTER_SIZE.into_u64() / 2).into() {
-                let mut bytes = Vec::with_capacity(content_size.into_usize());
-                content.read_to_end(&mut bytes)?;
-                Box::new(Cursor::new(bytes))
-            } else {
-                Box::new(content)
-            };
+        let content: Box<dyn InputReader> = if self.compressed || content_size < CLUSTER_SIZE {
+            let mut bytes = Vec::with_capacity(content_size.into_usize());
+            content.read_to_end(&mut bytes)?;
+            Box::new(Cursor::new(bytes))
+        } else {
+            Box::new(content)
+        };
         let idx = self.offsets.len() as u16;
         let new_offset = self.offsets.last().unwrap_or(&0) + content_size.into_usize();
         self.data.push(content);
