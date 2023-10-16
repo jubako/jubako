@@ -33,7 +33,18 @@ pub struct Array {
 }
 
 impl Array {
-    pub fn new(size: Option<Size>, base: BaseArray, base_len: u8, extend: Option<Extend>) -> Self {
+    pub fn new(
+        size: Option<Size>,
+        base: BaseArray,
+        mut base_len: u8,
+        extend: Option<Extend>,
+    ) -> Self {
+        // While the property can have a fixed base array of base_len, the actual size of the array may be shorter.
+        base_len = if let Some(s) = size {
+            std::cmp::min(s.into_usize(), base_len as usize) as u8
+        } else {
+            base_len
+        };
         Self {
             size,
             base,
@@ -127,6 +138,7 @@ impl<'a> ArrayIter<'a> {
     }
 
     fn setup_extend(array: &Array) -> Result<ArrayIterMode> {
+        // We may use unchecked_sub here as we know that base_len is min(v, base_len)
         let known_size = array.size.map(|v| v.into_usize() - array.base_len as usize);
         if let Some(0) = known_size {
             Ok(ArrayIterMode::End)
