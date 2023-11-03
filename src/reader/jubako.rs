@@ -127,7 +127,11 @@ impl Container {
     }
 
     pub fn get_pack(&self, pack_id: PackId) -> Result<&ContentPack> {
-        self.packs[pack_id.into_usize()].get_or_try_init(|| self._get_pack(pack_id))
+        let cache_slot = &self.packs[pack_id.into_usize()];
+        if cache_slot.get().is_none() {
+            let _ = cache_slot.set(self._get_pack(pack_id)?);
+        }
+        Ok(cache_slot.get().unwrap())
     }
 
     pub fn get_reader(&self, content: ContentAddress) -> Result<Reader> {
