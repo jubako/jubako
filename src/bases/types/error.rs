@@ -148,6 +148,7 @@ impl fmt::Debug for Error {
 }
 
 impl std::error::Error for Error {
+    #[cfg(feature = "error_generic_member_access")]
     fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {
         #[cfg(debug_assertions)]
         request.provide_ref::<Backtrace>(&self.bt);

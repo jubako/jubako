@@ -1,5 +1,5 @@
 #![feature(read_buf)]
-#![feature(error_generic_member_access)]
+#![cfg_attr(feature = "nightly", feature(error_generic_member_access))]
 #![feature(step_trait)]
 #![feature(slice_ptr_len)]
 #![feature(ptr_as_uninit)]
