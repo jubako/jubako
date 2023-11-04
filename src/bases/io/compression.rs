@@ -1,5 +1,6 @@
 use crate::bases::*;
-use std::io::{BorrowedBuf, Read};
+use std::io::Read;
+use std::mem::ManuallyDrop;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::spawn;
 use zerocopy::byteorder::{ByteOrder, LittleEndian as LE};
@@ -21,7 +22,7 @@ At SyncVec drop, we recreate the Arc and let it being drop.
 
 struct SyncVecWr {
     arc_ptr: *const Vec<u8>,
-    data: *mut u8,
+    data: ManuallyDrop<Vec<u8>>,
     total_size: usize,
     decoded: Arc<(Mutex<usize>, Condvar)>,
 }
@@ -82,7 +83,7 @@ fn create_sync_vec(size: usize) -> (SyncVecWr, SyncVecRd) {
     let buffer_ptr = buffer.as_ptr();
     let rw = SyncVecWr {
         arc_ptr: Arc::into_raw(buffer),
-        data: buffer_ptr as *mut u8,
+        data: ManuallyDrop::new(unsafe { Vec::from_raw_parts(buffer_ptr as *mut u8, 0, size) }),
         total_size: size,
         decoded,
     };
@@ -98,7 +99,7 @@ pub struct SeekableDecoder {
 
 fn decode_to_end<T: Read + Send>(
     mut decoder: T,
-    buffer: SyncVecWr,
+    mut buffer: SyncVecWr,
     chunk_size: usize,
 ) -> Result<()> {
     let total_size = buffer.total_size;
@@ -108,16 +109,10 @@ fn decode_to_end<T: Read + Send>(
         let size = std::cmp::min(total_size - uncompressed, chunk_size);
         //  println!("decompress {size}");
 
-        let slice = std::ptr::slice_from_raw_parts_mut(buffer.data, total_size);
-        let uninit_slice = unsafe { slice.as_uninit_slice_mut() }.unwrap();
-        let mut uninit = BorrowedBuf::from(&mut uninit_slice[uncompressed..uncompressed + size]);
-        decoder.read_buf_exact(uninit.unfilled())?;
-        unsafe {
-            let mut vec = Vec::from_raw_parts(buffer.data, uncompressed, buffer.total_size);
-            vec.set_len(uncompressed + size);
-            vec.leak();
-        }
-        uncompressed += size;
+        uncompressed += decoder
+            .by_ref()
+            .take(size as u64)
+            .read_to_end(&mut buffer.data)?;
         let (lock, cvar) = &*buffer.decoded;
         let mut decoded = lock.lock().unwrap();
         *decoded = uncompressed;
