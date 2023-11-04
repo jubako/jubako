@@ -115,7 +115,7 @@ fn decode_to_end<T: Read + Send>(
         unsafe {
             let mut vec = Vec::from_raw_parts(buffer.data, uncompressed, buffer.total_size);
             vec.set_len(uncompressed + size);
-            vec.into_raw_parts();
+            vec.leak();
         }
         uncompressed += size;
         let (lock, cvar) = &*buffer.decoded;
