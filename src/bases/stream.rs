@@ -1,5 +1,5 @@
 use crate::bases::*;
-use std::io::{BorrowedBuf, Read};
+use std::io::Read;
 use std::sync::Arc;
 
 // A wrapper arount someting to implement Flux trait
@@ -91,11 +91,7 @@ impl Stream {
 
     pub fn read_vec(&mut self, size: usize) -> Result<Vec<u8>> {
         let mut v = Vec::with_capacity(size);
-        let mut uninit: BorrowedBuf = v.spare_capacity_mut().into();
-        self.read_buf_exact(uninit.unfilled())?;
-        unsafe {
-            v.set_len(size);
-        }
+        self.by_ref().take(size as u64).read_to_end(&mut v)?;
         Ok(v)
     }
     pub fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
