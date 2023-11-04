@@ -1,10 +1,7 @@
 #![feature(read_buf)]
 #![cfg_attr(feature = "nightly", feature(error_generic_member_access))]
-#![feature(step_trait)]
-#![feature(slice_ptr_len)]
 #![feature(ptr_as_uninit)]
 #![feature(vec_into_raw_parts)]
-#![feature(is_sorted)]
 
 #[macro_use]
 mod bases;
