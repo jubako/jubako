@@ -2,7 +2,6 @@ use crate::bases::*;
 use memmap2::{Advice, MmapOptions};
 use std::fs::File;
 use std::io;
-use std::io::BorrowedBuf;
 use std::io::{Read, Seek, SeekFrom};
 use std::ops::Deref;
 use std::os::unix::prelude::AsRawFd;
@@ -69,12 +68,10 @@ impl Source for FileSource {
         if region.size().into_u64() < 1024 {
             let mut f = self.lock().unwrap();
             let mut buf = Vec::with_capacity(region.size().into_usize());
-            let mut uninit: BorrowedBuf = buf.spare_capacity_mut().into();
             f.seek(SeekFrom::Start(region.begin().into_u64()))?;
-            f.read_buf_exact(uninit.unfilled())?;
-            unsafe {
-                buf.set_len(region.size().into_usize());
-            }
+            f.by_ref()
+                .take(region.size().into_u64())
+                .read_to_end(&mut buf)?;
             Ok((
                 Arc::new(buf),
                 Region::new_from_size(Offset::zero(), region.size()),

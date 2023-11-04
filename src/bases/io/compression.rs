@@ -1,5 +1,6 @@
 use crate::bases::*;
-use std::io::{BorrowedBuf, Read};
+use std::io::Read;
+use std::mem::ManuallyDrop;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::spawn;
 use zerocopy::byteorder::{ByteOrder, LittleEndian as LE};
@@ -7,39 +8,42 @@ use zerocopy::byteorder::{ByteOrder, LittleEndian as LE};
 /*
 SyncVec is mostly a Arc<Vec<u8>> where the only protected part is its length
 (decoded).
+We access its data throw a local Vec<u8> pointing to the share data.
 The data itself is accessed without race protection.
 This is valid as we have:
-- Only one writer writting only after decoded.
+- Only one writer writting only after decoded (data.length())
 - Several reader reading only before decoded.
 - No reallocation
+
+We don't need to sync access modification to data as it is local only.
 
 As we don't want the Vec<u8> to be dropped as we are writting in it,
 we must create it through a Arc<Vec<u8>>.
 
 At SyncVec drop, we recreate the Arc and let it being drop.
+We don't have to change the length of the store `_arc`.
+When drop, Vec will free the whole allocated buffer.
+Individual elements of the vec don't have to be deallocated as they are u8.
 */
 
 struct SyncVecWr {
-    arc_ptr: *const Vec<u8>,
-    data: *mut u8,
+    _arc: Arc<Vec<u8>>,
+    data: ManuallyDrop<Vec<u8>>,
     total_size: usize,
     decoded: Arc<(Mutex<usize>, Condvar)>,
-}
-
-impl Drop for SyncVecWr {
-    fn drop(&mut self) {
-        let _arc = unsafe { Arc::from_raw(self.arc_ptr) };
-        // Let rust drop the arc
-    }
 }
 
 unsafe impl Send for SyncVecWr {}
 
 struct SyncVecRd {
-    buffer: Arc<Vec<u8>>,
+    _arc: Arc<Vec<u8>>,
+    buffer: *const u8,
     total_size: usize,
     decoded: Arc<(Mutex<usize>, Condvar)>,
 }
+
+unsafe impl Send for SyncVecRd {}
+unsafe impl Sync for SyncVecRd {}
 
 impl SyncVecRd {
     #[inline]
@@ -66,23 +70,23 @@ impl SyncVecRd {
     #[inline]
     fn slice(&self) -> &[u8] {
         let size = self.current_size();
-        let ptr = self.buffer.as_ptr();
-        unsafe { std::slice::from_raw_parts(ptr, size) }
+        unsafe { std::slice::from_raw_parts(self.buffer, size) }
     }
 }
 
 fn create_sync_vec(size: usize) -> (SyncVecWr, SyncVecRd) {
     let buffer = Arc::new(Vec::with_capacity(size));
     let decoded = Arc::new((Mutex::new(0), Condvar::new()));
+    let buffer_ptr = buffer.as_ptr();
     let rd = SyncVecRd {
-        buffer: Arc::clone(&buffer),
+        _arc: Arc::clone(&buffer),
+        buffer: buffer_ptr,
         total_size: size,
         decoded: Arc::clone(&decoded),
     };
-    let buffer_ptr = buffer.as_ptr();
     let rw = SyncVecWr {
-        arc_ptr: Arc::into_raw(buffer),
-        data: buffer_ptr as *mut u8,
+        _arc: buffer,
+        data: ManuallyDrop::new(unsafe { Vec::from_raw_parts(buffer_ptr as *mut u8, 0, size) }),
         total_size: size,
         decoded,
     };
@@ -98,7 +102,7 @@ pub struct SeekableDecoder {
 
 fn decode_to_end<T: Read + Send>(
     mut decoder: T,
-    buffer: SyncVecWr,
+    mut buffer: SyncVecWr,
     chunk_size: usize,
 ) -> Result<()> {
     let total_size = buffer.total_size;
@@ -108,16 +112,10 @@ fn decode_to_end<T: Read + Send>(
         let size = std::cmp::min(total_size - uncompressed, chunk_size);
         //  println!("decompress {size}");
 
-        let slice = std::ptr::slice_from_raw_parts_mut(buffer.data, total_size);
-        let uninit_slice = unsafe { slice.as_uninit_slice_mut() }.unwrap();
-        let mut uninit = BorrowedBuf::from(&mut uninit_slice[uncompressed..uncompressed + size]);
-        decoder.read_buf_exact(uninit.unfilled())?;
-        unsafe {
-            let mut vec = Vec::from_raw_parts(buffer.data, uncompressed, buffer.total_size);
-            vec.set_len(uncompressed + size);
-            vec.into_raw_parts();
-        }
-        uncompressed += size;
+        uncompressed += decoder
+            .by_ref()
+            .take(size as u64)
+            .read_to_end(&mut buffer.data)?;
         let (lock, cvar) = &*buffer.decoded;
         let mut decoded = lock.lock().unwrap();
         *decoded = uncompressed;

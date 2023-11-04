@@ -26,7 +26,12 @@ where
     }
 
     pub fn get(&self, index: Source::Idx) -> Result<&Arc<Value>> {
-        let value = self.values[index.into()].get_or_try_init(|| self.source.get_value(index))?;
-        Ok(value)
+        let cache_slot = &self.values[index.into()];
+        if cache_slot.get().is_none() {
+            let new_value = self.source.get_value(index)?;
+            let _ = cache_slot.set(new_value);
+        }
+
+        Ok(cache_slot.get().unwrap())
     }
 }

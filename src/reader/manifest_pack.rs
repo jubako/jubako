@@ -63,7 +63,10 @@ impl ManifestPack {
     }
 
     fn get_check_info(&self) -> Result<&CheckInfo> {
-        self.check_info.get_or_try_init(|| self._get_check_info())
+        if self.check_info.get().is_none() {
+            let _ = self.check_info.set(self._get_check_info()?);
+        }
+        Ok(self.check_info.get().unwrap())
     }
 
     fn _get_check_info(&self) -> Result<CheckInfo> {

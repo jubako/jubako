@@ -103,12 +103,15 @@ impl Pack for ContentPack {
         self.header.pack_header.file_size
     }
     fn check(&self) -> Result<bool> {
-        let check_info = self.check_info.get_or_try_init(|| {
+        if self.check_info.get().is_none() {
             let mut checkinfo_flux = self
                 .reader
                 .create_flux_from(self.header.pack_header.check_info_pos);
-            CheckInfo::produce(&mut checkinfo_flux)
-        })?;
+            let _ = self
+                .check_info
+                .set(CheckInfo::produce(&mut checkinfo_flux)?);
+        }
+        let check_info = self.check_info.get().unwrap();
         let mut check_flux = self
             .reader
             .create_flux_to(End::Offset(self.header.pack_header.check_info_pos));
