@@ -14,7 +14,12 @@ fn lz4_compress<'b>(
     stream: &'b mut dyn OutStream,
     level: u32,
 ) -> Result<&'b mut dyn OutStream> {
-    let mut encoder = lz4::EncoderBuilder::new().level(level).build(stream)?;
+    let mut encoder = lz4::EncoderBuilder::new()
+        .level(level)
+        .block_size(lz4::BlockSize::Max4MB)
+        .block_mode(lz4::BlockMode::Linked)
+        .checksum(lz4::ContentChecksum::NoChecksum)
+        .build(stream)?;
     for mut in_reader in data.drain(..) {
         std::io::copy(&mut in_reader, &mut encoder)?;
     }
