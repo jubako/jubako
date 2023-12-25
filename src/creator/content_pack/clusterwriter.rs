@@ -23,18 +23,6 @@ fn lz4_compress<'b>(
     Ok(stream)
 }
 
-#[cfg(not(feature = "lz4"))]
-#[allow(clippy::ptr_arg)]
-fn lz4_compress<'b>(
-    _data: &mut InputData,
-    _stream: &'b mut dyn OutStream,
-    _level: u32,
-) -> Result<&'b mut dyn OutStream> {
-    Err("Lz4 compression is not supported by this configuration."
-        .to_string()
-        .into())
-}
-
 #[cfg(feature = "lzma")]
 fn lzma_compress<'b>(
     data: &mut InputData,
@@ -46,18 +34,6 @@ fn lzma_compress<'b>(
         std::io::copy(&mut in_reader, &mut encoder)?;
     }
     Ok(encoder.finish()?)
-}
-
-#[cfg(not(feature = "lzma"))]
-#[allow(clippy::ptr_arg)]
-fn lzma_compress<'b>(
-    _data: &mut InputData,
-    _stream: &'b mut dyn OutStream,
-    _level: u32,
-) -> Result<&'b mut dyn OutStream> {
-    Err("Lzma compression is not supported by this configuration."
-        .to_string()
-        .into())
 }
 
 #[cfg(feature = "zstd")]
@@ -74,18 +50,6 @@ fn zstd_compress<'b>(
         std::io::copy(&mut in_reader, &mut encoder)?;
     }
     Ok(encoder.finish()?)
-}
-
-#[cfg(not(feature = "zstd"))]
-#[allow(clippy::ptr_arg)]
-fn zstd_compress<'b>(
-    _data: &mut InputData,
-    _stream: &'b mut dyn OutStream,
-    _level: i32,
-) -> Result<&'b mut dyn OutStream> {
-    Err("Zstd compression is not supported by this configuration."
-        .to_string()
-        .into())
 }
 
 pub struct ClusterCompressor {
@@ -120,8 +84,11 @@ impl ClusterCompressor {
     ) -> Result<()> {
         match &self.compression {
             Compression::None => unreachable!(),
+            #[cfg(feature = "lz4")]
             Compression::Lz4(level) => lz4_compress(&mut cluster.data, outstream, *level)?,
+            #[cfg(feature = "lzma")]
             Compression::Lzma(level) => lzma_compress(&mut cluster.data, outstream, *level)?,
+            #[cfg(feature = "zstd")]
             Compression::Zstd(level) => zstd_compress(&mut cluster.data, outstream, *level)?,
         };
         Ok(())

@@ -154,20 +154,28 @@ impl InputReader for InputFile {
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Compression {
     None,
+    #[cfg(feature = "lz4")]
     Lz4(u32),
+
+    #[cfg(feature = "lzma")]
     Lzma(u32),
+
+    #[cfg(feature = "zstd")]
     Zstd(i32),
 }
 
 impl Compression {
+    #[cfg(feature = "lz4")]
     pub fn lz4() -> Compression {
         Compression::Lz4(16)
     }
 
+    #[cfg(feature = "lzma")]
     pub fn lzma() -> Compression {
         Compression::Lzma(9)
     }
 
+    #[cfg(feature = "zstd")]
     pub fn zstd() -> Compression {
         Compression::Zstd(5)
     }
@@ -177,8 +185,11 @@ impl From<Compression> for CompressionType {
     fn from(c: Compression) -> Self {
         match c {
             Compression::None => CompressionType::None,
+            #[cfg(feature = "lz4")]
             Compression::Lz4(_) => CompressionType::Lz4,
+            #[cfg(feature = "lzma")]
             Compression::Lzma(_) => CompressionType::Lzma,
+            #[cfg(feature = "zstd")]
             Compression::Zstd(_) => CompressionType::Zstd,
         }
     }
