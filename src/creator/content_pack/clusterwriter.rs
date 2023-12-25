@@ -311,7 +311,7 @@ impl<O: OutStream + 'static> ClusterWriterProxy<O> {
         }
     }
 
-    pub fn write_cluster(&mut self, cluster: ClusterCreator, compressed: bool) {
+    pub fn write_cluster(&mut self, cluster: ClusterCreator, compressed: bool) -> Result<()> {
         let should_compress = if let Compression::None = self.compression {
             false
         } else {
@@ -323,10 +323,15 @@ impl<O: OutStream + 'static> ClusterWriterProxy<O> {
                 .wait_while(count.lock().unwrap(), |c| *c >= self.max_queue_size)
                 .unwrap();
             *count += 1;
-            self.dispatch_tx.send(cluster).unwrap();
+            if let Err(e) = self.dispatch_tx.send(cluster) {
+                return Err(e.to_string().into());
+            }
         } else {
-            self.fusion_tx.send(cluster.into()).unwrap();
+            if let Err(e) = self.fusion_tx.send(cluster.into()) {
+                return Err(e.to_string().into());
+            }
         }
+        Ok(())
     }
 
     pub fn finalize(self) -> Result<(O, Vec<Late<SizedOffset>>)> {
