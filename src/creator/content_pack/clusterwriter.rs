@@ -85,11 +85,11 @@ impl ClusterCompressor {
         match &self.compression {
             Compression::None => unreachable!(),
             #[cfg(feature = "lz4")]
-            Compression::Lz4(level) => lz4_compress(&mut cluster.data, outstream, *level)?,
+            Compression::Lz4(level) => lz4_compress(&mut cluster.data, outstream, level.get())?,
             #[cfg(feature = "lzma")]
-            Compression::Lzma(level) => lzma_compress(&mut cluster.data, outstream, *level)?,
+            Compression::Lzma(level) => lzma_compress(&mut cluster.data, outstream, level.get())?,
             #[cfg(feature = "zstd")]
-            Compression::Zstd(level) => zstd_compress(&mut cluster.data, outstream, *level)?,
+            Compression::Zstd(level) => zstd_compress(&mut cluster.data, outstream, level.get())?,
         };
         Ok(())
     }

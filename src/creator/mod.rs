@@ -155,29 +155,29 @@ impl InputReader for InputFile {
 pub enum Compression {
     None,
     #[cfg(feature = "lz4")]
-    Lz4(u32),
+    Lz4(deranged::RangedU32<0, 15>),
 
     #[cfg(feature = "lzma")]
-    Lzma(u32),
+    Lzma(deranged::RangedU32<0, 9>),
 
     #[cfg(feature = "zstd")]
-    Zstd(i32),
+    Zstd(deranged::RangedI32<-22, 22>),
 }
 
 impl Compression {
     #[cfg(feature = "lz4")]
     pub fn lz4() -> Compression {
-        Compression::Lz4(16)
+        Compression::Lz4(deranged::RangedU32::new_static::<3>())
     }
 
     #[cfg(feature = "lzma")]
     pub fn lzma() -> Compression {
-        Compression::Lzma(9)
+        Compression::Lzma(deranged::RangedU32::new_static::<9>())
     }
 
     #[cfg(feature = "zstd")]
     pub fn zstd() -> Compression {
-        Compression::Zstd(5)
+        Compression::Zstd(deranged::RangedI32::new_static::<5_i32>())
     }
 }
 
