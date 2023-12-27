@@ -164,6 +164,28 @@ pub enum Compression {
     Zstd(deranged::RangedI32<-22, 22>),
 }
 
+impl Default for Compression {
+    #[cfg(feature = "zstd")]
+    fn default() -> Self {
+        Compression::zstd()
+    }
+
+    #[cfg(all(feature = "lzma", not(feature = "zstd")))]
+    fn default() -> Self {
+        Compression::lzma()
+    }
+
+    #[cfg(all(feature = "lz4", not(feature = "lzma"), not(feature = "zstd")))]
+    fn default() -> Self {
+        Compression::lz4()
+    }
+
+    #[cfg(all(not(feature = "lz4"), not(feature = "lzma"), not(feature = "zstd")))]
+    fn default() -> Self {
+        Compression::None
+    }
+}
+
 impl Compression {
     #[cfg(feature = "lz4")]
     pub fn lz4() -> Compression {
