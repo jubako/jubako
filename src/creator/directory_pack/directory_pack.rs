@@ -10,7 +10,7 @@ use value_store::StoreHandle;
 use log::info;
 
 pub struct DirectoryPackCreator {
-    app_vendor_id: u32,
+    app_vendor_id: VendorId,
     pack_id: PackId,
     free_data: DirectoryPackFreeData,
     value_stores: Vec<StoreHandle>,
@@ -19,7 +19,7 @@ pub struct DirectoryPackCreator {
 }
 
 impl DirectoryPackCreator {
-    pub fn new(pack_id: PackId, app_vendor_id: u32, free_data: DirectoryPackFreeData) -> Self {
+    pub fn new(pack_id: PackId, app_vendor_id: VendorId, free_data: DirectoryPackFreeData) -> Self {
         DirectoryPackCreator {
             app_vendor_id,
             pack_id,

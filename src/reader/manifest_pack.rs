@@ -106,7 +106,7 @@ impl Pack for ManifestPack {
     fn kind(&self) -> PackKind {
         self.header.pack_header.magic
     }
-    fn app_vendor_id(&self) -> u32 {
+    fn app_vendor_id(&self) -> VendorId {
         self.header.pack_header.app_vendor_id
     }
     fn version(&self) -> (u8, u8) {
@@ -228,7 +228,7 @@ mod tests {
         let reader = Reader::new_from_arc(content, End::None);
         let main_pack = ManifestPack::new(reader).unwrap();
         assert_eq!(main_pack.kind(), PackKind::Manifest);
-        assert_eq!(main_pack.app_vendor_id(), 0x01000000);
+        assert_eq!(main_pack.app_vendor_id(), VendorId::from([00, 00, 00, 01]));
         assert_eq!(main_pack.version(), (1, 2));
         assert_eq!(
             main_pack.uuid(),

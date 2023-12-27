@@ -87,7 +87,7 @@ impl Pack for ContentPack {
     fn kind(&self) -> PackKind {
         self.header.pack_header.magic
     }
-    fn app_vendor_id(&self) -> u32 {
+    fn app_vendor_id(&self) -> VendorId {
         self.header.pack_header.app_vendor_id
     }
     fn version(&self) -> (u8, u8) {
@@ -166,7 +166,10 @@ mod tests {
         content.extend(hash.as_bytes()); // end : 171+32 = 203
         let content_pack = ContentPack::new(content.into()).unwrap();
         assert_eq!(content_pack.get_content_count(), ContentCount::from(3));
-        assert_eq!(content_pack.app_vendor_id(), 0x01000000_u32);
+        assert_eq!(
+            content_pack.app_vendor_id(),
+            VendorId::from([00, 00, 00, 01])
+        );
         assert_eq!(content_pack.version(), (1, 2));
         assert_eq!(
             content_pack.uuid(),
