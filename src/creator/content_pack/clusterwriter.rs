@@ -14,25 +14,18 @@ fn lz4_compress<'b>(
     stream: &'b mut dyn OutStream,
     level: u32,
 ) -> Result<&'b mut dyn OutStream> {
-    let mut encoder = lz4::EncoderBuilder::new().level(level).build(stream)?;
+    let mut encoder = lz4::EncoderBuilder::new()
+        .level(level)
+        .block_size(lz4::BlockSize::Max4MB)
+        .block_mode(lz4::BlockMode::Linked)
+        .checksum(lz4::ContentChecksum::NoChecksum)
+        .build(stream)?;
     for mut in_reader in data.drain(..) {
         std::io::copy(&mut in_reader, &mut encoder)?;
     }
     let (stream, err) = encoder.finish();
     err?;
     Ok(stream)
-}
-
-#[cfg(not(feature = "lz4"))]
-#[allow(clippy::ptr_arg)]
-fn lz4_compress<'b>(
-    _data: &mut InputData,
-    _stream: &'b mut dyn OutStream,
-    _level: u32,
-) -> Result<&'b mut dyn OutStream> {
-    Err("Lz4 compression is not supported by this configuration."
-        .to_string()
-        .into())
 }
 
 #[cfg(feature = "lzma")]
@@ -46,18 +39,6 @@ fn lzma_compress<'b>(
         std::io::copy(&mut in_reader, &mut encoder)?;
     }
     Ok(encoder.finish()?)
-}
-
-#[cfg(not(feature = "lzma"))]
-#[allow(clippy::ptr_arg)]
-fn lzma_compress<'b>(
-    _data: &mut InputData,
-    _stream: &'b mut dyn OutStream,
-    _level: u32,
-) -> Result<&'b mut dyn OutStream> {
-    Err("Lzma compression is not supported by this configuration."
-        .to_string()
-        .into())
 }
 
 #[cfg(feature = "zstd")]
@@ -74,18 +55,6 @@ fn zstd_compress<'b>(
         std::io::copy(&mut in_reader, &mut encoder)?;
     }
     Ok(encoder.finish()?)
-}
-
-#[cfg(not(feature = "zstd"))]
-#[allow(clippy::ptr_arg)]
-fn zstd_compress<'b>(
-    _data: &mut InputData,
-    _stream: &'b mut dyn OutStream,
-    _level: i32,
-) -> Result<&'b mut dyn OutStream> {
-    Err("Zstd compression is not supported by this configuration."
-        .to_string()
-        .into())
 }
 
 pub struct ClusterCompressor {
@@ -120,9 +89,12 @@ impl ClusterCompressor {
     ) -> Result<()> {
         match &self.compression {
             Compression::None => unreachable!(),
-            Compression::Lz4(level) => lz4_compress(&mut cluster.data, outstream, *level)?,
-            Compression::Lzma(level) => lzma_compress(&mut cluster.data, outstream, *level)?,
-            Compression::Zstd(level) => zstd_compress(&mut cluster.data, outstream, *level)?,
+            #[cfg(feature = "lz4")]
+            Compression::Lz4(level) => lz4_compress(&mut cluster.data, outstream, level.get())?,
+            #[cfg(feature = "lzma")]
+            Compression::Lzma(level) => lzma_compress(&mut cluster.data, outstream, level.get())?,
+            #[cfg(feature = "zstd")]
+            Compression::Zstd(level) => zstd_compress(&mut cluster.data, outstream, level.get())?,
         };
         Ok(())
     }
@@ -344,7 +316,7 @@ impl<O: OutStream + 'static> ClusterWriterProxy<O> {
         }
     }
 
-    pub fn write_cluster(&mut self, cluster: ClusterCreator, compressed: bool) {
+    pub fn write_cluster(&mut self, cluster: ClusterCreator, compressed: bool) -> Result<()> {
         let should_compress = if let Compression::None = self.compression {
             false
         } else {
@@ -356,10 +328,15 @@ impl<O: OutStream + 'static> ClusterWriterProxy<O> {
                 .wait_while(count.lock().unwrap(), |c| *c >= self.max_queue_size)
                 .unwrap();
             *count += 1;
-            self.dispatch_tx.send(cluster).unwrap();
+            if let Err(e) = self.dispatch_tx.send(cluster) {
+                return Err(e.to_string().into());
+            }
         } else {
-            self.fusion_tx.send(cluster.into()).unwrap();
+            if let Err(e) = self.fusion_tx.send(cluster.into()) {
+                return Err(e.to_string().into());
+            }
         }
+        Ok(())
     }
 
     pub fn finalize(self) -> Result<(O, Vec<Late<SizedOffset>>)> {

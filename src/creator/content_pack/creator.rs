@@ -167,7 +167,8 @@ impl<O: OutStream + 'static> ContentPackCreator<O> {
         let compress_content = entropy <= 6.0;
         // Let's get raw cluster
         if let Some(cluster) = self.setup_slot_and_get_to_close(content_size, compress_content) {
-            self.cluster_writer.write_cluster(cluster, compress_content);
+            self.cluster_writer
+                .write_cluster(cluster, compress_content)?;
         }
         Ok(open_cluster_ref!(mut self, compress_content)
             .as_mut()
@@ -215,12 +216,12 @@ impl<O: InOutStream> ContentPackCreator<O> {
 
         if let Some(cluster) = self.raw_open_cluster.take() {
             if !cluster.is_empty() {
-                self.cluster_writer.write_cluster(cluster, false);
+                self.cluster_writer.write_cluster(cluster, false)?;
             }
         }
         if let Some(cluster) = self.comp_open_cluster.take() {
             if !cluster.is_empty() {
-                self.cluster_writer.write_cluster(cluster, true);
+                self.cluster_writer.write_cluster(cluster, true)?;
             }
         }
 

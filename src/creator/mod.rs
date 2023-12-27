@@ -154,22 +154,52 @@ impl InputReader for InputFile {
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Compression {
     None,
-    Lz4(u32),
-    Lzma(u32),
-    Zstd(i32),
+    #[cfg(feature = "lz4")]
+    Lz4(deranged::RangedU32<0, 15>),
+
+    #[cfg(feature = "lzma")]
+    Lzma(deranged::RangedU32<0, 9>),
+
+    #[cfg(feature = "zstd")]
+    Zstd(deranged::RangedI32<-22, 22>),
+}
+
+impl Default for Compression {
+    #[cfg(feature = "zstd")]
+    fn default() -> Self {
+        Compression::zstd()
+    }
+
+    #[cfg(all(feature = "lzma", not(feature = "zstd")))]
+    fn default() -> Self {
+        Compression::lzma()
+    }
+
+    #[cfg(all(feature = "lz4", not(feature = "lzma"), not(feature = "zstd")))]
+    fn default() -> Self {
+        Compression::lz4()
+    }
+
+    #[cfg(all(not(feature = "lz4"), not(feature = "lzma"), not(feature = "zstd")))]
+    fn default() -> Self {
+        Compression::None
+    }
 }
 
 impl Compression {
+    #[cfg(feature = "lz4")]
     pub fn lz4() -> Compression {
-        Compression::Lz4(16)
+        Compression::Lz4(deranged::RangedU32::new_static::<3>())
     }
 
+    #[cfg(feature = "lzma")]
     pub fn lzma() -> Compression {
-        Compression::Lzma(9)
+        Compression::Lzma(deranged::RangedU32::new_static::<9>())
     }
 
+    #[cfg(feature = "zstd")]
     pub fn zstd() -> Compression {
-        Compression::Zstd(5)
+        Compression::Zstd(deranged::RangedI32::new_static::<5_i32>())
     }
 }
 
@@ -177,8 +207,11 @@ impl From<Compression> for CompressionType {
     fn from(c: Compression) -> Self {
         match c {
             Compression::None => CompressionType::None,
+            #[cfg(feature = "lz4")]
             Compression::Lz4(_) => CompressionType::Lz4,
+            #[cfg(feature = "lzma")]
             Compression::Lzma(_) => CompressionType::Lzma,
+            #[cfg(feature = "zstd")]
             Compression::Zstd(_) => CompressionType::Zstd,
         }
     }
