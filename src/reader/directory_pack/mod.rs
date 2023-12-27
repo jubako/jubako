@@ -166,7 +166,7 @@ impl Pack for DirectoryPack {
     fn kind(&self) -> PackKind {
         self.header.pack_header.magic
     }
-    fn app_vendor_id(&self) -> u32 {
+    fn app_vendor_id(&self) -> VendorId {
         self.header.pack_header.app_vendor_id
     }
     fn version(&self) -> (u8, u8) {
@@ -236,7 +236,7 @@ mod tests {
             DirectoryPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::Directory,
-                    app_vendor_id: 0x01000000_u32,
+                    app_vendor_id: VendorId::from([00, 00, 00, 01]),
                     major_version: 0x01_u8,
                     minor_version: 0x02_u8,
                     uuid: Uuid::from_bytes([

@@ -97,7 +97,7 @@ mod tests {
             ManifestPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::Manifest,
-                    app_vendor_id: 0x01000000_u32,
+                    app_vendor_id: VendorId::from([00, 00, 00, 01]),
                     major_version: 0x01_u8,
                     minor_version: 0x02_u8,
                     uuid: Uuid::from_bytes([

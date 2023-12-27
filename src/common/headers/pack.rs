@@ -4,13 +4,13 @@ use std::fmt::Debug;
 use uuid::Uuid;
 
 pub struct PackHeaderInfo {
-    pub app_vendor_id: u32,
+    pub app_vendor_id: VendorId,
     pub file_size: Size,
     pub check_info_pos: Offset,
 }
 
 impl PackHeaderInfo {
-    pub fn new(app_vendor_id: u32, file_size: Size, check_info_pos: Offset) -> Self {
+    pub fn new(app_vendor_id: VendorId, file_size: Size, check_info_pos: Offset) -> Self {
         Self {
             app_vendor_id,
             file_size,
@@ -22,7 +22,7 @@ impl PackHeaderInfo {
 #[derive(Debug, PartialEq, Eq)]
 pub struct PackHeader {
     pub magic: PackKind,
-    pub app_vendor_id: u32,
+    pub app_vendor_id: VendorId,
     pub major_version: u8,
     pub minor_version: u8,
     pub uuid: Uuid,
@@ -48,7 +48,7 @@ impl Producable for PackHeader {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {
         let magic = FullPackKind::produce(flux)?;
-        let app_vendor_id = flux.read_u32()?;
+        let app_vendor_id = VendorId::produce(flux)?;
         let major_version = flux.read_u8()?;
         let minor_version = flux.read_u8()?;
         let uuid = Uuid::produce(flux)?;
@@ -84,7 +84,7 @@ impl Writable for PackHeader {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         let mut written = 0;
         written += FullPackKind(self.magic).write(stream)?;
-        written += stream.write_u32(self.app_vendor_id)?;
+        written += self.app_vendor_id.write(stream)?;
         written += stream.write_u8(self.major_version)?;
         written += stream.write_u8(self.minor_version)?;
         written += self.uuid.write(stream)?;
@@ -121,7 +121,7 @@ mod tests {
             PackHeader::produce(&mut flux).unwrap(),
             PackHeader {
                 magic: PackKind::Content,
-                app_vendor_id: 0x01000000_u32,
+                app_vendor_id: VendorId::from([00, 00, 00, 01]),
                 major_version: 0x01_u8,
                 minor_version: 0x02_u8,
                 uuid: Uuid::from_bytes([

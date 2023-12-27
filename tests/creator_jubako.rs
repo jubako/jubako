@@ -74,7 +74,7 @@ test_suite! {
         let mut creator = creator::ContentPackCreator::new(
             "/tmp/contentPack.jbkc",
             jubako::PackId::from(1),
-            1,
+            jubako::VendorId::from([1, 0, 0, 0]),
             Default::default(),
             compression
         )?;
@@ -89,7 +89,7 @@ test_suite! {
     }
 
     fn create_directory_pack(value_store_kind: ValueStoreKind, entries: &Vec<TestEntry>) -> Result<(creator::PackData, jubako::Reader)> {
-        let mut creator = creator::DirectoryPackCreator::new(jubako::PackId::from(1), 1, Default::default());
+        let mut creator = creator::DirectoryPackCreator::new(jubako::PackId::from(1), jubako::VendorId::from([1,0,0,0]), Default::default());
         let value_store = match value_store_kind {
             ValueStoreKind::Plain => creator::ValueStore::new_plain(None),
             ValueStoreKind::Indexed => creator::ValueStore::new_indexed()
@@ -135,7 +135,7 @@ test_suite! {
     }
 
     fn create_main_pack(directory_pack: creator::PackData, content_pack:creator::PackData) -> Result<String> {
-        let mut creator = creator::ManifestPackCreator::new(1, Default::default());
+        let mut creator = creator::ManifestPackCreator::new(jubako::VendorId::from([1, 0,0,0]), Default::default());
 
         creator.add_pack(directory_pack, "/tmp/directoryPack.jbkd".into());
         creator.add_pack(content_pack, "/tmp/contentPack.jbkc".into());

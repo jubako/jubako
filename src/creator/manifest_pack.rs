@@ -4,14 +4,14 @@ use crate::common::{CheckInfo, ManifestCheckStream, ManifestPackHeader, PackHead
 use std::io::SeekFrom;
 
 pub struct ManifestPackCreator {
-    app_vendor_id: u32,
+    app_vendor_id: VendorId,
     free_data: ManifestPackFreeData,
     packs: Vec<(PackData, Vec<u8>)>,
     value_store: StoreHandle,
 }
 
 impl ManifestPackCreator {
-    pub fn new(app_vendor_id: u32, free_data: ManifestPackFreeData) -> Self {
+    pub fn new(app_vendor_id: VendorId, free_data: ManifestPackFreeData) -> Self {
         ManifestPackCreator {
             app_vendor_id,
             free_data,

@@ -90,7 +90,7 @@ mod tests {
     fn test_directorypackheader() {
         let mut content = vec![
             0x6a, 0x62, 0x6b, 0x64, // magic
-            0x00, 0x00, 0x00, 0x01, // app_vendor_id
+            0x01, 0x02, 0x03, 0x04, // app_vendor_id
             0x01, // major_version
             0x02, // minor_version
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
@@ -115,7 +115,7 @@ mod tests {
             DirectoryPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::Directory,
-                    app_vendor_id: 0x01000000_u32,
+                    app_vendor_id: VendorId::from([01, 02, 03, 04]),
                     major_version: 0x01_u8,
                     minor_version: 0x02_u8,
                     uuid: Uuid::from_bytes([

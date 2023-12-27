@@ -14,6 +14,7 @@ mod range;
 mod size;
 mod sized_offset;
 mod specific_types;
+mod vendor_id;
 
 pub use base_array::BaseArray;
 pub use byte_size::ByteSize;
@@ -33,6 +34,7 @@ pub use range::{EntryRange, Range};
 pub use size::Size;
 pub use sized_offset::SizedOffset;
 pub use specific_types::*;
+pub use vendor_id::VendorId;
 
 /// The end of a buffer.
 #[derive(Debug)]

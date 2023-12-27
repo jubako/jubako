@@ -44,7 +44,7 @@ impl Writable for Uuid {
 /// or embedded in another file.
 pub trait Pack {
     fn kind(&self) -> PackKind;
-    fn app_vendor_id(&self) -> u32;
+    fn app_vendor_id(&self) -> VendorId;
     fn version(&self) -> (u8, u8);
     fn uuid(&self) -> Uuid;
     fn size(&self) -> Size;

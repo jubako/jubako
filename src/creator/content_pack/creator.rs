@@ -33,7 +33,7 @@ fn shannon_entropy(data: &[u8]) -> Result<f32> {
 }
 
 pub struct ContentPackCreator<O: OutStream + 'static> {
-    app_vendor_id: u32,
+    app_vendor_id: VendorId,
     pack_id: PackId,
     free_data: ContentPackFreeData,
     content_infos: Vec<ContentInfo>,
@@ -65,7 +65,7 @@ impl ContentPackCreator<File> {
     pub fn new<P: AsRef<Path>>(
         path: P,
         pack_id: PackId,
-        app_vendor_id: u32,
+        app_vendor_id: VendorId,
         free_data: ContentPackFreeData,
         compression: Compression,
     ) -> Result<Self> {
@@ -82,7 +82,7 @@ impl ContentPackCreator<File> {
     pub fn new_with_progress<P: AsRef<Path>>(
         path: P,
         pack_id: PackId,
-        app_vendor_id: u32,
+        app_vendor_id: VendorId,
         free_data: ContentPackFreeData,
         compression: Compression,
         progress: Arc<dyn Progress>,
@@ -108,7 +108,7 @@ impl<O: OutStream + 'static> ContentPackCreator<O> {
     pub fn new_from_output(
         file: O,
         pack_id: PackId,
-        app_vendor_id: u32,
+        app_vendor_id: VendorId,
         free_data: ContentPackFreeData,
         compression: Compression,
     ) -> Result<Self> {
@@ -125,7 +125,7 @@ impl<O: OutStream + 'static> ContentPackCreator<O> {
     pub fn new_from_output_with_progress(
         mut file: O,
         pack_id: PackId,
-        app_vendor_id: u32,
+        app_vendor_id: VendorId,
         free_data: ContentPackFreeData,
         compression: Compression,
         progress: Arc<dyn Progress>,
