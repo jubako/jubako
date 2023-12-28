@@ -18,6 +18,7 @@ test_suite! {
     use std::collections::HashMap;
     use std::sync::Arc;
     use std::fs::OpenOptions;
+    use std::path::{PathBuf, Path};
 
     #[derive(Clone, Copy, Debug)]
     pub enum ValueStoreKind {
@@ -70,9 +71,9 @@ test_suite! {
         }
     }
 
-    fn create_content_pack(compression: creator::Compression, entries:&Vec<TestEntry>) -> Result<(creator::PackData, jubako::Reader)> {
+    fn create_content_pack(compression: creator::Compression, entries:&Vec<TestEntry>, outfile: &Path) -> Result<(creator::PackData, jubako::Reader)> {
         let mut creator = creator::ContentPackCreator::new(
-            "/tmp/contentPack.jbkc",
+            outfile,
             jubako::PackId::from(1),
             jubako::VendorId::from([1, 0, 0, 0]),
             Default::default(),
@@ -88,7 +89,7 @@ test_suite! {
         Ok((pack_info, jubako::FileSource::new(file)?.into()))
     }
 
-    fn create_directory_pack(value_store_kind: ValueStoreKind, entries: &Vec<TestEntry>) -> Result<(creator::PackData, jubako::Reader)> {
+    fn create_directory_pack(value_store_kind: ValueStoreKind, entries: &Vec<TestEntry>, outfile: &Path) -> Result<(creator::PackData, jubako::Reader)> {
         let mut creator = creator::DirectoryPackCreator::new(jubako::PackId::from(1), jubako::VendorId::from([1,0,0,0]), Default::default());
         let value_store = match value_store_kind {
             ValueStoreKind::Plain => creator::ValueStore::new_plain(None),
@@ -128,28 +129,30 @@ test_suite! {
                 .write(true)
                 .create(true)
                 .truncate(true)
-                .open("/tmp/directoryPack.jbkd")?;
+                .open(outfile)?;
         let pack_info = creator.finalize(&mut directory_file).unwrap();
         directory_file.rewind().unwrap();
         Ok((pack_info, jubako::FileSource::new(directory_file).unwrap().into()))
     }
 
-    fn create_main_pack(directory_pack: creator::PackData, content_pack:creator::PackData) -> Result<String> {
+    fn create_main_pack(directory_pack: creator::PackData, content_pack:creator::PackData) -> Result<PathBuf> {
         let mut creator = creator::ManifestPackCreator::new(jubako::VendorId::from([1, 0,0,0]), Default::default());
 
-        creator.add_pack(directory_pack, "/tmp/directoryPack.jbkd".into());
-        creator.add_pack(content_pack, "/tmp/contentPack.jbkc".into());
+        creator.add_pack(directory_pack, "directoryPack.jbkd".into());
+        creator.add_pack(content_pack, "contentPack.jbkc".into());
 
+        let mut manifest_path = std::env::temp_dir();
+        manifest_path.push("manifestPath.jbkm");
         let mut main_file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(true)
-            .open("/tmp/mainPack.jbkm")?;
+            .open(&manifest_path)?;
 
         let uuid = creator.finalize(&mut main_file)?;
         println!("manifest uuid: {uuid}");
-        Ok("/tmp/mainPack.jbkm".to_string())
+        Ok(manifest_path)
     }
 
     struct Locator(pub HashMap<uuid::Uuid, jubako::Reader>);
@@ -175,8 +178,12 @@ test_suite! {
 
 
     test test_content_pack(compression, value_store_kind, articles) {
-        let (content_info, content_reader) = create_content_pack(compression.val, &articles.val).unwrap();
-        let (directory_info, directory_reader) = create_directory_pack(value_store_kind.val, &articles.val).unwrap();
+        let mut content_pack_path = std::env::temp_dir();
+        content_pack_path.push("contentPack.jbkc");
+        let (content_info, content_reader) = create_content_pack(compression.val, &articles.val, &content_pack_path).unwrap();
+        let mut directory_pack_path = std::env::temp_dir();
+        directory_pack_path.push("directoryPack.jbkd");
+        let (directory_info, directory_reader) = create_directory_pack(value_store_kind.val, &articles.val, &directory_pack_path).unwrap();
 
         let mut locator = Locator::new();
         println!("content_info.uuid: {}", content_info.uuid);
