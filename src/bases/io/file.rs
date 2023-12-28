@@ -1,5 +1,7 @@
 use crate::bases::*;
-use memmap2::{Advice, MmapOptions};
+#[cfg(unix)]
+use memmap2::Advice;
+use memmap2::MmapOptions;
 use std::fs::File;
 use std::io;
 use std::io::{Read, Seek, SeekFrom};
@@ -84,6 +86,7 @@ impl Source for FileSource {
             let mmap = unsafe { mmap_options.map(self.source.lock().unwrap().get_ref())? };
             #[cfg(target_os = "linux")]
             mmap.advise(Advice::populate_read())?;
+            #[cfg(unix)]
             mmap.advise(Advice::will_need())?;
             Ok((
                 Arc::new(mmap),
