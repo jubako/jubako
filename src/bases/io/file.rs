@@ -84,6 +84,7 @@ impl Source for FileSource {
                 .populate();
             let mmap =
                 unsafe { mmap_options.map(self.source.lock().unwrap().get_ref().as_raw_fd())? };
+            #[cfg(target_os = "linux")]
             mmap.advise(Advice::populate_read())?;
             mmap.advise(Advice::will_need())?;
             Ok((
