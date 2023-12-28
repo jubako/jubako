@@ -1,6 +1,4 @@
 use crate::bases::*;
-use std::ffi::OsStr;
-use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -23,7 +21,8 @@ impl FsLocator {
 
 impl PackLocatorTrait for FsLocator {
     fn locate(&self, _uuid: Uuid, path: &[u8]) -> Result<Option<Reader>> {
-        let path = Path::new(OsStr::from_bytes(path));
+        let path = String::from_utf8_lossy(path);
+        let path = Path::new(path.as_ref());
         let path = self.base_dir.join(path);
         if path.is_file() {
             Ok(Some(Reader::from(FileSource::open(path)?)))
