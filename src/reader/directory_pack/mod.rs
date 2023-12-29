@@ -23,7 +23,7 @@ pub use self::range::{CompareTrait, RangeTrait};
 pub use self::value_store::{ValueStore, ValueStoreTrait};
 pub use crate::common::{ContentAddress, Value};
 pub use lazy_entry::LazyEntry;
-pub use raw_value::{Array, ArrayIter, Extend, RawValue};
+pub use raw_value::{Array, Extend, RawValue};
 
 pub trait EntryTrait {
     fn get_variant_id(&self) -> Result<Option<VariantIdx>>;

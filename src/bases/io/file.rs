@@ -1,10 +1,11 @@
 use crate::bases::*;
-use memmap2::{Advice, MmapOptions};
+#[cfg(unix)]
+use memmap2::Advice;
+use memmap2::MmapOptions;
 use std::fs::File;
 use std::io;
 use std::io::{Read, Seek, SeekFrom};
 use std::ops::Deref;
-use std::os::unix::prelude::AsRawFd;
 use std::sync::Arc;
 use std::sync::Mutex;
 use zerocopy::byteorder::little_endian::{I16, I32, I64, U16, U32, U64};
@@ -82,9 +83,10 @@ impl Source for FileSource {
                 .offset(region.begin().into_u64())
                 .len(region.size().into_usize())
                 .populate();
-            let mmap =
-                unsafe { mmap_options.map(self.source.lock().unwrap().get_ref().as_raw_fd())? };
+            let mmap = unsafe { mmap_options.map(self.source.lock().unwrap().get_ref())? };
+            #[cfg(target_os = "linux")]
             mmap.advise(Advice::populate_read())?;
+            #[cfg(unix)]
             mmap.advise(Advice::will_need())?;
             Ok((
                 Arc::new(mmap),

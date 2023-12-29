@@ -1,5 +1,7 @@
 use galvanic_test::test_suite;
 
+use std::path::PathBuf;
+
 struct Entry {
     path: String,
     content: String,
@@ -227,7 +229,7 @@ struct PackInfo {
     pack_id: u16,
     pack_kind: u8,
     pack_size: u64,
-    pack_path: String,
+    pack_path: PathBuf,
     check_info: CheckInfo,
 }
 
@@ -241,9 +243,9 @@ impl PackInfo {
         data.push(self.pack_kind);
         data.push(0); // pack_group
         data.extend(&[0; 2]); // free data id
-        let path_data = self.pack_path.as_bytes();
+        let path_data = self.pack_path.to_str().unwrap();
         data.extend((path_data.len() as u8).to_le_bytes());
-        data.extend(path_data);
+        data.extend(path_data.as_bytes());
         data.extend(vec![0; 256 - data.len()]);
         data
     }
@@ -261,6 +263,7 @@ test_suite! {
     use std::fs::OpenOptions;
     use std::io::{Write, Seek, SeekFrom, Result, Read};
     use std::io;
+    use std::path::PathBuf;
     use crate::{Entry as TestEntry, Cluster, KeyStore, IndexStore, Index, PackInfo, CheckInfo};
     use uuid::Uuid;
 
@@ -287,12 +290,14 @@ test_suite! {
     }
 
     fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<TestEntry>) -> Result<PackInfo> {
+        let mut content_pack_path = std::env::temp_dir();
+        content_pack_path.push("contentPack.jbkc");
         let mut file = OpenOptions::new()
                         .read(true)
                         .write(true)
                         .create(true)
                         .truncate(true)
-                        .open("/tmp/contentPack.jbkc")?;
+                        .open(&content_pack_path)?;
         file.write_all(&[
             0x6a, 0x62, 0x6b, 0x63,
             0x00, 0x00, 0x00, 0x01,
@@ -336,7 +341,7 @@ test_suite! {
                 kind: 1,
                 data: hash.as_bytes().to_vec(),
             },
-            pack_path: "/tmp/contentPack.jbkc".to_string(),
+            pack_path: content_pack_path,
             pack_size,
             pack_id: 1,
             pack_kind: b'c',
@@ -345,12 +350,14 @@ test_suite! {
     }
 
     fn create_directory_pack(entries: &Vec<TestEntry>) -> Result<PackInfo> {
+        let mut directory_pack_path = std::env::temp_dir();
+        directory_pack_path.push("directoryPack.jbkd");
         let mut file = OpenOptions::new()
                         .read(true)
                         .write(true)
                         .create(true)
                         .truncate(true)
-                        .open("/tmp/directoryPack.jbkd")?;
+                        .open(&directory_pack_path)?;
         file.write_all(&[
             0x6a, 0x62, 0x6b, 0x64,
             0x00, 0x00, 0x00, 0x01,
@@ -419,7 +426,7 @@ test_suite! {
                 kind: 1,
                 data: hash.as_bytes().to_vec(),
             },
-            pack_path: "/tmp/directoryPack.jbkd".to_string(),
+            pack_path: directory_pack_path,
             pack_size,
             pack_id: 0,
             pack_kind: b'd',
@@ -427,7 +434,9 @@ test_suite! {
         })
     }
 
-    fn create_main_pack(directory_pack: PackInfo, content_pack:PackInfo) -> Result<String> {
+    fn create_main_pack(directory_pack: PackInfo, content_pack:PackInfo) -> Result<PathBuf> {
+        let mut manifest_pack_path = std::env::temp_dir();
+        manifest_pack_path.push("manifestPack.jbkm");
         let uuid = Uuid::new_v4();
         let mut file_size:u64 = 128;
         let directory_check_info_pos = file_size;
@@ -442,7 +451,7 @@ test_suite! {
                         .write(true)
                         .create(true)
                         .truncate(true)
-                        .open("/tmp/mainPack.jbkm")?;
+                        .open(&manifest_pack_path)?;
         file.write_all(&[
             0x6a, 0x62, 0x6b, 0x6d,
             0x00, 0x00, 0x00, 0x01,
@@ -476,7 +485,7 @@ test_suite! {
         let hash = hasher.finalize();
         file.write_all(&[0x01])?;
         file.write_all(hash.as_bytes())?;
-        Ok("/tmp/mainPack.jbkm".to_string())
+        Ok(manifest_pack_path)
     }
 
     test test_content_pack(compression, articles) {

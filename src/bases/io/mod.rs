@@ -4,7 +4,6 @@ mod file;
 
 use crate::bases::types::*;
 use crate::bases::{Flux, Region};
-pub use buffer::*;
 pub use compression::*;
 pub use file::*;
 use std::fmt;

@@ -51,7 +51,7 @@ specify its own format based on Jubako.
 So, the classic use case is to create a library on top of jubako to wrap jubako
 structure and provide high level implementation.
 
-You can have a look to [arx](https://framagit.org/jubako/arx) which is file
+You can have a look to [arx](https://github.com/jubako/arx) which is file
 archive based on Jubako.
 
 
