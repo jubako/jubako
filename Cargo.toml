@@ -4,7 +4,7 @@ name = "jubako"
 description = "The reference implementation of the Jubako container format"
 version = "0.1.0"
 authors = ["Matthieu Gautier <mgautier@kymeria.fr>"]
-repository = "https://framagit.org/jubako/jubako"
+repository = "https://github.com/jubako/jubako"
 license = "MIT"
 categories = ["database", "data-structures", "compression"]
 
