@@ -166,4 +166,8 @@ impl Container {
     pub fn check(&self) -> Result<bool> {
         self.manifest_pack.check()
     }
+
+    pub fn uuid(&self) -> Uuid {
+        self.manifest_pack.uuid()
+    }
 }
