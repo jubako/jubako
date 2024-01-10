@@ -2,13 +2,12 @@
 edition = "2021"
 name = "jubako"
 description = "The reference implementation of the Jubako container format"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Matthieu Gautier <mgautier@kymeria.fr>"]
 repository = "https://github.com/jubako/jubako"
 license = "MIT"
+keywords = ["compression", "container", "archive"]
 categories = ["database", "data-structures", "compression"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
 default = ["zstd"]
