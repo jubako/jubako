@@ -35,7 +35,7 @@ impl PackHeader {
         PackHeader {
             magic,
             major_version: 0,
-            minor_version: 0,
+            minor_version: 1,
             uuid: Uuid::new_v4(),
             app_vendor_id: pack_info.app_vendor_id,
             file_size: pack_info.file_size,
