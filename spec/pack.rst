@@ -16,8 +16,8 @@ Field Name    Type    Offset Description
 ============= ======= ====== ===========
 magic         u32     0      The magic number to detect the type of the file
 appVendorId   u32     4      Specific magic number to identify specific usage
-majorVersion  u8      8      The major version of the pack = 1
-minorVersion  u8      9      The minor version of the pack = 0
+majorVersion  u8      8      The major version of the pack = 0
+minorVersion  u8      9      The minor version of the pack = 1
 id            [u8,16] 10     uuid of the pack
 _padding      [u8, 6] 26     MUST be 0.
 packSize      Size    32     Size of the pack
@@ -71,6 +71,9 @@ It SHOULD be able to read M.m-k (by testing minor and conditionally use existing
 It WOULD be able to read M-k.* but it could be assume that two different major version is
 two different formats.
 
+Current major version is ``0`` and format is considered as unstable.
+Any change in minor version must be handled as a breaking change.
+Major version will be moved to ``1`` when Jubako format will be stable.
 
 
 CheckInfo tail
