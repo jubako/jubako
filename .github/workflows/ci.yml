@@ -20,10 +20,31 @@ jobs:
           - ubuntu-latest
           - macos-latest
           - windows-latest
+        feature:
+          - zstd,lzma,lz4
+        include:
+          - toolchain: stable
+            os: ubuntu-latest
+            feature: zstd
+          - toolchain: stable
+            os: ubuntu-latest
+            feature: lzma
+          - toolchain: stable
+            os: ubuntu-latest
+            feature: lz4
+          - toolchain: stable
+            os: ubuntu-latest
+            feature: zstd,lzma
+          - toolchain: stable
+            os: ubuntu-latest
+            feature: zstd,lz4
+          - toolchain: stable
+            os: ubuntu-latest
+            feature: lzma,lz4
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup rust toolchain ${{ matrix.toolchain }}
         run: |
@@ -35,7 +56,7 @@ jobs:
         run: cargo fmt --check
 
       - name: Test code
-        run: cargo test --verbose
+        run: cargo test --features ${{ matrix.feature }} --verbose
 
       - name: Build and run exemples
         run: |

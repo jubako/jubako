@@ -6,7 +6,7 @@ use std::fmt;
 use std::string::FromUtf8Error;
 
 #[cfg(feature = "lzma")]
-use lzma::LzmaError;
+use xz2::stream::Error as lzmaError;
 
 #[derive(Debug)]
 pub struct FormatError {
@@ -97,12 +97,9 @@ impl From<FromUtf8Error> for Error {
 }
 
 #[cfg(feature = "lzma")]
-impl From<lzma::LzmaError> for Error {
-    fn from(e: LzmaError) -> Error {
-        match e {
-            LzmaError::Io(e) => Error::new(ErrorKind::Io(e)),
-            _ => FormatError::new("Lzma compression error", None).into(),
-        }
+impl From<lzmaError> for Error {
+    fn from(_e: lzmaError) -> Error {
+        FormatError::new("Lzma compression error", None).into()
     }
 }
 
