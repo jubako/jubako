@@ -1,7 +1,6 @@
 name: Cargo Build & Test
 
 on:
-  push:
   pull_request:
 
 env:
@@ -63,3 +62,17 @@ jobs:
           cargo build --examples
           cargo run --example simple_create
           cargo run --example simple_read
+
+
+  check_publication:
+    name: Check we can publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dry Run Pubish
+        env:
+         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cargo publish --dry-run
