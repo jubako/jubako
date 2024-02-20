@@ -1,3 +1,8 @@
+# Jubako 0.2.1
+
+- Use dependency `xz2` instead of `rust-lzma` for lzma compression
+- Improved CI
+
 # Jubako 0.2
 
 This is a huge update !!
