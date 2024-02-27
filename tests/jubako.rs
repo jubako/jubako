@@ -514,7 +514,7 @@ test_suite! {
                     jubako::ContentAddress{pack_id:1.into(), content_id:jubako::ContentIdx::from(i.into_u32())}
                 );
                 let reader = container.get_reader(content).unwrap();
-                let mut flux = reader.create_flux_all();
+                let mut flux = reader.as_ref().unwrap().create_flux_all();
                 let mut read_content: String = "".to_string();
                 flux.read_to_string(&mut read_content).unwrap();
                 assert_eq!(read_content, articles.val[i.into_u32() as usize].content);

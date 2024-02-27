@@ -5,11 +5,13 @@ mod directory_pack;
 mod jubako;
 mod locator;
 mod manifest_pack;
+mod missing;
 
 pub use self::jubako::Container;
 pub use container_pack::ContainerPack;
 pub use content_pack::ContentPack;
 pub use directory_pack::{builder, layout};
+pub use missing::MayMissPack;
 pub type EntryStore = std::sync::Arc<directory_pack::EntryStore>;
 pub use directory_pack::{
     Array, CompareTrait, ContentAddress, DirectoryPack, EntryTrait, Index, LazyEntry as Entry,

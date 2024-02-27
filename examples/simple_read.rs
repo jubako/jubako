@@ -21,7 +21,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         let content_address = value_2.as_content();
         // Let's print the content on stdout
         let reader = container.get_reader(content_address)?;
-        std::io::copy(&mut reader.create_flux_all(), &mut std::io::stdout().lock())?;
+        std::io::copy(
+            &mut reader.unwrap().create_flux_all(),
+            &mut std::io::stdout().lock(),
+        )?;
     }
 
     {

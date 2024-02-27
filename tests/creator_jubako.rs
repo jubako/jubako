@@ -225,7 +225,7 @@ test_suite! {
             println!("Get reader");
             let reader = container.get_reader(value_1).unwrap();
             println!("Readir is {:?}", reader);
-            let mut flux = reader.create_flux_all();
+            let mut flux = reader.as_ref().unwrap().create_flux_all();
             println!("flux is {:?}", flux);
             let mut read_content: String = "".to_string();
             println!("Read from flux");
