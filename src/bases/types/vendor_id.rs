@@ -1,6 +1,6 @@
 use crate::bases::*;
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Default)]
 #[repr(transparent)]
 pub struct VendorId([u8; 4]);
 
@@ -25,12 +25,6 @@ impl SizedProducable for VendorId {
 impl Writable for VendorId {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         stream.write_data(&self.0)
-    }
-}
-
-impl Default for VendorId {
-    fn default() -> Self {
-        Self([0; 4])
     }
 }
 
