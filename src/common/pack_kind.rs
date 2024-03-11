@@ -3,7 +3,7 @@ use std::fmt::Debug;
 
 const JBK_MAGIC: [u8; 3] = *b"jbk";
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 #[repr(u8)]
 pub enum PackKind {
     Manifest = b'm',

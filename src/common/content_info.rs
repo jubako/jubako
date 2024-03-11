@@ -1,6 +1,6 @@
 use crate::bases::*;
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct ContentInfo {
     pub cluster_index: ClusterIdx,
     pub blob_index: BlobIdx,
@@ -38,3 +38,5 @@ impl Writable for ContentInfo {
         stream.write_u32(data)
     }
 }
+
+impl Explorable for ContentInfo {}

@@ -1,5 +1,6 @@
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
+use serde::ser::SerializeStruct;
 use std::sync::{Arc, RwLock};
 
 enum ClusterReader {
@@ -169,6 +170,45 @@ impl Cluster {
         } else {
             unreachable!()
         }
+    }
+}
+
+impl serde::Serialize for Cluster {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut cont = serializer.serialize_struct("Cluster", 3)?;
+        cont.serialize_field("offset", &(self.blob_offsets.len() - 1))?;
+        cont.serialize_field("size", &self.data_size)?;
+        cont.serialize_field("compression", &self.compression)?;
+        cont.end()
+    }
+}
+
+impl Explorable for Cluster {
+    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
+        let (item, decode) = if let Some(item) = item.strip_suffix('#') {
+            (item, true)
+        } else {
+            (item, false)
+        };
+        let index = item
+            .parse::<u16>()
+            .map_err(|e| Error::from(format!("{e}")))?;
+
+        if index >= (self.blob_offsets.len() as u16 - 1) {
+            return Ok(None);
+        }
+        let reader = self.get_reader(BlobIdx::from(index))?;
+        let data = reader
+            .create_flux_all()
+            .read_vec(reader.size().into_usize())?;
+        Ok(Some(if decode {
+            Box::new(String::from_utf8_lossy(&data).into_owned())
+        } else {
+            Box::new(data)
+        }))
     }
 }
 

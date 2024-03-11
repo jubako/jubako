@@ -16,6 +16,15 @@ impl<const N: usize> SizedProducable for FreeData<N> {
     const SIZE: usize = N;
 }
 
+impl<const N: usize> serde::Serialize for FreeData<N> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.collect_str(&String::from_utf8_lossy(&self.0))
+    }
+}
+
 impl<const N: usize> Writable for FreeData<N> {
     fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
         stream.write_data(&self.0)

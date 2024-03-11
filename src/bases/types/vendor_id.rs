@@ -10,6 +10,15 @@ impl VendorId {
     }
 }
 
+impl serde::Serialize for VendorId {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_newtype_struct("VendorId", &String::from_utf8_lossy(&self.0))
+    }
+}
+
 impl Producable for VendorId {
     type Output = Self;
     fn produce(flux: &mut Flux) -> Result<Self> {

@@ -4,7 +4,8 @@ use std::ops::{Add, AddAssign};
 
 /// A count of object.
 /// All count object can be stored in a u32.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug, serde::Serialize)]
+#[serde(transparent)]
 #[repr(transparent)]
 pub struct Count<T>(pub T);
 
