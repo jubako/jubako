@@ -1,6 +1,7 @@
 use super::{ContentPack, DirectoryPack, ManifestPack, PackLocatorTrait};
 use crate::bases::*;
-use crate::common::{ContainerPackHeader, FullPackKind, Pack, PackKind, PackLocator};
+use crate::common::{ContainerPackHeader, FullPackKind, Pack, PackHeader, PackKind, PackLocator};
+use serde::ser::SerializeMap;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -82,5 +83,48 @@ impl ContainerPack {
 impl PackLocatorTrait for ContainerPack {
     fn locate(&self, uuid: Uuid, _path: &[u8]) -> Result<Option<Reader>> {
         Ok(self.get_pack_reader(&uuid))
+    }
+}
+
+impl serde::Serialize for ContainerPack {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut container = serializer.serialize_map(Some(self.packs.len()))?;
+        for (uuid, reader) in self.packs.iter() {
+            let pack_header =
+                PackHeader::produce(&mut reader.create_flux_to(End::new_size(PackHeader::SIZE)))
+                    .unwrap();
+            container.serialize_entry(&uuid, &pack_header)?;
+        }
+        container.end()
+    }
+}
+
+impl Explorable for ContainerPack {
+    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
+        let reader = if let Ok(index) = item.parse::<usize>() {
+            let uuid = self
+                .packs_uuid
+                .get(index)
+                .ok_or_else(|| Error::from(format!("{item} is not a valid key.")))?;
+            &self.packs[uuid]
+        } else if let Ok(uuid) = item.parse::<Uuid>() {
+            self.packs
+                .get(&uuid)
+                .ok_or_else(|| Error::from(format!("{item} is not a valid key.")))?
+        } else {
+            return Err("Invalid key".into());
+        };
+
+        Ok(Some(
+            match FullPackKind::produce(&mut reader.create_flux_all())? {
+                PackKind::Manifest => Box::new(ManifestPack::new(reader.clone())?),
+                PackKind::Directory => Box::new(DirectoryPack::new(reader.clone())?),
+                PackKind::Content => Box::new(ContentPack::new(reader.clone())?),
+                PackKind::Container => unreachable!(),
+            },
+        ))
     }
 }

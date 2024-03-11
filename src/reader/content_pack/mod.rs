@@ -5,6 +5,7 @@ use crate::common::{CheckInfo, ContentInfo, ContentPackHeader, Pack, PackKind};
 use cluster::Cluster;
 use fxhash::FxBuildHasher;
 use lru::LruCache;
+use serde::ser::SerializeStruct;
 use std::io::Read;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -83,6 +84,40 @@ impl ContentPack {
     }
 }
 
+impl serde::Serialize for ContentPack {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut cont = serializer.serialize_struct("ContentPack", 4)?;
+        cont.serialize_field("uuid", &self.uuid())?;
+        cont.serialize_field("#entries", &self.header.content_count)?;
+        cont.serialize_field("#clusters", &self.header.cluster_count)?;
+        cont.serialize_field("freeData", &self.header.free_data)?;
+        cont.end()
+    }
+}
+
+impl Explorable for ContentPack {
+    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
+        if let Some(item) = item.strip_prefix("e.") {
+            let index = item
+                .parse::<u32>()
+                .map_err(|e| Error::from(format!("{e}")))?;
+            let index = ContentIdx::from(index);
+            let content_info = self.content_infos.index(*index)?;
+            Ok(Some(Box::new(content_info)))
+        } else if let Some(item) = item.strip_prefix("c.") {
+            let index = item
+                .parse::<u32>()
+                .map_err(|e| Error::from(format!("{e}")))?;
+            let cluster_info = self.cluster_ptrs.index(index.into())?;
+            Ok(Some(Box::new(Cluster::new(&self.reader, cluster_info)?)))
+        } else {
+            Ok(None)
+        }
+    }
+}
 impl Pack for ContentPack {
     fn kind(&self) -> PackKind {
         self.header.pack_header.magic

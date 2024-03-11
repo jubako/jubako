@@ -4,7 +4,7 @@ use crate::bases::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct Properties(HashMap<String, Property>);
 
 pub type SharedProperties = Arc<Properties>;

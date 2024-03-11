@@ -2,7 +2,8 @@ use super::{EntryRange, EntryStorage, EntryStore, RangeTrait};
 use crate::bases::*;
 use std::sync::Arc;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename = "Index")]
 pub struct IndexHeader {
     pub store_id: EntryStoreIdx,
     pub entry_count: EntryCount,
@@ -32,7 +33,8 @@ impl Producable for IndexHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
+#[serde(transparent)]
 pub struct Index {
     header: IndexHeader,
 }

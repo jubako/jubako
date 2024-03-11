@@ -1,5 +1,6 @@
 mod check;
 mod concat;
+mod explore;
 
 use clap::Parser;
 use jubako as jbk;
@@ -15,6 +16,7 @@ struct Options {
 enum Commands {
     Check(check::Options),
     Concat(concat::Options),
+    Explore(explore::Options),
 }
 
 fn run() -> jbk::Result<()> {
@@ -23,6 +25,7 @@ fn run() -> jbk::Result<()> {
     match options.command {
         Commands::Check(options) => check::run(options),
         Commands::Concat(options) => concat::run(options),
+        Commands::Explore(options) => explore::run(options),
     }
 }
 

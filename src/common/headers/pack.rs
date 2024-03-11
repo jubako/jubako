@@ -1,5 +1,6 @@
 use crate::bases::*;
 use crate::common::{FullPackKind, PackKind};
+use serde::ser::SerializeStruct;
 use std::fmt::Debug;
 use uuid::Uuid;
 
@@ -93,6 +94,26 @@ impl Writable for PackHeader {
         written += self.check_info_pos.write(stream)?;
         written += stream.write_data(&[0_u8; 16])?;
         Ok(written)
+    }
+}
+
+impl serde::Serialize for PackHeader {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let name = match self.magic {
+            PackKind::Manifest => "ManifestPack",
+            PackKind::Container => "ContainerPack",
+            PackKind::Content => "ContentPack",
+            PackKind::Directory => "DirectoryPack",
+        };
+        let mut obj = serializer.serialize_struct(name, 4)?;
+        obj.serialize_field("uuid", &self.uuid)?;
+        obj.serialize_field("app_vendor_id", &self.app_vendor_id)?;
+        obj.serialize_field("version", &(self.major_version, self.minor_version))?;
+        obj.serialize_field("size", &self.file_size.into_u64())?;
+        obj.end()
     }
 }
 

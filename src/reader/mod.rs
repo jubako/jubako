@@ -24,3 +24,5 @@ pub use manifest_pack::ManifestPack;
 pub mod testing {
     pub use super::directory_pack::Extend;
 }
+
+pub use crate::bases::Explorable;
