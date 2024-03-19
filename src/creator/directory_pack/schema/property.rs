@@ -101,7 +101,7 @@ pub enum Property<PN: PropertyName> {
     },
     Array {
         max_array_size: PropertySize<usize>,
-        fixed_array_size: usize,
+        fixed_array_len: usize,
         store_handle: StoreHandle,
         name: PN,
     },
@@ -143,13 +143,13 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .finish(),
             Self::Array {
                 max_array_size,
-                fixed_array_size,
+                fixed_array_len,
                 store_handle,
                 name,
             } => f
                 .debug_struct("Array")
-                .field("may_array_size", &max_array_size)
-                .field("fixed_array_size", &fixed_array_size)
+                .field("max_array_size", &max_array_size)
+                .field("fixed_array_len", &fixed_array_len)
                 .field("store_idx", &store_handle.get_idx())
                 .field("key_size", &store_handle.key_size())
                 .field("name", &name.to_string())
@@ -194,13 +194,13 @@ impl<PN: PropertyName> Property<PN> {
         }
     }
 
-    pub fn new_array(fixed_array_size: usize, store_handle: StoreHandle, name: PN) -> Self {
-        if fixed_array_size == 0 && store_handle.kind() == ValueStoreKind::Indexed {
+    pub fn new_array(fixed_array_len: usize, store_handle: StoreHandle, name: PN) -> Self {
+        if fixed_array_len == 0 && store_handle.kind() == ValueStoreKind::Indexed {
             Property::IndirectArray { store_handle, name }
         } else {
             Property::Array {
                 max_array_size: Default::default(),
-                fixed_array_size,
+                fixed_array_len,
                 store_handle,
                 name,
             }
@@ -268,7 +268,7 @@ impl<PN: PropertyName> Property<PN> {
             }
             Self::Array {
                 max_array_size,
-                fixed_array_size: _,
+                fixed_array_len: _,
                 store_handle: _,
                 name,
             } => match entry.value(name).as_ref() {
@@ -314,14 +314,14 @@ impl<PN: PropertyName> Property<PN> {
             },
             Self::Array {
                 max_array_size,
-                fixed_array_size,
+                fixed_array_len,
                 store_handle,
                 name,
             } => {
                 let value_id_size = store_handle.key_size();
                 layout::Property::Array {
-                    array_size_size: Some(max_array_size.into()),
-                    fixed_array_size: fixed_array_size as u8,
+                    array_len_size: Some(max_array_size.into()),
+                    fixed_array_len: fixed_array_len as u8,
                     deported_info: Some((value_id_size, store_handle.clone())),
                     name,
                 }

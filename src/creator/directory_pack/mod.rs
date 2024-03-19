@@ -107,7 +107,7 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                 Some(key) => match key {
                     schema::Property::Array {
                         max_array_size: _,
-                        fixed_array_size,
+                        fixed_array_len,
                         store_handle,
                         name,
                     } => {
@@ -117,7 +117,7 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                             .unwrap_or_else(|| panic!("Cannot find entry {:?}", name.to_string()));
                         if let common::Value::Array(mut data) = value {
                             let size = data.len();
-                            let to_store = data.split_off(cmp::min(*fixed_array_size, data.len()));
+                            let to_store = data.split_off(cmp::min(*fixed_array_len, data.len()));
                             let value_id = store_handle.add_value(to_store);
                             return Some((
                                 *name,

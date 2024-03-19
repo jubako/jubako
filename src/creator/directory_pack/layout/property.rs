@@ -6,8 +6,8 @@ use crate::bases::*;
 pub enum Property<PN: PropertyName> {
     VariantId(String),
     Array {
-        array_size_size: Option<ByteSize>,
-        fixed_array_size: u8,
+        array_len_size: Option<ByteSize>,
+        fixed_array_len: u8,
         deported_info: Option<(ByteSize, StoreHandle)>,
         name: PN,
     },
@@ -45,14 +45,14 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .field("size", &self.size())
                 .finish(),
             Array {
-                array_size_size,
-                fixed_array_size,
+                array_len_size,
+                fixed_array_len,
                 deported_info,
                 name,
             } => f
                 .debug_struct("Array")
-                .field("array_size_size", &array_size_size)
-                .field("fixed_array_size", &fixed_array_size)
+                .field("array_len_size", &array_len_size)
+                .field("fixed_array_len", &fixed_array_len)
                 .field("deported_info", &deported_info)
                 .field("size", &self.size())
                 .field("name", &name.to_string())
@@ -115,15 +115,15 @@ impl<PN: PropertyName> Property<PN> {
         match self {
             Property::VariantId(_name) => 1,
             Property::Array {
-                array_size_size,
-                fixed_array_size,
+                array_len_size,
+                fixed_array_len,
                 deported_info,
                 name: _,
             } => {
-                (match array_size_size {
+                (match array_len_size {
                     None => 0,
                     Some(s) => *s as usize as u16,
-                }) + *fixed_array_size as u16
+                }) + *fixed_array_len as u16
                     + match deported_info {
                         None => 0,
                         Some((s, _)) => *s as usize as u16,
@@ -182,14 +182,14 @@ impl<PN: PropertyName> Writable for Property<PN> {
                 Ok(written)
             }
             Property::Array {
-                array_size_size,
-                fixed_array_size,
+                array_len_size,
+                fixed_array_len,
                 deported_info,
                 name,
             } => {
                 let mut written = 0;
                 let keytype = PropType::Array as u8
-                    + match array_size_size {
+                    + match array_len_size {
                         None => 0,
                         Some(s) => *s as usize as u8,
                     };
@@ -198,7 +198,7 @@ impl<PN: PropertyName> Writable for Property<PN> {
                     None => 0,
                     Some((s, _)) => *s as usize as u8,
                 } << 5;
-                written += stream.write_u8(key_size + fixed_array_size)?;
+                written += stream.write_u8(key_size + fixed_array_len)?;
                 if let Some((_, store)) = deported_info {
                     written += store.get_idx().unwrap().write(stream)?;
                 }
