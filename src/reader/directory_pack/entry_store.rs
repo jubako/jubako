@@ -87,7 +87,10 @@ impl PlainStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::reader::directory_pack::layout::{Property, PropertyKind};
+    use crate::reader::{
+        directory_pack::layout::{DeportedInfo, Property, PropertyKind},
+        layout::VariantPart,
+    };
     use std::collections::HashMap;
 
     #[test]
@@ -128,98 +131,178 @@ mod tests {
                 "V0".to_string(),
                 Property::new(
                     8,
-                    PropertyKind::ContentAddress(ByteSize::U1, ByteSize::U3, None),
+                    PropertyKind::ContentAddress {
+                        pack_id_size: ByteSize::U1,
+                        content_id_size: ByteSize::U3,
+                        default_pack_id: None,
+                    },
                 ),
             ),
             (
                 "V1".to_string(),
-                Property::new(12, PropertyKind::UnsignedInt(ByteSize::U1, None)),
+                Property::new(
+                    12,
+                    PropertyKind::UnsignedInt {
+                        int_size: ByteSize::U1,
+                        default: None,
+                    },
+                ),
             ),
             (
                 "V2".to_string(),
-                Property::new(13, PropertyKind::UnsignedInt(ByteSize::U3, None)),
+                Property::new(
+                    13,
+                    PropertyKind::UnsignedInt {
+                        int_size: ByteSize::U3,
+                        default: None,
+                    },
+                ),
             ),
             (
                 "V3".to_string(),
-                Property::new(16, PropertyKind::UnsignedInt(ByteSize::U8, None)),
+                Property::new(
+                    16,
+                    PropertyKind::UnsignedInt {
+                        int_size: ByteSize::U8,
+                        default: None,
+                    },
+                ),
             ),
             (
                 "V4".to_string(),
-                Property::new(24, PropertyKind::SignedInt(ByteSize::U1, None)),
+                Property::new(
+                    24,
+                    PropertyKind::SignedInt {
+                        int_size: ByteSize::U1,
+                        default: None,
+                    },
+                ),
             ),
             (
                 "V5".to_string(),
-                Property::new(25, PropertyKind::SignedInt(ByteSize::U3, None)),
+                Property::new(
+                    25,
+                    PropertyKind::SignedInt {
+                        int_size: ByteSize::U3,
+                        default: None,
+                    },
+                ),
             ),
             (
                 "V6".to_string(),
-                Property::new(28, PropertyKind::SignedInt(ByteSize::U8, None)),
+                Property::new(
+                    28,
+                    PropertyKind::SignedInt {
+                        int_size: ByteSize::U8,
+                        default: None,
+                    },
+                ),
             ),
             (
                 "V7".to_string(),
-                Property::new(36, PropertyKind::Array(Some(ByteSize::U2), 1, None, None)),
+                Property::new(
+                    36,
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U2),
+                        fixed_array_len: 1,
+                        deported_info: None,
+                        default: None,
+                    },
+                ),
             ),
             (
                 "V8".to_string(),
-                Property::new(39, PropertyKind::Array(Some(ByteSize::U2), 8, None, None)),
+                Property::new(
+                    39,
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U2),
+                        fixed_array_len: 8,
+                        deported_info: None,
+                        default: None,
+                    },
+                ),
             ),
             (
                 "V9".to_string(),
-                Property::new(49, PropertyKind::Array(Some(ByteSize::U2), 31, None, None)),
+                Property::new(
+                    49,
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U2),
+                        fixed_array_len: 31,
+                        deported_info: None,
+                        default: None,
+                    },
+                ),
             ),
             (
                 "V10".to_string(),
                 Property::new(
                     82,
-                    PropertyKind::Array(
-                        Some(ByteSize::U1),
-                        0,
-                        Some((ByteSize::U1, 0x0F.into())),
-                        None,
-                    ),
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U1),
+                        fixed_array_len: 0,
+                        deported_info: Some(DeportedInfo {
+                            id_size: ByteSize::U1,
+                            value_store_idx: 0x0F.into(),
+                        }),
+                        default: None,
+                    },
                 ),
             ),
             (
                 "V11".to_string(),
                 Property::new(
                     84,
-                    PropertyKind::Array(
-                        Some(ByteSize::U2),
-                        0,
-                        Some((ByteSize::U7, 0x0F.into())),
-                        None,
-                    ),
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U2),
+                        fixed_array_len: 0,
+                        deported_info: Some(DeportedInfo {
+                            id_size: ByteSize::U7,
+                            value_store_idx: 0x0F.into(),
+                        }),
+                        default: None,
+                    },
                 ),
             ),
             (
                 "V12".to_string(),
                 Property::new(
                     93,
-                    PropertyKind::Array(
-                        Some(ByteSize::U1),
-                        2,
-                        Some((ByteSize::U1, 0x0F.into())),
-                        None,
-                    ),
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U1),
+                        fixed_array_len: 2,
+                        deported_info: Some(DeportedInfo {
+                            id_size: ByteSize::U1,
+                            value_store_idx: 0x0F.into(),
+                        }),
+                        default: None,
+                    },
                 ),
             ),
             (
                 "V13".to_string(),
                 Property::new(
                     97,
-                    PropertyKind::Array(
-                        Some(ByteSize::U2),
-                        2,
-                        Some((ByteSize::U7, 0x0F.into())),
-                        None,
-                    ),
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U2),
+                        fixed_array_len: 2,
+                        deported_info: Some(DeportedInfo {
+                            id_size: ByteSize::U7,
+                            value_store_idx: 0x0F.into(),
+                        }),
+                        default: None,
+                    },
                 ),
             ),
             (
                 "V14".to_string(),
                 Property::new(
                     108,
-                    PropertyKind::ContentAddress(ByteSize::U2, ByteSize::U1, Some(0x0201.into())),
+                    PropertyKind::ContentAddress {
+                        pack_id_size: ByteSize::U2,
+                        content_id_size: ByteSize::U1,
+                        default_pack_id: Some(0x0201.into()),
+                    },
                 ),
             ),
         ]);
@@ -258,21 +341,28 @@ mod tests {
             "C0".to_string(),
             Property::new(
                 7,
-                PropertyKind::Array(
-                    Some(ByteSize::U4),
-                    1,
-                    Some((ByteSize::U1, 0x0F.into())),
-                    None,
-                ),
+                PropertyKind::Array {
+                    array_len_size: Some(ByteSize::U4),
+                    fixed_array_len: 1,
+                    deported_info: Some(DeportedInfo {
+                        id_size: ByteSize::U1,
+                        value_store_idx: 0x0F.into(),
+                    }),
+                    default: None,
+                },
             ),
         )]);
         assert_eq!(&*common, &expected);
 
-        let (offset, variants, variants_map) = store.layout.variant_part.unwrap();
-        assert_eq!(offset, Offset::new(13));
+        let VariantPart {
+            variant_id_offset,
+            variants,
+            names,
+        } = store.layout.variant_part.unwrap();
+        assert_eq!(variant_id_offset, Offset::new(13));
         assert_eq!(variants.len(), 2);
         assert_eq!(
-            variants_map,
+            names,
             HashMap::from([(String::from("VA0"), 0), (String::from("VA1"), 1)])
         );
         let variant = &variants[0];
@@ -281,24 +371,37 @@ mod tests {
                 "V0".to_string(),
                 Property::new(
                     14,
-                    PropertyKind::Array(
-                        Some(ByteSize::U4),
-                        1,
-                        Some((ByteSize::U5, 0x0F.into())),
-                        None,
-                    ),
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U4),
+                        fixed_array_len: 1,
+                        deported_info: Some(DeportedInfo {
+                            id_size: ByteSize::U5,
+                            value_store_idx: 0x0F.into(),
+                        }),
+                        default: None,
+                    },
                 ),
             ),
             (
                 "V1".to_string(),
                 Property::new(
                     24,
-                    PropertyKind::ContentAddress(ByteSize::U1, ByteSize::U3, None),
+                    PropertyKind::ContentAddress {
+                        pack_id_size: ByteSize::U1,
+                        content_id_size: ByteSize::U3,
+                        default_pack_id: None,
+                    },
                 ),
             ),
             (
                 "V2".to_string(),
-                Property::new(28, PropertyKind::UnsignedInt(ByteSize::U3, None)),
+                Property::new(
+                    28,
+                    PropertyKind::UnsignedInt {
+                        int_size: ByteSize::U3,
+                        default: None,
+                    },
+                ),
             ),
         ]);
         assert_eq!(***variant, expected);
@@ -306,18 +409,36 @@ mod tests {
         let expected = HashMap::from([
             (
                 "V0".to_string(),
-                Property::new(14, PropertyKind::Array(Some(ByteSize::U3), 6, None, None)),
+                Property::new(
+                    14,
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U3),
+                        fixed_array_len: 6,
+                        deported_info: None,
+                        default: None,
+                    },
+                ),
             ),
             (
                 "V1".to_string(),
                 Property::new(
                     23,
-                    PropertyKind::ContentAddress(ByteSize::U2, ByteSize::U2, None),
+                    PropertyKind::ContentAddress {
+                        pack_id_size: ByteSize::U2,
+                        content_id_size: ByteSize::U2,
+                        default_pack_id: None,
+                    },
                 ),
             ),
             (
                 "V2".to_string(),
-                Property::new(27, PropertyKind::UnsignedInt(ByteSize::U3, None)),
+                Property::new(
+                    27,
+                    PropertyKind::UnsignedInt {
+                        int_size: ByteSize::U3,
+                        default: None,
+                    },
+                ),
             ),
         ]);
         assert_eq!(***variant, expected);
