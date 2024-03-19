@@ -35,9 +35,8 @@ impl ContainerPack {
     }
 
     pub fn new_fake(reader: Reader, uuid: Uuid) -> Self {
-        let header = ContainerPackHeader::new(1.into(), reader.size());
-        let mut packs_uuid = Vec::with_capacity(header.pack_count.into_usize());
-        let mut packs = HashMap::with_capacity(header.pack_count.into_usize());
+        let mut packs_uuid = Vec::with_capacity(1);
+        let mut packs = HashMap::with_capacity(1);
         packs.insert(uuid, reader);
         packs_uuid.push(uuid);
         Self { packs_uuid, packs }
