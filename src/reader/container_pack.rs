@@ -62,6 +62,16 @@ impl ContainerPack {
         self.packs.iter()
     }
 
+    pub fn get_manifest_pack_reader(&self) -> Result<Option<Reader>> {
+        for reader in self.packs.values() {
+            let pack_kind = FullPackKind::produce(&mut reader.create_flux_all())?;
+            if let PackKind::Manifest = pack_kind {
+                return Ok(Some(reader.clone()));
+            }
+        }
+        Ok(None)
+    }
+
     pub fn check(&self) -> Result<bool> {
         for reader in self.packs.values() {
             let pack_kind = FullPackKind::produce(&mut reader.create_flux_all())?;
