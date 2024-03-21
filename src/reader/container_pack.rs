@@ -1,7 +1,6 @@
 use super::{ContentPack, DirectoryPack, ManifestPack, PackLocatorTrait};
 use crate::bases::*;
-use crate::common::{ContainerPackHeader, FullPackKind, Pack, PackHeader, PackKind, PackLocator};
-use serde::ser::SerializeMap;
+use crate::common::{ContainerPackHeader, FullPackKind, Pack, PackKind, PackLocator};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -86,11 +85,14 @@ impl PackLocatorTrait for ContainerPack {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl serde::Serialize for ContainerPack {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        use crate::common::PackHeader;
+        use serde::ser::SerializeMap;
         let mut container = serializer.serialize_map(Some(self.packs.len()))?;
         for (uuid, reader) in self.packs.iter() {
             let pack_header =
@@ -102,6 +104,7 @@ impl serde::Serialize for ContainerPack {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl Explorable for ContainerPack {
     fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
         let reader = if let Ok(index) = item.parse::<usize>() {

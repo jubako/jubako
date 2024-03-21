@@ -10,6 +10,7 @@ impl VendorId {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl serde::Serialize for VendorId {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where

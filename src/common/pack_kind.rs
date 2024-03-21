@@ -3,8 +3,9 @@ use std::fmt::Debug;
 
 const JBK_MAGIC: [u8; 3] = *b"jbk";
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
+#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub enum PackKind {
     Manifest = b'm',
     Directory = b'd',

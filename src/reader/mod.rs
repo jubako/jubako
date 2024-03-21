@@ -25,4 +25,5 @@ pub mod testing {
     pub use super::directory_pack::Extend;
 }
 
+#[cfg(feature = "explorable")]
 pub use crate::bases::Explorable;

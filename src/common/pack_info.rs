@@ -1,6 +1,5 @@
 use super::PackKind;
 use crate::bases::*;
-use serde::ser::SerializeStruct;
 use uuid::Uuid;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -88,11 +87,13 @@ impl Producable for PackInfo {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl serde::Serialize for PackInfo {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        use serde::ser::SerializeStruct;
         let mut cont = serializer.serialize_struct("Pack", 8)?;
         cont.serialize_field("uuid", &self.uuid)?;
         cont.serialize_field("size", &self.pack_size)?;

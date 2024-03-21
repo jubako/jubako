@@ -12,7 +12,6 @@ mod value_store;
 use self::index::IndexHeader;
 use crate::bases::*;
 use crate::common::{CheckInfo, DirectoryPackHeader, Pack, PackKind};
-use serde::ser::SerializeStruct;
 use std::io::Read;
 use std::sync::{Arc, RwLock};
 use uuid::Uuid;
@@ -202,11 +201,13 @@ impl Pack for DirectoryPack {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl serde::Serialize for DirectoryPack {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        use serde::ser::SerializeStruct;
         let mut cont = serializer.serialize_struct("DirectoryPack", 5)?;
         cont.serialize_field("uuid", &self.uuid())?;
         cont.serialize_field(
@@ -252,6 +253,7 @@ impl serde::Serialize for DirectoryPack {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl Explorable for DirectoryPack {
     fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
         if let Some(item) = item.strip_prefix("e.") {
