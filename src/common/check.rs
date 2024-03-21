@@ -117,6 +117,8 @@ impl<'a, S: Read> ManifestCheckStream<'a, S> {
 }
 
 impl<S: Read> Read for ManifestCheckStream<'_, S> {
+    // Clippy emit a false positive. See https://github.com/rust-lang/rust-clippy/issues/12519
+    #[allow(clippy::unused_io_amount)]
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         // The check stream want to exclude the 218 bytes (PACK_INFO_SIZE-PACK_INFO_TO_CHECK)
         // in all pack_info locating the pack.
