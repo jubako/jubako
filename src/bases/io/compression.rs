@@ -290,6 +290,10 @@ impl Source for SeekableDecoder {
         let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
         Ok(LE::read_int(slice, size as usize))
     }
+
+    fn display(&self) -> String {
+        "SeekableDecoderStream".into()
+    }
 }
 
 impl MemorySource for SeekableDecoder {

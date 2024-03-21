@@ -29,6 +29,8 @@ pub trait Source: Sync + Send {
     fn read_i32(&self, offset: Offset) -> Result<i32>;
     fn read_i64(&self, offset: Offset) -> Result<i64>;
     fn read_isized(&self, offset: Offset, size: ByteSize) -> Result<i64>;
+
+    fn display(&self) -> String;
 }
 
 pub trait MemorySource: Source {
