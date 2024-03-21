@@ -1,6 +1,7 @@
 use crate::bases::*;
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub struct ContentInfo {
     pub cluster_index: ClusterIdx,
     pub blob_index: BlobIdx,
@@ -39,4 +40,5 @@ impl Writable for ContentInfo {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl Explorable for ContentInfo {}

@@ -3,7 +3,6 @@ use std::sync::OnceLock;
 use crate::bases::*;
 use crate::common::{CheckInfo, ManifestCheckStream, ManifestPackHeader, Pack, PackInfo, PackKind};
 use crate::reader::directory_pack::{ValueStore, ValueStoreTrait};
-use serde::ser::SerializeStruct;
 use std::cmp;
 use std::io::Read;
 use uuid::Uuid;
@@ -175,11 +174,13 @@ impl Pack for ManifestPack {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl serde::Serialize for ManifestPack {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        use serde::ser::SerializeStruct;
         let mut cont = serializer.serialize_struct("ManifestPack", 3)?;
         cont.serialize_field("uuid", &self.uuid())?;
         cont.serialize_field("directoryPack", &self.directory_pack_info)?;
@@ -188,6 +189,7 @@ impl serde::Serialize for ManifestPack {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl Explorable for ManifestPack {}
 
 #[cfg(test)]

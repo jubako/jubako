@@ -5,7 +5,6 @@ use crate::common::{CheckInfo, ContentInfo, ContentPackHeader, Pack, PackKind};
 use cluster::Cluster;
 use fxhash::FxBuildHasher;
 use lru::LruCache;
-use serde::ser::SerializeStruct;
 use std::io::Read;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -84,11 +83,13 @@ impl ContentPack {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl serde::Serialize for ContentPack {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        use serde::ser::SerializeStruct;
         let mut cont = serializer.serialize_struct("ContentPack", 4)?;
         cont.serialize_field("uuid", &self.uuid())?;
         cont.serialize_field("#entries", &self.header.content_count)?;
@@ -98,6 +99,7 @@ impl serde::Serialize for ContentPack {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl Explorable for ContentPack {
     fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
         if let Some(item) = item.strip_prefix("e.") {

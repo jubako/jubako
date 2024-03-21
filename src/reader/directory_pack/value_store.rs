@@ -1,5 +1,4 @@
 use crate::bases::*;
-use serde::ser::SerializeStruct;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -26,7 +25,8 @@ pub trait ValueStoreTrait: std::fmt::Debug + Send + Sync {
     fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]>;
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub enum ValueStore {
     Plain(PlainValueStore),
     Indexed(IndexedValueStore),
@@ -57,6 +57,7 @@ impl ValueStoreTrait for ValueStore {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl Explorable for ValueStore {
     fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
         match self {
@@ -91,17 +92,20 @@ impl PlainValueStore {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl serde::Serialize for PlainValueStore {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        use serde::ser::SerializeStruct;
         let mut ser = serializer.serialize_struct("PlainValueStore", 1)?;
         ser.serialize_field("size", &self.reader.size())?;
         ser.end()
     }
 }
 
+#[cfg(feature = "explorable")]
 impl Explorable for PlainValueStore {
     fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
         if let Some((first, second)) = item.split_once('-') {
@@ -180,17 +184,20 @@ impl IndexedValueStore {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl serde::Serialize for IndexedValueStore {
     fn serialize<S>(&self, serializer: S) -> std::prelude::v1::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        use serde::ser::SerializeStruct;
         let mut ser = serializer.serialize_struct("IndexedValueStore", 1)?;
         ser.serialize_field("offsets", &(self.value_offsets.len() - 1))?;
         ser.end()
     }
 }
 
+#[cfg(feature = "explorable")]
 impl Explorable for IndexedValueStore {
     fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
         let (idx, size) = if let Some((first, second)) = item.split_once('-') {

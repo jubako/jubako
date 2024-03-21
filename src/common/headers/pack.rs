@@ -1,6 +1,5 @@
 use crate::bases::*;
 use crate::common::{FullPackKind, PackKind};
-use serde::ser::SerializeStruct;
 use std::fmt::Debug;
 use uuid::Uuid;
 
@@ -97,11 +96,13 @@ impl Writable for PackHeader {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl serde::Serialize for PackHeader {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        use serde::ser::SerializeStruct;
         let name = match self.magic {
             PackKind::Manifest => "ManifestPack",
             PackKind::Container => "ContainerPack",

@@ -1,6 +1,5 @@
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
-use serde::ser::SerializeStruct;
 use std::sync::{Arc, RwLock};
 
 enum ClusterReader {
@@ -173,11 +172,13 @@ impl Cluster {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl serde::Serialize for Cluster {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        use serde::ser::SerializeStruct;
         let mut cont = serializer.serialize_struct("Cluster", 3)?;
         cont.serialize_field("offset", &(self.blob_offsets.len() - 1))?;
         cont.serialize_field("size", &self.data_size)?;
@@ -186,6 +187,7 @@ impl serde::Serialize for Cluster {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl Explorable for Cluster {
     fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
         let (item, decode) = if let Some(item) = item.strip_suffix('#') {

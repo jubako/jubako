@@ -1,6 +1,5 @@
 use super::layout::Layout;
 use crate::bases::*;
-use serde::ser::SerializeStruct;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -22,7 +21,8 @@ impl Producable for StoreKind {
     }
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub enum EntryStore {
     Plain(PlainStore),
 }
@@ -53,6 +53,7 @@ impl EntryStore {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl Explorable for EntryStore {
     fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
         match self {
@@ -93,11 +94,13 @@ impl PlainStore {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl serde::Serialize for PlainStore {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        use serde::ser::SerializeStruct;
         let nb_entries = self.entry_reader.size().into_u64() / self.layout.size.into_u64();
         let mut ser = serializer.serialize_struct("PlainStore", 2)?;
         ser.serialize_field("nb_entries", &nb_entries)?;
@@ -106,6 +109,7 @@ impl serde::Serialize for PlainStore {
     }
 }
 
+#[cfg(feature = "explorable")]
 impl Explorable for PlainStore {
     fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
         let index = item
