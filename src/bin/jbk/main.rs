@@ -1,6 +1,7 @@
 mod check;
 mod concat;
 mod explore;
+mod locate;
 
 use clap::Parser;
 use jubako as jbk;
@@ -17,6 +18,7 @@ enum Commands {
     Check(check::Options),
     Concat(concat::Options),
     Explore(explore::Options),
+    Locate(locate::Options),
 }
 
 fn run() -> jbk::Result<()> {
@@ -26,6 +28,7 @@ fn run() -> jbk::Result<()> {
         Commands::Check(options) => check::run(options),
         Commands::Concat(options) => concat::run(options),
         Commands::Explore(options) => explore::run(options),
+        Commands::Locate(options) => locate::run(options),
     }
 }
 
