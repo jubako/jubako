@@ -108,7 +108,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             assert_eq!(entry.value1, 50);
             // Let's print the content on stdout
             let reader = container.get_reader(entry.value2)?;
-            std::io::copy(&mut reader.create_flux_all(), &mut std::io::stdout().lock())?;
+            std::io::copy(
+                &mut reader.as_ref().unwrap().create_flux_all(),
+                &mut std::io::stdout().lock(),
+            )?;
         } else {
             panic!("We should have variant0")
         }

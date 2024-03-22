@@ -5,7 +5,7 @@ use super::content_pack::ContentPack;
 use super::directory_pack::{DirectoryPack, EntryStorage};
 use super::locator::{ChainedLocator, FsLocator, PackLocatorTrait};
 use super::manifest_pack::ManifestPack;
-use super::{Index, ValueStorage};
+use super::{Index, MayMissPack, ValueStorage};
 use crate::bases::*;
 use crate::common::{ContentAddress, FullPackKind, Pack, PackKind};
 use std::path::{Path, PathBuf};
@@ -143,25 +143,33 @@ impl Container {
         self.manifest_pack.pack_count()
     }
 
-    pub fn get_pack(&self, pack_id: PackId) -> Result<&ContentPack> {
+    pub fn get_pack(&self, pack_id: PackId) -> Result<MayMissPack<&ContentPack>> {
         let cache_slot = &self.packs[pack_id.into_usize()];
         if cache_slot.get().is_none() {
-            let _ = cache_slot.set(self._get_pack(pack_id)?);
+            match self._get_pack(pack_id)? {
+                MayMissPack::MISSING(pack_info) => return Ok(MayMissPack::MISSING(pack_info)),
+                MayMissPack::FOUND(p) => {
+                    let _ = cache_slot.set(p);
+                }
+            }
         }
-        Ok(cache_slot.get().unwrap())
+        Ok(MayMissPack::FOUND(cache_slot.get().unwrap()))
     }
 
-    pub fn get_reader(&self, content: ContentAddress) -> Result<Reader> {
+    pub fn get_reader(&self, content: ContentAddress) -> Result<MayMissPack<Reader>> {
         let pack = self.get_pack(content.pack_id)?;
-        pack.get_content(content.content_id)
+        pack.map(|p| p.get_content(content.content_id)).transpose()
     }
 
-    fn _get_pack(&self, pack_id: PackId) -> Result<ContentPack> {
+    fn _get_pack(&self, pack_id: PackId) -> Result<MayMissPack<ContentPack>> {
         let pack_info = self.manifest_pack.get_content_pack_info(pack_id)?;
         let pack_reader = self
             .locator
             .locate(pack_info.uuid, &pack_info.pack_location)?;
-        ContentPack::new(pack_reader.unwrap())
+        match pack_reader {
+            None => Ok(MayMissPack::MISSING(pack_info.clone())),
+            Some(r) => Ok(MayMissPack::FOUND(ContentPack::new(r)).transpose()?),
+        }
     }
 
     /// Get the directory pack of the container

@@ -2,7 +2,7 @@ use super::PackKind;
 use crate::bases::*;
 use uuid::Uuid;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct PackInfo {
     pub uuid: Uuid,
     pub pack_size: Size,
