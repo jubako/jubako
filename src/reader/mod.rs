@@ -15,6 +15,7 @@ pub use directory_pack::{
     Array, CompareTrait, ContentAddress, DirectoryPack, EntryTrait, Index, LazyEntry as Entry,
     PropertyCompare, RangeTrait as Range, RawValue, Value, ValueStorage,
 };
+pub use layout::VariantPart;
 pub use locator::PackLocatorTrait;
 pub use manifest_pack::ManifestPack;
 

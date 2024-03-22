@@ -2,6 +2,7 @@ mod property;
 
 use super::entry_store::EntryStore;
 use super::layout::Properties as LProperties;
+use super::layout::VariantPart;
 use super::raw_value::RawValue;
 use super::{LazyEntry, PropertyCompare, Value};
 use crate::bases::*;
@@ -73,13 +74,17 @@ impl AnyBuilder {
         let common = AnyVariantBuilder::new(&layout.common, value_storage)?;
         let variant_part = match &layout.variant_part {
             None => None,
-            Some((variant_id_offset, variants, variants_map)) => {
+            Some(VariantPart {
+                variant_id_offset,
+                variants,
+                names,
+            }) => {
                 let variants: Result<Vec<_>> = variants
                     .iter()
                     .map(|v| AnyVariantBuilder::new(v, value_storage))
                     .collect();
                 let variant_id = VariantIdProperty::new(*variant_id_offset);
-                Some((variant_id, variants?, variants_map.clone()))
+                Some((variant_id, variants?, names.clone()))
             }
         };
         let properties = Rc::new(LazyEntryProperties {
@@ -157,12 +162,19 @@ mod tests {
                 0,
                 vec![
                     RawProperty::new(
-                        PropertyKind::ContentAddress(ByteSize::U1, ByteSize::U3, None),
+                        PropertyKind::ContentAddress {
+                            pack_id_size: ByteSize::U1,
+                            content_id_size: ByteSize::U3,
+                            default_pack_id: None,
+                        },
                         4,
                         Some("V0".to_string()),
                     ),
                     RawProperty::new(
-                        PropertyKind::UnsignedInt(ByteSize::U2, None),
+                        PropertyKind::UnsignedInt {
+                            int_size: ByteSize::U2,
+                            default: None,
+                        },
                         2,
                         Some("V11".to_string()),
                     ),
@@ -209,19 +221,27 @@ mod tests {
     fn create_entry_with_variant() {
         let layout = Layout {
             common: Properties::new(0, vec![]).unwrap(),
-            variant_part: Some((
-                Offset::new(0),
-                Box::new([
+            variant_part: Some(VariantPart {
+                variant_id_offset: Offset::new(0),
+                variants: Box::new([
                     Properties::new(
                         1,
                         vec![
                             RawProperty::new(
-                                PropertyKind::Array(Some(ByteSize::U1), 4, None, None),
+                                PropertyKind::Array {
+                                    array_len_size: Some(ByteSize::U1),
+                                    fixed_array_len: 4,
+                                    deported_info: None,
+                                    default: None,
+                                },
                                 5,
                                 Some("V0".to_string()),
                             ),
                             RawProperty::new(
-                                PropertyKind::UnsignedInt(ByteSize::U2, None),
+                                PropertyKind::UnsignedInt {
+                                    int_size: ByteSize::U2,
+                                    default: None,
+                                },
                                 2,
                                 Some("V1".to_string()),
                             ),
@@ -233,18 +253,29 @@ mod tests {
                         1,
                         vec![
                             RawProperty::new(
-                                PropertyKind::Array(None, 2, None, None),
+                                PropertyKind::Array {
+                                    array_len_size: None,
+                                    fixed_array_len: 2,
+                                    deported_info: None,
+                                    default: None,
+                                },
                                 2,
                                 Some("V0".to_string()),
                             ),
                             RawProperty::new(PropertyKind::Padding, 2, Some("V1".to_string())),
                             RawProperty::new(
-                                PropertyKind::SignedInt(ByteSize::U1, None),
+                                PropertyKind::SignedInt {
+                                    int_size: ByteSize::U1,
+                                    default: None,
+                                },
                                 1,
                                 Some("V2".to_string()),
                             ),
                             RawProperty::new(
-                                PropertyKind::UnsignedInt(ByteSize::U2, None),
+                                PropertyKind::UnsignedInt {
+                                    int_size: ByteSize::U2,
+                                    default: None,
+                                },
                                 2,
                                 Some("V3".to_string()),
                             ),
@@ -253,8 +284,11 @@ mod tests {
                     .unwrap()
                     .into(),
                 ]),
-                HashMap::from([(String::from("Variant1"), 0), (String::from("Variant2"), 1)]),
-            )),
+                names: HashMap::from([
+                    (String::from("Variant1"), 0),
+                    (String::from("Variant2"), 1),
+                ]),
+            }),
             size: Size::new(8),
         };
 

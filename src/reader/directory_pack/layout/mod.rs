@@ -5,14 +5,19 @@ mod property;
 use super::raw_layout::RawLayout;
 use crate::bases::*;
 
-pub use super::raw_layout::PropertyKind;
+pub use super::raw_layout::{DeportedInfo, PropertyKind};
 pub use properties::{Properties, SharedProperties};
 pub use property::Property;
 use std::collections::HashMap;
 
 use std::cmp::Ordering;
 
-type VariantPart = (Offset, Box<[SharedProperties]>, HashMap<String, u8>);
+#[derive(Debug)]
+pub struct VariantPart {
+    pub variant_id_offset: Offset,
+    pub variants: Box<[SharedProperties]>,
+    pub names: HashMap<String, u8>,
+}
 
 #[derive(Debug)]
 pub struct Layout {
@@ -98,7 +103,11 @@ impl Producable for Layout {
                     flux
                 ));
             }
-            Some((variant_id_offset, variants.into_boxed_slice(), variants_map))
+            Some(VariantPart {
+                variant_id_offset,
+                variants: variants.into_boxed_slice(),
+                names: variants_map,
+            })
         } else {
             None
         };

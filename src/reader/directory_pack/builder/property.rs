@@ -2,7 +2,7 @@ use crate::bases::*;
 use crate::common::ContentAddress;
 use crate::reader::directory_pack::layout;
 use crate::reader::directory_pack::private::ValueStorageTrait;
-use crate::reader::directory_pack::raw_layout::{DeportedDefault, PropertyKind};
+use crate::reader::directory_pack::raw_layout::{DeportedDefault, DeportedInfo, PropertyKind};
 use crate::reader::directory_pack::raw_value::{Array, Extend, RawValue};
 use crate::reader::directory_pack::ValueStoreTrait;
 use std::sync::Arc;
@@ -92,12 +92,16 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
     ) -> std::result::Result<Self, Self::Error> {
         let (p, value_storage) = p_vs;
         match p.kind {
-            PropertyKind::UnsignedInt(size, default) => {
-                Ok(IntProperty::new(p.offset, size, default, None))
+            PropertyKind::UnsignedInt { int_size, default } => {
+                Ok(IntProperty::new(p.offset, int_size, default, None))
             }
-            PropertyKind::DeportedUnsignedInt(size, store_idx, deported_default) => {
-                let store = value_storage.get_value_store(store_idx)?;
-                IntProperty::new_from_deported(p.offset, size, store, deported_default)
+            PropertyKind::DeportedUnsignedInt {
+                int_size,
+                value_store_idx,
+                id,
+            } => {
+                let store = value_storage.get_value_store(value_store_idx)?;
+                IntProperty::new_from_deported(p.offset, int_size, store, id)
             }
             _ => Err("Invalid key".to_string().into()),
         }
@@ -189,12 +193,16 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
     ) -> std::result::Result<Self, Self::Error> {
         let (p, value_storage) = p_vs;
         match p.kind {
-            layout::PropertyKind::SignedInt(size, default) => {
-                Ok(SignedProperty::new(p.offset, size, default, None))
+            layout::PropertyKind::SignedInt { int_size, default } => {
+                Ok(SignedProperty::new(p.offset, int_size, default, None))
             }
-            PropertyKind::DeportedSignedInt(size, store_idx, deported_default) => {
-                let store = value_storage.get_value_store(store_idx)?;
-                SignedProperty::new_from_deported(p.offset, size, store, deported_default)
+            PropertyKind::DeportedSignedInt {
+                int_size,
+                value_store_idx,
+                id,
+            } => {
+                let store = value_storage.get_value_store(value_store_idx)?;
+                SignedProperty::new_from_deported(p.offset, int_size, store, id)
             }
             _ => Err("Invalid key".to_string().into()),
         }
@@ -271,19 +279,27 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
     ) -> std::result::Result<Self, Self::Error> {
         let (p, value_storage) = p_vs;
         match p.kind {
-            layout::PropertyKind::Array(size, fixed_array_size, deported, default) => {
-                let deported = match deported {
+            layout::PropertyKind::Array {
+                array_len_size,
+                fixed_array_len,
+                deported_info,
+                default,
+            } => {
+                let deported_info = match deported_info {
                     None => None,
-                    Some((size, store_id)) => {
-                        let value_store = value_storage.get_value_store(store_id)?;
-                        Some((size, value_store as Arc<dyn ValueStoreTrait>))
+                    Some(DeportedInfo {
+                        id_size,
+                        value_store_idx,
+                    }) => {
+                        let value_store = value_storage.get_value_store(value_store_idx)?;
+                        Some((id_size, value_store as Arc<dyn ValueStoreTrait>))
                     }
                 };
                 Ok(ArrayProperty::new(
                     p.offset,
-                    size,
-                    fixed_array_size,
-                    deported,
+                    array_len_size,
+                    fixed_array_len,
+                    deported_info,
                     default,
                 ))
             }
@@ -357,13 +373,13 @@ impl TryFrom<&layout::Property> for ContentProperty {
     type Error = String;
     fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
         match p.kind {
-            layout::PropertyKind::ContentAddress(
+            layout::PropertyKind::ContentAddress {
                 pack_id_size,
                 content_id_size,
-                pack_id_default,
-            ) => Ok(ContentProperty::new(
+                default_pack_id,
+            } => Ok(ContentProperty::new(
                 p.offset,
-                pack_id_default,
+                default_pack_id,
                 pack_id_size,
                 content_id_size,
             )),
@@ -406,52 +422,64 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
     ) -> std::result::Result<Self, Self::Error> {
         let (p, value_storage) = p_vs;
         Ok(match &p.kind {
-            &PropertyKind::ContentAddress(pack_id_size, content_id_size, pack_id_default) => {
-                Self::ContentAddress(ContentProperty::new(
-                    p.offset,
-                    pack_id_default,
-                    pack_id_size,
-                    content_id_size,
-                ))
+            &PropertyKind::ContentAddress {
+                pack_id_size,
+                content_id_size,
+                default_pack_id,
+            } => Self::ContentAddress(ContentProperty::new(
+                p.offset,
+                default_pack_id,
+                pack_id_size,
+                content_id_size,
+            )),
+            &PropertyKind::UnsignedInt { int_size, default } => {
+                Self::UnsignedInt(IntProperty::new(p.offset, int_size, default, None))
             }
-            &PropertyKind::UnsignedInt(size, default) => {
-                Self::UnsignedInt(IntProperty::new(p.offset, size, default, None))
+            &PropertyKind::SignedInt { int_size, default } => {
+                Self::SignedInt(SignedProperty::new(p.offset, int_size, default, None))
             }
-            &PropertyKind::SignedInt(size, default) => {
-                Self::SignedInt(SignedProperty::new(p.offset, size, default, None))
-            }
-            PropertyKind::Array(size, fixed_array_size, deported, default) => {
-                let deported = match deported {
+            PropertyKind::Array {
+                array_len_size,
+                fixed_array_len,
+                deported_info,
+                default,
+            } => {
+                let deported = match deported_info {
                     None => None,
-                    Some((size, store_id)) => {
-                        let value_store = value_storage.get_value_store(*store_id)?;
-                        Some((*size, value_store as Arc<dyn ValueStoreTrait>))
+                    Some(DeportedInfo {
+                        id_size,
+                        value_store_idx,
+                    }) => {
+                        let value_store = value_storage.get_value_store(*value_store_idx)?;
+                        Some((*id_size, value_store as Arc<dyn ValueStoreTrait>))
                     }
                 };
                 Self::Array(ArrayProperty::new(
                     p.offset,
-                    *size,
-                    *fixed_array_size,
+                    *array_len_size,
+                    *fixed_array_len,
                     deported,
                     *default,
                 ))
             }
-            &PropertyKind::DeportedUnsignedInt(size, store_id, deported_default) => {
-                let store = value_storage.get_value_store(store_id)?;
+            &PropertyKind::DeportedUnsignedInt {
+                int_size,
+                value_store_idx,
+                id,
+            } => {
+                let store = value_storage.get_value_store(value_store_idx)?;
                 Self::UnsignedInt(IntProperty::new_from_deported(
-                    p.offset,
-                    size,
-                    store,
-                    deported_default,
+                    p.offset, int_size, store, id,
                 )?)
             }
-            &PropertyKind::DeportedSignedInt(size, store_id, deported_default) => {
-                let store = value_storage.get_value_store(store_id)?;
+            &PropertyKind::DeportedSignedInt {
+                int_size,
+                value_store_idx,
+                id,
+            } => {
+                let store = value_storage.get_value_store(value_store_idx)?;
                 Self::SignedInt(SignedProperty::new_from_deported(
-                    p.offset,
-                    size,
-                    store,
-                    deported_default,
+                    p.offset, int_size, store, id,
                 )?)
             }
             PropertyKind::Padding => unreachable!(),
