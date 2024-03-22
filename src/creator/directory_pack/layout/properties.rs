@@ -61,20 +61,20 @@ impl<PN: PropertyName + 'static> Properties<PN> {
         for key in keys {
             match key {
                 Property::Array {
-                    array_size_size,
-                    fixed_array_size,
+                    array_len_size,
+                    fixed_array_len,
                     deported_info,
                     name,
                 } => {
                     match entry.value(name).as_ref() {
                         Value::Array0(a) => {
-                            if let Some(array_size_size) = array_size_size {
-                                written += stream.write_usized(a.size as u64, *array_size_size)?;
+                            if let Some(array_len_size) = array_len_size {
+                                written += stream.write_usized(a.size as u64, *array_len_size)?;
                             }
                             written += stream.write_data(&a.data)?;
-                            // Data is truncate at fixed_array_size. We just want to write 0 if data is shorter than fixed_array_size
+                            // Data is truncate at fixed_array_len. We just want to write 0 if data is shorter than fixed_array_len
                             written += stream.write_data(
-                                vec![0; *fixed_array_size as usize - a.data.len()].as_slice(),
+                                vec![0; *fixed_array_len as usize - a.data.len()].as_slice(),
                             )?;
                             if let Some((key_size, _)) = deported_info {
                                 written +=
@@ -82,13 +82,13 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                             }
                         }
                         Value::Array1(a) => {
-                            if let Some(array_size_size) = array_size_size {
-                                written += stream.write_usized(a.size as u64, *array_size_size)?;
+                            if let Some(array_len_size) = array_len_size {
+                                written += stream.write_usized(a.size as u64, *array_len_size)?;
                             }
                             written += stream.write_data(&a.data)?;
-                            // Data is truncate at fixed_array_size. We just want to write 0 if data is shorter than fixed_array_size
+                            // Data is truncate at fixed_array_len. We just want to write 0 if data is shorter than fixed_array_len
                             written += stream.write_data(
-                                vec![0; *fixed_array_size as usize - a.data.len()].as_slice(),
+                                vec![0; *fixed_array_len as usize - a.data.len()].as_slice(),
                             )?;
                             if let Some((key_size, _)) = deported_info {
                                 written +=
@@ -96,13 +96,13 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                             }
                         }
                         Value::Array2(a) => {
-                            if let Some(array_size_size) = array_size_size {
-                                written += stream.write_usized(a.size as u64, *array_size_size)?;
+                            if let Some(array_len_size) = array_len_size {
+                                written += stream.write_usized(a.size as u64, *array_len_size)?;
                             }
                             written += stream.write_data(&a.data)?;
-                            // Data is truncate at fixed_array_size. We just want to write 0 if data is shorter than fixed_array_size
+                            // Data is truncate at fixed_array_len. We just want to write 0 if data is shorter than fixed_array_len
                             written += stream.write_data(
-                                vec![0; *fixed_array_size as usize - a.data.len()].as_slice(),
+                                vec![0; *fixed_array_len as usize - a.data.len()].as_slice(),
                             )?;
                             if let Some((key_size, _)) = deported_info {
                                 written +=
@@ -110,13 +110,13 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                             }
                         }
                         Value::Array(a) => {
-                            if let Some(array_size_size) = array_size_size {
-                                written += stream.write_usized(a.size as u64, *array_size_size)?;
+                            if let Some(array_len_size) = array_len_size {
+                                written += stream.write_usized(a.size as u64, *array_len_size)?;
                             }
                             written += stream.write_data(&a.data)?;
-                            // Data is truncate at fixed_array_size. We just want to write 0 if data is shorter than fixed_array_size
+                            // Data is truncate at fixed_array_len. We just want to write 0 if data is shorter than fixed_array_len
                             written += stream.write_data(
-                                vec![0; *fixed_array_size as usize - a.data.len()].as_slice(),
+                                vec![0; *fixed_array_len as usize - a.data.len()].as_slice(),
                             )?;
                             if let Some((key_size, _)) = deported_info {
                                 written +=
@@ -124,8 +124,8 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                             }
                         }
                         Value::IndirectArray(value_id) => {
-                            assert_eq!(*array_size_size, None); // We don't store the size of the array
-                            assert_eq!(*fixed_array_size, 0); // No fixed array
+                            assert_eq!(*array_len_size, None); // We don't store the size of the array
+                            assert_eq!(*fixed_array_len, 0); // No fixed array
                             if let Some((key_size, _)) = deported_info {
                                 written +=
                                     stream.write_usized(value_id.get().into_u64(), *key_size)?;

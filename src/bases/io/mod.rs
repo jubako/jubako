@@ -33,6 +33,12 @@ pub trait Source: Sync + Send {
 
 pub trait MemorySource: Source {
     fn get_slice(&self, region: Region) -> Result<&[u8]>;
+
+    /// Get a slice from the MemorySource
+    ///
+    /// # Safety
+    ///
+    /// `region` must point to a valid range in the memory source.
     unsafe fn get_slice_unchecked(&self, region: Region) -> Result<&[u8]>;
     fn into_source(self: Arc<Self>) -> Arc<dyn Source>;
 }

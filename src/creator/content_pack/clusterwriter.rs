@@ -334,10 +334,8 @@ impl<O: OutStream + 'static> ClusterWriterProxy<O> {
             if let Err(e) = self.dispatch_tx.send(cluster) {
                 return Err(e.to_string().into());
             }
-        } else {
-            if let Err(e) = self.fusion_tx.send(cluster.into()) {
-                return Err(e.to_string().into());
-            }
+        } else if let Err(e) = self.fusion_tx.send(cluster.into()) {
+            return Err(e.to_string().into());
         }
         Ok(())
     }

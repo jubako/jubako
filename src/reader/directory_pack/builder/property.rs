@@ -238,8 +238,8 @@ impl PropertyBuilderTrait for SignedProperty {
 #[derive(Debug, Clone)]
 pub struct ArrayProperty {
     offset: Offset,
-    array_size_size: Option<ByteSize>,
-    fixed_array_size: u8,
+    array_len_size: Option<ByteSize>,
+    fixed_array_len: u8,
     deported_array_info: Option<(ByteSize, Arc<dyn ValueStoreTrait>)>,
     default: Option<(u64, BaseArray, Option<u64>)>,
 }
@@ -247,15 +247,15 @@ pub struct ArrayProperty {
 impl ArrayProperty {
     pub fn new(
         offset: Offset,
-        array_size_size: Option<ByteSize>,
-        fixed_array_size: u8,
+        array_len_size: Option<ByteSize>,
+        fixed_array_len: u8,
         deported_array_info: Option<(ByteSize, Arc<dyn ValueStoreTrait>)>,
         default: Option<(u64, BaseArray, Option<u64>)>,
     ) -> Self {
         Self {
             offset,
-            array_size_size,
-            fixed_array_size,
+            array_len_size,
+            fixed_array_len,
             deported_array_info,
             default,
         }
@@ -305,11 +305,11 @@ impl PropertyBuilderTrait for ArrayProperty {
             ),
             None => {
                 let mut flux = reader.create_flux_from(self.offset);
-                let array_size = match self.array_size_size {
+                let array_size = match self.array_len_size {
                     None => None,
                     Some(size) => Some(flux.read_usized(size)?.into()),
                 };
-                let base_array = BaseArray::new_from_flux(self.fixed_array_size, &mut flux)?;
+                let base_array = BaseArray::new_from_flux(self.fixed_array_len, &mut flux)?;
                 let deported_info = match &self.deported_array_info {
                     Some((value_size, store)) => {
                         let value_id = flux.read_usized(*value_size)?.into();
@@ -323,7 +323,7 @@ impl PropertyBuilderTrait for ArrayProperty {
         Ok(Array::new(
             array_size,
             base_array,
-            self.fixed_array_size,
+            self.fixed_array_len,
             deported_info,
         ))
     }

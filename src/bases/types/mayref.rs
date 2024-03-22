@@ -1,3 +1,7 @@
+/// MayRef is a mix between a Cow and AsRef.
+/// It is a enum as Cow but with only one feature : AsRef/Deref.
+/// In opposition to Cow which has a `to_owned` and so enforce a clone on T,
+/// MayRef inforce nothing on the (potentially) owned type.
 pub enum MayRef<'a, T>
 where
     T: 'a,

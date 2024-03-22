@@ -198,9 +198,9 @@ impl<O: OutStream + 'static> ContentPackCreator<O> {
     pub fn add_content<R: InputReader + 'static>(&mut self, mut content: R) -> Result<ContentIdx> {
         let content_size = content.size();
         self.progress.content_added(content_size);
-        let mut head = Vec::with_capacity(1024);
+        let mut head = Vec::with_capacity(4 * 1024);
         {
-            content.by_ref().take(1024).read_to_end(&mut head)?;
+            content.by_ref().take(4 * 1024).read_to_end(&mut head)?;
         }
         let cluster = self.get_open_cluster(&head, content_size)?;
         content.seek(SeekFrom::Start(0))?;

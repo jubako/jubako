@@ -14,6 +14,15 @@ use uuid::Uuid;
 use zerocopy::little_endian::U64;
 use zerocopy::FromBytes;
 
+/// Container is the main structure which reunit other structures to read a Jubako container.
+///
+/// While it is possible to use all other structures in [`reader`] module, `Container` provides
+/// a uniform way to read a Jubako container.
+///
+/// It takes at its charge:
+/// - Loading of different packs
+/// - Storage of opened value and entry stores
+/// - Access to [`Reader`] for a specific [`ContentAddress`]
 pub struct Container {
     manifest_pack: ManifestPack,
     locator: Arc<dyn PackLocatorTrait>,
@@ -77,12 +86,19 @@ pub fn locate_pack(reader: Reader) -> Result<ContainerPack> {
 }
 
 impl Container {
+    /// Open a new container
+    ///
+    /// `path` is the path to the manifest pack (or a container pack with a manifest pack within).
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let locator = Arc::new(FsLocator::new(
             path.as_ref().parent().unwrap().to_path_buf(),
         ));
         Self::new_with_locator(path, locator)
     }
+
+    /// Open a new container with a specific locator to found other pack.
+    ///
+    /// `path` is the path to the manifest pack (or a container pack with a manifest pack within).
     pub fn new_with_locator<P: AsRef<Path>>(
         path: P,
         locator: Arc<dyn PackLocatorTrait>,
@@ -122,6 +138,7 @@ impl Container {
 }
 
 impl Container {
+    /// The number of packs in the container.
     pub fn pack_count(&self) -> PackCount {
         self.manifest_pack.pack_count()
     }
@@ -147,26 +164,32 @@ impl Container {
         ContentPack::new(pack_reader.unwrap())
     }
 
+    /// Get the directory pack of the container
     pub fn get_directory_pack(&self) -> &Arc<DirectoryPack> {
         &self.directory_pack
     }
 
+    /// Get the value storage of the container
     pub fn get_value_storage(&self) -> &Arc<ValueStorage> {
         &self.value_storage
     }
 
+    /// Get the entry storage of the container
     pub fn get_entry_storage(&self) -> &Arc<EntryStorage> {
         &self.entry_storage
     }
 
+    /// Get a index by its name
     pub fn get_index_for_name(&self, name: &str) -> Result<Index> {
         self.directory_pack.get_index_from_name(name)
     }
 
+    /// Check the container
     pub fn check(&self) -> Result<bool> {
         self.manifest_pack.check()
     }
 
+    /// Get the uuid of the container (manifest_pack)
     pub fn uuid(&self) -> Uuid {
         self.manifest_pack.uuid()
     }
