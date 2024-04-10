@@ -4,6 +4,9 @@ use jbk::reader::Range;
 use jubako as jbk;
 use std::error::Error;
 
+// We first have to define the entry type we expect to read from jubako container.
+// The entry has two variants. We duplicate the common part in the variants for
+// simplification.
 pub enum Entry {
     Variant0(Variant0),
     Variant1(Variant1),
@@ -21,6 +24,8 @@ pub struct Variant1 {
     value2: u64,
 }
 
+// The builder is what will build the entry from the data stored in jubako.
+// It is a composition of different individual property builder provided by jubako.
 pub struct Builder {
     store: jbk::reader::EntryStore,
     variant_id: jbk::reader::builder::VariantIdProperty,
@@ -30,38 +35,8 @@ pub struct Builder {
     variant1_value2: jbk::reader::builder::IntProperty,
 }
 
-impl jbk::reader::builder::BuilderTrait for Builder {
-    type Entry = Entry;
-
-    fn create_entry(&self, idx: jbk::EntryIdx) -> jbk::Result<Self::Entry> {
-        let reader = self.store.get_entry_reader(idx);
-
-        // Read the common part
-        let mut value0 = vec![];
-        self.value0.create(&reader)?.resolve_to_vec(&mut value0)?;
-        let value1 = self.value1.create(&reader)?;
-        match self.variant_id.create(&reader)?.into_u8() {
-            0 => {
-                let value2 = self.variant0_value2.create(&reader)?;
-                Ok(Entry::Variant0(Variant0 {
-                    value0,
-                    value1,
-                    value2,
-                }))
-            }
-            1 => {
-                let value2 = self.variant1_value2.create(&reader)?;
-                Ok(Entry::Variant1(Variant1 {
-                    value0,
-                    value1,
-                    value2,
-                }))
-            }
-            _ => Err("Unknown variant".into()),
-        }
-    }
-}
-
+// Let's create our builder from the entryStore and ValueStore found in Jubako container.
+// This is where we check that the entrystore layout correspond to what we expect.
 fn create_builder(
     store: jbk::reader::EntryStore,
     value_storage: &jbk::reader::ValueStorage,
@@ -92,6 +67,48 @@ fn create_builder(
     })
 }
 
+// This is where we build our entry
+impl jbk::reader::builder::BuilderTrait for Builder {
+    type Entry = Entry;
+
+    fn create_entry(&self, idx: jbk::EntryIdx) -> jbk::Result<Self::Entry> {
+        // With this, we can read the bytes corresponding to our entry in the container.
+        let reader = self.store.get_entry_reader(idx);
+
+        // Read the common part
+
+        // Value0 is a array with a part stored in a value store.
+        // The property builder only parse the bytes in the entry_store
+        // so we have to "resolve" the property to get the data from the value_store.
+        let mut value0 = vec![];
+        self.value0.create(&reader)?.resolve_to_vec(&mut value0)?;
+
+        // Read value1
+        let value1 = self.value1.create(&reader)?;
+
+        // Read other property, depending of the variant.
+        match self.variant_id.create(&reader)?.into_u8() {
+            0 => {
+                let value2 = self.variant0_value2.create(&reader)?;
+                Ok(Entry::Variant0(Variant0 {
+                    value0,
+                    value1,
+                    value2,
+                }))
+            }
+            1 => {
+                let value2 = self.variant1_value2.create(&reader)?;
+                Ok(Entry::Variant1(Variant1 {
+                    value0,
+                    value1,
+                    value2,
+                }))
+            }
+            _ => Err("Unknown variant".into()),
+        }
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     // Let's read our container created in `simple_create.rs`
     let container = jbk::reader::Container::new("test.jbkm")?; // or "test.jbkm"
@@ -101,6 +118,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         container.get_value_storage(),
     )?;
 
+    // Now we can read our entries.
     {
         let entry = index.get_entry(&builder, 0.into())?;
         if let Entry::Variant0(entry) = entry {

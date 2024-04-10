@@ -4,8 +4,9 @@ use jubako as jbk;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // Let's read our container created in `simple_create.rs`
-    let container = jbk::reader::Container::new("test.jbkm")?; // or "test.jbkm"
+    // Let's read our container created in `simple_create.rs` or `basic_creator.rs`
+
+    let container = jbk::reader::Container::new("test.jbkm")?; // or "test.jbk" if created using basic_creator.rs
     let index = container.get_index_for_name("My own index")?;
     let builder = AnyBuilder::new(
         index.get_store(&container.get_entry_storage())?,
