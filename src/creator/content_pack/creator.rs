@@ -1,8 +1,10 @@
 use super::cluster::ClusterCreator;
 use super::clusterwriter::ClusterWriterProxy;
-use super::Progress;
+use super::{ContentAdder, Progress};
 use crate::bases::*;
-use crate::common::{CheckInfo, ContentInfo, ContentPackHeader, PackHeaderInfo, PackKind};
+use crate::common::{
+    CheckInfo, ContentAddress, ContentInfo, ContentPackHeader, PackHeaderInfo, PackKind,
+};
 use crate::creator::{Compression, InputReader, NamedFile, PackData, PackRecipient};
 use std::cell::Cell;
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -31,7 +33,7 @@ fn shannon_entropy(data: &[u8]) -> Result<f32> {
     Ok(entropy)
 }
 
-pub struct ContentPackCreator<O: PackRecipient + 'static> {
+pub struct ContentPackCreator<O: PackRecipient> {
     app_vendor_id: VendorId,
     pack_id: PackId,
     free_data: ContentPackFreeData,
@@ -198,19 +200,22 @@ impl<O: PackRecipient + 'static> ContentPackCreator<O> {
         content.seek(SeekFrom::Start(0))?;
         Ok(entropy <= 6.0)
     }
+}
 
-    pub fn add_content<R: InputReader + 'static>(&mut self, mut content: R) -> Result<ContentIdx> {
+impl<O: PackRecipient + 'static> ContentAdder for ContentPackCreator<O> {
+    fn add_content<R: InputReader + 'static>(&mut self, mut content: R) -> Result<ContentAddress> {
         let content_size = content.size();
         self.progress.content_added(content_size);
         let should_compress = self.detect_compression(&mut content)?;
         let cluster = self.get_open_cluster(should_compress, content_size)?;
         let content_info = cluster.add_content(content)?;
         self.content_infos.push(content_info);
-        Ok(((self.content_infos.len() - 1) as u32).into())
+        let content_id = ((self.content_infos.len() - 1) as u32).into();
+        Ok(ContentAddress::new(self.pack_id, content_id))
     }
 }
 
-impl<O: PackRecipient> ContentPackCreator<O> {
+impl<O: PackRecipient + 'static> ContentPackCreator<O> {
     pub fn finalize(mut self) -> Result<(O, PackData)> {
         info!("======= Finalize creation =======");
 

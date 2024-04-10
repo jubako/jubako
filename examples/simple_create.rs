@@ -1,5 +1,5 @@
 use jubako as jbk;
-use jubako::creator::schema;
+use jubako::creator::{schema, ContentAdder};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::OpenOptions;
@@ -52,20 +52,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Now we have "configured" our container, let's add some content:
     let content: Vec<u8> = "A super content prime quality for our test container".into();
     let content = std::io::Cursor::new(content);
-    let content_id = content_pack.add_content(content)?;
+    let content_address = content_pack.add_content(content)?;
     entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
         &entry_store.schema,
         Some("FirstVariant"), // Variant 0
         HashMap::from([
             ("AString", jbk::Value::Array("Super".into())),
             ("AInteger", jbk::Value::Unsigned(50)),
-            (
-                "TheContent",
-                jbk::Value::Content(jbk::ContentAddress::new(
-                    jbk::PackId::from(1), // Pack id
-                    content_id,           // Content id in the pack
-                )),
-            ),
+            ("TheContent", jbk::Value::Content(content_address)),
         ]),
     ));
 

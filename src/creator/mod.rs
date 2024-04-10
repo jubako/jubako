@@ -1,3 +1,4 @@
+mod basic_creator;
 mod container_pack;
 mod content_pack;
 mod directory_pack;
@@ -6,8 +7,11 @@ mod manifest_pack;
 use crate::bases::*;
 pub use crate::bases::{FileSource, InOutStream, OutStream, Reader};
 use crate::common::{CheckInfo, CompressionType, PackKind};
+pub use basic_creator::{BasicCreator, ConcatMode, EntryStoreTrait};
 pub use container_pack::{ContainerPackCreator, InContainerFile};
-pub use content_pack::{CacheProgress, CachedContentPackCreator, ContentPackCreator, Progress};
+pub use content_pack::{
+    CacheProgress, CachedContentAdder, ContentAdder, ContentPackCreator, Progress,
+};
 pub use directory_pack::{
     schema, Array, ArrayS, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait,
     FullEntryTrait, IndexedValueStore, PlainValueStore, PropertyName, StoreHandle, Value,
