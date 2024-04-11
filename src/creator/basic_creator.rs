@@ -111,6 +111,7 @@ impl BasicCreator {
         mut self,
         outfile: P,
         entry_store_creator: Box<dyn EntryStoreTrait>,
+        extra_content_pack_creators: Vec<ContentPackCreator<dyn PackRecipient>>,
     ) -> Result<()> {
         let outfile = outfile.as_ref();
         entry_store_creator.finalize(&mut self.directory_pack);
@@ -145,7 +146,14 @@ impl BasicCreator {
             }
         };
 
-        // [TODO] Write extra content_pack
+        let extra_locators = extra_content_pack_creators
+            .into_iter()
+            .map(|extra_creator| {
+                let (extra_pack_file, extra_pack_info) = extra_creator.finalize()?;
+                let extra_locator = extra_pack_file.close_file()?;
+                Ok::<_, crate::Error>((extra_pack_info, extra_locator))
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         let (directory_pack_info, directory_locator) = match container.take() {
             Some(inner_container) => {
@@ -169,7 +177,9 @@ impl BasicCreator {
         manifest_creator.add_pack(directory_pack_info, directory_locator);
         manifest_creator.add_pack(content_pack_info, content_locator);
 
-        // [TODO] Add extra content_pack
+        for (extra_pack_info, extra_locator) in extra_locators {
+            manifest_creator.add_pack(extra_pack_info, extra_locator);
+        }
 
         match container.take() {
             Some(inner_container) => {

@@ -150,7 +150,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ]),
     );
 
-    Ok(creator.finalize("test.jbk", entry_store)?)
+    Ok(creator.finalize("test.jbk", entry_store, vec![])?)
 
     // You have now 3 files : "test.jbkm", "test.jbkc" and "test.jbkd".
 

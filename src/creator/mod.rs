@@ -228,7 +228,7 @@ impl From<Compression> for CompressionType {
 /// Something on which we can write a Pack.
 /// This may be a File or not.
 pub trait PackRecipient: InOutStream + private::Sealed {
-    fn close_file(self) -> Result<Vec<u8>>;
+    fn close_file(self: Box<Self>) -> Result<Vec<u8>>;
 }
 
 #[derive(Debug)]
@@ -238,17 +238,17 @@ pub struct NamedFile {
 }
 
 impl NamedFile {
-    fn new<P: AsRef<std::path::Path>>(final_path: P) -> Result<Self> {
+    fn new<P: AsRef<std::path::Path>>(final_path: P) -> Result<Box<Self>> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(true)
             .open(&final_path)?;
-        Ok(Self {
+        Ok(Box::new(Self {
             file,
             final_path: final_path.as_ref().to_path_buf(),
-        })
+        }))
     }
 
     pub fn into_inner(self) -> std::fs::File {
@@ -287,7 +287,7 @@ impl OutStream for NamedFile {
 impl private::Sealed for NamedFile {}
 
 impl PackRecipient for NamedFile {
-    fn close_file(self) -> Result<Vec<u8>> {
+    fn close_file(self: Box<Self>) -> Result<Vec<u8>> {
         Ok(self.final_path.into_os_string().into_vec())
     }
 }
@@ -299,13 +299,13 @@ pub struct AtomicOutFile {
 }
 
 impl AtomicOutFile {
-    pub fn new<P: AsRef<std::path::Path>>(final_path: P) -> Result<Self> {
+    pub fn new<P: AsRef<std::path::Path>>(final_path: P) -> Result<Box<Self>> {
         let parent = final_path.as_ref().parent().unwrap();
         let temp_file = tempfile::NamedTempFile::new_in(parent)?;
-        Ok(Self {
+        Ok(Box::new(Self {
             temp_file,
             final_path: final_path.as_ref().to_path_buf(),
-        })
+        }))
     }
 }
 
@@ -339,7 +339,7 @@ impl OutStream for AtomicOutFile {
 
 impl private::Sealed for AtomicOutFile {}
 impl PackRecipient for AtomicOutFile {
-    fn close_file(self) -> Result<Vec<u8>> {
+    fn close_file(self: Box<Self>) -> Result<Vec<u8>> {
         self.temp_file
              .persist(&self.final_path)
              .map_err(|e| e.error)?;

@@ -8,12 +8,12 @@ use super::{NamedFile, PackRecipient};
 
 pub struct ContainerPackCreator<F: PackRecipient> {
     packs: Vec<PackLocator>,
-    file: F,
+    file: Box<F>,
 }
 
 #[derive(Debug)]
 pub struct InContainerFile<F: PackRecipient> {
-    file: Skip<F>,
+    file: Skip<Box<F>>,
     packs: Vec<PackLocator>,
 }
 
@@ -25,7 +25,7 @@ impl ContainerPackCreator<NamedFile> {
     }
 }
 impl<F: PackRecipient> ContainerPackCreator<F> {
-    pub fn from_file(mut file: F) -> Result<Self> {
+    pub fn from_file(mut file: Box<F>) -> Result<Self> {
         file.seek(SeekFrom::Start(HEADER_SIZE))?;
         Ok(ContainerPackCreator {
             packs: vec![],
@@ -33,11 +33,11 @@ impl<F: PackRecipient> ContainerPackCreator<F> {
         })
     }
 
-    pub fn into_file(self) -> Result<InContainerFile<F>> {
-        Ok(InContainerFile {
+    pub fn into_file(self) -> Result<Box<InContainerFile<F>>> {
+        Ok(Box::new(self::InContainerFile {
             file: Skip::new(self.file)?,
             packs: self.packs,
-        })
+        }))
     }
 
     pub fn add_pack<I: Read>(&mut self, uuid: uuid::Uuid, reader: &mut I) -> Result<()> {
@@ -49,7 +49,7 @@ impl<F: PackRecipient> ContainerPackCreator<F> {
         Ok(())
     }
 
-    pub fn finalize(mut self) -> Result<F> {
+    pub fn finalize(mut self) -> Result<Box<F>> {
         for pack_locator in &self.packs {
             pack_locator.write(&mut self.file)?;
         }
@@ -118,7 +118,7 @@ impl<F: PackRecipient + std::fmt::Debug + Sync + Send> OutStream for InContainer
 impl<F: PackRecipient + Sync + Send> Sealed for InContainerFile<F> {}
 
 impl<F: PackRecipient + Sync + Send> PackRecipient for InContainerFile<F> {
-    fn close_file(self) -> Result<Vec<u8>> {
+    fn close_file(self: Box<Self>) -> Result<Vec<u8>> {
         Ok(vec![])
     }
 }

@@ -33,7 +33,7 @@ fn shannon_entropy(data: &[u8]) -> Result<f32> {
     Ok(entropy)
 }
 
-pub struct ContentPackCreator<O: PackRecipient> {
+pub struct ContentPackCreator<O: PackRecipient + ?Sized> {
     app_vendor_id: VendorId,
     pack_id: PackId,
     free_data: ContentPackFreeData,
@@ -41,7 +41,7 @@ pub struct ContentPackCreator<O: PackRecipient> {
     raw_open_cluster: Option<ClusterCreator>,
     comp_open_cluster: Option<ClusterCreator>,
     next_cluster_id: Cell<u32>,
-    cluster_writer: ClusterWriterProxy<O>,
+    cluster_writer: ClusterWriterProxy<Box<O>>,
     progress: Arc<dyn Progress>,
     compression: Compression,
 }
@@ -101,9 +101,9 @@ impl ContentPackCreator<NamedFile> {
     }
 }
 
-impl<O: PackRecipient + 'static> ContentPackCreator<O> {
+impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
     pub fn new_from_output(
-        file: O,
+        file: Box<O>,
         pack_id: PackId,
         app_vendor_id: VendorId,
         free_data: ContentPackFreeData,
@@ -120,7 +120,7 @@ impl<O: PackRecipient + 'static> ContentPackCreator<O> {
     }
 
     pub fn new_from_output_with_progress(
-        mut file: O,
+        mut file: Box<O>,
         pack_id: PackId,
         app_vendor_id: VendorId,
         free_data: ContentPackFreeData,
@@ -215,8 +215,8 @@ impl<O: PackRecipient + 'static> ContentAdder for ContentPackCreator<O> {
     }
 }
 
-impl<O: PackRecipient + 'static> ContentPackCreator<O> {
-    pub fn finalize(mut self) -> Result<(O, PackData)> {
+impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
+    pub fn finalize(mut self) -> Result<(Box<O>, PackData)> {
         info!("======= Finalize creation =======");
 
         if let Some(cluster) = self.raw_open_cluster.take() {
