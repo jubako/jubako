@@ -3,9 +3,8 @@ use super::clusterwriter::ClusterWriterProxy;
 use super::Progress;
 use crate::bases::*;
 use crate::common::{CheckInfo, ContentInfo, ContentPackHeader, PackHeaderInfo, PackKind};
-use crate::creator::{Compression, InputReader, PackData};
+use crate::creator::{Compression, InputReader, NamedFile, PackData, PackRecipient};
 use std::cell::Cell;
-use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::sync::Arc;
@@ -32,7 +31,7 @@ fn shannon_entropy(data: &[u8]) -> Result<f32> {
     Ok(entropy)
 }
 
-pub struct ContentPackCreator<O: OutStream + 'static> {
+pub struct ContentPackCreator<O: PackRecipient + 'static> {
     app_vendor_id: VendorId,
     pack_id: PackId,
     free_data: ContentPackFreeData,
@@ -62,7 +61,7 @@ macro_rules! open_cluster_ref {
     };
 }
 
-impl ContentPackCreator<File> {
+impl ContentPackCreator<NamedFile> {
     pub fn new<P: AsRef<Path>>(
         path: P,
         pack_id: PackId,
@@ -88,12 +87,7 @@ impl ContentPackCreator<File> {
         compression: Compression,
         progress: Arc<dyn Progress>,
     ) -> Result<Self> {
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&path)?;
+        let file = NamedFile::new(path)?;
         Self::new_from_output_with_progress(
             file,
             pack_id,
@@ -105,7 +99,7 @@ impl ContentPackCreator<File> {
     }
 }
 
-impl<O: OutStream + 'static> ContentPackCreator<O> {
+impl<O: PackRecipient + 'static> ContentPackCreator<O> {
     pub fn new_from_output(
         file: O,
         pack_id: PackId,
@@ -216,7 +210,7 @@ impl<O: OutStream + 'static> ContentPackCreator<O> {
     }
 }
 
-impl<O: InOutStream> ContentPackCreator<O> {
+impl<O: PackRecipient> ContentPackCreator<O> {
     pub fn finalize(mut self) -> Result<(O, PackData)> {
         info!("======= Finalize creation =======");
 

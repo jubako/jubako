@@ -1,34 +1,31 @@
 use crate::bases::*;
 use crate::common::{ContainerPackHeader, PackLocator};
-use std::fs::{File, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
-pub struct ContainerPackCreator {
+use super::private::Sealed;
+use super::{NamedFile, PackRecipient};
+
+pub struct ContainerPackCreator<F: PackRecipient> {
     packs: Vec<PackLocator>,
-    file: File,
+    file: F,
 }
 
 #[derive(Debug)]
-pub struct InContainerFile {
-    file: Skip<File>,
+pub struct InContainerFile<F: PackRecipient> {
+    file: Skip<F>,
     packs: Vec<PackLocator>,
 }
 
 const HEADER_SIZE: u64 = ContainerPackHeader::SIZE as u64;
 
-impl ContainerPackCreator {
+impl ContainerPackCreator<NamedFile> {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(path)?;
-        Self::from_file(file)
+        Self::from_file(NamedFile::new(path)?)
     }
-
-    pub fn from_file(mut file: File) -> Result<Self> {
+}
+impl<F: PackRecipient> ContainerPackCreator<F> {
+    pub fn from_file(mut file: F) -> Result<Self> {
         file.seek(SeekFrom::Start(HEADER_SIZE))?;
         Ok(ContainerPackCreator {
             packs: vec![],
@@ -36,7 +33,7 @@ impl ContainerPackCreator {
         })
     }
 
-    pub fn into_file(self) -> Result<InContainerFile> {
+    pub fn into_file(self) -> Result<InContainerFile<F>> {
         Ok(InContainerFile {
             file: Skip::new(self.file)?,
             packs: self.packs,
@@ -52,7 +49,7 @@ impl ContainerPackCreator {
         Ok(())
     }
 
-    pub fn finalize(mut self) -> Result<()> {
+    pub fn finalize(mut self) -> Result<F> {
         for pack_locator in &self.packs {
             pack_locator.write(&mut self.file)?;
         }
@@ -70,12 +67,12 @@ impl ContainerPackCreator {
         self.file.seek(SeekFrom::End(0))?;
         self.file.write_all(&tail_buffer)?;
 
-        Ok(())
+        Ok(self.file)
     }
 }
 
-impl InContainerFile {
-    pub fn close(mut self, uuid: uuid::Uuid) -> Result<ContainerPackCreator> {
+impl<F: PackRecipient> InContainerFile<F> {
+    pub fn close(mut self, uuid: uuid::Uuid) -> Result<ContainerPackCreator<F>> {
         let pack_size = self.file.seek(SeekFrom::End(0))?;
         self.file.seek(SeekFrom::Start(0))?;
         let mut file = self.file.into_inner();
@@ -90,13 +87,13 @@ impl InContainerFile {
     }
 }
 
-impl Seek for InContainerFile {
+impl<F: PackRecipient> Seek for InContainerFile<F> {
     fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
         self.file.seek(pos)
     }
 }
 
-impl Write for InContainerFile {
+impl<F: PackRecipient> Write for InContainerFile<F> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.file.write(buf)
     }
@@ -106,14 +103,22 @@ impl Write for InContainerFile {
     }
 }
 
-impl Read for InContainerFile {
+impl<F: PackRecipient> Read for InContainerFile<F> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.file.read(buf)
     }
 }
 
-impl OutStream for InContainerFile {
+impl<F: PackRecipient + std::fmt::Debug + Sync + Send> OutStream for InContainerFile<F> {
     fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
         self.file.copy(reader)
+    }
+}
+
+impl<F: PackRecipient + Sync + Send> Sealed for InContainerFile<F> {}
+
+impl<F: PackRecipient + Sync + Send> PackRecipient for InContainerFile<F> {
+    fn close_file(self) -> Result<Vec<u8>> {
+        Ok(vec![])
     }
 }

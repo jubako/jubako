@@ -14,7 +14,9 @@ pub use directory_pack::{
     ValueHandle, ValueStore, ValueTransformer, VariantName,
 };
 pub use manifest_pack::ManifestPackCreator;
-use std::io::{Read, Seek, SeekFrom};
+use std::fs::OpenOptions;
+use std::io::{self, Read, Seek, SeekFrom};
+use std::os::unix::ffi::OsStringExt;
 use std::path::PathBuf;
 
 pub enum Embedded {
@@ -35,6 +37,8 @@ mod private {
             Ok(SizedOffset { size, offset })
         }
     }
+
+    pub trait Sealed {}
 }
 
 pub struct PackData {
@@ -214,5 +218,127 @@ impl From<Compression> for CompressionType {
             #[cfg(feature = "zstd")]
             Compression::Zstd(_) => CompressionType::Zstd,
         }
+    }
+}
+
+/// Something on which we can write a Pack.
+/// This may be a File or not.
+pub trait PackRecipient: InOutStream + private::Sealed {
+    fn close_file(self) -> Result<Vec<u8>>;
+}
+
+#[derive(Debug)]
+pub struct NamedFile {
+    file: std::fs::File,
+    final_path: PathBuf,
+}
+
+impl NamedFile {
+    fn new<P: AsRef<std::path::Path>>(final_path: P) -> Result<Self> {
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&final_path)?;
+        Ok(Self {
+            file,
+            final_path: final_path.as_ref().to_path_buf(),
+        })
+    }
+
+    pub fn into_inner(self) -> std::fs::File {
+        self.file
+    }
+}
+
+impl Seek for NamedFile {
+    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
+        self.file.seek(pos)
+    }
+}
+
+impl io::Write for NamedFile {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.file.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.file.flush()
+    }
+}
+
+impl io::Read for NamedFile {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.file.read(buf)
+    }
+}
+
+impl OutStream for NamedFile {
+    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
+        self.file.copy(reader)
+    }
+}
+
+impl private::Sealed for NamedFile {}
+
+impl PackRecipient for NamedFile {
+    fn close_file(self) -> Result<Vec<u8>> {
+        Ok(self.final_path.into_os_string().into_vec())
+    }
+}
+
+#[derive(Debug)]
+pub struct AtomicOutFile {
+    temp_file: tempfile::NamedTempFile,
+    final_path: PathBuf,
+}
+
+impl AtomicOutFile {
+    pub fn new<P: AsRef<std::path::Path>>(final_path: P) -> Result<Self> {
+        let parent = final_path.as_ref().parent().unwrap();
+        let temp_file = tempfile::NamedTempFile::new_in(parent)?;
+        Ok(Self {
+            temp_file,
+            final_path: final_path.as_ref().to_path_buf(),
+        })
+    }
+}
+
+impl Seek for AtomicOutFile {
+    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
+        self.temp_file.seek(pos)
+    }
+}
+
+impl io::Write for AtomicOutFile {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.temp_file.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.temp_file.flush()
+    }
+}
+
+impl io::Read for AtomicOutFile {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.temp_file.read(buf)
+    }
+}
+
+impl OutStream for AtomicOutFile {
+    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
+        self.temp_file.as_file_mut().copy(reader)
+    }
+}
+
+impl private::Sealed for AtomicOutFile {}
+impl PackRecipient for AtomicOutFile {
+    fn close_file(self) -> Result<Vec<u8>> {
+        self.temp_file
+             .persist(&self.final_path)
+             .map_err(|e| e.error)?;
+        Ok(self.final_path.into_os_string().into_vec())
     }
 }

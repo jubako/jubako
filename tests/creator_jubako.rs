@@ -86,7 +86,7 @@ test_suite! {
         }
         let (mut file, pack_info) = creator.finalize()?;
         file.rewind()?;
-        Ok((pack_info, jubako::FileSource::new(file)?.into()))
+        Ok((pack_info, jubako::FileSource::new(file.into_inner())?.into()))
     }
 
     fn create_directory_pack(value_store_kind: ValueStoreKind, entries: &Vec<TestEntry>, outfile: &Path) -> Result<(creator::PackData, jubako::Reader)> {

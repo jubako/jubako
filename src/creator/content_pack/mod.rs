@@ -9,6 +9,8 @@ use std::collections::{hash_map::Entry, HashMap};
 use std::io::SeekFrom;
 use std::rc::Rc;
 
+use super::PackRecipient;
+
 pub trait Progress: Send + Sync {
     fn new_cluster(&self, _cluster_idx: u32, _compressed: bool) {}
     fn handle_cluster(&self, _cluster_idx: u32, _compressed: bool) {}
@@ -24,13 +26,13 @@ pub trait CacheProgress {
 
 impl CacheProgress for () {}
 
-pub struct CachedContentPackCreator<O: OutStream + 'static> {
+pub struct CachedContentPackCreator<O: PackRecipient + 'static> {
     content_pack: ContentPackCreator<O>,
     cache: HashMap<blake3::Hash, ContentIdx>,
     progress: Rc<dyn CacheProgress>,
 }
 
-impl<O: OutStream> CachedContentPackCreator<O> {
+impl<O: PackRecipient> CachedContentPackCreator<O> {
     pub fn new(content_pack: ContentPackCreator<O>, progress: Rc<dyn CacheProgress>) -> Self {
         Self {
             content_pack,
