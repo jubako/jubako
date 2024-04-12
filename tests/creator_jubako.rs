@@ -10,7 +10,7 @@ test_suite! {
     name basic_creation;
 
     use jubako::creator;
-    use jubako::creator::{schema, ContentAdder};
+    use jubako::creator::schema;
     use jubako::Result;
     use jubako::reader::{Range, EntryTrait};
     use std::io::{Read, Seek};

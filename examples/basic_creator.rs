@@ -1,4 +1,4 @@
-use jbk::creator::{ContentAdder, EntryStoreTrait};
+use jbk::creator::EntryStoreTrait;
 use jubako as jbk;
 use jubako::creator::schema;
 use std::collections::HashMap;

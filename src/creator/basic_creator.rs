@@ -203,10 +203,14 @@ impl BasicCreator {
 
         Ok(())
     }
+
+    pub fn add_content<R: InputReader + 'static>(&mut self, content: R) -> Result<ContentAddress> {
+        self.content_pack.add_content(content)
+    }
 }
 
 impl ContentAdder for BasicCreator {
     fn add_content<R: InputReader + 'static>(&mut self, content: R) -> Result<ContentAddress> {
-        self.content_pack.add_content(content)
+        self.add_content(content)
     }
 }

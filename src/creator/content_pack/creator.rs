@@ -200,10 +200,11 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         content.seek(SeekFrom::Start(0))?;
         Ok(entropy <= 6.0)
     }
-}
 
-impl<O: PackRecipient + 'static> ContentAdder for ContentPackCreator<O> {
-    fn add_content<R: InputReader + 'static>(&mut self, mut content: R) -> Result<ContentAddress> {
+    pub fn add_content<R: InputReader + 'static>(
+        &mut self,
+        mut content: R,
+    ) -> Result<ContentAddress> {
         let content_size = content.size();
         self.progress.content_added(content_size);
         let should_compress = self.detect_compression(&mut content)?;
@@ -212,6 +213,12 @@ impl<O: PackRecipient + 'static> ContentAdder for ContentPackCreator<O> {
         self.content_infos.push(content_info);
         let content_id = ((self.content_infos.len() - 1) as u32).into();
         Ok(ContentAddress::new(self.pack_id, content_id))
+    }
+}
+
+impl<O: PackRecipient + 'static + ?Sized> ContentAdder for ContentPackCreator<O> {
+    fn add_content<R: InputReader + 'static>(&mut self, content: R) -> Result<ContentAddress> {
+        self.add_content(content)
     }
 }
 

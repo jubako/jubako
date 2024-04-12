@@ -50,10 +50,8 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
     pub fn into_inner(self) -> Wrapped {
         self.content_pack
     }
-}
 
-impl<Wrapper: ContentAdder> ContentAdder for CachedContentAdder<Wrapper> {
-    fn add_content<R: InputReader>(&mut self, mut reader: R) -> Result<crate::ContentAddress> {
+    pub fn add_content<R: InputReader>(&mut self, mut reader: R) -> Result<crate::ContentAddress> {
         let mut hasher = blake3::Hasher::new();
         hasher.update_reader(&mut reader)?;
         let hash = hasher.finalize();
@@ -69,5 +67,11 @@ impl<Wrapper: ContentAdder> ContentAdder for CachedContentAdder<Wrapper> {
                 Ok(*e.get())
             }
         }
+    }
+}
+
+impl<Wrapper: ContentAdder> ContentAdder for CachedContentAdder<Wrapper> {
+    fn add_content<R: InputReader>(&mut self, reader: R) -> Result<crate::ContentAddress> {
+        self.add_content(reader)
     }
 }

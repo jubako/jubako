@@ -1,5 +1,5 @@
 use jubako as jbk;
-use jubako::creator::{schema, ContentAdder};
+use jubako::creator::schema;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::OpenOptions;
