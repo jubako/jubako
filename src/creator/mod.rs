@@ -20,13 +20,14 @@ pub use directory_pack::{
 pub use manifest_pack::ManifestPackCreator;
 use std::fs::OpenOptions;
 use std::io::{self, Read, Seek, SeekFrom};
-use std::os::unix::ffi::OsStringExt;
 use std::path::PathBuf;
 
 pub enum Embedded {
     Yes,
     No(PathBuf),
 }
+
+use bstr::ByteVec;
 
 mod private {
     use super::*;
@@ -288,7 +289,7 @@ impl private::Sealed for NamedFile {}
 
 impl PackRecipient for NamedFile {
     fn close_file(self: Box<Self>) -> Result<Vec<u8>> {
-        Ok(self.final_path.into_os_string().into_vec())
+        Vec::from_path_buf(self.final_path).map_err(|e| format!("{e:?} is not valid utf8").into())
     }
 }
 
@@ -341,8 +342,8 @@ impl private::Sealed for AtomicOutFile {}
 impl PackRecipient for AtomicOutFile {
     fn close_file(self: Box<Self>) -> Result<Vec<u8>> {
         self.temp_file
-             .persist(&self.final_path)
-             .map_err(|e| e.error)?;
-        Ok(self.final_path.into_os_string().into_vec())
+            .persist(&self.final_path)
+            .map_err(|e| e.error)?;
+        Vec::from_path_buf(self.final_path).map_err(|e| format!("{e:?} is not valid utf8").into())
     }
 }

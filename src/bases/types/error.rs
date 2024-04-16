@@ -96,6 +96,12 @@ impl From<FromUtf8Error> for Error {
     }
 }
 
+impl From<bstr::Utf8Error> for Error {
+    fn from(_e: bstr::Utf8Error) -> Error {
+        FormatError::new("Utf8DecodingError", None).into()
+    }
+}
+
 #[cfg(feature = "lzma")]
 impl From<lzmaError> for Error {
     fn from(_e: lzmaError) -> Error {

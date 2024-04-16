@@ -33,6 +33,7 @@ rayon = "1.8.0"
 static_assertions = "1.1.0"
 deranged = "0.3.10"
 tempfile = "3.8.0"
+bstr = "1.9.1"
 
 [dev-dependencies]
 test-case = "3.2.1"
