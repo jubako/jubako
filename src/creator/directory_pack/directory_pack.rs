@@ -53,12 +53,7 @@ impl DirectoryPackCreator {
         self.indexes.push(index);
     }
 
-    pub fn finalize<O: InOutStream>(mut self, file: &mut O) -> Result<PackData> {
-        let origin_offset = file.stream_position()?;
-        let to_skip =
-            128 + 8 * (self.value_stores.len() + self.entry_stores.len() + self.indexes.len());
-        file.seek(SeekFrom::Current(to_skip as i64))?;
-
+    pub fn finalize(self) -> Result<FinalizedDirectoryPackCreator> {
         info!("======= Finalize creation =======");
 
         info!("----- Finalize value_stores -----");
@@ -67,11 +62,38 @@ impl DirectoryPackCreator {
         }
 
         info!("----- Finalize entry_stores -----");
-        let finalized_entry_store: Vec<Box<dyn WritableTell>> = self
+        let finalized_entry_stores: Vec<Box<dyn WritableTell>> = self
             .entry_stores
             .into_iter()
             .map(|e| e.finalize())
             .collect();
+
+        Ok(FinalizedDirectoryPackCreator {
+            app_vendor_id: self.app_vendor_id,
+            pack_id: self.pack_id,
+            free_data: self.free_data,
+            value_stores: self.value_stores,
+            entry_stores: finalized_entry_stores,
+            indexes: self.indexes,
+        })
+    }
+}
+
+pub struct FinalizedDirectoryPackCreator {
+    app_vendor_id: VendorId,
+    pack_id: PackId,
+    free_data: DirectoryPackFreeData,
+    value_stores: Vec<StoreHandle>,
+    entry_stores: Vec<Box<dyn WritableTell>>,
+    indexes: Vec<Index>,
+}
+
+impl FinalizedDirectoryPackCreator {
+    pub fn write<O: InOutStream>(mut self, file: &mut O) -> Result<PackData> {
+        let origin_offset = file.stream_position()?;
+        let to_skip =
+            128 + 8 * (self.value_stores.len() + self.entry_stores.len() + self.indexes.len());
+        file.seek(SeekFrom::Current(to_skip as i64))?;
 
         let mut buffered = BufWriter::new(file);
 
@@ -83,7 +105,7 @@ impl DirectoryPackCreator {
 
         info!("----- Write entry_stores -----");
         let mut entry_stores_offsets = vec![];
-        for mut entry_store in finalized_entry_store {
+        for mut entry_store in self.entry_stores {
             entry_stores_offsets.push(entry_store.write(&mut buffered)?);
         }
 

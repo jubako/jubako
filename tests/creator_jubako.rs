@@ -130,7 +130,7 @@ test_suite! {
                 .create(true)
                 .truncate(true)
                 .open(outfile)?;
-        let pack_info = creator.finalize(&mut directory_file).unwrap();
+        let pack_info = creator.finalize()?.write(&mut directory_file).unwrap();
         directory_file.rewind().unwrap();
         Ok((pack_info, jubako::FileSource::new(directory_file).unwrap().into()))
     }

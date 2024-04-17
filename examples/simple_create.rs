@@ -125,7 +125,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .create(true)
         .truncate(true)
         .open("test.jbkd")?;
-    let directory_pack_info = directory_pack.finalize(&mut directory_file)?;
+    let directory_pack_info = directory_pack.finalize()?.write(&mut directory_file)?;
 
     // Let's finalize content pack creation.
     // We don't care about returned file as we will not store the content pack in a container.
