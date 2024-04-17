@@ -13,7 +13,8 @@ pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
         }
     }
 
-    container.finalize()
+    container.finalize()?;
+    Ok(())
 }
 
 pub fn open_pack<P: AsRef<Path>>(path: P) -> jbk::Result<ContainerPack> {

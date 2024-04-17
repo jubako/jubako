@@ -2,8 +2,8 @@ mod cluster;
 mod clusterwriter;
 mod creator;
 
-use crate::bases::*;
 use crate::creator::InputReader;
+use crate::{bases::*, ContentAddress};
 pub use creator::ContentPackCreator;
 use std::collections::{hash_map::Entry, HashMap};
 use std::io::SeekFrom;
@@ -24,14 +24,22 @@ pub trait CacheProgress {
 
 impl CacheProgress for () {}
 
-pub struct CachedContentPackCreator<O: OutStream + 'static> {
-    content_pack: ContentPackCreator<O>,
-    cache: HashMap<blake3::Hash, ContentIdx>,
+/// A trait for structure able to add content to a content pack.
+///
+/// Usefull to implement wrapper on one [ContentPackCreator]
+pub trait ContentAdder {
+    /// Add a content into a content pack.
+    fn add_content<R: InputReader>(&mut self, reader: R) -> Result<ContentAddress>;
+}
+
+pub struct CachedContentAdder<Wrapped: ContentAdder + 'static> {
+    content_pack: Wrapped,
+    cache: HashMap<blake3::Hash, ContentAddress>,
     progress: Rc<dyn CacheProgress>,
 }
 
-impl<O: OutStream> CachedContentPackCreator<O> {
-    pub fn new(content_pack: ContentPackCreator<O>, progress: Rc<dyn CacheProgress>) -> Self {
+impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
+    pub fn new(content_pack: Wrapped, progress: Rc<dyn CacheProgress>) -> Self {
         Self {
             content_pack,
             cache: Default::default(),
@@ -39,28 +47,31 @@ impl<O: OutStream> CachedContentPackCreator<O> {
         }
     }
 
-    pub fn add_content<R>(&mut self, mut content: R) -> Result<ContentIdx>
-    where
-        R: InputReader + 'static,
-    {
+    pub fn into_inner(self) -> Wrapped {
+        self.content_pack
+    }
+
+    pub fn add_content<R: InputReader>(&mut self, mut reader: R) -> Result<crate::ContentAddress> {
         let mut hasher = blake3::Hasher::new();
-        hasher.update_reader(&mut content)?;
+        hasher.update_reader(&mut reader)?;
         let hash = hasher.finalize();
-        content.seek(SeekFrom::Start(0))?;
+        reader.seek(SeekFrom::Start(0))?;
         match self.cache.entry(hash) {
             Entry::Vacant(e) => {
-                let content_idx = self.content_pack.add_content(content)?;
-                e.insert(content_idx);
-                Ok(content_idx)
+                let content_address = self.content_pack.add_content(reader)?;
+                e.insert(content_address);
+                Ok(content_address)
             }
             Entry::Occupied(e) => {
-                self.progress.cached_data(content.size());
+                self.progress.cached_data(reader.size());
                 Ok(*e.get())
             }
         }
     }
+}
 
-    pub fn into_inner(self) -> ContentPackCreator<O> {
-        self.content_pack
+impl<Wrapper: ContentAdder> ContentAdder for CachedContentAdder<Wrapper> {
+    fn add_content<R: InputReader>(&mut self, reader: R) -> Result<crate::ContentAddress> {
+        self.add_content(reader)
     }
 }
