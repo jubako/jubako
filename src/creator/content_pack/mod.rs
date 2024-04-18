@@ -4,9 +4,10 @@ mod creator;
 
 use crate::creator::InputReader;
 use crate::{bases::*, ContentAddress};
+use blake3::Hash;
 pub use creator::ContentPackCreator;
 use std::collections::{hash_map::Entry, HashMap};
-use std::io::SeekFrom;
+use std::io::Cursor;
 use std::rc::Rc;
 
 pub trait Progress: Send + Sync {
@@ -67,15 +68,12 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
         self.content_pack
     }
 
-    pub fn add_content<R: InputReader>(
+    fn cache_content<R: InputReader>(
         &mut self,
-        mut reader: R,
+        hash: Hash,
+        reader: R,
         comp_hint: CompHint,
     ) -> Result<crate::ContentAddress> {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update_reader(&mut reader)?;
-        let hash = hasher.finalize();
-        reader.seek(SeekFrom::Start(0))?;
         match self.cache.entry(hash) {
             Entry::Vacant(e) => {
                 let content_address = self.content_pack.add_content(reader, comp_hint)?;
@@ -86,6 +84,26 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
                 self.progress.cached_data(reader.size());
                 Ok(*e.get())
             }
+        }
+    }
+
+    pub fn add_content<R: InputReader>(
+        &mut self,
+        mut reader: R,
+        comp_hint: CompHint,
+    ) -> Result<crate::ContentAddress> {
+        let mut hasher = blake3::Hasher::new();
+        if reader.size() < cluster::CLUSTER_SIZE {
+            let mut buf = Vec::with_capacity(reader.size().into_usize());
+            reader.read_to_end(&mut buf)?;
+            hasher.update(&buf);
+            let hash = hasher.finalize();
+            self.cache_content(hash, Cursor::new(buf), comp_hint)
+        } else {
+            hasher.update_reader(&mut reader)?;
+            reader.rewind()?;
+            let hash = hasher.finalize();
+            self.cache_content(hash, reader, comp_hint)
         }
     }
 }

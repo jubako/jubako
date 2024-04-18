@@ -10,7 +10,7 @@ pub struct ClusterCreator {
     pub offsets: Vec<usize>,
 }
 
-const CLUSTER_SIZE: Size = Size::new(1024 * 1024 * 4);
+pub(crate) const CLUSTER_SIZE: Size = Size::new(1024 * 1024 * 4);
 const MAX_BLOBS_PER_CLUSTER: usize = 0xFFF;
 
 impl ClusterCreator {
