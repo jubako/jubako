@@ -5,9 +5,9 @@ use std::{
 };
 
 use super::{
-    content_pack::ContentAdder, AtomicOutFile, Compression, ContainerPackCreator,
-    ContentPackCreator, DirectoryPackCreator, InContainerFile, InputReader, ManifestPackCreator,
-    PackRecipient, Progress,
+    content_pack::{CompHint, ContentAdder},
+    AtomicOutFile, Compression, ContainerPackCreator, ContentPackCreator, DirectoryPackCreator,
+    InContainerFile, InputReader, ManifestPackCreator, PackRecipient, Progress,
 };
 use crate::{bases::*, ContentAddress};
 
@@ -206,13 +206,21 @@ impl BasicCreator {
         Ok(())
     }
 
-    pub fn add_content<R: InputReader + 'static>(&mut self, content: R) -> Result<ContentAddress> {
-        self.content_pack.add_content(content)
+    pub fn add_content<R: InputReader + 'static>(
+        &mut self,
+        content: R,
+        comp_hint: CompHint,
+    ) -> Result<ContentAddress> {
+        self.content_pack.add_content(content, comp_hint)
     }
 }
 
 impl ContentAdder for BasicCreator {
-    fn add_content<R: InputReader + 'static>(&mut self, content: R) -> Result<ContentAddress> {
-        self.add_content(content)
+    fn add_content<R: InputReader + 'static>(
+        &mut self,
+        content: R,
+        comp_hint: CompHint,
+    ) -> Result<ContentAddress> {
+        self.add_content(content, comp_hint)
     }
 }

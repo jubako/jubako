@@ -82,7 +82,7 @@ test_suite! {
         for entry in entries {
             let content = entry.content.clone();
             let content = std::io::Cursor::new(content);
-            creator.add_content(content)?;
+            creator.add_content(content, Default::default())?;
         }
         let (mut file, pack_info) = creator.finalize()?;
         file.rewind()?;

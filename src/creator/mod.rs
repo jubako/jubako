@@ -10,7 +10,7 @@ use crate::common::{CheckInfo, CompressionType, PackKind};
 pub use basic_creator::{BasicCreator, ConcatMode, EntryStoreTrait};
 pub use container_pack::{ContainerPackCreator, InContainerFile};
 pub use content_pack::{
-    CacheProgress, CachedContentAdder, ContentAdder, ContentPackCreator, Progress,
+    CacheProgress, CachedContentAdder, CompHint, ContentAdder, ContentPackCreator, Progress,
 };
 pub use directory_pack::{
     schema, Array, ArrayS, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait,

@@ -24,12 +24,28 @@ pub trait CacheProgress {
 
 impl CacheProgress for () {}
 
+pub enum CompHint {
+    Yes,
+    No,
+    Detect,
+}
+
+impl Default for CompHint {
+    fn default() -> Self {
+        Self::Detect
+    }
+}
+
 /// A trait for structure able to add content to a content pack.
 ///
 /// Usefull to implement wrapper on one [ContentPackCreator]
 pub trait ContentAdder {
     /// Add a content into a content pack.
-    fn add_content<R: InputReader>(&mut self, reader: R) -> Result<ContentAddress>;
+    fn add_content<R: InputReader>(
+        &mut self,
+        reader: R,
+        comp_hint: CompHint,
+    ) -> Result<ContentAddress>;
 }
 
 pub struct CachedContentAdder<Wrapped: ContentAdder + 'static> {
@@ -51,14 +67,18 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
         self.content_pack
     }
 
-    pub fn add_content<R: InputReader>(&mut self, mut reader: R) -> Result<crate::ContentAddress> {
+    pub fn add_content<R: InputReader>(
+        &mut self,
+        mut reader: R,
+        comp_hint: CompHint,
+    ) -> Result<crate::ContentAddress> {
         let mut hasher = blake3::Hasher::new();
         hasher.update_reader(&mut reader)?;
         let hash = hasher.finalize();
         reader.seek(SeekFrom::Start(0))?;
         match self.cache.entry(hash) {
             Entry::Vacant(e) => {
-                let content_address = self.content_pack.add_content(reader)?;
+                let content_address = self.content_pack.add_content(reader, comp_hint)?;
                 e.insert(content_address);
                 Ok(content_address)
             }
@@ -71,7 +91,11 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
 }
 
 impl<Wrapper: ContentAdder> ContentAdder for CachedContentAdder<Wrapper> {
-    fn add_content<R: InputReader>(&mut self, reader: R) -> Result<crate::ContentAddress> {
-        self.add_content(reader)
+    fn add_content<R: InputReader>(
+        &mut self,
+        reader: R,
+        comp_hint: CompHint,
+    ) -> Result<crate::ContentAddress> {
+        self.add_content(reader, comp_hint)
     }
 }
