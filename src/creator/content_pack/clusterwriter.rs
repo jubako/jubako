@@ -1,8 +1,10 @@
+use dropout::Dropper;
+
 use super::cluster::ClusterCreator;
 use super::Progress;
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
-use crate::creator::{Compression, InputReader};
+use crate::creator::{Compression, InputReader, MaybeFileReader};
 use std::sync::{mpsc, Arc, Condvar, Mutex};
 use std::thread::{spawn, JoinHandle};
 
@@ -174,6 +176,7 @@ pub struct ClusterWriter<O> {
     cluster_addresses: Vec<Late<SizedOffset>>,
     file: O,
     input: mpsc::Receiver<WriteTask>,
+    dropper: Dropper<MaybeFileReader>,
     progress: Arc<dyn Progress>,
 }
 
@@ -186,6 +189,7 @@ where
             cluster_addresses: vec![],
             file,
             input,
+            dropper: Dropper::new(),
             progress,
         }
     }
@@ -193,7 +197,9 @@ where
     fn write_cluster_data(&mut self, cluster_data: InputData) -> Result<u64> {
         let mut copied = 0;
         for d in cluster_data.into_iter() {
-            copied += self.file.copy(d)?;
+            let (read, to_drop) = self.file.copy(d)?;
+            copied += read;
+            self.dropper.dropout(to_drop);
         }
         Ok(copied)
     }

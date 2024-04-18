@@ -57,7 +57,7 @@ pub struct PackData {
 
 pub enum MaybeFileReader {
     Yes(std::io::Take<std::fs::File>),
-    No(Box<dyn Read>),
+    No(Box<dyn Read + Send>),
 }
 
 pub trait InputReader: Read + Seek + Send + 'static {
@@ -280,7 +280,10 @@ impl io::Read for NamedFile {
 }
 
 impl OutStream for NamedFile {
-    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
+    fn copy(
+        &mut self,
+        reader: Box<dyn crate::creator::InputReader>,
+    ) -> IoResult<(u64, MaybeFileReader)> {
         self.file.copy(reader)
     }
 }
@@ -333,7 +336,10 @@ impl io::Read for AtomicOutFile {
 }
 
 impl OutStream for AtomicOutFile {
-    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
+    fn copy(
+        &mut self,
+        reader: Box<dyn crate::creator::InputReader>,
+    ) -> IoResult<(u64, MaybeFileReader)> {
         self.temp_file.as_file_mut().copy(reader)
     }
 }
