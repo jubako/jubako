@@ -1,5 +1,3 @@
-use std::io::Cursor;
-
 use crate::bases::*;
 use crate::common::ContentInfo;
 use crate::creator::InputReader;
@@ -43,16 +41,9 @@ impl ClusterCreator {
         self.data.is_empty()
     }
 
-    pub fn add_content(&mut self, mut content: Box<dyn InputReader>) -> Result<ContentInfo> {
+    pub fn add_content(&mut self, content: Box<dyn InputReader>) -> Result<ContentInfo> {
         assert!(self.offsets.len() < MAX_BLOBS_PER_CLUSTER);
         let content_size = content.size();
-        let content: Box<dyn InputReader> = if self.compressed || content_size < CLUSTER_SIZE {
-            let mut bytes = Vec::with_capacity(content_size.into_usize());
-            content.read_to_end(&mut bytes)?;
-            Box::new(Cursor::new(bytes))
-        } else {
-            content
-        };
         let idx = self.offsets.len() as u16;
         let new_offset = self.offsets.last().unwrap_or(&0) + content_size.into_usize();
         self.data.push(content);
