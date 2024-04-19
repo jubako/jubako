@@ -5,6 +5,7 @@ use super::Progress;
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
 use crate::creator::{Compression, InputReader, MaybeFileReader};
+use std::io::{BufWriter, Write};
 use std::sync::{mpsc, Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
 
@@ -184,9 +185,9 @@ impl From<ClusterCreator> for WriteTask {
     }
 }
 
-pub struct ClusterWriter<O> {
+pub struct ClusterWriter<O: OutStream> {
     cluster_addresses: Vec<Late<SizedOffset>>,
-    file: O,
+    file: BufWriter<O>,
     input: mpsc::Receiver<WriteTask>,
     dropper: Dropper<MaybeFileReader>,
     progress: Arc<dyn Progress>,
@@ -199,7 +200,7 @@ where
     pub fn new(file: O, input: mpsc::Receiver<WriteTask>, progress: Arc<dyn Progress>) -> Self {
         Self {
             cluster_addresses: vec![],
-            file,
+            file: BufWriter::new(file),
             input,
             dropper: Dropper::new(),
             progress,
@@ -277,7 +278,10 @@ where
             }
             self.cluster_addresses[idx].set(sized_offset);
         }
-        Ok((self.file, self.cluster_addresses))
+        Ok((
+            self.file.into_inner().map_err(|e| e.into_error())?,
+            self.cluster_addresses,
+        ))
     }
 }
 
