@@ -42,9 +42,9 @@ impl Default for CompHint {
 /// Usefull to implement wrapper on one [ContentPackCreator]
 pub trait ContentAdder {
     /// Add a content into a content pack.
-    fn add_content<R: InputReader>(
+    fn add_content(
         &mut self,
-        reader: R,
+        reader: Box<dyn InputReader>,
         comp_hint: CompHint,
     ) -> Result<ContentAddress>;
 }
@@ -68,10 +68,10 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
         self.content_pack
     }
 
-    fn cache_content<R: InputReader>(
+    fn cache_content(
         &mut self,
         hash: Hash,
-        reader: R,
+        reader: Box<dyn InputReader>,
         comp_hint: CompHint,
     ) -> Result<crate::ContentAddress> {
         match self.cache.entry(hash) {
@@ -87,9 +87,9 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
         }
     }
 
-    pub fn add_content<R: InputReader>(
+    pub fn add_content(
         &mut self,
-        mut reader: R,
+        mut reader: Box<dyn InputReader>,
         comp_hint: CompHint,
     ) -> Result<crate::ContentAddress> {
         let mut hasher = blake3::Hasher::new();
@@ -98,7 +98,7 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
             reader.read_to_end(&mut buf)?;
             hasher.update(&buf);
             let hash = hasher.finalize();
-            self.cache_content(hash, Cursor::new(buf), comp_hint)
+            self.cache_content(hash, Box::new(Cursor::new(buf)), comp_hint)
         } else {
             hasher.update_reader(&mut reader)?;
             reader.rewind()?;
@@ -109,9 +109,9 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
 }
 
 impl<Wrapper: ContentAdder> ContentAdder for CachedContentAdder<Wrapper> {
-    fn add_content<R: InputReader>(
+    fn add_content(
         &mut self,
-        reader: R,
+        reader: Box<dyn InputReader>,
         comp_hint: CompHint,
     ) -> Result<crate::ContentAddress> {
         self.add_content(reader, comp_hint)

@@ -206,9 +206,9 @@ impl BasicCreator {
         Ok(())
     }
 
-    pub fn add_content<R: InputReader + 'static>(
+    pub fn add_content(
         &mut self,
-        content: R,
+        content: Box<dyn InputReader>,
         comp_hint: CompHint,
     ) -> Result<ContentAddress> {
         self.content_pack.add_content(content, comp_hint)
@@ -216,9 +216,9 @@ impl BasicCreator {
 }
 
 impl ContentAdder for BasicCreator {
-    fn add_content<R: InputReader + 'static>(
+    fn add_content(
         &mut self,
-        content: R,
+        content: Box<dyn InputReader>,
         comp_hint: CompHint,
     ) -> Result<ContentAddress> {
         self.add_content(content, comp_hint)

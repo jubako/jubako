@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // For the first entry, we have a content, we need to add it to our conten creator.
     let content: Vec<u8> = "A super content prime quality for our test container".into();
-    let content = std::io::Cursor::new(content);
+    let content = Box::new(std::io::Cursor::new(content));
     let content_address = content_pack.add_content(content, Default::default())?;
 
     // Now it is added, we can add the entry itself.

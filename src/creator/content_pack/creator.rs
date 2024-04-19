@@ -188,9 +188,9 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         }
     }
 
-    fn detect_compression<R: InputReader + 'static>(
+    fn detect_compression(
         &self,
-        content: &mut R,
+        content: &mut dyn InputReader,
         comp_hint: CompHint,
     ) -> Result<bool> {
         if let Compression::None = self.compression {
@@ -202,7 +202,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
             CompHint::Detect => {
                 let mut head = Vec::with_capacity(4 * 1024);
                 {
-                    content.by_ref().take(4 * 1024).read_to_end(&mut head)?;
+                    content.take(4 * 1024).read_to_end(&mut head)?;
                 }
                 let entropy = shannon_entropy(&head)?;
                 content.seek(SeekFrom::Start(0))?;
@@ -211,14 +211,14 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         }
     }
 
-    pub fn add_content<R: InputReader + 'static>(
+    pub fn add_content(
         &mut self,
-        mut content: R,
+        mut content: Box<dyn InputReader>,
         comp_hint: CompHint,
     ) -> Result<ContentAddress> {
         let content_size = content.size();
         self.progress.content_added(content_size);
-        let should_compress = self.detect_compression(&mut content, comp_hint)?;
+        let should_compress = self.detect_compression(content.as_mut(), comp_hint)?;
         let cluster = self.get_open_cluster(should_compress, content_size)?;
         let content_info = cluster.add_content(content)?;
         self.content_infos.push(content_info);
@@ -228,9 +228,9 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
 }
 
 impl<O: PackRecipient + 'static + ?Sized> ContentAdder for ContentPackCreator<O> {
-    fn add_content<R: InputReader + 'static>(
+    fn add_content(
         &mut self,
-        content: R,
+        content: Box<dyn InputReader>,
         comp_hint: CompHint,
     ) -> Result<ContentAddress> {
         self.add_content(content, comp_hint)
