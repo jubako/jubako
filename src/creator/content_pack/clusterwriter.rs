@@ -6,7 +6,19 @@ use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
 use crate::creator::{Compression, InputReader, MaybeFileReader};
 use std::sync::{mpsc, Arc, Condvar, Mutex};
-use std::thread::{spawn, JoinHandle};
+use std::thread::JoinHandle;
+
+#[inline(always)]
+fn spawn<F, T>(name: &str, f: F) -> std::thread::JoinHandle<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    std::thread::Builder::new()
+        .name(name.into())
+        .spawn(f)
+        .expect("Success to launch thread")
+}
 
 type InputData = Vec<Box<dyn InputReader>>;
 
@@ -292,12 +304,12 @@ impl<O: OutStream + 'static> ClusterWriterProxy<O> {
         let nb_cluster_in_queue = Arc::new((Mutex::new(0), Condvar::new()));
 
         let worker_threads = (0..nb_thread)
-            .map(|_| {
+            .map(|idx| {
                 let dispatch_rx = dispatch_rx.clone();
                 let fusion_tx = fusion_tx.clone();
                 let nb_cluster_in_queue = Arc::clone(&nb_cluster_in_queue);
                 let progress = Arc::clone(&progress);
-                spawn(move || {
+                spawn(&format!("ClusterComp {idx}"), move || {
                     let worker = ClusterCompressor::new(
                         compression,
                         dispatch_rx,
@@ -310,7 +322,7 @@ impl<O: OutStream + 'static> ClusterWriterProxy<O> {
             })
             .collect();
 
-        let thread_handle = spawn(move || {
+        let thread_handle = spawn("Cluster writer", move || {
             let writer = ClusterWriter::new(file, fusion_rx, progress);
             writer.run()
         });
