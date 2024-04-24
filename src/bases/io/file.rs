@@ -66,7 +66,7 @@ impl Source for FileSource {
         self: Arc<Self>,
         region: Region,
     ) -> Result<(Arc<dyn MemorySource>, Region)> {
-        if region.size().into_u64() < 1024 {
+        if region.size().into_u64() < 4 * 1024 {
             let mut f = self.lock().unwrap();
             let mut buf = Vec::with_capacity(region.size().into_usize());
             f.seek(SeekFrom::Start(region.begin().into_u64()))?;
