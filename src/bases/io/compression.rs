@@ -1,8 +1,7 @@
 use crate::bases::*;
 use std::io::Read;
 use std::mem::ManuallyDrop;
-use std::sync::{Arc, Condvar, Mutex};
-use std::thread::spawn;
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use zerocopy::byteorder::{ByteOrder, LittleEndian as LE};
 
 /*
@@ -25,6 +24,8 @@ We don't have to change the length of the store `_arc`.
 When drop, Vec will free the whole allocated buffer.
 Individual elements of the vec don't have to be deallocated as they are u8.
 */
+
+static DECOMPRESSION_POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
 
 struct SyncVecWr {
     _arc: Arc<Vec<u8>>,
@@ -129,9 +130,17 @@ impl SeekableDecoder {
     pub fn new<T: Read + Send + 'static>(decoder: T, size: Size) -> Self {
         let (write_hand, read_hand) = create_sync_vec(size.into_usize());
 
-        spawn(move || {
-            decode_to_end(decoder, write_hand, 4 * 1024).unwrap();
-        });
+        DECOMPRESSION_POOL
+            .get_or_init(|| {
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(8)
+                    .thread_name(|idx| format!("DecompThread{idx}"))
+                    .build()
+                    .unwrap()
+            })
+            .spawn(move || {
+                decode_to_end(decoder, write_hand, 4 * 1024).unwrap();
+            });
         Self { buffer: read_hand }
     }
 
