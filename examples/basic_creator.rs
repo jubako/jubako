@@ -122,7 +122,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Now we have "configured" our creator, let's add some content:
     let content: Vec<u8> = "A super content prime quality for our test container".into();
-    let content_address = creator.add_content(std::io::Cursor::new(content))?;
+    let content_address =
+        creator.add_content(Box::new(std::io::Cursor::new(content)), Default::default())?;
     entry_store.add_entry(
         Some("FirstVariant"),
         HashMap::from([

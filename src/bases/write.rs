@@ -1,4 +1,5 @@
 use crate::bases::*;
+use crate::creator::MaybeFileReader;
 use std::fmt::Debug;
 pub use std::io::Result as IoResult;
 use std::io::{Read, Seek, Write};
@@ -7,7 +8,10 @@ use zerocopy::{AsBytes, ByteOrder, LittleEndian as LE};
 
 /// A OutStream is a object on which we can write data.
 pub trait OutStream: Write + Seek + Send + Debug {
-    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64>;
+    fn copy(
+        &mut self,
+        reader: Box<dyn crate::creator::InputReader>,
+    ) -> IoResult<(u64, MaybeFileReader)>;
 
     fn tell(&mut self) -> Offset {
         self.stream_position().unwrap().into()
@@ -59,13 +63,20 @@ pub trait Writable {
 }
 
 impl OutStream for std::fs::File {
-    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
-        match reader.get_file_source() {
-            crate::creator::MaybeFileReader::Yes(mut input_file) => {
-                std::io::copy(&mut input_file, self)
+    fn copy(
+        &mut self,
+        reader: Box<dyn crate::creator::InputReader>,
+    ) -> IoResult<(u64, MaybeFileReader)> {
+        let mut maybe_file_reader = reader.get_file_source();
+        let read = match maybe_file_reader {
+            crate::creator::MaybeFileReader::Yes(ref mut input_file) => {
+                std::io::copy(input_file, self)?
             }
-            crate::creator::MaybeFileReader::No(mut reader) => std::io::copy(reader.as_mut(), self),
-        }
+            crate::creator::MaybeFileReader::No(ref mut reader) => {
+                std::io::copy(reader.as_mut(), self)?
+            }
+        };
+        Ok((read, maybe_file_reader))
     }
 }
 
@@ -73,13 +84,20 @@ impl<T> OutStream for std::io::Cursor<T>
 where
     std::io::Cursor<T>: Write + Seek + Send + std::fmt::Debug,
 {
-    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
-        match reader.get_file_source() {
-            crate::creator::MaybeFileReader::Yes(mut input_file) => {
-                std::io::copy(&mut input_file, self)
+    fn copy(
+        &mut self,
+        reader: Box<dyn crate::creator::InputReader>,
+    ) -> IoResult<(u64, MaybeFileReader)> {
+        let mut maybe_file_reader = reader.get_file_source();
+        let read = match maybe_file_reader {
+            crate::creator::MaybeFileReader::Yes(ref mut input_file) => {
+                std::io::copy(input_file, self)?
             }
-            crate::creator::MaybeFileReader::No(mut reader) => std::io::copy(reader.as_mut(), self),
-        }
+            crate::creator::MaybeFileReader::No(ref mut reader) => {
+                std::io::copy(reader.as_mut(), self)?
+            }
+        };
+        Ok((read, maybe_file_reader))
     }
 }
 
@@ -87,13 +105,20 @@ impl<T> OutStream for std::io::BufWriter<T>
 where
     T: Write + Seek + Send + Debug,
 {
-    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
-        match reader.get_file_source() {
-            crate::creator::MaybeFileReader::Yes(mut input_file) => {
-                std::io::copy(&mut input_file, self)
+    fn copy(
+        &mut self,
+        reader: Box<dyn crate::creator::InputReader>,
+    ) -> IoResult<(u64, MaybeFileReader)> {
+        let mut maybe_file_reader = reader.get_file_source();
+        let read = match maybe_file_reader {
+            crate::creator::MaybeFileReader::Yes(ref mut input_file) => {
+                std::io::copy(input_file, self)?
             }
-            crate::creator::MaybeFileReader::No(mut reader) => std::io::copy(reader.as_mut(), self),
-        }
+            crate::creator::MaybeFileReader::No(ref mut reader) => {
+                std::io::copy(reader.as_mut(), self)?
+            }
+        };
+        Ok((read, maybe_file_reader))
     }
 }
 
@@ -101,7 +126,10 @@ impl<O> OutStream for Skip<O>
 where
     O: OutStream,
 {
-    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
+    fn copy(
+        &mut self,
+        reader: Box<dyn crate::creator::InputReader>,
+    ) -> IoResult<(u64, MaybeFileReader)> {
         self.inner_mut().copy(reader)
     }
 }
@@ -110,7 +138,10 @@ impl<O> OutStream for Box<O>
 where
     O: OutStream + ?Sized,
 {
-    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
+    fn copy(
+        &mut self,
+        reader: Box<dyn crate::creator::InputReader>,
+    ) -> IoResult<(u64, MaybeFileReader)> {
         self.as_mut().copy(reader)
     }
 }

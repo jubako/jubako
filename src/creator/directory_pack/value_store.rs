@@ -131,7 +131,7 @@ impl ValueStore {
     }
 
     pub fn new_indexed() -> StoreHandle {
-        Self::Indexed(IndexedValueStore(BaseValueStore::new(None))).into()
+        Self::Indexed(IndexedValueStore(BaseValueStore::new(Some(0)))).into()
     }
 
     pub fn finalize(&mut self, idx: ValueStoreIdx) {

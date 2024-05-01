@@ -5,9 +5,9 @@ use std::{
 };
 
 use super::{
-    content_pack::ContentAdder, AtomicOutFile, Compression, ContainerPackCreator,
-    ContentPackCreator, DirectoryPackCreator, InContainerFile, InputReader, ManifestPackCreator,
-    PackRecipient, Progress,
+    content_pack::{CompHint, ContentAdder},
+    AtomicOutFile, Compression, ContainerPackCreator, ContentPackCreator, DirectoryPackCreator,
+    InContainerFile, InputReader, ManifestPackCreator, PackRecipient, Progress,
 };
 use crate::{bases::*, ContentAddress};
 
@@ -115,6 +115,7 @@ impl BasicCreator {
     ) -> Result<()> {
         let outfile = outfile.as_ref();
         entry_store_creator.finalize(&mut self.directory_pack);
+        let finalized_directory_pack_creator = self.directory_pack.finalize()?;
 
         let (content_pack_file, content_pack_info) = self.content_pack.finalize()?;
         let (mut container, content_locator) = {
@@ -159,14 +160,15 @@ impl BasicCreator {
             Some(inner_container) => {
                 // Write directory pack in container
                 let mut infile = inner_container.into_file()?;
-                let directory_pack_info = self.directory_pack.finalize(&mut infile)?;
+                let directory_pack_info = finalized_directory_pack_creator.write(&mut infile)?;
                 container = Some(infile.close(directory_pack_info.uuid)?);
                 (directory_pack_info, vec![])
             }
             None => {
                 // Write directory pack in its own file
                 let mut atomic_tmp_file = AtomicOutFile::new(new_with_extension(outfile, ".jbkd"))?;
-                let directory_pack_info = self.directory_pack.finalize(&mut atomic_tmp_file)?;
+                let directory_pack_info =
+                    finalized_directory_pack_creator.write(&mut atomic_tmp_file)?;
                 let directory_pack_locator = atomic_tmp_file.close_file()?;
                 (directory_pack_info, directory_pack_locator)
             }
@@ -204,13 +206,21 @@ impl BasicCreator {
         Ok(())
     }
 
-    pub fn add_content<R: InputReader + 'static>(&mut self, content: R) -> Result<ContentAddress> {
-        self.content_pack.add_content(content)
+    pub fn add_content(
+        &mut self,
+        content: Box<dyn InputReader>,
+        comp_hint: CompHint,
+    ) -> Result<ContentAddress> {
+        self.content_pack.add_content(content, comp_hint)
     }
 }
 
 impl ContentAdder for BasicCreator {
-    fn add_content<R: InputReader + 'static>(&mut self, content: R) -> Result<ContentAddress> {
-        self.add_content(content)
+    fn add_content(
+        &mut self,
+        content: Box<dyn InputReader>,
+        comp_hint: CompHint,
+    ) -> Result<ContentAddress> {
+        self.add_content(content, comp_hint)
     }
 }

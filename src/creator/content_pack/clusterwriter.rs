@@ -1,10 +1,25 @@
+use dropout::Dropper;
+
 use super::cluster::ClusterCreator;
 use super::Progress;
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
-use crate::creator::{Compression, InputReader};
+use crate::creator::{Compression, InputReader, MaybeFileReader};
+use std::io::{BufWriter, Write};
 use std::sync::{mpsc, Arc, Condvar, Mutex};
-use std::thread::{spawn, JoinHandle};
+use std::thread::JoinHandle;
+
+#[inline(always)]
+fn spawn<F, T>(name: &str, f: F) -> std::thread::JoinHandle<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    std::thread::Builder::new()
+        .name(name.into())
+        .spawn(f)
+        .expect("Success to launch thread")
+}
 
 type InputData = Vec<Box<dyn InputReader>>;
 
@@ -170,10 +185,11 @@ impl From<ClusterCreator> for WriteTask {
     }
 }
 
-pub struct ClusterWriter<O> {
+pub struct ClusterWriter<O: OutStream> {
     cluster_addresses: Vec<Late<SizedOffset>>,
-    file: O,
+    file: BufWriter<O>,
     input: mpsc::Receiver<WriteTask>,
+    dropper: Dropper<MaybeFileReader>,
     progress: Arc<dyn Progress>,
 }
 
@@ -184,8 +200,9 @@ where
     pub fn new(file: O, input: mpsc::Receiver<WriteTask>, progress: Arc<dyn Progress>) -> Self {
         Self {
             cluster_addresses: vec![],
-            file,
+            file: BufWriter::new(file),
             input,
+            dropper: Dropper::new(),
             progress,
         }
     }
@@ -193,7 +210,9 @@ where
     fn write_cluster_data(&mut self, cluster_data: InputData) -> Result<u64> {
         let mut copied = 0;
         for d in cluster_data.into_iter() {
-            copied += self.file.copy(d)?;
+            let (read, to_drop) = self.file.copy(d)?;
+            copied += read;
+            self.dropper.dropout(to_drop);
         }
         Ok(copied)
     }
@@ -259,7 +278,10 @@ where
             }
             self.cluster_addresses[idx].set(sized_offset);
         }
-        Ok((self.file, self.cluster_addresses))
+        Ok((
+            self.file.into_inner().map_err(|e| e.into_error())?,
+            self.cluster_addresses,
+        ))
     }
 }
 
@@ -286,12 +308,12 @@ impl<O: OutStream + 'static> ClusterWriterProxy<O> {
         let nb_cluster_in_queue = Arc::new((Mutex::new(0), Condvar::new()));
 
         let worker_threads = (0..nb_thread)
-            .map(|_| {
+            .map(|idx| {
                 let dispatch_rx = dispatch_rx.clone();
                 let fusion_tx = fusion_tx.clone();
                 let nb_cluster_in_queue = Arc::clone(&nb_cluster_in_queue);
                 let progress = Arc::clone(&progress);
-                spawn(move || {
+                spawn(&format!("ClusterComp {idx}"), move || {
                     let worker = ClusterCompressor::new(
                         compression,
                         dispatch_rx,
@@ -304,7 +326,7 @@ impl<O: OutStream + 'static> ClusterWriterProxy<O> {
             })
             .collect();
 
-        let thread_handle = spawn(move || {
+        let thread_handle = spawn("Cluster writer", move || {
             let writer = ClusterWriter::new(file, fusion_rx, progress);
             writer.run()
         });

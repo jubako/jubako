@@ -4,7 +4,7 @@ use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 use super::private::Sealed;
-use super::{NamedFile, PackRecipient};
+use super::{MaybeFileReader, NamedFile, PackRecipient};
 
 pub struct ContainerPackCreator<F: PackRecipient> {
     packs: Vec<PackLocator>,
@@ -110,7 +110,10 @@ impl<F: PackRecipient> Read for InContainerFile<F> {
 }
 
 impl<F: PackRecipient + std::fmt::Debug + Sync + Send> OutStream for InContainerFile<F> {
-    fn copy(&mut self, reader: Box<dyn crate::creator::InputReader>) -> IoResult<u64> {
+    fn copy(
+        &mut self,
+        reader: Box<dyn crate::creator::InputReader>,
+    ) -> IoResult<(u64, MaybeFileReader)> {
         self.file.copy(reader)
     }
 }

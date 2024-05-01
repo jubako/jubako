@@ -81,8 +81,8 @@ test_suite! {
         )?;
         for entry in entries {
             let content = entry.content.clone();
-            let content = std::io::Cursor::new(content);
-            creator.add_content(content)?;
+            let content = Box::new(std::io::Cursor::new(content));
+            creator.add_content(content, Default::default())?;
         }
         let (mut file, pack_info) = creator.finalize()?;
         file.rewind()?;
@@ -130,7 +130,7 @@ test_suite! {
                 .create(true)
                 .truncate(true)
                 .open(outfile)?;
-        let pack_info = creator.finalize(&mut directory_file).unwrap();
+        let pack_info = creator.finalize()?.write(&mut directory_file).unwrap();
         directory_file.rewind().unwrap();
         Ok((pack_info, jubako::FileSource::new(directory_file).unwrap().into()))
     }

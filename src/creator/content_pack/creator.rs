@@ -1,6 +1,6 @@
 use super::cluster::ClusterCreator;
 use super::clusterwriter::ClusterWriterProxy;
-use super::{ContentAdder, Progress};
+use super::{CompHint, ContentAdder, Progress};
 use crate::bases::*;
 use crate::common::{
     CheckInfo, ContentAddress, ContentInfo, ContentPackHeader, PackHeaderInfo, PackKind,
@@ -188,26 +188,37 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         }
     }
 
-    fn detect_compression<R: InputReader + 'static>(&self, content: &mut R) -> Result<bool> {
+    fn detect_compression(
+        &self,
+        content: &mut dyn InputReader,
+        comp_hint: CompHint,
+    ) -> Result<bool> {
         if let Compression::None = self.compression {
             return Ok(false);
         }
-        let mut head = Vec::with_capacity(4 * 1024);
-        {
-            content.by_ref().take(4 * 1024).read_to_end(&mut head)?;
+        match comp_hint {
+            CompHint::Yes => Ok(true),
+            CompHint::No => Ok(false),
+            CompHint::Detect => {
+                let mut head = Vec::with_capacity(4 * 1024);
+                {
+                    content.take(4 * 1024).read_to_end(&mut head)?;
+                }
+                let entropy = shannon_entropy(&head)?;
+                content.seek(SeekFrom::Start(0))?;
+                Ok(entropy <= 6.0)
+            }
         }
-        let entropy = shannon_entropy(&head)?;
-        content.seek(SeekFrom::Start(0))?;
-        Ok(entropy <= 6.0)
     }
 
-    pub fn add_content<R: InputReader + 'static>(
+    pub fn add_content(
         &mut self,
-        mut content: R,
+        mut content: Box<dyn InputReader>,
+        comp_hint: CompHint,
     ) -> Result<ContentAddress> {
         let content_size = content.size();
         self.progress.content_added(content_size);
-        let should_compress = self.detect_compression(&mut content)?;
+        let should_compress = self.detect_compression(content.as_mut(), comp_hint)?;
         let cluster = self.get_open_cluster(should_compress, content_size)?;
         let content_info = cluster.add_content(content)?;
         self.content_infos.push(content_info);
@@ -217,8 +228,12 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
 }
 
 impl<O: PackRecipient + 'static + ?Sized> ContentAdder for ContentPackCreator<O> {
-    fn add_content<R: InputReader + 'static>(&mut self, content: R) -> Result<ContentAddress> {
-        self.add_content(content)
+    fn add_content(
+        &mut self,
+        content: Box<dyn InputReader>,
+        comp_hint: CompHint,
+    ) -> Result<ContentAddress> {
+        self.add_content(content, comp_hint)
     }
 }
 

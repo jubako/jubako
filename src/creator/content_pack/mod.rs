@@ -4,9 +4,10 @@ mod creator;
 
 use crate::creator::InputReader;
 use crate::{bases::*, ContentAddress};
+use blake3::Hash;
 pub use creator::ContentPackCreator;
 use std::collections::{hash_map::Entry, HashMap};
-use std::io::SeekFrom;
+use std::io::Cursor;
 use std::rc::Rc;
 
 pub trait Progress: Send + Sync {
@@ -24,12 +25,28 @@ pub trait CacheProgress {
 
 impl CacheProgress for () {}
 
+pub enum CompHint {
+    Yes,
+    No,
+    Detect,
+}
+
+impl Default for CompHint {
+    fn default() -> Self {
+        Self::Detect
+    }
+}
+
 /// A trait for structure able to add content to a content pack.
 ///
 /// Usefull to implement wrapper on one [ContentPackCreator]
 pub trait ContentAdder {
     /// Add a content into a content pack.
-    fn add_content<R: InputReader>(&mut self, reader: R) -> Result<ContentAddress>;
+    fn add_content(
+        &mut self,
+        reader: Box<dyn InputReader>,
+        comp_hint: CompHint,
+    ) -> Result<ContentAddress>;
 }
 
 pub struct CachedContentAdder<Wrapped: ContentAdder + 'static> {
@@ -51,14 +68,15 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
         self.content_pack
     }
 
-    pub fn add_content<R: InputReader>(&mut self, mut reader: R) -> Result<crate::ContentAddress> {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update_reader(&mut reader)?;
-        let hash = hasher.finalize();
-        reader.seek(SeekFrom::Start(0))?;
+    fn cache_content(
+        &mut self,
+        hash: Hash,
+        reader: Box<dyn InputReader>,
+        comp_hint: CompHint,
+    ) -> Result<crate::ContentAddress> {
         match self.cache.entry(hash) {
             Entry::Vacant(e) => {
-                let content_address = self.content_pack.add_content(reader)?;
+                let content_address = self.content_pack.add_content(reader, comp_hint)?;
                 e.insert(content_address);
                 Ok(content_address)
             }
@@ -68,10 +86,34 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
             }
         }
     }
+
+    pub fn add_content(
+        &mut self,
+        mut reader: Box<dyn InputReader>,
+        comp_hint: CompHint,
+    ) -> Result<crate::ContentAddress> {
+        let mut hasher = blake3::Hasher::new();
+        if reader.size() < cluster::CLUSTER_SIZE {
+            let mut buf = Vec::with_capacity(reader.size().into_usize());
+            reader.read_to_end(&mut buf)?;
+            hasher.update(&buf);
+            let hash = hasher.finalize();
+            self.cache_content(hash, Box::new(Cursor::new(buf)), comp_hint)
+        } else {
+            hasher.update_reader(&mut reader)?;
+            reader.rewind()?;
+            let hash = hasher.finalize();
+            self.cache_content(hash, reader, comp_hint)
+        }
+    }
 }
 
 impl<Wrapper: ContentAdder> ContentAdder for CachedContentAdder<Wrapper> {
-    fn add_content<R: InputReader>(&mut self, reader: R) -> Result<crate::ContentAddress> {
-        self.add_content(reader)
+    fn add_content(
+        &mut self,
+        reader: Box<dyn InputReader>,
+        comp_hint: CompHint,
+    ) -> Result<crate::ContentAddress> {
+        self.add_content(reader, comp_hint)
     }
 }
