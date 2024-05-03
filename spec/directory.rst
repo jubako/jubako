@@ -48,19 +48,22 @@ Directory header
 This is the header of the directory.
 It lists all other data in the directory.
 
-================ ======= ====== ===========
-Field Name       Type    Offset Description
-================ ======= ====== ===========
-indexPtrPos      Offset  0      A Offset to a array of index offsets.
-entryStorePtrPos Offset  8      A Offset to a array of entryStore offsets.
-valueStorePtrPos Offset  16     A Offset to a array of keyStore offsets.
-indexCount       u32     24     Number of index in the directory
-entryStoreCount  u32     28     Number of entryStore in the directory
-valueStoreCount  u8      32     Numbre of keyStore in the directory (16 store max).
-freeData         [u8,31] 33     Free data, application specific to extend the header
-================ ======= ====== ===========
+================ ========== ====== ===========
+Field Name       Type       Offset Description
+================ ========== ====== ===========
+PackHeader       PackHeader 0      The base header
+indexPtrPos      Offset     64      A Offset to a array of index offsets.
+entryStorePtrPos Offset     72      A Offset to a array of entryStore offsets.
+valueStorePtrPos Offset     80     A Offset to a array of keyStore offsets.
+indexCount       u32        88     Number of index in the directory
+entryStoreCount  u32        92     Number of entryStore in the directory
+valueStoreCount  u8         96     Numbre of keyStore in the directory (16 store max).
+freeData         [u8,31]    97     Free data, application specific to extend the header
+================ ========== ====== ===========
 
-Full Size : 64
+Full Size : 128
+
+DirectoryPackHeader is a 128 bytes block.
 
 
 Entry Store
@@ -93,6 +96,14 @@ Field Name     Type               Offset Description
 ============== ================== ====== ===========
 storeType      u8                 0      The type of the store.
 dataSize       u64                1      The size of the data store.
+============== ================== ====== ===========
+
+Plain store tail is a 65 bytes block.
+
+The plain store data can be found at ``Offset of plain store tail - dataSize - 4 (CRC size)``.
+
+The plain store data is a ``dataSize`` bytes block.
+
 
 
 Indexed Store
@@ -122,6 +133,13 @@ offsetN                                  The offset of the last entry.
 
 If ``entryCount`` == 1, there is no ``offsetX``. The size of the only value is ``dataSize``.
 If ``entryCount```== 0, there is no ``offsetX``. ``dataSize`` == 0.
+
+Indexed Store tail is a block.
+
+The indexed store data can be found at ``Offset of indexed store tail - dataSize - 4 (CRC size)``.
+
+The indexed store data is a ``dataSize`` bytes block.
+
 
 
 Indexed Store with size [TODO]
@@ -169,22 +187,28 @@ indexType     u8                 0                 0
 entrySize     u16                1                 The size of one entry.
 variantCount  u8                 3                 The number of variants in this index.
 keyCount (N)  u8                 4                 The number of key info.
+entryCount    u64                5                 Number of entries
+flag          u8                 14
 keyInfo0                                           The type of the key0
 keyInfo1                                           The type of the key1
 ...                                                ...
 keyInfoN                                           The type of the keyN
-dataSize      Size
 ============= ================== ================= =============
 
 
-Full Size : 13 + N*keyInfosize(most of the time 1 byte per keyInfo)
+Full Size : 14 + N*keyInfosize(most of the time 1 byte per keyInfo)
 
 The index itself is a array of entries, each entry having a size of
 ``entrySize``.
-The number of entries is ``dataSize``/``entrySize``.
+
+The data (preceding the tail) size is ``entrySize * entryCount``.
 
 Each entry is a list of values. The number of values is to be defined after decoding
 the key info.
+
+EntryStore tail is a block.
+
+If lowest bit of flag is 1, each entry in the block.
 
 Variant
 -------
@@ -306,10 +330,11 @@ than what is stored.
 (They can all the time return a u64 or s64. Or they can return a u32 if a u24 is stored).
 
 If the integer is deported ``0b1010``, two complement bytes follow:
+
 - ``0b00000KKK + 1`` is the size of the key_id in the value store.
 - ``0xXX`` the id of the value store.
 
-The value is stored in a value store using a ``0b0SSS + `` size.
+The value is stored in a value store using a ``0b0SSS + 1`` size.
 
 If ``D`` is 1, the key is followed by ``KKK + 1`` bytes which are the value of the key_id.
 
@@ -326,6 +351,7 @@ The keyInfo is ``0bDSSS``.
 - ``D`` tell is a default value is provided.
 
 The actual data of the byte array can be stored in two way:
+
 - Directly in the entry in a fixed_array. By definition, as entry must have a fixed size,
   this fixed_array is always the same size in all entries.
   If the data is smaller than the fixed_array, the fixed_array is filled with 0.
@@ -334,12 +360,14 @@ The actual data of the byte array can be stored in two way:
   The entry store a pointer (a key/id) to the value in the ValueStore.
 
 A complement byte (``0bKKKZZZZZ``) follows the key info to describe how the data is stored:
+
 - ``KKK`` is the size of the key_id to the variable_array. If ``KKK`` == ``000``, no variable_array is used.
 - ``ZZZZZ`` is the size of the fixed_array.
 
 If we use a variable_array (``KKK`` != ``000``), another complement byte follow giving the index of the key store to use.
 
 The data in the entry is composed:
+
 - ``SSS`` bytes telling the size of the char[].
 - ``ZZZZZ`` bytes being the first part of the data. May be padded with 0 if size of char[] < ``ZZZZZ``.
 - ``KKK`` byte being the key_id of the variable array (if ``KKK`` != ``000``)
@@ -351,6 +379,7 @@ The entry doesn't contain the char[] and reader must use the default value as va
 Unsized char[]
 
 ``SSS`` can be zero ``000``. In this case the char[] is unsized. It make sens only in case of :
+
 - ``KKK`` is zero. In this case, the size of the char[] is always ``ZZZZZ``.
 - The used value store is a indexed value store. In this case, the size of the data is computed as
   ``ZZZZZ + value_store_offsets[index+1] - value_store_offsets[index]``.
@@ -402,3 +431,4 @@ indexName     ``pstring``        17                The name of the index, may be
 
 
 Full Size : 17 + size of pstring
+Index header is a block.

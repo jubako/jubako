@@ -5,28 +5,36 @@ Pack
 Content Pack header
 ===================
 
-============= ======= ====== ===========
-Field Name    Type    Offset Description
-============= ======= ====== ===========
-entryPtrPos   Offset  0      A Offset to a array of entryInfo.
-clusterPtrPos Offset  8      A Offset to a array of cluster SizedOffset.
-entryCount    u32     16     Number of entry in the pack (max of 2^32 entries per pack)
-clusterCount  u32     20     Number of cluster in the pack (max of 2^20)
-freeData      [u8,40] 24
-============= ======= ====== ===========
+============== ========== ====== ===========
+Field Name     Type       Offset Description
+============== ========== ====== ===========
+PackHeader     PackHeader 0      The base header
+entryInfo pos  Offset     64      A Offset to a array of entryInfo.
+clusterPtr pos Offset     72      A Offset to a array of cluster SizedOffset.
+entryCount     u32        80     Number of entry in the pack (max of 2^32 entries per pack)
+clusterCount   u32        84     Number of cluster in the pack (max of 2^20)
+freeData       [u8,40]    88
+============== ========== ====== ===========
 
-Full Size : 64 bytes
+Full Size: 128 bytes
+
+ContentPackHeader is a 128 bytes block.
 
 ClusterPtrPos array
 ===================
 
-A array of SizedOffset. Each entry is a offset to the a cluster **tail**.
+The offset of an array of SizedOffset.
+Each entry in the array is a offset to the a cluster **tail**.
 Offsets may not be writen sequentially. Offsets are relative to the start of the pack.
 
-EntryPtrPos array
-=================
+ClusterPtrPosArray is a ``<clusterCount>*8`` bytes block.
 
-An array of EntryInfo
+EntryInfoPos array
+==================
+
+The offset of an array of EntryInfo.
+
+EntryInfo is a ``<entryCount>*4`` bytes block.
 
 Cluster
 =======
@@ -42,7 +50,7 @@ Field Name    Type      Offset              Description
 type          u8        0                   | The highest 4 bits are reserved.
                                               Must be equal to 0.
                                             | The lowest 4 bits are the cluster
-                                              compression :
+                                              compression:
 
                                             - 0: nocompression
                                             - 1: lz4
@@ -70,7 +78,12 @@ blob1..blobN represent a array of dimension blobCount-1
 | blobN (0 < N < blobCount) offset is array[N-1]. Its size is (array[N]-array[N-1])
 | blobN (N==blobCount) offset is array[N-1]. It size is (dataSize-array[N-1])
 
-The localization of the cluster data is `offset of the tail - RawDataSize`
+The localization of the cluster data is `offset of the tail - RawDataSize - 4 (RawData CRC)`
+
+ClusterTail is a block.
+
+RawData (cluster data) is a block.
+
 
 Entry info
 ==========

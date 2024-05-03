@@ -21,6 +21,7 @@ _padding      u8       7
 size          Size     8     The size of the file (include header and tail)
 
 The size of of this header, is 16 bytes.
+ContainerHeader is a 16 bytes block.
 
 PackLocator
 ===========
@@ -36,10 +37,11 @@ Field Name       Type      Offset Description
 ================ ========= ====== ===========
 id               [u8,16]   0      The id of the pack
                                   Must be equal to the id in the packheader of the pointed pack
-packSize         Size      120    The size of the pack.
+packSize         Size      16     The size of the pack.
                                   Must be equal to the packSize in the packheader of the pointed pack
-packOffset       Offset    128    | The offset (starting from the beginning of
+packOffset       Offset    20     | The offset (starting from the beginning of
                                     the container file) where to find the pack.
 ================ ========= ====== ===========
 
 Full Size : 24 bytes.
+Each PackLocator is a 24 bytes block.

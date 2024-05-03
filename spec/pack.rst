@@ -99,6 +99,8 @@ New check kind will be added in the future.
 The checksum is computed base of the whole content of the pack, from Offset(0) to Offset(checkInfoPos).
 The manifestPack is the only exception to this as we mask some mutable data (See Jubako manifestPack spec for this).
 
+CheckInfo is a block.
+
 
 Pack tail
 =========

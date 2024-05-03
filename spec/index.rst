@@ -35,8 +35,8 @@ Strings
   ``cstring`` (n + 1). The string is limite to 255 bytes, but a implementation can
   know the size of string (and how many memory to reserve) by simply reading the
   first byte. This is noted as ``pstring`` format.
-
-An empty string is the same in ``cstring`` or ``pstring``  : a ``\0`` .
+  
+An empty string is the same in ``cstring`` or ``pstring``: a ``\0``.
 
 ``cstring`` and ``pstring`` are array of byte (uint8). They are utf8 encoded.
 Because of the utf8 encoding, the size of the (Unicode) string may be lower than
@@ -70,6 +70,21 @@ to the start of the content.
 - In the case of the header, the data is directly following the header, without padding.
 - In the case of the tail, the data is just before the tail, without padding.
   The start of the data can be computed by subscribing the data size (specified in the tail) to the offset of the tail.
+
+Block and Checksum
+==================
+
+Jubako format is composed of blocks.
+A block is a range of bytes, with a given offset and size.
+What is stored in a block depends of the context but most of the time it will
+be a header/tail, a cluster or raw data.
+
+All blocks are followed by a CRC32 (0x04C11DB7) on 4 bytes.
+Computing the CRC32 of the data and the following CRC should give a reminder of 0
+if data is not corrupted (assuming it was not intentionnal)
+
+Blocks are clearly identified in the specification.
+Size of blocks are the size excluding the 4 CRC32 bytes.
 
 Content Part
 ============
