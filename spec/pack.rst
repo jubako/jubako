@@ -23,8 +23,16 @@ flags         u8      26     Some flags (must be 0)
 _reserved     [u8; 5] 27     MUST be 0.
 packSize      Size    32     Size of the pack
 checkInfoPos  Offset  40     The checksum position (always at end of the pack)
-_reserved     [u8,16] 48     MUST be 0.
+packCount*    u16     48     | PackCount in container pack.
+                             | Only valid if magic == 0x6a626b.. (jbkC).
+                             | Else must be 0 and considered as _reserved.
+_reserved     [u8,10] 50     MUST be 0.
+CRC32         u32     60     The CRC32 of the 60 first bytes of the header
 ============= ======= ====== ===========
+
+The size of of this header, is 64 bytes.
+ContainerHeader is a 60 bytes block.
+
 
 Full Size : 64 bytes
 
@@ -82,7 +90,7 @@ CheckInfo tail
 
 All packs must contain a checkInfo structure at its end (just before the Pack tail).
 
-``packSize`` - 64 - ``checkInfoPos`` give the size of this structure.
+``packSize`` - 64 - ``checkInfoPos`` give the size of this structure (Outer size of the block).
 
 The global structure of checkInfo is a series of checks.
 Each series of check start with a byte telling which it is and by the data of the actual check.
@@ -99,6 +107,8 @@ New check kind will be added in the future.
 
 The checksum is computed base of the whole content of the pack, from Offset(0) to Offset(checkInfoPos).
 The manifestPack is the only exception to this as we mask some mutable data (See Jubako manifestPack spec for this).
+
+CheckInfo is a ``packSize`` - 64 - 4 - ``checkInfoPos`` block.
 
 
 Pack tail
