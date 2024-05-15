@@ -1,3 +1,9 @@
+# Jubako 0.2.2
+
+- Read first 4KiB (instead of first one) to detect if we must compress or not.
+- Make few more inner types publics.
+- Inner code improvement.
+
 # Jubako 0.2.1
 
 - Use dependency `xz2` instead of `rust-lzma` for lzma compression
