@@ -18,6 +18,7 @@ Field Name       Type        Offset Description
 packCount        u16         0      Number of packInfo slots.
 valueStoreOffset SizedOffset 2      The offset of a valuestore
 freeData         [u8,54]     10     Free data, application specific to extend the header
+================ =========== ====== ===========
 
 The size of of this header, is 64 bytes. Associated to the common pack header, the total header size is 128 bytes.
 FreeData is a 53 bytes free space to extend the header with application specific information.
