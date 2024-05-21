@@ -93,6 +93,7 @@ Field Name     Type               Offset Description
 ============== ================== ====== ===========
 storeType      u8                 0      The type of the store.
 dataSize       u64                1      The size of the data store.
+============== ================== ====== ===========
 
 
 Indexed Store

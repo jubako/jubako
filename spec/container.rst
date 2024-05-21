@@ -19,6 +19,7 @@ version       u8       4      The version of the container
 packCount     u16      5      The number of pack contained in the container.
 _padding      u8       7
 size          Size     8     The size of the file (include header and tail)
+============= ======== ====== ===========
 
 The size of of this header, is 16 bytes.
 
