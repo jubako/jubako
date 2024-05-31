@@ -86,3 +86,23 @@ impl Producable for PackInfo {
         })
     }
 }
+
+#[cfg(feature = "explorable")]
+impl serde::Serialize for PackInfo {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut cont = serializer.serialize_struct("Pack", 8)?;
+        cont.serialize_field("uuid", &self.uuid)?;
+        cont.serialize_field("size", &self.pack_size)?;
+        cont.serialize_field("id", &self.pack_id)?;
+        cont.serialize_field("kind", &self.pack_kind)?;
+        cont.serialize_field("group", &self.pack_group)?;
+        cont.serialize_field("location", &String::from_utf8_lossy(&self.pack_location))?;
+        cont.serialize_field("free_data_id", &self.free_data_id)?;
+        cont.serialize_field("check_info_pos", &self.check_info_pos)?;
+        cont.end()
+    }
+}

@@ -22,6 +22,7 @@ impl Producable for StoreKind {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub enum EntryStore {
     Plain(PlainStore),
 }
@@ -48,6 +49,15 @@ impl EntryStore {
         match self {
             EntryStore::Plain(store) => store.layout(),
             /*            _ => todo!()*/
+        }
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl Explorable for EntryStore {
+    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
+        match self {
+            EntryStore::Plain(store) => store.explore_one(item),
         }
     }
 }
@@ -81,6 +91,36 @@ impl PlainStore {
 
     pub fn layout(&self) -> &Layout {
         &self.layout
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl serde::Serialize for PlainStore {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let nb_entries = self.entry_reader.size().into_u64() / self.layout.size.into_u64();
+        let mut ser = serializer.serialize_struct("PlainStore", 2)?;
+        ser.serialize_field("nb_entries", &nb_entries)?;
+        ser.serialize_field("layout", &self.layout)?;
+        ser.end()
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl Explorable for PlainStore {
+    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
+        let index = item
+            .parse::<u32>()
+            .map_err(|e| Error::from(format!("{e}")))?;
+        let entry_reader = self.get_entry_reader(EntryIdx::from(index));
+        Ok(Some(Box::new(
+            entry_reader
+                .create_flux_all()
+                .read_vec(entry_reader.size().into_usize())?,
+        )))
     }
 }
 

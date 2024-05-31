@@ -2,6 +2,7 @@ use crate::bases::*;
 
 #[repr(usize)]
 #[derive(PartialOrd, Ord, PartialEq, Eq, Debug, Clone, Copy)]
+#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub enum ByteSize {
     U1 = 1,
     U2,

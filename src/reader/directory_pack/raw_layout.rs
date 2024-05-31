@@ -1,12 +1,14 @@
 use crate::bases::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub enum DeportedDefault {
     Value(u64),
     KeySize(ByteSize),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub struct DeportedInfo {
     // The size of the id
     pub id_size: ByteSize,
@@ -16,6 +18,7 @@ pub struct DeportedInfo {
 
 /// The kind of property definition as specified in the store.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub enum PropertyKind {
     Padding,
     ContentAddress {

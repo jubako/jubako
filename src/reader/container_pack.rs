@@ -84,3 +84,50 @@ impl PackLocatorTrait for ContainerPack {
         Ok(self.get_pack_reader(&uuid))
     }
 }
+
+#[cfg(feature = "explorable")]
+impl serde::Serialize for ContainerPack {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use crate::common::PackHeader;
+        use serde::ser::SerializeMap;
+        let mut container = serializer.serialize_map(Some(self.packs.len()))?;
+        for (uuid, reader) in self.packs.iter() {
+            let pack_header =
+                PackHeader::produce(&mut reader.create_flux_to(End::new_size(PackHeader::SIZE)))
+                    .unwrap();
+            container.serialize_entry(&uuid, &pack_header)?;
+        }
+        container.end()
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl Explorable for ContainerPack {
+    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
+        let reader = if let Ok(index) = item.parse::<usize>() {
+            let uuid = self
+                .packs_uuid
+                .get(index)
+                .ok_or_else(|| Error::from(format!("{item} is not a valid key.")))?;
+            &self.packs[uuid]
+        } else if let Ok(uuid) = item.parse::<Uuid>() {
+            self.packs
+                .get(&uuid)
+                .ok_or_else(|| Error::from(format!("{item} is not a valid key.")))?
+        } else {
+            return Err("Invalid key".into());
+        };
+
+        Ok(Some(
+            match FullPackKind::produce(&mut reader.create_flux_all())? {
+                PackKind::Manifest => Box::new(ManifestPack::new(reader.clone())?),
+                PackKind::Directory => Box::new(DirectoryPack::new(reader.clone())?),
+                PackKind::Content => Box::new(ContentPack::new(reader.clone())?),
+                PackKind::Container => unreachable!(),
+            },
+        ))
+    }
+}
