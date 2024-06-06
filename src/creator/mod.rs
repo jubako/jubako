@@ -33,11 +33,13 @@ mod private {
     use super::*;
     pub trait WritableTell {
         fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()>;
-        fn write_tail(&mut self, stream: &mut dyn OutStream) -> Result<()>;
+        fn serialize_tail(&mut self, stream: &mut Serializer) -> Result<()>;
         fn write(&mut self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
             self.write_data(stream)?;
             let offset = stream.tell();
-            self.write_tail(stream)?;
+            let mut serializer = Serializer::new();
+            self.serialize_tail(&mut serializer)?;
+            stream.write_all(&serializer)?;
             let size = stream.tell() - offset;
             Ok(SizedOffset { size, offset })
         }

@@ -41,9 +41,9 @@ impl Producable for Size {
 impl SizedProducable for Size {
     const SIZE: usize = 8;
 }
-impl Writable for Size {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u64(self.0)
+impl Serializable for Size {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u64(self.0)
     }
 }
 

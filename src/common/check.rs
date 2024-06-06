@@ -21,9 +21,9 @@ impl Producable for CheckKind {
     }
 }
 
-impl Writable for CheckKind {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u8(*self as u8)
+impl Serializable for CheckKind {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u8(*self as u8)
     }
 }
 
@@ -53,13 +53,13 @@ impl Producable for CheckInfo {
     }
 }
 
-impl Writable for CheckInfo {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+impl Serializable for CheckInfo {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         match self.b3hash {
-            None => CheckKind::None.write(stream),
+            None => CheckKind::None.serialize(ser),
             Some(hash) => {
-                CheckKind::Blake3.write(stream)?;
-                stream.write_all(hash.as_bytes())?;
+                CheckKind::Blake3.serialize(ser)?;
+                ser.write_data(hash.as_bytes())?;
                 Ok(33)
             }
         }

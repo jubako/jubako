@@ -56,13 +56,13 @@ impl Producable for ManifestPackHeader {
     }
 }
 
-impl Writable for ManifestPackHeader {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+impl Serializable for ManifestPackHeader {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
-        written += self.pack_header.write(stream)?;
-        written += self.pack_count.write(stream)?;
-        written += self.value_store_posinfo.write(stream)?;
-        written += self.free_data.write(stream)?;
+        written += self.pack_header.serialize(ser)?;
+        written += self.pack_count.serialize(ser)?;
+        written += self.value_store_posinfo.serialize(ser)?;
+        written += self.free_data.serialize(ser)?;
         Ok(written)
     }
 }

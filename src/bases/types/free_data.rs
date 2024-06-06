@@ -26,9 +26,9 @@ impl<const N: usize> serde::Serialize for FreeData<N> {
     }
 }
 
-impl<const N: usize> Writable for FreeData<N> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_data(&self.0)
+impl<const N: usize> Serializable for FreeData<N> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_data(&self.0)
     }
 }
 

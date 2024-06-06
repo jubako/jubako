@@ -67,17 +67,17 @@ impl Producable for DirectoryPackHeader {
     }
 }
 
-impl Writable for DirectoryPackHeader {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+impl Serializable for DirectoryPackHeader {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
-        written += self.pack_header.write(stream)?;
-        written += self.index_ptr_pos.write(stream)?;
-        written += self.entry_store_ptr_pos.write(stream)?;
-        written += self.value_store_ptr_pos.write(stream)?;
-        written += self.index_count.write(stream)?;
-        written += self.entry_store_count.write(stream)?;
-        written += self.value_store_count.write(stream)?;
-        written += self.free_data.write(stream)?;
+        written += self.pack_header.serialize(ser)?;
+        written += self.index_ptr_pos.serialize(ser)?;
+        written += self.entry_store_ptr_pos.serialize(ser)?;
+        written += self.value_store_ptr_pos.serialize(ser)?;
+        written += self.index_count.serialize(ser)?;
+        written += self.entry_store_count.serialize(ser)?;
+        written += self.value_store_count.serialize(ser)?;
+        written += self.free_data.serialize(ser)?;
         Ok(written)
     }
 }

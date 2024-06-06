@@ -118,19 +118,30 @@ impl FinalizedDirectoryPackCreator {
         buffered.seek(SeekFrom::Start(origin_offset + 128))?;
         info!("----- Write indexes offsets -----");
         let indexes_ptr_offsets = buffered.stream_position()? - origin_offset;
-        for offset in &indexes_offsets {
-            offset.write(&mut buffered)?;
-        }
+        buffered.ser_callable(&|ser| {
+            for offset in &indexes_offsets {
+                offset.serialize(ser)?;
+            }
+            Ok(())
+        })?;
+
         info!("----- Write value_stores offsets -----");
         let value_stores_ptr_offsets = buffered.stream_position()? - origin_offset;
-        for offset in &value_stores_offsets {
-            offset.write(&mut buffered)?;
-        }
+        buffered.ser_callable(&|ser| {
+            for offset in &value_stores_offsets {
+                offset.serialize(ser)?;
+            }
+            Ok(())
+        })?;
+
         info!("----- Write entry_stores offsets -----");
         let entry_stores_ptr_offsets = buffered.stream_position()? - origin_offset;
-        for offset in &entry_stores_offsets {
-            offset.write(&mut buffered)?;
-        }
+        buffered.ser_callable(&|ser| {
+            for offset in &entry_stores_offsets {
+                offset.serialize(ser)?;
+            }
+            Ok(())
+        })?;
 
         buffered.flush()?;
         let file = buffered.into_inner().unwrap();
@@ -155,12 +166,12 @@ impl FinalizedDirectoryPackCreator {
                 entry_stores_ptr_offsets.into(),
             ),
         );
-        header.write(file)?;
+        file.ser_write(&header)?;
 
         info!("----- Compute checksum -----");
         file.seek(SeekFrom::Start(origin_offset))?;
         let check_info = CheckInfo::new_blake3(file)?;
-        check_info.write(file)?;
+        file.ser_write(&check_info)?;
 
         file.seek(SeekFrom::Start(origin_offset))?;
         let mut tail_buffer = [0u8; 64];

@@ -28,14 +28,14 @@ where
     const SIZE: usize = std::mem::size_of::<T>();
 }
 
-impl Writable for Idx<u8> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u8(self.0)
+impl Serializable for Idx<u8> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u8(self.0)
     }
 }
-impl Writable for Idx<u32> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u32(self.0)
+impl Serializable for Idx<u32> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u32(self.0)
     }
 }
 

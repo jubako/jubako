@@ -32,9 +32,9 @@ impl SizedProducable for VendorId {
     const SIZE: usize = 4;
 }
 
-impl Writable for VendorId {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_data(&self.0)
+impl Serializable for VendorId {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_data(&self.0)
     }
 }
 

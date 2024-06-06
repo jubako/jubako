@@ -51,14 +51,14 @@ impl<F: PackRecipient> ContainerPackCreator<F> {
 
     pub fn finalize(mut self) -> Result<Box<F>> {
         for pack_locator in &self.packs {
-            pack_locator.write(&mut self.file)?;
+            self.file.ser_write(pack_locator)?;
         }
 
         let pack_size: Size = (self.file.tell().into_u64() + HEADER_SIZE).into();
 
         self.file.rewind()?;
         let header = ContainerPackHeader::new(PackCount::from(self.packs.len() as u16), pack_size);
-        header.write(&mut self.file)?;
+        self.file.ser_write(&header)?;
 
         self.file.rewind()?;
         let mut tail_buffer = [0u8; HEADER_SIZE as usize];

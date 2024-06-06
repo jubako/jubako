@@ -80,18 +80,18 @@ impl SizedProducable for PackHeader {
         + 16; // padding
 }
 
-impl Writable for PackHeader {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+impl Serializable for PackHeader {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
-        written += FullPackKind(self.magic).write(stream)?;
-        written += self.app_vendor_id.write(stream)?;
-        written += stream.write_u8(self.major_version)?;
-        written += stream.write_u8(self.minor_version)?;
-        written += self.uuid.write(stream)?;
-        written += stream.write_data(&[0_u8; 6])?;
-        written += self.file_size.write(stream)?;
-        written += self.check_info_pos.write(stream)?;
-        written += stream.write_data(&[0_u8; 16])?;
+        written += FullPackKind(self.magic).serialize(ser)?;
+        written += self.app_vendor_id.serialize(ser)?;
+        written += ser.write_u8(self.major_version)?;
+        written += ser.write_u8(self.minor_version)?;
+        written += self.uuid.serialize(ser)?;
+        written += ser.write_data(&[0_u8; 6])?;
+        written += self.file_size.serialize(ser)?;
+        written += self.check_info_pos.serialize(ser)?;
+        written += ser.write_data(&[0_u8; 16])?;
         Ok(written)
     }
 }

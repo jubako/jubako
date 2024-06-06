@@ -35,17 +35,18 @@ impl PackInfo {
     }
 }
 
-impl PackInfo {
-    pub fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        self.uuid.write(stream)?;
-        self.pack_size.write(stream)?;
-        self.check_info_pos.write(stream)?;
-        self.pack_id.write(stream)?;
-        self.pack_kind.write(stream)?;
-        stream.write_u8(self.pack_group)?;
-        stream.write_u16(self.free_data_id.into_u64() as u16)?;
-        PString::write_string_padded(self.pack_location.as_ref(), 217, stream)?;
-        Ok(())
+impl Serializable for PackInfo {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        let mut written = 0;
+        written += self.uuid.serialize(ser)?;
+        written += self.pack_size.serialize(ser)?;
+        written += self.check_info_pos.serialize(ser)?;
+        written += self.pack_id.serialize(ser)?;
+        written += self.pack_kind.serialize(ser)?;
+        written += ser.write_u8(self.pack_group)?;
+        written += ser.write_u16(self.free_data_id.into_u64() as u16)?;
+        written += PString::serialize_string_padded(self.pack_location.as_ref(), 217, ser)?;
+        Ok(written)
     }
 }
 

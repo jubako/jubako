@@ -78,23 +78,23 @@ impl Producable for Count<u64> {
     }
 }
 
-impl Writable for Count<u8> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u8(self.0)
+impl Serializable for Count<u8> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u8(self.0)
     }
 }
-impl Writable for Count<u16> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u16(self.0)
+impl Serializable for Count<u16> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u16(self.0)
     }
 }
-impl Writable for Count<u32> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u32(self.0)
+impl Serializable for Count<u32> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u32(self.0)
     }
 }
-impl Writable for Count<u64> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u64(self.0)
+impl Serializable for Count<u64> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u64(self.0)
     }
 }

@@ -46,14 +46,14 @@ impl SizedProducable for ContainerPackHeader {
          + Size::SIZE;
 }
 
-impl Writable for ContainerPackHeader {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+impl Serializable for ContainerPackHeader {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
-        written += FullPackKind(PackKind::Container).write(stream)?;
-        written += stream.write_u8(self.version)?;
-        written += stream.write_u16(self.pack_count.into_u16())?;
-        written += stream.write_data(&[0_u8; 1])?;
-        written += self.file_size.write(stream)?;
+        written += FullPackKind(PackKind::Container).serialize(ser)?;
+        written += ser.write_u8(self.version)?;
+        written += ser.write_u16(self.pack_count.into_u16())?;
+        written += ser.write_data(&[0_u8; 1])?;
+        written += self.file_size.serialize(ser)?;
         Ok(written)
     }
 }

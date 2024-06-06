@@ -2,9 +2,75 @@ use crate::bases::*;
 use crate::creator::MaybeFileReader;
 use std::fmt::Debug;
 pub use std::io::Result as IoResult;
-use std::io::{Read, Seek, Write};
+use std::io::{Cursor, Read, Seek, Write};
+use std::ops::Deref;
 use zerocopy::byteorder::little_endian::{U16, U32, U64};
 use zerocopy::{AsBytes, ByteOrder, LittleEndian as LE};
+
+/// A Serializable is a object we can serialized on a [Serializer].
+pub trait Serializable {
+    fn serialize(&self, stream: &mut Serializer) -> IoResult<usize>;
+}
+
+/// A Buffer on which we can write data.
+#[derive(Default)]
+pub struct Serializer {
+    buf: Cursor<Vec<u8>>,
+}
+
+impl Serializer {
+    pub fn new() -> Self {
+        Self {
+            buf: Cursor::new(Vec::with_capacity(256)),
+        }
+    }
+}
+
+impl Deref for Serializer {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        self.buf.get_ref()
+    }
+}
+
+impl Serializer {
+    pub fn write_u8(&mut self, value: u8) -> IoResult<usize> {
+        self.buf.write_all(value.as_bytes())?;
+        Ok(1)
+    }
+    pub fn write_u16(&mut self, value: u16) -> IoResult<usize> {
+        let d = U16::from(value);
+        self.buf.write_all(d.as_bytes())?;
+        Ok(2)
+    }
+    pub fn write_u32(&mut self, value: u32) -> IoResult<usize> {
+        let d = U32::from(value);
+        self.buf.write_all(d.as_bytes())?;
+        Ok(4)
+    }
+    pub fn write_u64(&mut self, value: u64) -> IoResult<usize> {
+        let d = U64::from(value);
+        self.buf.write_all(d.as_bytes())?;
+        Ok(8)
+    }
+    pub fn write_usized(&mut self, value: u64, size: ByteSize) -> IoResult<usize> {
+        let d = U64::from(value);
+        let size = size as usize;
+        self.buf.write_all(&d.as_bytes()[..size])?;
+        Ok(size)
+    }
+    pub fn write_isized(&mut self, value: i64, size: ByteSize) -> IoResult<usize> {
+        let mut d = [0_u8; 8];
+        let size = size as usize;
+        LE::write_int(&mut d, value, size);
+        self.buf.write_all(&d[..size])?;
+        Ok(size)
+    }
+    pub fn write_data(&mut self, buf: &[u8]) -> IoResult<usize> {
+        self.buf.write_all(buf)?;
+        Ok(buf.len())
+    }
+}
 
 /// A OutStream is a object on which we can write data.
 pub trait OutStream: Write + Seek + Send + Debug {
@@ -17,50 +83,23 @@ pub trait OutStream: Write + Seek + Send + Debug {
         self.stream_position().unwrap().into()
     }
 
-    fn write_u8(&mut self, value: u8) -> IoResult<usize> {
-        self.write_all(value.as_bytes())?;
-        Ok(1)
+    fn ser_write(&mut self, obj: &dyn Serializable) -> IoResult<usize> {
+        let mut serializer = Serializer::new();
+        let written = obj.serialize(&mut serializer)?;
+        assert_eq!(written, serializer.len());
+        self.write_all(&serializer)?;
+        Ok(written)
     }
-    fn write_u16(&mut self, value: u16) -> IoResult<usize> {
-        let d = U16::from(value);
-        self.write_all(d.as_bytes())?;
-        Ok(2)
-    }
-    fn write_u32(&mut self, value: u32) -> IoResult<usize> {
-        let d = U32::from(value);
-        self.write_all(d.as_bytes())?;
-        Ok(4)
-    }
-    fn write_u64(&mut self, value: u64) -> IoResult<usize> {
-        let d = U64::from(value);
-        self.write_all(d.as_bytes())?;
-        Ok(8)
-    }
-    fn write_usized(&mut self, value: u64, size: ByteSize) -> IoResult<usize> {
-        let d = U64::from(value);
-        let size = size as usize;
-        self.write_all(&d.as_bytes()[..size])?;
-        Ok(size)
-    }
-    fn write_isized(&mut self, value: i64, size: ByteSize) -> IoResult<usize> {
-        let mut d = [0_u8; 8];
-        let size = size as usize;
-        LE::write_int(&mut d, value, size);
-        self.write_all(&d[..size])?;
-        Ok(size)
-    }
-    fn write_data(&mut self, buf: &[u8]) -> IoResult<usize> {
-        self.write_all(buf)?;
-        Ok(buf.len())
+
+    fn ser_callable(&mut self, fun: &dyn Fn(&mut Serializer) -> IoResult<()>) -> IoResult<usize> {
+        let mut serializer = Serializer::new();
+        fun(&mut serializer)?;
+        self.write_all(&serializer)?;
+        Ok(serializer.len())
     }
 }
 
 pub trait InOutStream: OutStream + Read {}
-
-/// A Writable is a object we can write on a `Write` trait.
-pub trait Writable {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize>;
-}
 
 impl OutStream for std::fs::File {
     fn copy(

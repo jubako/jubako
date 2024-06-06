@@ -64,15 +64,15 @@ impl SizedProducable for ContentPackHeader {
         + ContentPackFreeData::SIZE;
 }
 
-impl Writable for ContentPackHeader {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+impl Serializable for ContentPackHeader {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
-        written += self.pack_header.write(stream)?;
-        written += self.content_ptr_pos.write(stream)?;
-        written += self.cluster_ptr_pos.write(stream)?;
-        written += self.content_count.write(stream)?;
-        written += self.cluster_count.write(stream)?;
-        written += self.free_data.write(stream)?;
+        written += self.pack_header.serialize(ser)?;
+        written += self.content_ptr_pos.serialize(ser)?;
+        written += self.cluster_ptr_pos.serialize(ser)?;
+        written += self.content_count.serialize(ser)?;
+        written += self.cluster_count.serialize(ser)?;
+        written += self.free_data.serialize(ser)?;
         Ok(written)
     }
 }

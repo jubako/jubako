@@ -29,9 +29,9 @@ impl SizedProducable for PackKind {
     const SIZE: usize = 1;
 }
 
-impl Writable for PackKind {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u8(*self as u8)
+impl Serializable for PackKind {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u8(*self as u8)
     }
 }
 
@@ -60,9 +60,11 @@ impl SizedProducable for FullPackKind {
     const SIZE: usize = 4;
 }
 
-impl Writable for FullPackKind {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_all(b"jbk")?;
-        self.0.write(stream)
+impl Serializable for FullPackKind {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        let mut written = 0;
+        written += ser.write_data(b"jbk")?;
+        written += self.0.serialize(ser)?;
+        Ok(written)
     }
 }

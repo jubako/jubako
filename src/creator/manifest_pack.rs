@@ -42,7 +42,7 @@ impl ManifestPackCreator {
 
         for ((pack_data, locator), free_data_id) in self.packs.into_iter().zip(free_data_ids) {
             let current_pos = file.stream_position()? - origin_offset;
-            pack_data.check_info.write(file)?;
+            file.ser_write(&pack_data.check_info)?;
             pack_infos.push(PackInfo::new(
                 pack_data,
                 0,
@@ -57,7 +57,7 @@ impl ManifestPackCreator {
         let packs_offset = file.stream_position()? - origin_offset;
         // Write the pack_info
         for pack_info in &pack_infos {
-            pack_info.write(file)?;
+            file.ser_write(pack_info)?;
         }
 
         let check_offset = file.stream_position()? - origin_offset;
@@ -70,12 +70,12 @@ impl ManifestPackCreator {
             nb_packs.into(),
             value_store_pos,
         );
-        header.write(file)?;
+        file.ser_write(&header)?;
         file.seek(SeekFrom::Start(origin_offset))?;
 
         let mut check_stream = ManifestCheckStream::new(file, packs_offset.into(), nb_packs.into());
         let check_info = CheckInfo::new_blake3(&mut check_stream)?;
-        check_info.write(file)?;
+        file.ser_write(&check_info)?;
 
         file.seek(SeekFrom::Start(origin_offset))?;
         let mut tail_buffer = [0u8; 64];

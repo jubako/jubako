@@ -3,7 +3,7 @@ use dropout::Dropper;
 use super::cluster::ClusterCreator;
 use super::Progress;
 use crate::bases::*;
-use crate::common::{ClusterHeader, CompressionType};
+use crate::common::ClusterHeader;
 use crate::creator::{Compression, InputReader, MaybeFileReader};
 use std::io::{BufWriter, Write};
 use std::sync::{mpsc, Arc, Condvar, Mutex};
@@ -82,6 +82,26 @@ pub struct ClusterCompressor {
     nb_cluster_in_queue: Arc<(Mutex<usize>, Condvar)>,
     progress: Arc<dyn Progress>,
 }
+fn serialize_cluster_tail(
+    compression: Compression,
+    cluster: &ClusterCreator,
+    raw_data_size: Size,
+    ser: &mut Serializer,
+) -> Result<()> {
+    let offset_size = needed_bytes(cluster.data_size().into_u64());
+    let cluster_header = ClusterHeader::new(
+        compression.into(),
+        offset_size,
+        BlobCount::from(cluster.offsets.len() as u16),
+    );
+    cluster_header.serialize(ser)?;
+    ser.write_usized(raw_data_size.into_u64(), offset_size)?; // raw data size
+    ser.write_usized(cluster.data_size().into_u64(), offset_size)?; // datasize
+    for offset in &cluster.offsets[..cluster.offsets.len() - 1] {
+        ser.write_usized(*offset as u64, offset_size)?;
+    }
+    Ok(())
+}
 
 impl ClusterCompressor {
     pub fn new(
@@ -117,27 +137,6 @@ impl ClusterCompressor {
         Ok(())
     }
 
-    fn write_cluster_tail(
-        &mut self,
-        cluster: &ClusterCreator,
-        raw_data_size: Size,
-        outstream: &mut dyn OutStream,
-    ) -> Result<()> {
-        let offset_size = needed_bytes(cluster.data_size().into_u64());
-        let cluster_header = ClusterHeader::new(
-            self.compression.into(),
-            offset_size,
-            BlobCount::from(cluster.offsets.len() as u16),
-        );
-        cluster_header.write(outstream)?;
-        outstream.write_usized(raw_data_size.into_u64(), offset_size)?; // raw data size
-        outstream.write_usized(cluster.data_size().into_u64(), offset_size)?; // datasize
-        for offset in &cluster.offsets[..cluster.offsets.len() - 1] {
-            outstream.write_usized(*offset as u64, offset_size)?;
-        }
-        Ok(())
-    }
-
     pub fn compress_cluster(
         &mut self,
         mut cluster: ClusterCreator,
@@ -146,7 +145,14 @@ impl ClusterCompressor {
         self.progress.handle_cluster(cluster.index().into(), true);
         self.write_cluster_data(&mut cluster, outstream)?;
         let tail_offset = outstream.tell();
-        self.write_cluster_tail(&cluster, tail_offset.into(), outstream)?;
+        let mut serializer = Serializer::new();
+        serialize_cluster_tail(
+            self.compression,
+            &cluster,
+            tail_offset.into(),
+            &mut serializer,
+        )?;
+        outstream.write_all(&serializer)?;
         let tail_size = outstream.tell() - tail_offset;
         Ok(SizedOffset {
             size: tail_size,
@@ -217,25 +223,6 @@ where
         Ok(copied)
     }
 
-    fn write_cluster_tail(&mut self, cluster: &ClusterCreator, raw_data_size: Size) -> Result<()> {
-        //[TODO] Use a BufWriter here
-        let offset_size = needed_bytes(cluster.data_size().into_u64());
-        let cluster_header = ClusterHeader::new(
-            CompressionType::None,
-            offset_size,
-            BlobCount::from(cluster.offsets.len() as u16),
-        );
-        cluster_header.write(&mut self.file)?;
-        self.file
-            .write_usized(raw_data_size.into_u64(), offset_size)?; // raw data size
-        self.file
-            .write_usized(cluster.data_size().into_u64(), offset_size)?; // datasize
-        for offset in &cluster.offsets[..cluster.offsets.len() - 1] {
-            self.file.write_usized(*offset as u64, offset_size)?;
-        }
-        Ok(())
-    }
-
     fn write_cluster(&mut self, mut cluster: ClusterCreator) -> Result<SizedOffset> {
         self.progress
             .handle_cluster(cluster.index().into_u32(), false);
@@ -243,7 +230,14 @@ where
         let written = self.write_cluster_data(cluster.data.split_off(0))?;
         assert_eq!(written, cluster.data_size().into_u64());
         let tail_offset = self.file.tell();
-        self.write_cluster_tail(&cluster, tail_offset - start_offset)?;
+        let mut serializer = Serializer::new();
+        serialize_cluster_tail(
+            Compression::None,
+            &cluster,
+            tail_offset - start_offset,
+            &mut serializer,
+        )?;
+        self.file.write_all(&serializer)?;
         let tail_size = self.file.tell() - tail_offset;
         Ok(SizedOffset {
             size: tail_size,

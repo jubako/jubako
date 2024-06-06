@@ -1,4 +1,5 @@
 use clap::Parser;
+use jbk::creator::OutStream;
 use jbk::reader::{ManifestPackHeader, PackLocatorTrait, Producable};
 use jubako as jbk;
 use std::io::{Seek, SeekFrom};
@@ -67,7 +68,10 @@ pub fn run(options: Options) -> jbk::Result<()> {
                 .write(true)
                 .open(&options.infile)?;
             file.seek(SeekFrom::Start(location_offset.into_u64()))?;
-            jbk::PString::write_string_padded(new_location.as_bytes(), 217, &mut file)?;
+            file.ser_callable(&|ser| -> std::io::Result<()> {
+                jbk::PString::serialize_string_padded(new_location.as_bytes(), 217, ser)?;
+                Ok(())
+            })?;
             println!(
                 "Change {:?} pack {} location from `{}` to `{}`",
                 pack_info.pack_kind, pack_info.uuid, location, new_location

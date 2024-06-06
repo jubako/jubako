@@ -33,10 +33,10 @@ impl SizedProducable for ContentInfo {
     const SIZE: usize = 4;
 }
 
-impl Writable for ContentInfo {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+impl Serializable for ContentInfo {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let data = (self.cluster_index.into_u32() << 12) + (self.blob_index.into_u32() & 0xFFF_u32);
-        stream.write_u32(data)
+        ser.write_u32(data)
     }
 }
 

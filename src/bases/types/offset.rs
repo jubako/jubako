@@ -47,9 +47,9 @@ impl SizedProducable for Offset {
     const SIZE: usize = 8;
 }
 
-impl Writable for Offset {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u64(self.0)
+impl Serializable for Offset {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u64(self.0)
     }
 }
 

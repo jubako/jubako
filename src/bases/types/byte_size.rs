@@ -41,8 +41,8 @@ impl Producable for ByteSize {
 impl SizedProducable for ByteSize {
     const SIZE: usize = 1;
 }
-impl Writable for ByteSize {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u8(*self as u8)
+impl Serializable for ByteSize {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u8(*self as u8)
     }
 }

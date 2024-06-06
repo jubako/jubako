@@ -18,12 +18,13 @@ impl PackLocator {
     }
 }
 
-impl PackLocator {
-    pub fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        self.uuid.write(stream)?;
-        self.pack_size.write(stream)?;
-        self.pack_pos.write(stream)?;
-        Ok(())
+impl Serializable for PackLocator {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        let mut written = 0;
+        written += self.uuid.serialize(ser)?;
+        written += self.pack_size.serialize(ser)?;
+        written += self.pack_pos.serialize(ser)?;
+        Ok(written)
     }
 }
 
