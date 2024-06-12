@@ -68,7 +68,7 @@ impl ManifestPack {
     }
 
     fn _get_check_info(&self) -> Result<CheckInfo> {
-        self.reader.parse_in::<CheckInfo>(
+        self.reader.parse_block_in::<CheckInfo>(
             self.header.pack_header.check_info_pos,
             self.header.pack_header.check_info_size(),
         )
@@ -82,7 +82,7 @@ impl ManifestPack {
         };
         // [TODO] Use correct size
         self.reader
-            .parse_in::<CheckInfo>(pack_info.check_info_pos, Size::new(33))
+            .parse_block_in::<CheckInfo>(pack_info.check_info_pos, Size::new(33))
     }
 
     pub fn get_directory_pack_info(&self) -> &PackInfo {

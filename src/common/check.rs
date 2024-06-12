@@ -55,6 +55,8 @@ impl Parsable for CheckInfo {
     }
 }
 
+impl BlockParsable for CheckInfo {}
+
 impl Serializable for CheckInfo {
     fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         match self.b3hash {

@@ -3,7 +3,9 @@ use crate::reader::ByteSlice;
 use super::flux::*;
 use super::sub_reader::*;
 use super::types::*;
+use super::BlockParsable;
 use super::Parsable;
+use super::SizedBlockParsable;
 use super::SizedParsable;
 use super::{MemoryReader, Region, Source};
 use std::sync::Arc;
@@ -31,6 +33,19 @@ impl Reader {
 
     pub fn size(&self) -> Size {
         self.region.size()
+    }
+
+    pub fn parse_block_at<T: SizedBlockParsable>(&self, offset: Offset) -> Result<T::Output> {
+        self.parse_block_in::<T>(offset, Size::from(T::SIZE))
+    }
+
+    pub fn parse_block_in<T: BlockParsable>(
+        &self,
+        offset: Offset,
+        size: Size,
+    ) -> Result<T::Output> {
+        let mut flux = self.create_flux(offset, size);
+        T::parse(&mut flux)
     }
 
     pub fn parse_at<T: SizedParsable>(&self, offset: Offset) -> Result<T::Output> {

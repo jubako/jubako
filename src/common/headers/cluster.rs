@@ -32,6 +32,8 @@ impl Parsable for ClusterHeader {
     }
 }
 
+impl BlockParsable for ClusterHeader {}
+
 impl Serializable for ClusterHeader {
     fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
@@ -54,7 +56,7 @@ mod tests {
             0x02, 0x00, // blob_count
         ]);
         let cluster_header = reader
-            .parse_in::<ClusterHeader>(Offset::zero(), Size::new(4))
+            .parse_block_in::<ClusterHeader>(Offset::zero(), Size::new(4))
             .unwrap();
         assert_eq!(
             cluster_header,

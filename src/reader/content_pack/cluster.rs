@@ -339,7 +339,7 @@ mod tests {
         let (ptr_info, data) = cluster_info.unwrap();
         let reader = Reader::from(data);
         let header = reader
-            .parse_in::<ClusterHeader>(ptr_info.offset, ptr_info.size)
+            .parse_block_in::<ClusterHeader>(ptr_info.offset, ptr_info.size)
             .unwrap();
         assert_eq!(header.compression, comp);
         assert_eq!(header.offset_size, ByteSize::U1);

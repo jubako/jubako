@@ -64,6 +64,8 @@ impl SizedParsable for ContentPackHeader {
         + ContentPackFreeData::SIZE;
 }
 
+impl BlockParsable for ContentPackHeader {}
+
 impl Serializable for ContentPackHeader {
     fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
@@ -104,7 +106,7 @@ mod tests {
         content.extend_from_slice(&[0xff; 40]);
         let reader = Reader::from(content);
         let content_pack_header = reader
-            .parse_at::<ContentPackHeader>(Offset::zero())
+            .parse_block_at::<ContentPackHeader>(Offset::zero())
             .unwrap();
         assert_eq!(
             content_pack_header,

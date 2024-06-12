@@ -1,5 +1,6 @@
 #[macro_use]
 mod types;
+mod block;
 mod cache;
 #[cfg(feature = "explorable")]
 mod explorable;
@@ -13,6 +14,7 @@ mod skip;
 mod sub_reader;
 mod write;
 
+pub use block::*;
 pub use cache::*;
 #[cfg(feature = "explorable")]
 pub use explorable::*;

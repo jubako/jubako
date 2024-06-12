@@ -84,6 +84,8 @@ impl Parsable for ManifestPackHeader {
     }
 }
 
+impl BlockParsable for ManifestPackHeader {}
+
 impl Serializable for ManifestPackHeader {
     fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
@@ -120,7 +122,7 @@ mod tests {
         content.extend_from_slice(&[0xff; 54]);
         let reader = Reader::from(content);
         let manifest_pack_header = reader
-            .parse_at::<ManifestPackHeader>(Offset::zero())
+            .parse_block_at::<ManifestPackHeader>(Offset::zero())
             .unwrap();
         assert_eq!(
             manifest_pack_header,

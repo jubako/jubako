@@ -23,7 +23,7 @@ pub struct ContentPack {
 
 impl ContentPack {
     pub fn new(reader: Reader) -> Result<Self> {
-        let header = reader.parse_at::<ContentPackHeader>(Offset::zero())?;
+        let header = reader.parse_block_at::<ContentPackHeader>(Offset::zero())?;
         let content_infos = ArrayReader::new_memory_from_reader(
             &reader,
             header.content_ptr_pos,
@@ -143,7 +143,7 @@ impl Pack for ContentPack {
     }
     fn check(&self) -> Result<bool> {
         if self.check_info.get().is_none() {
-            let _ = self.check_info.set(self.reader.parse_in::<CheckInfo>(
+            let _ = self.check_info.set(self.reader.parse_block_in::<CheckInfo>(
                 self.header.pack_header.check_info_pos,
                 self.header.pack_header.check_info_size(),
             )?);

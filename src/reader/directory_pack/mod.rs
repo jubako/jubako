@@ -78,7 +78,7 @@ pub struct DirectoryPack {
 impl DirectoryPack {
     pub fn new(reader: Reader) -> Result<DirectoryPack> {
         let reader = reader.create_sub_memory_reader(Offset::zero(), reader.size())?;
-        let header = reader.parse_at::<DirectoryPackHeader>(Offset::zero())?;
+        let header = reader.parse_block_at::<DirectoryPackHeader>(Offset::zero())?;
         let value_stores_ptrs = ArrayReader::new_memory_from_reader(
             &reader,
             header.value_store_ptr_pos,
@@ -111,7 +111,7 @@ impl DirectoryPack {
         let sized_offset = self.index_ptrs.index(*index_id)?;
         let index_header = self
             .reader
-            .parse_in::<IndexHeader>(sized_offset.offset, sized_offset.size)?;
+            .parse_block_in::<IndexHeader>(sized_offset.offset, sized_offset.size)?;
         let index = Index::new(index_header);
         Ok(index)
     }
@@ -121,7 +121,7 @@ impl DirectoryPack {
             let sized_offset = self.index_ptrs.index(*index_id)?;
             let index_header = self
                 .reader
-                .parse_in::<IndexHeader>(sized_offset.offset, sized_offset.size)?;
+                .parse_block_in::<IndexHeader>(sized_offset.offset, sized_offset.size)?;
             if index_header.name == index_name {
                 let index = Index::new(index_header);
                 return Ok(index);
@@ -184,7 +184,7 @@ impl Pack for DirectoryPack {
     }
     fn check(&self) -> Result<bool> {
         if self.check_info.read().unwrap().is_none() {
-            let check_info = self.reader.parse_in::<CheckInfo>(
+            let check_info = self.reader.parse_block_in::<CheckInfo>(
                 self.header.pack_header.check_info_pos,
                 self.header.pack_header.check_info_size(),
             )?;
@@ -311,7 +311,7 @@ mod tests {
         content.extend_from_slice(&[0x00, 4]); // Dummy CRC
         let reader = Reader::from(content);
         let directory_pack_header = reader
-            .parse_at::<DirectoryPackHeader>(Offset::zero())
+            .parse_block_at::<DirectoryPackHeader>(Offset::zero())
             .unwrap();
         assert_eq!(
             directory_pack_header,

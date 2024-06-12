@@ -84,6 +84,8 @@ impl SizedParsable for PackHeader {
         + 16; // padding
 }
 
+impl BlockParsable for PackHeader {}
+
 impl Serializable for PackHeader {
     fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
@@ -142,7 +144,7 @@ mod tests {
         ];
         content.extend_from_slice(&[0xff; 56]);
         let reader = Reader::from(content);
-        let pack_header = reader.parse_at::<PackHeader>(Offset::zero()).unwrap();
+        let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero()).unwrap();
         assert_eq!(
             pack_header,
             PackHeader {

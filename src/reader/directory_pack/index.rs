@@ -37,6 +37,8 @@ impl Parsable for IndexHeader {
     }
 }
 
+impl BlockParsable for IndexHeader {}
+
 #[derive(Debug)]
 #[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
 
@@ -100,7 +102,7 @@ mod tests {
         ];
         let reader = Reader::from(content);
         let header = reader
-            .parse_in::<IndexHeader>(Offset::zero(), Size::new(23))
+            .parse_block_in::<IndexHeader>(Offset::zero(), Size::new(23))
             .unwrap();
         assert_eq!(
             header,

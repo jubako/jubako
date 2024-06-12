@@ -38,6 +38,8 @@ impl Parsable for ContainerPackHeader {
     }
 }
 
+impl BlockParsable for ContainerPackHeader {}
+
 impl SizedParsable for ContainerPackHeader {
     const SIZE: usize = FullPackKind::SIZE
          + 1 // version
@@ -73,7 +75,7 @@ mod tests {
         ];
         let reader = Reader::from(content);
         let container_header = reader
-            .parse_at::<ContainerPackHeader>(Offset::zero())
+            .parse_block_at::<ContainerPackHeader>(Offset::zero())
             .unwrap();
         assert_eq!(
             container_header,

@@ -67,6 +67,8 @@ impl Parsable for DirectoryPackHeader {
     }
 }
 
+impl BlockParsable for DirectoryPackHeader {}
+
 impl SizedParsable for DirectoryPackHeader {
     const SIZE: usize = PackHeader::SIZE
         + Offset::SIZE
@@ -121,7 +123,7 @@ mod tests {
         content.extend_from_slice(&[0xff; 31]);
         let reader = Reader::from(content);
         let directory_pack_header = reader
-            .parse_at::<DirectoryPackHeader>(Offset::zero())
+            .parse_block_at::<DirectoryPackHeader>(Offset::zero())
             .unwrap();
         assert_eq!(
             directory_pack_header,
