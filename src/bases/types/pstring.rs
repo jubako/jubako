@@ -26,11 +26,11 @@ impl PString {
     }
 }
 
-impl Producable for PString {
+impl Parsable for PString {
     type Output = Vec<u8>;
-    fn produce(flux: &mut Flux) -> Result<Vec<u8>> {
-        let size = flux.read_u8()?;
-        flux.read_vec(size as usize)
+    fn parse(parser: &mut impl Parser) -> Result<Vec<u8>> {
+        let size = parser.read_u8()?;
+        Ok(parser.read_slice(size as usize)?.into_owned())
     }
 }
 
@@ -47,7 +47,11 @@ mod tests {
         let mut content = Vec::new();
         content.extend_from_slice(source);
         let reader = Reader::from(content);
-        let mut flux = reader.create_flux_all();
-        String::from_utf8(PString::produce(&mut flux).unwrap()).unwrap()
+        String::from_utf8(
+            reader
+                .parse_in::<PString>(Offset::zero(), reader.size())
+                .unwrap(),
+        )
+        .unwrap()
     }
 }

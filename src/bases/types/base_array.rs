@@ -18,7 +18,8 @@ impl BaseArray {
     /// # Examples
     ///
     /// ```ignore
-    /// let array = jubako::bases::BaseArray::new(&[0,5,12]);
+    /// # use jubako::BaseArray;
+    /// let array = BaseArray::new(&[0,5,12]);
     /// assert_eq!(array.data, [0, 5, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     /// ```
     ///
@@ -43,11 +44,11 @@ impl BaseArray {
     /// # Error
     ///
     /// This function will return an error if reading from `flux` fails.
-    pub fn new_from_flux(size: u8, flux: &mut Flux) -> Result<Self> {
+    pub fn parse(size: u8, parser: &mut impl Parser) -> Result<Self> {
         assert!(size <= 31);
         let mut s = Self { data: [0; 31] };
         if size != 0 {
-            flux.read_exact(&mut s.data[..size as usize])?;
+            parser.read_data(&mut s.data[..size as usize])?;
         }
         Ok(s)
     }

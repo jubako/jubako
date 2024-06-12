@@ -17,15 +17,15 @@ pub struct IndexHeader {
     pub name: String,
 }
 
-impl Producable for IndexHeader {
+impl Parsable for IndexHeader {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let store_id = Idx::<u32>::produce(flux)?.into();
-        let entry_count = Count::<u32>::produce(flux)?.into();
-        let entry_offset = Idx::<u32>::produce(flux)?.into();
-        let free_data = IndexFreeData::produce(flux)?;
-        let index_property = flux.read_u8()?;
-        let name = String::from_utf8(PString::produce(flux)?)?;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let store_id = Idx::<u32>::parse(parser)?.into();
+        let entry_count = Count::<u32>::parse(parser)?.into();
+        let entry_offset = Idx::<u32>::parse(parser)?.into();
+        let free_data = IndexFreeData::parse(parser)?;
+        let index_property = parser.read_u8()?;
+        let name = String::from_utf8(PString::parse(parser)?)?;
         Ok(Self {
             store_id,
             entry_count,
@@ -99,8 +99,9 @@ mod tests {
             0x05, 0x48, 0x65, 0x6C, 0x6C, 0x6F, // PString Hello
         ];
         let reader = Reader::from(content);
-        let mut flux = reader.create_flux_all();
-        let header = IndexHeader::produce(&mut flux).unwrap();
+        let header = reader
+            .parse_in::<IndexHeader>(Offset::zero(), Size::new(23))
+            .unwrap();
         assert_eq!(
             header,
             IndexHeader {

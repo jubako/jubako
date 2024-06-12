@@ -34,4 +34,3 @@ pub mod testing {
 
 #[cfg(feature = "explorable")]
 pub use crate::bases::Explorable;
-pub use crate::bases::Producable;

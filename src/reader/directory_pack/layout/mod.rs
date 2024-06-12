@@ -28,12 +28,12 @@ pub struct Layout {
     pub size: Size,
 }
 
-impl Producable for Layout {
+impl Parsable for Layout {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let entry_size = flux.read_u16()? as usize;
-        let variant_count: VariantCount = Count::<u8>::produce(flux)?.into();
-        let mut raw_layout = RawLayout::produce(flux)?;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let entry_size = parser.read_u16()? as usize;
+        let variant_count: VariantCount = Count::<u8>::parse(parser)?.into();
+        let mut raw_layout = RawLayout::parse(parser)?;
         let mut common_properties = Vec::new();
         let mut common_size = 0;
         let mut property_iter = raw_layout.drain(..).peekable();
@@ -55,13 +55,13 @@ impl Producable for Layout {
                 if !raw_property.is_variant_id() && variant_name.is_none() {
                     return Err(format_error!(
                         "Variant definition must start with a VariantId.",
-                        flux
+                        parser
                     ));
                 }
                 if raw_property.is_variant_id() && variant_name.is_some() {
                     return Err(format_error!(
                         "VariantId cannot be in the middle of a variant definition.",
-                        flux
+                        parser
                     ));
                 }
                 if raw_property.is_variant_id() {
@@ -77,7 +77,7 @@ impl Producable for Layout {
                             &format!(
                                 "Sum of variant size ({common_size} + {variant_size}) cannot exceed the entry size ({entry_size})"
                             ),
-                            flux
+                            parser
                         ))
                     }
                     Ordering::Equal => {
@@ -102,7 +102,7 @@ impl Producable for Layout {
                         "Entry declare ({variant_count}) variants but properties define ({})",
                         variants.len()
                     ),
-                    flux
+                    parser
                 ));
             }
             Some(VariantPart {

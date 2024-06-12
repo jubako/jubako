@@ -23,15 +23,15 @@ pub use value::Value;
 
 pub(crate) use pack_kind::FullPackKind;
 
-impl Producable for Uuid {
+impl Parsable for Uuid {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
         let mut v = [0_u8; 16];
-        flux.read_exact(&mut v)?;
+        parser.read_data(&mut v)?;
         Ok(Uuid::from_bytes(v))
     }
 }
-impl SizedProducable for Uuid {
+impl SizedParsable for Uuid {
     const SIZE: usize = 16;
 }
 impl Serializable for Uuid {

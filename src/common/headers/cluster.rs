@@ -18,12 +18,12 @@ impl ClusterHeader {
     }
 }
 
-impl Producable for ClusterHeader {
+impl Parsable for ClusterHeader {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let compression = CompressionType::produce(flux)?;
-        let offset_size = ByteSize::produce(flux)?;
-        let blob_count = Count::<u16>::produce(flux)?.into();
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let compression = CompressionType::parse(parser)?;
+        let offset_size = ByteSize::parse(parser)?;
+        let blob_count = Count::<u16>::parse(parser)?.into();
         Ok(ClusterHeader {
             compression,
             offset_size,
@@ -53,9 +53,11 @@ mod tests {
             0x01, // offset_size
             0x02, 0x00, // blob_count
         ]);
-        let mut flux = reader.create_flux_all();
+        let cluster_header = reader
+            .parse_in::<ClusterHeader>(Offset::zero(), Size::new(4))
+            .unwrap();
         assert_eq!(
-            ClusterHeader::produce(&mut flux).unwrap(),
+            cluster_header,
             ClusterHeader {
                 compression: CompressionType::None,
                 offset_size: ByteSize::U1,

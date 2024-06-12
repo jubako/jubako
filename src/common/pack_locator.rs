@@ -28,16 +28,16 @@ impl Serializable for PackLocator {
     }
 }
 
-impl SizedProducable for PackLocator {
+impl SizedParsable for PackLocator {
     const SIZE: usize = Uuid::SIZE + Size::SIZE + Offset::SIZE;
 }
 
-impl Producable for PackLocator {
+impl Parsable for PackLocator {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let uuid = Uuid::produce(flux)?;
-        let pack_size = Size::produce(flux)?;
-        let pack_pos = Offset::produce(flux)?;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let uuid = Uuid::parse(parser)?;
+        let pack_size = Size::parse(parser)?;
+        let pack_pos = Offset::parse(parser)?;
         Ok(Self {
             uuid,
             pack_size,

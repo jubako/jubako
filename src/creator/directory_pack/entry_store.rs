@@ -126,7 +126,7 @@ where
         for entry in &self.entries {
             let mut serializer = Serializer::new();
             self.layout.serialize_entry(entry, &mut serializer)?;
-            stream.write_all(&serializer)?;
+            stream.write_serializer(serializer)?;
         }
         Ok(())
     }

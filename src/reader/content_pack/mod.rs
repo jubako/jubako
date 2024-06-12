@@ -23,7 +23,7 @@ pub struct ContentPack {
 
 impl ContentPack {
     pub fn new(reader: Reader) -> Result<Self> {
-        let header = ContentPackHeader::produce(&mut reader.create_flux_all())?;
+        let header = reader.parse_at::<ContentPackHeader>(Offset::zero())?;
         let content_infos = ArrayReader::new_memory_from_reader(
             &reader,
             header.content_ptr_pos,
@@ -143,12 +143,10 @@ impl Pack for ContentPack {
     }
     fn check(&self) -> Result<bool> {
         if self.check_info.get().is_none() {
-            let mut checkinfo_flux = self
-                .reader
-                .create_flux_from(self.header.pack_header.check_info_pos);
-            let _ = self
-                .check_info
-                .set(CheckInfo::produce(&mut checkinfo_flux)?);
+            let _ = self.check_info.set(self.reader.parse_in::<CheckInfo>(
+                self.header.pack_header.check_info_pos,
+                self.header.pack_header.check_info_size(),
+            )?);
         }
         let check_info = self.check_info.get().unwrap();
         let mut check_flux = self
@@ -172,7 +170,7 @@ mod tests {
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
             0x0e, 0x0f, // uuid off:10
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding off:26
-            0xD3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size off:32
+            0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size off:32
             0xAB, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // check_info_pos off:40
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved off:48
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
@@ -182,16 +180,30 @@ mod tests {
             0x01, 0x00, 0x00, 0x00, // cluster count off:84
         ];
         content.extend_from_slice(&[0xff; 40]); // free_data off:88
+
+        // Offset 128/0x80 (entry_ptr_pos)
         content.extend_from_slice(&[
             0x00, 0x00, 0x00, 0x00, // first entry info off:128
             0x01, 0x00, 0x00, 0x00, // second entry info off: 132
             0x02, 0x00, 0x00, 0x00, // third entry info off: 136
+        ]);
+
+        // Offset 128 + 12 = 140/0x8C (cluste_ptr_pos)
+        content.extend_from_slice(&[
             0x08, 0x00, // first (and only) cluster size off:140
             0xA3, 0x00, 0x00, 0x00, 0x00, 0x00, // first (and only) ptr pos. off:143
+        ]);
+
+        // Offset 140 + 8 = 148/0x94 (cluster_data)
+        content.extend_from_slice(&[
             // Cluster off:148
             0x11, 0x12, 0x13, 0x14, 0x15, // Data of blob 0
             0x21, 0x22, 0x23, // Data of blob 1
             0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of blob 2
+        ]);
+
+        // Offset 148 + 15(0x0f) = 163/0xA3 (cluster_header)
+        content.extend_from_slice(&[
             0x00, // compression off: 148+15 = 163
             0x01, // offset_size
             0x03, 0x00, // blob_count
@@ -199,10 +211,23 @@ mod tests {
             0x0f, // Data size
             0x05, // Offset of blob 1
             0x08, // Offset of blob 2
-        ]); // end 163+8 = 171
+        ]);
+
+        // Offset end 163 + 8 = 171/0xAB (check_info_pos)
         let hash = blake3::hash(&content);
         content.push(0x01); // check info off: 171
         content.extend(hash.as_bytes()); // end : 171+32 = 203
+
+        // Offset 171 + 33 = 204/0xCC
+
+        // Add footer
+        let mut footer = [0; 64];
+        footer.copy_from_slice(&content[..64]);
+        footer.reverse();
+        content.extend_from_slice(&footer);
+
+        // FileSize 204 + 64 = 268/0x010C (file_size)
+
         let content_pack = ContentPack::new(content.into()).unwrap();
         assert_eq!(content_pack.get_content_count(), ContentCount::from(3));
         assert_eq!(

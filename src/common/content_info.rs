@@ -16,10 +16,10 @@ impl ContentInfo {
     }
 }
 
-impl Producable for ContentInfo {
+impl Parsable for ContentInfo {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let v = flux.read_u32()?;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let v = parser.read_u32()?;
         let blob_index = (v & 0xFFF) as u16;
         let cluster_index = v >> 12;
         Ok(Self {
@@ -29,7 +29,7 @@ impl Producable for ContentInfo {
     }
 }
 
-impl SizedProducable for ContentInfo {
+impl SizedParsable for ContentInfo {
     const SIZE: usize = 4;
 }
 

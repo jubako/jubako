@@ -19,14 +19,13 @@ pub struct ManifestPack {
 
 impl ManifestPack {
     pub fn new(reader: Reader) -> Result<Self> {
-        let mut flux = reader.create_flux_all();
-        let header = ManifestPackHeader::produce(&mut flux)?;
-        flux.seek(header.packs_offset());
+        let header = reader.parse_at::<ManifestPackHeader>(Offset::zero())?;
+        let pack_offsets = header.packs_offset();
         let mut directory_pack_info = None;
         let mut pack_infos: Vec<PackInfo> = Vec::with_capacity(header.pack_count.into_usize());
         let mut max_id = 0;
-        for _i in header.pack_count {
-            let pack_info = PackInfo::produce(&mut flux)?;
+        for pack_offset in pack_offsets {
+            let pack_info = reader.parse_at::<PackInfo>(pack_offset)?;
             match pack_info.pack_kind {
                 PackKind::Directory => directory_pack_info = Some(pack_info),
                 _ => {
@@ -69,10 +68,10 @@ impl ManifestPack {
     }
 
     fn _get_check_info(&self) -> Result<CheckInfo> {
-        let mut checkinfo_flux = self
-            .reader
-            .create_flux_from(self.header.pack_header.check_info_pos);
-        CheckInfo::produce(&mut checkinfo_flux)
+        self.reader.parse_in::<CheckInfo>(
+            self.header.pack_header.check_info_pos,
+            self.header.pack_header.check_info_size(),
+        )
     }
 
     pub fn get_pack_check_info(&self, uuid: Uuid) -> Result<CheckInfo> {
@@ -81,8 +80,9 @@ impl ManifestPack {
         } else {
             self.get_content_pack_info_uuid(uuid)?
         };
-        let mut checkinfo_flux = self.reader.create_flux_from(pack_info.check_info_pos);
-        CheckInfo::produce(&mut checkinfo_flux)
+        // [TODO] Use correct size
+        self.reader
+            .parse_in::<CheckInfo>(pack_info.check_info_pos, Size::new(33))
     }
 
     pub fn get_directory_pack_info(&self) -> &PackInfo {
@@ -165,11 +165,8 @@ impl Pack for ManifestPack {
         let mut check_flux = self
             .reader
             .create_flux_to(Size::from(self.header.pack_header.check_info_pos));
-        let mut check_stream = ManifestCheckStream::new(
-            &mut check_flux,
-            self.header.packs_offset(),
-            self.header.pack_count,
-        );
+        let mut check_stream =
+            ManifestCheckStream::new_from_offset_iter(&mut check_flux, self.header.packs_offset());
         check_info.check(&mut check_stream as &mut dyn Read)
     }
 }
@@ -211,7 +208,7 @@ mod tests {
                 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
                 0x0e, 0x0f, // uuid
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
-                0x71, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size
+                0xE1, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size
                 0x80, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // check_info_pos
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
@@ -220,7 +217,7 @@ mod tests {
             ]);
             content.extend_from_slice(&[0xff; 54]);
 
-            // Offset 128
+            // Offset 128/0x80
             // First packInfo (directory pack)
             content.extend_from_slice(&[
                 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d,
@@ -232,10 +229,10 @@ mod tests {
                 0xF0, // pack_group
                 0x01, 0x00, // free_data_id
             ]);
-            // Offset 128 + 38 = 166
+            // Offset 128 + 38 = 166/0xA6
             content.extend_from_slice(&[0x00; 218]); // empty pack_location
 
-            // Offset 128 + 256 = 382
+            // Offset 128 + 256 = 384/0xA6
 
             // Second packInfo (first content pack)
             content.extend_from_slice(&[
@@ -250,7 +247,7 @@ mod tests {
             ]);
             content.extend_from_slice(&[0x00; 218]); // empty pack_location
 
-            // Offset 382 + 256 = 638
+            // Offset 384 + 256 = 640/x0280
 
             // Third packInfo (second content pack)
             content.extend_from_slice(&[
@@ -266,7 +263,7 @@ mod tests {
             ]);
             content.extend_from_slice(&[0x00; 218 - 9]);
 
-            // Offset 638 + 256 = 894
+            // Offset 640 + 256 = 896/0x0380
         }
         let hash = {
             let mut hasher = blake3::Hasher::new();
@@ -281,6 +278,18 @@ mod tests {
             content.push(0x01);
             content.extend(hash.as_bytes());
         }
+
+        // Offset 896 + 33 = 929/0x03A1
+
+        // Add footer
+        let mut footer = [0; 64];
+        footer.copy_from_slice(&content[..64]);
+        footer.reverse();
+        Arc::get_mut(&mut content)
+            .unwrap()
+            .extend_from_slice(&footer);
+
+        // FileSize 929 + 64 = 993/0x03E1
         let content_size = content.size();
         let reader = Reader::new_from_arc(content, content_size);
         let main_pack = ManifestPack::new(reader).unwrap();
@@ -294,7 +303,7 @@ mod tests {
                 0x0e, 0x0f
             ])
         );
-        assert_eq!(main_pack.size(), Size::new(881));
+        assert_eq!(main_pack.size(), Size::new(993));
         assert!(main_pack.check().unwrap());
         assert_eq!(
             main_pack.get_directory_pack_info(),

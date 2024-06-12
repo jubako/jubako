@@ -152,8 +152,7 @@ impl ClusterCompressor {
             tail_offset.into(),
             &mut serializer,
         )?;
-        outstream.write_all(&serializer)?;
-        let tail_size = outstream.tell() - tail_offset;
+        let tail_size = outstream.write_serializer(serializer)?.into();
         Ok(SizedOffset {
             size: tail_size,
             offset: tail_offset,
@@ -237,8 +236,7 @@ where
             tail_offset - start_offset,
             &mut serializer,
         )?;
-        self.file.write_all(&serializer)?;
-        let tail_size = self.file.tell() - tail_offset;
+        let tail_size = self.file.write_serializer(serializer)?.into();
         Ok(SizedOffset {
             size: tail_size,
             offset: tail_offset,

@@ -3,7 +3,6 @@ use crate::creator::MaybeFileReader;
 use std::fmt::Debug;
 pub use std::io::Result as IoResult;
 use std::io::{Cursor, Read, Seek, Write};
-use std::ops::Deref;
 use zerocopy::byteorder::little_endian::{U16, U32, U64};
 use zerocopy::{AsBytes, ByteOrder, LittleEndian as LE};
 
@@ -24,12 +23,14 @@ impl Serializer {
             buf: Cursor::new(Vec::with_capacity(256)),
         }
     }
-}
 
-impl Deref for Serializer {
-    type Target = [u8];
-    fn deref(&self) -> &Self::Target {
-        self.buf.get_ref()
+    pub fn close(self) -> Vec<u8> {
+        //        self.buf.write(&[0; 4]).unwrap();
+        self.buf.into_inner()
+    }
+
+    pub fn len(&self) -> usize {
+        self.buf.get_ref().len()
     }
 }
 
@@ -83,19 +84,23 @@ pub trait OutStream: Write + Seek + Send + Debug {
         self.stream_position().unwrap().into()
     }
 
+    fn write_serializer(&mut self, serialazer: Serializer) -> IoResult<usize> {
+        let buf = serialazer.close();
+        self.write_all(&buf)?;
+        Ok(buf.len())
+    }
+
     fn ser_write(&mut self, obj: &dyn Serializable) -> IoResult<usize> {
         let mut serializer = Serializer::new();
         let written = obj.serialize(&mut serializer)?;
         assert_eq!(written, serializer.len());
-        self.write_all(&serializer)?;
-        Ok(written)
+        self.write_serializer(serializer)
     }
 
     fn ser_callable(&mut self, fun: &dyn Fn(&mut Serializer) -> IoResult<()>) -> IoResult<usize> {
         let mut serializer = Serializer::new();
         fun(&mut serializer)?;
-        self.write_all(&serializer)?;
-        Ok(serializer.len())
+        self.write_serializer(serializer)
     }
 }
 

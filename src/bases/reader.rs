@@ -3,6 +3,8 @@ use crate::reader::ByteSlice;
 use super::flux::*;
 use super::sub_reader::*;
 use super::types::*;
+use super::Parsable;
+use super::SizedParsable;
 use super::{MemoryReader, Region, Source};
 use std::sync::Arc;
 
@@ -29,6 +31,15 @@ impl Reader {
 
     pub fn size(&self) -> Size {
         self.region.size()
+    }
+
+    pub fn parse_at<T: SizedParsable>(&self, offset: Offset) -> Result<T::Output> {
+        self.parse_in::<T>(offset, Size::from(T::SIZE))
+    }
+
+    pub fn parse_in<T: Parsable>(&self, offset: Offset, size: Size) -> Result<T::Output> {
+        let mut flux = self.create_flux(offset, size);
+        T::parse(&mut flux)
     }
 
     pub fn create_flux(&self, offset: Offset, size: Size) -> Flux {
@@ -75,38 +86,6 @@ impl Reader {
         let region = self.region.cut_rel(offset, size);
         let (source, region) = Arc::clone(&self.source).into_memory_source(region)?;
         Ok(MemoryReader::new_from_parts(source, region))
-    }
-
-    pub fn read_u8(&self, offset: Offset) -> Result<u8> {
-        self.source.read_u8(self.region.begin() + offset)
-    }
-    pub fn read_u16(&self, offset: Offset) -> Result<u16> {
-        self.source.read_u16(self.region.begin() + offset)
-    }
-    pub fn read_u32(&self, offset: Offset) -> Result<u32> {
-        self.source.read_u32(self.region.begin() + offset)
-    }
-    pub fn read_u64(&self, offset: Offset) -> Result<u64> {
-        self.source.read_u64(self.region.begin() + offset)
-    }
-    pub fn read_usized(&self, offset: Offset, size: ByteSize) -> Result<u64> {
-        self.source.read_usized(self.region.begin() + offset, size)
-    }
-
-    pub fn read_i8(&self, offset: Offset) -> Result<i8> {
-        self.source.read_i8(self.region.begin() + offset)
-    }
-    pub fn read_i16(&self, offset: Offset) -> Result<i16> {
-        self.source.read_i16(self.region.begin() + offset)
-    }
-    pub fn read_i32(&self, offset: Offset) -> Result<i32> {
-        self.source.read_i32(self.region.begin() + offset)
-    }
-    pub fn read_i64(&self, offset: Offset) -> Result<i64> {
-        self.source.read_i64(self.region.begin() + offset)
-    }
-    pub fn read_isized(&self, offset: Offset, size: ByteSize) -> Result<i64> {
-        self.source.read_isized(self.region.begin() + offset, size)
     }
 }
 

@@ -32,13 +32,13 @@ impl Size {
     }
 }
 
-impl Producable for Size {
+impl Parsable for Size {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        Ok(flux.read_u64()?.into())
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u64()?.into())
     }
 }
-impl SizedProducable for Size {
+impl SizedParsable for Size {
     const SIZE: usize = 8;
 }
 impl Serializable for Size {

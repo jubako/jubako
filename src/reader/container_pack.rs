@@ -12,19 +12,19 @@ pub struct ContainerPack {
 fn packs_offset(header: &ContainerPackHeader) -> Offset {
     (header.file_size
         - Size::new(ContainerPackHeader::SIZE as u64)
-        - Size::new(header.pack_count.into_u64() * PackLocator::SIZE as u64))
+        - Size::new(header.pack_count.into_u64() * (PackLocator::SIZE as u64)))
     .into()
 }
 
 impl ContainerPack {
     pub fn new(reader: Reader) -> Result<Self> {
         let mut flux = reader.create_flux_all();
-        let header = ContainerPackHeader::produce(&mut flux)?;
+        let header = ContainerPackHeader::parse(&mut flux)?;
         flux.seek(packs_offset(&header));
         let mut packs_uuid = Vec::with_capacity(header.pack_count.into_usize());
         let mut packs = HashMap::with_capacity(header.pack_count.into_usize());
         for _idx in header.pack_count {
-            let pack_locator = PackLocator::produce(&mut flux)?;
+            let pack_locator = PackLocator::parse(&mut flux)?;
             let pack_reader = reader
                 .create_sub_reader(pack_locator.pack_pos, pack_locator.pack_size)
                 .into();
@@ -64,7 +64,7 @@ impl ContainerPack {
 
     pub fn get_manifest_pack_reader(&self) -> Result<Option<Reader>> {
         for reader in self.packs.values() {
-            let pack_kind = FullPackKind::produce(&mut reader.create_flux_all())?;
+            let pack_kind = reader.parse_at::<FullPackKind>(Offset::zero())?;
             if let PackKind::Manifest = pack_kind {
                 return Ok(Some(reader.clone()));
             }
@@ -74,7 +74,7 @@ impl ContainerPack {
 
     pub fn check(&self) -> Result<bool> {
         for reader in self.packs.values() {
-            let pack_kind = FullPackKind::produce(&mut reader.create_flux_all())?;
+            let pack_kind = reader.parse_at::<FullPackKind>(Offset::zero())?;
             let ok = match pack_kind {
                 PackKind::Manifest => ManifestPack::new(reader.clone())?.check()?,
                 PackKind::Directory => DirectoryPack::new(reader.clone())?.check()?,
@@ -105,9 +105,7 @@ impl serde::Serialize for ContainerPack {
         use serde::ser::SerializeMap;
         let mut container = serializer.serialize_map(Some(self.packs.len()))?;
         for (uuid, reader) in self.packs.iter() {
-            let pack_header =
-                PackHeader::produce(&mut reader.create_flux_to(Size::from(PackHeader::SIZE)))
-                    .unwrap();
+            let pack_header = reader.parse_at::<PackHeader>(Offset::zero()).unwrap();
             container.serialize_entry(&uuid, &pack_header)?;
         }
         container.end()
@@ -132,7 +130,7 @@ impl Explorable for ContainerPack {
         };
 
         Ok(Some(
-            match FullPackKind::produce(&mut reader.create_flux_all())? {
+            match reader.parse_at::<FullPackKind>(Offset::zero())? {
                 PackKind::Manifest => Box::new(ManifestPack::new(reader.clone())?),
                 PackKind::Directory => Box::new(DirectoryPack::new(reader.clone())?),
                 PackKind::Content => Box::new(ContentPack::new(reader.clone())?),

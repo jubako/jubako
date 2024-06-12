@@ -34,8 +34,7 @@ pub struct Container {
 
 fn parse_header(buffer: [u8; 64]) -> Result<(PackKind, Size)> {
     let reader: Reader = buffer.into();
-    let mut flux = reader.create_flux_all();
-    let kind = FullPackKind::produce(&mut flux)?;
+    let kind = reader.parse_at::<FullPackKind>(Offset::zero())?;
     Ok(match kind {
         PackKind::Directory | PackKind::Content => (kind, Size::zero()),
         PackKind::Container => {

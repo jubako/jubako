@@ -4,15 +4,15 @@ use crate::bases::*;
 #[repr(transparent)]
 pub struct FreeData<const N: usize>([u8; N]);
 
-impl<const N: usize> Producable for FreeData<N> {
+impl<const N: usize> Parsable for FreeData<N> {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
         let mut s = [0; N];
-        flux.read_exact(s.as_mut_slice())?;
+        parser.read_data(s.as_mut_slice())?;
         Ok(Self(s))
     }
 }
-impl<const N: usize> SizedProducable for FreeData<N> {
+impl<const N: usize> SizedParsable for FreeData<N> {
     const SIZE: usize = N;
 }
 

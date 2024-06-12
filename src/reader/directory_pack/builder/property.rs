@@ -35,7 +35,7 @@ impl VariantIdProperty {
 impl PropertyBuilderTrait for VariantIdProperty {
     type Output = VariantIdx;
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        Ok(reader.read_u8(self.offset)?.into())
+        reader.parse_at::<VariantIdx>(self.offset)
     }
 }
 
@@ -111,27 +111,28 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
 impl PropertyBuilderTrait for IntProperty {
     type Output = u64;
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
+        let mut parser = reader.create_flux_from(self.offset);
         Ok(match self.default {
             Some(v) => v,
             None => match &self.deported {
                 Some((key_size, value_store)) => {
                     let key = match key_size {
-                        ByteSize::U1 => reader.read_u8(self.offset)? as u64,
-                        ByteSize::U2 => reader.read_u16(self.offset)? as u64,
-                        ByteSize::U4 => reader.read_u32(self.offset)? as u64,
-                        ByteSize::U8 => reader.read_u64(self.offset)?,
-                        _ => reader.read_usized(self.offset, *key_size)?,
+                        ByteSize::U1 => parser.read_u8()? as u64,
+                        ByteSize::U2 => parser.read_u16()? as u64,
+                        ByteSize::U4 => parser.read_u32()? as u64,
+                        ByteSize::U8 => parser.read_u64()?,
+                        _ => parser.read_usized(*key_size)?,
                     };
                     let value_data = value_store
                         .get_data(key.into(), Some(Size::from(self.size as u8 as usize)))?;
                     LE::read_uint(value_data, self.size as u8 as usize)
                 }
                 None => match self.size {
-                    ByteSize::U1 => reader.read_u8(self.offset)? as u64,
-                    ByteSize::U2 => reader.read_u16(self.offset)? as u64,
-                    ByteSize::U4 => reader.read_u32(self.offset)? as u64,
-                    ByteSize::U8 => reader.read_u64(self.offset)?,
-                    _ => reader.read_usized(self.offset, self.size)?,
+                    ByteSize::U1 => parser.read_u8()? as u64,
+                    ByteSize::U2 => parser.read_u16()? as u64,
+                    ByteSize::U4 => parser.read_u32()? as u64,
+                    ByteSize::U8 => parser.read_u64()?,
+                    _ => parser.read_usized(self.size)?,
                 },
             },
         })
@@ -212,18 +213,17 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
 impl PropertyBuilderTrait for SignedProperty {
     type Output = i64;
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
+        let mut parser = reader.create_flux_from(self.offset);
         Ok(match self.default {
             Some(v) => v,
             None => match &self.deported {
                 Some((key_size, value_store)) => {
                     let key = match key_size {
-                        ByteSize::U1 => reader.read_u8(self.offset)? as u64,
-                        ByteSize::U2 => reader.read_u16(self.offset)? as u64,
-                        ByteSize::U3 | ByteSize::U4 => {
-                            reader.read_usized(self.offset, self.size)?
-                        }
+                        ByteSize::U1 => parser.read_u8()? as u64,
+                        ByteSize::U2 => parser.read_u16()? as u64,
+                        ByteSize::U3 | ByteSize::U4 => parser.read_usized(self.size)?,
                         ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
-                            reader.read_usized(self.offset, self.size)?
+                            parser.read_usized(self.size)?
                         }
                     };
                     let value_data = value_store
@@ -231,11 +231,11 @@ impl PropertyBuilderTrait for SignedProperty {
                     LE::read_int(value_data, self.size as u8 as usize)
                 }
                 None => match self.size {
-                    ByteSize::U1 => reader.read_i8(self.offset)? as i64,
-                    ByteSize::U2 => reader.read_i16(self.offset)? as i64,
-                    ByteSize::U3 | ByteSize::U4 => reader.read_isized(self.offset, self.size)?,
+                    ByteSize::U1 => parser.read_i8()? as i64,
+                    ByteSize::U2 => parser.read_i16()? as i64,
+                    ByteSize::U3 | ByteSize::U4 => parser.read_isized(self.size)?,
                     ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
-                        reader.read_isized(self.offset, self.size)?
+                        parser.read_isized(self.size)?
                     }
                 },
             },
@@ -325,7 +325,7 @@ impl PropertyBuilderTrait for ArrayProperty {
                     None => None,
                     Some(size) => Some(flux.read_usized(size)?.into()),
                 };
-                let base_array = BaseArray::new_from_flux(self.fixed_array_len, &mut flux)?;
+                let base_array = BaseArray::parse(self.fixed_array_len, &mut flux)?;
                 let deported_info = match &self.deported_array_info {
                     Some((value_size, store)) => {
                         let value_id = flux.read_usized(*value_size)?.into();

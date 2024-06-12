@@ -13,19 +13,19 @@ pub enum PackKind {
     Container = b'C',
 }
 
-impl Producable for PackKind {
+impl Parsable for PackKind {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        match flux.read_u8()? {
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        match parser.read_u8()? {
             b'm' => Ok(PackKind::Manifest),
             b'd' => Ok(PackKind::Directory),
             b'c' => Ok(PackKind::Content),
             b'C' => Ok(PackKind::Container),
-            kind => Err(format_error!(&format!("Invalid pack kind {kind}"), flux)),
+            kind => Err(format_error!(&format!("Invalid pack kind {kind}"), parser)),
         }
     }
 }
-impl SizedProducable for PackKind {
+impl SizedParsable for PackKind {
     const SIZE: usize = 1;
 }
 
@@ -37,26 +37,26 @@ impl Serializable for PackKind {
 
 pub(crate) struct FullPackKind(pub PackKind);
 
-impl Producable for FullPackKind {
+impl Parsable for FullPackKind {
     type Output = PackKind;
-    fn produce(flux: &mut Flux) -> Result<Self::Output> {
+    fn parse(parser: &mut impl Parser) -> Result<Self::Output> {
         let mut magic = [0; 3];
-        flux.read_exact(&mut magic)?;
+        parser.read_data(&mut magic)?;
         if magic != JBK_MAGIC {
-            Err(format_error!("Not a JBK kind", flux))
+            Err(format_error!("Not a JBK kind", parser))
         } else {
-            match flux.read_u8()? {
+            match parser.read_u8()? {
                 b'm' => Ok(PackKind::Manifest),
                 b'd' => Ok(PackKind::Directory),
                 b'c' => Ok(PackKind::Content),
                 b'C' => Ok(PackKind::Container),
-                kind => Err(format_error!(&format!("Invalid pack kind {kind}"), flux)),
+                kind => Err(format_error!(&format!("Invalid pack kind {kind}"), parser)),
             }
         }
     }
 }
 
-impl SizedProducable for FullPackKind {
+impl SizedParsable for FullPackKind {
     const SIZE: usize = 4;
 }
 

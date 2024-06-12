@@ -39,8 +39,7 @@ mod private {
             let offset = stream.tell();
             let mut serializer = Serializer::new();
             self.serialize_tail(&mut serializer)?;
-            stream.write_all(&serializer)?;
-            let size = stream.tell() - offset;
+            let size = stream.write_serializer(serializer)?.into();
             Ok(SizedOffset { size, offset })
         }
     }

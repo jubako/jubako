@@ -6,6 +6,7 @@ mod explorable;
 mod flux;
 mod io;
 mod memory_reader;
+mod parsing;
 mod prop_type;
 mod reader;
 mod skip;
@@ -18,6 +19,7 @@ pub use explorable::*;
 pub use flux::*;
 pub use io::*;
 pub use memory_reader::*;
+pub use parsing::*;
 pub(crate) use prop_type::*;
 pub use reader::*;
 pub use skip::*;
@@ -26,10 +28,6 @@ use std::marker::PhantomData;
 pub use sub_reader::*;
 pub use types::*;
 pub use write::*;
-
-pub trait SizedProducable: Producable {
-    const SIZE: usize;
-}
 
 /// ArrayReader is a wrapper a reader to access element stored as a array.
 /// (Consecutif block of data of the same size).
@@ -42,7 +40,7 @@ pub struct ArrayReader<OutType, IdxType> {
 
 impl<OutType, IdxType> ArrayReader<OutType, IdxType>
 where
-    OutType: SizedProducable,
+    OutType: SizedParsable,
     u64: std::convert::From<IdxType>,
     IdxType: Copy,
 {
@@ -75,7 +73,7 @@ where
     }
 }
 
-impl<OutType: Producable, IdxType> IndexTrait<Idx<IdxType>> for ArrayReader<OutType, IdxType>
+impl<OutType: Parsable, IdxType> IndexTrait<Idx<IdxType>> for ArrayReader<OutType, IdxType>
 where
     u64: std::convert::From<IdxType>,
     IdxType: std::cmp::PartialOrd + Copy + std::fmt::Debug,
@@ -89,10 +87,8 @@ where
             self.length
         );
         let offset = u64::from(idx.0) * self.elem_size as u64;
-        let mut flux = self
-            .reader
-            .create_flux(Offset::from(offset), Size::from(self.elem_size));
-        OutType::produce(&mut flux)
+        self.reader
+            .parse_in::<OutType>(Offset::from(offset), Size::from(self.elem_size))
     }
 }
 

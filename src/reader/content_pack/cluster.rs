@@ -70,10 +70,10 @@ impl Cluster {
     pub fn new(reader: &Reader, cluster_info: SizedOffset) -> Result<Self> {
         let header_reader =
             reader.create_sub_memory_reader(cluster_info.offset, cluster_info.size)?;
-        let mut flux = header_reader.create_flux_all();
-        let header = ClusterHeader::produce(&mut flux)?;
-        let raw_data_size: Size = flux.read_usized(header.offset_size)?.into();
-        let data_size: Size = flux.read_usized(header.offset_size)?.into();
+        let mut parser = header_reader.create_flux_all();
+        let header = ClusterHeader::parse(&mut parser)?;
+        let raw_data_size: Size = parser.read_usized(header.offset_size)?.into();
+        let data_size: Size = parser.read_usized(header.offset_size)?.into();
         let blob_count = header.blob_count.into_usize();
         let mut blob_offsets: Vec<Offset> = Vec::with_capacity(blob_count + 1);
         let uninit = blob_offsets.spare_capacity_mut();
@@ -83,7 +83,7 @@ impl Cluster {
                 first = false;
                 Offset::zero()
             } else {
-                flux.read_usized(header.offset_size)?.into()
+                parser.read_usized(header.offset_size)?.into()
             };
             assert!(value.is_valid(data_size));
             elem.write(value);
@@ -96,7 +96,7 @@ impl Cluster {
                     &format!(
                         "Stored size ({raw_data_size}) must be equal to data size ({data_size}) if no comprresion."
                     ),
-                    flux
+                    parser
                 ));
             }
             ClusterReader::Plain(
@@ -338,8 +338,9 @@ mod tests {
         }
         let (ptr_info, data) = cluster_info.unwrap();
         let reader = Reader::from(data);
-        let mut flux = reader.create_flux_from(ptr_info.offset);
-        let header = ClusterHeader::produce(&mut flux).unwrap();
+        let header = reader
+            .parse_in::<ClusterHeader>(ptr_info.offset, ptr_info.size)
+            .unwrap();
         assert_eq!(header.compression, comp);
         assert_eq!(header.offset_size, ByteSize::U1);
         assert_eq!(header.blob_count, 3.into());

@@ -19,17 +19,17 @@ impl ContainerPackHeader {
     }
 }
 
-impl Producable for ContainerPackHeader {
+impl Parsable for ContainerPackHeader {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let magic = FullPackKind::produce(flux)?;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let magic = FullPackKind::parse(parser)?;
         if magic != PackKind::Container {
             return Err(format_error!("Pack Magic is not ContainerPack"));
         }
-        let version = flux.read_u8()?;
-        let pack_count = flux.read_u16()?.into();
-        flux.skip(Size::new(1))?;
-        let file_size = Size::produce(flux)?;
+        let version = parser.read_u8()?;
+        let pack_count = parser.read_u16()?.into();
+        parser.skip(1)?;
+        let file_size = Size::parse(parser)?;
         Ok(ContainerPackHeader {
             version,
             pack_count,
@@ -38,7 +38,7 @@ impl Producable for ContainerPackHeader {
     }
 }
 
-impl SizedProducable for ContainerPackHeader {
+impl SizedParsable for ContainerPackHeader {
     const SIZE: usize = FullPackKind::SIZE
          + 1 // version
          + 2 // packCount
@@ -72,9 +72,11 @@ mod tests {
             0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size
         ];
         let reader = Reader::from(content);
-        let mut flux = reader.create_flux_all();
+        let container_header = reader
+            .parse_at::<ContainerPackHeader>(Offset::zero())
+            .unwrap();
         assert_eq!(
-            ContainerPackHeader::produce(&mut flux).unwrap(),
+            container_header,
             ContainerPackHeader {
                 version: 0x01_u8,
                 pack_count: 0x05_u16.into(),

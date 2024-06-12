@@ -20,15 +20,15 @@ impl serde::Serialize for VendorId {
     }
 }
 
-impl Producable for VendorId {
+impl Parsable for VendorId {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
         let mut s = [0; 4];
-        flux.read_exact(s.as_mut_slice())?;
+        parser.read_data(s.as_mut_slice())?;
         Ok(Self(s))
     }
 }
-impl SizedProducable for VendorId {
+impl SizedParsable for VendorId {
     const SIZE: usize = 4;
 }
 

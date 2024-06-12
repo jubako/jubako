@@ -43,38 +43,38 @@ where
     }
 }
 
-impl<T> SizedProducable for Count<T>
+impl<T> SizedParsable for Count<T>
 where
-    Count<T>: Producable,
+    Count<T>: Parsable,
 {
     const SIZE: usize = std::mem::size_of::<T>();
 }
 
-impl Producable for Count<u8> {
+impl Parsable for Count<u8> {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        Ok(flux.read_u8()?.into())
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u8()?.into())
     }
 }
 
-impl Producable for Count<u16> {
+impl Parsable for Count<u16> {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        Ok(flux.read_u16()?.into())
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u16()?.into())
     }
 }
 
-impl Producable for Count<u32> {
+impl Parsable for Count<u32> {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        Ok(flux.read_u32()?.into())
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u32()?.into())
     }
 }
 
-impl Producable for Count<u64> {
+impl Parsable for Count<u64> {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        Ok(flux.read_u64()?.into())
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u64()?.into())
     }
 }
 

@@ -91,8 +91,7 @@ pub struct FinalizedDirectoryPackCreator {
 impl FinalizedDirectoryPackCreator {
     pub fn write<O: InOutStream>(mut self, file: &mut O) -> Result<PackData> {
         let origin_offset = file.stream_position()?;
-        let to_skip =
-            128 + 8 * (self.value_stores.len() + self.entry_stores.len() + self.indexes.len());
+        let to_skip = DirectoryPackHeader::SIZE;
         file.seek(SeekFrom::Current(to_skip as i64))?;
 
         let mut buffered = BufWriter::new(file);
@@ -115,7 +114,6 @@ impl FinalizedDirectoryPackCreator {
             value_stores_offsets.push(value_store.write().unwrap().write(&mut buffered)?);
         }
 
-        buffered.seek(SeekFrom::Start(origin_offset + 128))?;
         info!("----- Write indexes offsets -----");
         let indexes_ptr_offsets = buffered.stream_position()? - origin_offset;
         buffered.ser_callable(&|ser| {

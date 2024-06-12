@@ -16,3 +16,6 @@ pub use crate::bases::{
 pub use crate::common::{CompressionType, ContentAddress, PackKind, Value};
 pub use crate::tools::concat;
 //pub use crate::reader::directory_pack::layout;
+
+#[cfg(doctest)]
+pub use bases::BaseArray;

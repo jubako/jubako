@@ -71,12 +71,12 @@ impl RawProperty {
     }
 }
 
-impl Producable for RawProperty {
+impl Parsable for RawProperty {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let propinfo = flux.read_u8()?;
-        let proptype =
-            PropType::try_from(propinfo & 0xF0).map_err::<Error, _>(|e| format_error!(&e, flux))?;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let propinfo = parser.read_u8()?;
+        let proptype = PropType::try_from(propinfo & 0xF0)
+            .map_err::<Error, _>(|e| format_error!(&e, parser))?;
         let propdata = propinfo & 0x0F;
         let (propsize, kind, name) = match proptype {
             PropType::Padding => (propdata as u16 + 1, PropertyKind::Padding, None),
@@ -85,7 +85,7 @@ impl Producable for RawProperty {
                     ByteSize::try_from(((propdata & 0b0100) >> 2) as usize + 1).unwrap();
                 let content_id_size = (propdata & 0b0011) as u16 + 1;
                 let default_pack_id = if (propdata & 0b1000) != 0 {
-                    Some((flux.read_usized(pack_id_size)? as u16).into())
+                    Some((parser.read_usized(pack_id_size)? as u16).into())
                 } else {
                     None
                 };
@@ -101,7 +101,7 @@ impl Producable for RawProperty {
                         content_id_size: ByteSize::try_from(content_id_size as usize).unwrap(),
                         default_pack_id,
                     },
-                    Some(String::from_utf8(PString::produce(flux)?)?),
+                    Some(String::from_utf8(PString::parse(parser)?)?),
                 )
             }
             PropType::UnsignedInt | PropType::SignedInt => {
@@ -113,15 +113,15 @@ impl Producable for RawProperty {
                         if proptype == PropType::UnsignedInt {
                             PropertyKind::UnsignedInt {
                                 int_size,
-                                default: Some(flux.read_usized(int_size)?),
+                                default: Some(parser.read_usized(int_size)?),
                             }
                         } else {
                             PropertyKind::SignedInt {
                                 int_size,
-                                default: Some(flux.read_isized(int_size)?),
+                                default: Some(parser.read_isized(int_size)?),
                             }
                         },
-                        Some(String::from_utf8(PString::produce(flux)?)?),
+                        Some(String::from_utf8(PString::parse(parser)?)?),
                     )
                 } else {
                     (
@@ -137,7 +137,7 @@ impl Producable for RawProperty {
                                 default: None,
                             }
                         },
-                        Some(String::from_utf8(PString::produce(flux)?)?),
+                        Some(String::from_utf8(PString::parse(parser)?)?),
                     )
                 }
             }
@@ -150,13 +150,13 @@ impl Producable for RawProperty {
                 } else {
                     None
                 };
-                let complement = flux.read_u8()?;
+                let complement = parser.read_u8()?;
                 let fixed_array_len = complement & 0b00011111;
                 let key_size = complement >> 5;
                 let deported_info = if key_size != 0 {
                     Some(DeportedInfo {
                         id_size: ByteSize::try_from(key_size as usize).unwrap(),
-                        value_store_idx: ValueStoreIdx::from(flux.read_u8()?),
+                        value_store_idx: ValueStoreIdx::from(parser.read_u8()?),
                     })
                 } else {
                     None
@@ -166,11 +166,11 @@ impl Producable for RawProperty {
                     (
                         0,
                         {
-                            let size = flux.read_usized(array_len_size.unwrap())?;
-                            let fixed_data = BaseArray::new_from_flux(fixed_array_len, flux)?;
+                            let size = parser.read_usized(array_len_size.unwrap())?;
+                            let fixed_data = BaseArray::parse(fixed_array_len, parser)?;
                             let key_id =
                                 if key_size != 0 {
-                                    Some(flux.read_usized(
+                                    Some(parser.read_usized(
                                         ByteSize::try_from(key_size as usize).unwrap(),
                                     )?)
                                 } else {
@@ -183,7 +183,7 @@ impl Producable for RawProperty {
                                 default: Some((size, fixed_data, key_id)),
                             }
                         },
-                        Some(String::from_utf8(PString::produce(flux)?)?),
+                        Some(String::from_utf8(PString::parse(parser)?)?),
                     )
                 } else {
                     (
@@ -198,23 +198,23 @@ impl Producable for RawProperty {
                             deported_info,
                             default: None,
                         },
-                        Some(String::from_utf8(PString::produce(flux)?)?),
+                        Some(String::from_utf8(PString::parse(parser)?)?),
                     )
                 }
             }
             PropType::VariantId => (
                 1,
                 PropertyKind::VariantId,
-                Some(String::from_utf8(PString::produce(flux)?)?),
+                Some(String::from_utf8(PString::parse(parser)?)?),
             ),
             PropType::DeportedUnsignedInt | PropType::DeportedSignedInt => {
                 let default_value = (propdata & 0b1000) != 0;
                 let int_size = ByteSize::try_from((propdata & 0x07) as usize + 1).unwrap();
                 let key_id_size =
-                    ByteSize::try_from((flux.read_u8()? & 0x07) as usize + 1).unwrap();
-                let value_store_idx = ValueStoreIdx::from(flux.read_u8()?);
+                    ByteSize::try_from((parser.read_u8()? & 0x07) as usize + 1).unwrap();
+                let value_store_idx = ValueStoreIdx::from(parser.read_u8()?);
                 if default_value {
-                    let key_value = flux.read_usized(key_id_size)?;
+                    let key_value = parser.read_usized(key_id_size)?;
                     (
                         0,
                         if proptype == PropType::DeportedUnsignedInt {
@@ -230,7 +230,7 @@ impl Producable for RawProperty {
                                 id: DeportedDefault::Value(key_value),
                             }
                         },
-                        Some(String::from_utf8(PString::produce(flux)?)?),
+                        Some(String::from_utf8(PString::parse(parser)?)?),
                     )
                 } else {
                     (
@@ -248,7 +248,7 @@ impl Producable for RawProperty {
                                 id: DeportedDefault::KeySize(key_id_size),
                             }
                         },
-                        Some(String::from_utf8(PString::produce(flux)?)?),
+                        Some(String::from_utf8(PString::parse(parser)?)?),
                     )
                 }
             }
@@ -276,13 +276,13 @@ impl std::ops::DerefMut for RawLayout {
     }
 }
 
-impl Producable for RawLayout {
+impl Parsable for RawLayout {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let property_count: PropertyCount = Count::<u8>::produce(flux)?.into();
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let property_count: PropertyCount = Count::<u8>::parse(parser)?.into();
         let mut properties = Vec::with_capacity(property_count.into_usize());
         for _ in property_count {
-            let property = RawProperty::produce(flux)?;
+            let property = RawProperty::parse(parser)?;
             properties.push(property);
         }
         Ok(Self(properties))
@@ -369,7 +369,8 @@ mod tests {
         let mut content = Vec::new();
         content.extend_from_slice(source);
         let reader = Reader::from(content);
-        let mut flux = reader.create_flux_all();
-        RawProperty::produce(&mut flux).unwrap()
+        reader
+            .parse_in::<RawProperty>(Offset::zero(), reader.size())
+            .unwrap()
     }
 }

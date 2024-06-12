@@ -1,8 +1,8 @@
 use crate::bases::*;
+use std::borrow::Cow;
 use std::io::Read;
 use std::mem::ManuallyDrop;
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
-use zerocopy::byteorder::{ByteOrder, LittleEndian as LE};
 
 /*
 SyncVec is mostly a Arc<Vec<u8>> where the only protected part is its length
@@ -161,8 +161,8 @@ impl Source for SeekableDecoder {
         self.buffer.total_size().into()
     }
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize> {
-        let end = offset + buf.len();
-        self.decode_to(end);
+        let end = std::cmp::min(offset.into_usize() + buf.len(), self.buffer.total_size());
+        self.decode_to(end.into());
         let mut slice = &self.decoded_slice()[offset.into_usize()..];
         match Read::read(&mut slice, buf) {
             Err(e) => Err(e.into()),
@@ -173,21 +173,22 @@ impl Source for SeekableDecoder {
         let end = offset + buf.len();
         let o = offset.into_usize();
         let e = end.into_usize();
-        self.decode_to(end);
-        let slice = self.decoded_slice();
-        if e > slice.len() {
+        if e > self.buffer.total_size() {
             return Err(String::from("Out of slice").into());
         }
+        self.decode_to(end);
+        let slice = self.decoded_slice();
+        assert!(e <= slice.len());
         buf.copy_from_slice(&self.decoded_slice()[o..e]);
         Ok(())
     }
 
-    fn get_slice(&self, region: Region) -> Result<std::borrow::Cow<[u8]>> {
+    fn get_slice(&self, region: Region) -> Result<Cow<[u8]>> {
         if !region.end().is_valid(self.size()) {
             return Err(format!("Out of slice. {} > {}", region.end(), self.size()).into());
         }
         self.decode_to(region.end());
-        Ok(std::borrow::Cow::Borrowed(
+        Ok(Cow::Borrowed(
             &self.decoded_slice()[region.begin().into_usize()..region.end().into_usize()],
         ))
     }
@@ -199,106 +200,6 @@ impl Source for SeekableDecoder {
         debug_assert!(region.end().is_valid(self.size()));
         self.decode_to(region.end());
         Ok((self, region))
-    }
-
-    fn read_u8(&self, offset: Offset) -> Result<u8> {
-        let end = offset + 1;
-        if !end.is_valid(self.size()) {
-            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
-        }
-        self.decode_to(end);
-        let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
-        Ok(slice[0])
-    }
-
-    fn read_u16(&self, offset: Offset) -> Result<u16> {
-        let end = offset + 2;
-        if !end.is_valid(self.size()) {
-            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
-        }
-        self.decode_to(end);
-        let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
-        Ok(LE::read_u16(slice))
-    }
-
-    fn read_u32(&self, offset: Offset) -> Result<u32> {
-        let end = offset + 4;
-        if !end.is_valid(self.size()) {
-            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
-        }
-        self.decode_to(end);
-        let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
-        Ok(LE::read_u32(slice))
-    }
-
-    fn read_u64(&self, offset: Offset) -> Result<u64> {
-        let end = offset + 8;
-        if !end.is_valid(self.size()) {
-            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
-        }
-        self.decode_to(end);
-        let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
-        Ok(LE::read_u64(slice))
-    }
-
-    fn read_usized(&self, offset: Offset, size: ByteSize) -> Result<u64> {
-        let end = offset + size as usize;
-        if !end.is_valid(self.size()) {
-            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
-        }
-        self.decode_to(end);
-        let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
-        Ok(LE::read_uint(slice, size as usize))
-    }
-
-    fn read_i8(&self, offset: Offset) -> Result<i8> {
-        let end = offset + 1;
-        if !end.is_valid(self.size()) {
-            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
-        }
-        self.decode_to(end);
-        let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
-        Ok(slice[0] as i8)
-    }
-
-    fn read_i16(&self, offset: Offset) -> Result<i16> {
-        let end = offset + 2;
-        if !end.is_valid(self.size()) {
-            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
-        }
-        self.decode_to(end);
-        let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
-        Ok(LE::read_i16(slice))
-    }
-
-    fn read_i32(&self, offset: Offset) -> Result<i32> {
-        let end = offset + 4;
-        if !end.is_valid(self.size()) {
-            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
-        }
-        self.decode_to(end);
-        let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
-        Ok(LE::read_i32(slice))
-    }
-
-    fn read_i64(&self, offset: Offset) -> Result<i64> {
-        let end = offset + 8;
-        if !end.is_valid(self.size()) {
-            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
-        }
-        self.decode_to(end);
-        let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
-        Ok(LE::read_i64(slice))
-    }
-
-    fn read_isized(&self, offset: Offset, size: ByteSize) -> Result<i64> {
-        let end = offset + size as usize;
-        if !end.is_valid(self.size()) {
-            return Err(format!("Out of slice. {end} ({offset}) > {}", self.size()).into());
-        }
-        self.decode_to(end);
-        let slice = &self.decoded_slice()[offset.into_usize()..end.into_usize()];
-        Ok(LE::read_int(slice, size as usize))
     }
 
     fn display(&self) -> String {

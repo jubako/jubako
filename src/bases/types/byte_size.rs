@@ -32,13 +32,13 @@ impl TryFrom<usize> for ByteSize {
     }
 }
 
-impl Producable for ByteSize {
+impl Parsable for ByteSize {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        Ok((flux.read_u8()? as usize).try_into()?)
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok((parser.read_u8()? as usize).try_into()?)
     }
 }
-impl SizedProducable for ByteSize {
+impl SizedParsable for ByteSize {
     const SIZE: usize = 1;
 }
 impl Serializable for ByteSize {

@@ -9,14 +9,14 @@ enum StoreKind {
     Full = 2,
 }
 
-impl Producable for StoreKind {
+impl Parsable for StoreKind {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        match flux.read_u8()? {
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        match parser.read_u8()? {
             0 => Ok(StoreKind::Plain),
             1 => Ok(StoreKind::Ref),
             2 => Ok(StoreKind::Full),
-            v => Err(format_error!(&format!("Invalid store kind ({v})"), flux)),
+            v => Err(format_error!(&format!("Invalid store kind ({v})"), parser)),
         }
     }
 }
@@ -29,10 +29,10 @@ pub enum EntryStore {
 
 impl EntryStore {
     pub fn new(reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let mut header_flux = reader.create_flux_for(pos_info);
-        Ok(match StoreKind::produce(&mut header_flux)? {
+        let mut header_parser = reader.create_flux_for(pos_info);
+        Ok(match StoreKind::parse(&mut header_parser)? {
             StoreKind::Plain => {
-                EntryStore::Plain(PlainStore::new(&mut header_flux, reader, pos_info)?)
+                EntryStore::Plain(PlainStore::new(&mut header_parser, reader, pos_info)?)
             }
             _ => todo!(),
         })
@@ -69,9 +69,9 @@ pub struct PlainStore {
 }
 
 impl PlainStore {
-    pub fn new(flux: &mut Flux, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let layout = Layout::produce(flux)?;
-        let data_size = Size::produce(flux)?;
+    pub fn new(parser: &mut impl Parser, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
+        let layout = Layout::parse(parser)?;
+        let data_size = Size::parse(parser)?;
         // [TODO] use a array_reader here
         let entry_reader = reader
             .create_sub_reader(pos_info.offset - data_size, data_size)
@@ -112,15 +112,14 @@ impl serde::Serialize for PlainStore {
 #[cfg(feature = "explorable")]
 impl Explorable for PlainStore {
     fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
+        use std::io::Read;
         let index = item
             .parse::<u32>()
             .map_err(|e| Error::from(format!("{e}")))?;
         let entry_reader = self.get_entry_reader(EntryIdx::from(index));
-        Ok(Some(Box::new(
-            entry_reader
-                .create_flux_all()
-                .read_vec(entry_reader.size().into_usize())?,
-        )))
+        let mut data = vec![];
+        entry_reader.create_flux_all().read_to_end(&mut data)?;
+        Ok(Some(Box::new(data)))
     }
 }
 
