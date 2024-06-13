@@ -67,58 +67,6 @@ fn zstd_source(_raw_stream: Stream, _data_size: Size) -> Result<Arc<dyn Source>>
 }
 
 impl Cluster {
-    pub fn new(reader: &Reader, cluster_info: SizedOffset) -> Result<Self> {
-        let header_reader =
-            reader.create_sub_memory_reader(cluster_info.offset, cluster_info.size)?;
-        let mut parser = header_reader.create_flux_all();
-        let header = ClusterHeader::parse(&mut parser)?;
-        let raw_data_size: Size = parser.read_usized(header.offset_size)?.into();
-        let data_size: Size = parser.read_usized(header.offset_size)?.into();
-        let blob_count = header.blob_count.into_usize();
-        let mut blob_offsets: Vec<Offset> = Vec::with_capacity(blob_count + 1);
-        let uninit = blob_offsets.spare_capacity_mut();
-        let mut first = true;
-        for elem in &mut uninit[0..blob_count] {
-            let value: Offset = if first {
-                first = false;
-                Offset::zero()
-            } else {
-                parser.read_usized(header.offset_size)?.into()
-            };
-            assert!(value.is_valid(data_size));
-            elem.write(value);
-        }
-        unsafe { blob_offsets.set_len(blob_count) }
-        blob_offsets.push(data_size.into());
-        let reader = if header.compression == CompressionType::None {
-            if raw_data_size != data_size {
-                return Err(format_error!(
-                    &format!(
-                        "Stored size ({raw_data_size}) must be equal to data size ({data_size}) if no comprresion."
-                    ),
-                    parser
-                ));
-            }
-            ClusterReader::Plain(
-                reader
-                    .create_sub_reader(cluster_info.offset - raw_data_size, raw_data_size)
-                    .into(),
-            )
-        } else {
-            ClusterReader::Raw(
-                reader
-                    .create_sub_reader(cluster_info.offset - raw_data_size, raw_data_size)
-                    .into(),
-            )
-        };
-        Ok(Cluster {
-            blob_offsets,
-            data_size,
-            compression: header.compression,
-            reader: RwLock::new(reader),
-        })
-    }
-
     fn build_plain_reader(&self) -> Result<()> {
         let mut cluster_reader = self.reader.write().unwrap();
         if let ClusterReader::Plain(_) = *cluster_reader {
@@ -166,6 +114,79 @@ impl Cluster {
         }
     }
 }
+
+pub(crate) struct ClusterBuilder {
+    blob_offsets: Vec<Offset>,
+    data_size: Size,
+    compression: CompressionType,
+}
+
+impl DataBlockParsable for Cluster {
+    type Intermediate = ClusterBuilder;
+    type TailParser = ClusterBuilder;
+    type Output = Self;
+
+    fn finalize(intermediate: Self::Intermediate, reader: SubReader) -> Result<Self::Output> {
+        let reader = if intermediate.compression == CompressionType::None {
+            ClusterReader::Plain(reader.into())
+        } else {
+            ClusterReader::Raw(reader.into())
+        };
+        Ok(Cluster {
+            blob_offsets: intermediate.blob_offsets,
+            data_size: intermediate.data_size,
+            compression: intermediate.compression,
+            reader: RwLock::new(reader),
+        })
+    }
+}
+
+impl Parsable for ClusterBuilder {
+    type Output = (ClusterBuilder, Size);
+    fn parse(parser: &mut impl Parser) -> Result<Self::Output>
+    where
+        Self::Output: Sized,
+    {
+        let header = ClusterHeader::parse(parser)?;
+        let raw_data_size: Size = parser.read_usized(header.offset_size)?.into();
+        let data_size: Size = parser.read_usized(header.offset_size)?.into();
+        let blob_count = header.blob_count.into_usize();
+        let mut blob_offsets: Vec<Offset> = Vec::with_capacity(blob_count + 1);
+        let uninit = blob_offsets.spare_capacity_mut();
+        let mut first = true;
+        for elem in &mut uninit[0..blob_count] {
+            let value: Offset = if first {
+                first = false;
+                Offset::zero()
+            } else {
+                parser.read_usized(header.offset_size)?.into()
+            };
+            assert!(value.is_valid(data_size));
+            elem.write(value);
+        }
+        unsafe { blob_offsets.set_len(blob_count) }
+        blob_offsets.push(data_size.into());
+        if header.compression == CompressionType::None && raw_data_size != data_size {
+            return Err(format_error!(
+                    &format!(
+                        "Stored size ({raw_data_size}) must be equal to data size ({data_size}) if no comprresion."
+                    ),
+                    parser
+                ));
+        }
+
+        Ok((
+            ClusterBuilder {
+                blob_offsets,
+                data_size,
+                compression: header.compression,
+            },
+            raw_data_size,
+        ))
+    }
+}
+
+impl BlockParsable for ClusterBuilder {}
 
 #[cfg(feature = "explorable")]
 impl serde::Serialize for Cluster {
@@ -344,7 +365,7 @@ mod tests {
         assert_eq!(header.compression, comp);
         assert_eq!(header.offset_size, ByteSize::U1);
         assert_eq!(header.blob_count, 3.into());
-        let cluster = Cluster::new(&reader, ptr_info).unwrap();
+        let cluster = reader.parse_data_block::<Cluster>(ptr_info).unwrap();
         assert_eq!(cluster.blob_count(), 3.into());
 
         {

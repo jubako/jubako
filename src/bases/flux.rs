@@ -99,12 +99,6 @@ impl<'s> Read for Flux<'s> {
     }
 }
 
-impl<'s> From<&'s Reader> for Flux<'s> {
-    fn from(reader: &'s Reader) -> Self {
-        reader.create_flux_all()
-    }
-}
-
 impl<'s> From<&SubReader<'s>> for Flux<'s> {
     fn from(reader: &SubReader<'s>) -> Self {
         reader.create_flux_all()

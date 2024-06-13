@@ -4,6 +4,7 @@ use super::flux::*;
 use super::sub_reader::*;
 use super::types::*;
 use super::BlockParsable;
+use super::DataBlockParsable;
 use super::Parsable;
 use super::SizedBlockParsable;
 use super::SizedParsable;
@@ -46,6 +47,16 @@ impl Reader {
     ) -> Result<T::Output> {
         let mut flux = self.create_flux(offset, size);
         T::parse(&mut flux)
+    }
+
+    pub(crate) fn parse_data_block<T: DataBlockParsable>(
+        &self,
+        sized_offset: SizedOffset,
+    ) -> Result<T::Output> {
+        let (intermediate, data_size) =
+            self.parse_in::<T::TailParser>(sized_offset.offset, sized_offset.size)?;
+        let data_reader = self.create_sub_reader(sized_offset.offset - data_size, data_size);
+        T::finalize(intermediate, data_reader)
     }
 
     pub fn parse_at<T: SizedParsable>(&self, offset: Offset) -> Result<T::Output> {

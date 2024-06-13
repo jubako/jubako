@@ -5,7 +5,6 @@ use crate::common::{CheckInfo, ContentInfo, ContentPackHeader, Pack, PackKind};
 use cluster::Cluster;
 use fxhash::FxBuildHasher;
 use lru::LruCache;
-use std::io::Read;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex, OnceLock};
 use uuid::Uuid;
@@ -53,7 +52,8 @@ impl ContentPack {
 
     fn _get_cluster(&self, cluster_index: ClusterIdx) -> Result<Arc<Cluster>> {
         let cluster_info = self.cluster_ptrs.index(*cluster_index)?;
-        Ok(Arc::new(Cluster::new(&self.reader, cluster_info)?))
+        let cluster = self.reader.parse_data_block::<Cluster>(cluster_info)?;
+        Ok(Arc::new(cluster))
     }
 
     fn get_cluster(&self, cluster_index: ClusterIdx) -> Result<Arc<Cluster>> {
@@ -116,7 +116,9 @@ impl Explorable for ContentPack {
                 .parse::<u32>()
                 .map_err(|e| Error::from(format!("{e}")))?;
             let cluster_info = self.cluster_ptrs.index(index.into())?;
-            Ok(Some(Box::new(Cluster::new(&self.reader, cluster_info)?)))
+            Ok(Some(Box::new(
+                self.reader.parse_data_block::<Cluster>(cluster_info)?,
+            )))
         } else {
             Ok(None)
         }
@@ -152,13 +154,14 @@ impl Pack for ContentPack {
         let mut check_flux = self
             .reader
             .create_flux_to(Size::from(self.header.pack_header.check_info_pos));
-        check_info.check(&mut check_flux as &mut dyn Read)
+        check_info.check(&mut check_flux)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Read;
 
     #[test]
     fn test_contentpack() {

@@ -45,3 +45,5 @@ impl Parsable for PackLocator {
         })
     }
 }
+
+impl BlockParsable for PackLocator {}

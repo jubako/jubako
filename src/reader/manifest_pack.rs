@@ -4,7 +4,6 @@ use crate::bases::*;
 use crate::common::{CheckInfo, ManifestCheckStream, ManifestPackHeader, Pack, PackInfo, PackKind};
 use crate::reader::directory_pack::{ValueStore, ValueStoreTrait};
 use std::cmp;
-use std::io::Read;
 use uuid::Uuid;
 
 pub struct ManifestPack {
@@ -36,7 +35,7 @@ impl ManifestPack {
         }
         let vs_posinfo = header.value_store_posinfo;
         let value_store = if !vs_posinfo.is_zero() {
-            Some(ValueStore::new(&reader, vs_posinfo)?)
+            Some(reader.parse_data_block::<ValueStore>(vs_posinfo)?)
         } else {
             None
         };
@@ -167,7 +166,7 @@ impl Pack for ManifestPack {
             .create_flux_to(Size::from(self.header.pack_header.check_info_pos));
         let mut check_stream =
             ManifestCheckStream::new_from_offset_iter(&mut check_flux, self.header.packs_offset());
-        check_info.check(&mut check_stream as &mut dyn Read)
+        check_info.check(&mut check_stream)
     }
 }
 

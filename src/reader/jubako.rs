@@ -54,8 +54,10 @@ pub fn locate_pack(reader: Reader) -> Result<ContainerPack> {
     let mut buffer_reader = [0u8; 64];
 
     // Check at beginning
-    let mut flux = reader.create_flux_to(Size::new(64));
-    flux.read_exact(&mut buffer_reader)?;
+    {
+        let mut flux = reader.create_flux_to(Size::new(64));
+        flux.read_exact(&mut buffer_reader)?;
+    }
     let (kind, offset, size) = match parse_header(buffer_reader) {
         Ok((kind, size)) => (kind, Offset::zero(), size),
         Err(_) => {

@@ -12,7 +12,6 @@ mod value_store;
 use self::index::IndexHeader;
 use crate::bases::*;
 use crate::common::{CheckInfo, DirectoryPackHeader, Pack, PackKind};
-use std::io::Read;
 use std::sync::{Arc, RwLock};
 use uuid::Uuid;
 
@@ -147,7 +146,9 @@ impl CachableSource<ValueStore> for DirectoryPack {
 
     fn get_value(&self, id: Self::Idx) -> Result<Arc<ValueStore>> {
         let sized_offset = self.value_stores_ptrs.index(*id)?;
-        Ok(Arc::new(ValueStore::new(&self.reader, sized_offset)?))
+        Ok(Arc::new(
+            self.reader.parse_data_block::<ValueStore>(sized_offset)?,
+        ))
     }
 }
 
@@ -159,7 +160,9 @@ impl CachableSource<EntryStore> for DirectoryPack {
 
     fn get_value(&self, id: Self::Idx) -> Result<Arc<EntryStore>> {
         let sized_offset = self.entry_stores_ptrs.index(*id)?;
-        Ok(Arc::new(EntryStore::new(&self.reader, sized_offset)?))
+        Ok(Arc::new(
+            self.reader.parse_data_block::<EntryStore>(sized_offset)?,
+        ))
     }
 }
 
@@ -198,7 +201,7 @@ impl Pack for DirectoryPack {
             .read()
             .unwrap()
             .unwrap()
-            .check(&mut check_flux as &mut dyn Read)
+            .check(&mut check_flux)
     }
 }
 
@@ -235,7 +238,9 @@ impl serde::Serialize for DirectoryPack {
                 .into_iter()
                 .map(|c| {
                     let sized_offset = self.entry_stores_ptrs.index(*c).unwrap();
-                    EntryStore::new(&self.reader, sized_offset).unwrap()
+                    self.reader
+                        .parse_data_block::<EntryStore>(sized_offset)
+                        .unwrap()
                 })
                 .collect::<Vec<_>>(),
         )?;
@@ -247,7 +252,9 @@ impl serde::Serialize for DirectoryPack {
                 .into_iter()
                 .map(|c| {
                     let sized_offset = self.value_stores_ptrs.index(*c).unwrap();
-                    ValueStore::new(&self.reader, sized_offset).unwrap()
+                    self.reader
+                        .parse_data_block::<ValueStore>(sized_offset)
+                        .unwrap()
                 })
                 .collect::<Vec<_>>(),
         )?;
@@ -267,13 +274,17 @@ impl Explorable for DirectoryPack {
                 index.get_store_id()
             };
             let sized_offset = self.entry_stores_ptrs.index(*index)?;
-            Ok(Some(Box::new(EntryStore::new(&self.reader, sized_offset)?)))
+            Ok(Some(Box::new(
+                self.reader.parse_data_block::<EntryStore>(sized_offset)?,
+            )))
         } else if let Some(item) = item.strip_prefix("v.") {
             let index = item
                 .parse::<u8>()
                 .map_err(|e| Error::from(format!("{e}")))?;
             let sized_offset = self.value_stores_ptrs.index(index.into())?;
-            Ok(Some(Box::new(ValueStore::new(&self.reader, sized_offset)?)))
+            Ok(Some(Box::new(
+                self.reader.parse_data_block::<ValueStore>(sized_offset)?,
+            )))
         } else {
             Ok(None)
         }

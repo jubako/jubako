@@ -18,13 +18,13 @@ fn packs_offset(header: &ContainerPackHeader) -> Offset {
 
 impl ContainerPack {
     pub fn new(reader: Reader) -> Result<Self> {
-        let mut flux = reader.create_flux_all();
-        let header = ContainerPackHeader::parse(&mut flux)?;
-        flux.seek(packs_offset(&header));
+        let header = reader.parse_at::<ContainerPackHeader>(Offset::zero())?;
+        let mut pack_offset = packs_offset(&header);
         let mut packs_uuid = Vec::with_capacity(header.pack_count.into_usize());
         let mut packs = HashMap::with_capacity(header.pack_count.into_usize());
         for _idx in header.pack_count {
-            let pack_locator = PackLocator::parse(&mut flux)?;
+            let pack_locator = reader.parse_at::<PackLocator>(pack_offset)?;
+            pack_offset += PackLocator::SIZE;
             let pack_reader = reader
                 .create_sub_reader(pack_locator.pack_pos, pack_locator.pack_size)
                 .into();

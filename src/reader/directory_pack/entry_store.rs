@@ -28,16 +28,6 @@ pub enum EntryStore {
 }
 
 impl EntryStore {
-    pub fn new(reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let mut header_parser = reader.create_flux_for(pos_info);
-        Ok(match StoreKind::parse(&mut header_parser)? {
-            StoreKind::Plain => {
-                EntryStore::Plain(PlainStore::new(&mut header_parser, reader, pos_info)?)
-            }
-            _ => todo!(),
-        })
-    }
-
     pub fn get_entry_reader(&self, idx: EntryIdx) -> SubReader {
         match self {
             EntryStore::Plain(store) => store.get_entry_reader(idx),
@@ -50,6 +40,41 @@ impl EntryStore {
             EntryStore::Plain(store) => store.layout(),
             /*            _ => todo!()*/
         }
+    }
+}
+
+pub(crate) struct EntryStoreBuilder {}
+
+impl Parsable for EntryStoreBuilder {
+    type Output = (Layout, Size);
+    fn parse(parser: &mut impl Parser) -> Result<Self::Output>
+    where
+        Self::Output: Sized,
+    {
+        let kind = StoreKind::parse(parser)?;
+        match kind {
+            StoreKind::Plain => {
+                let layout = Layout::parse(parser)?;
+                let data_size = Size::parse(parser)?;
+                Ok((layout, data_size))
+            }
+            _ => todo!(),
+        }
+    }
+}
+
+impl BlockParsable for EntryStoreBuilder {}
+
+impl DataBlockParsable for EntryStore {
+    type Intermediate = Layout;
+    type TailParser = EntryStoreBuilder;
+    type Output = Self;
+
+    fn finalize(layout: Self::Intermediate, reader: SubReader) -> Result<Self::Output> {
+        Ok(EntryStore::Plain(PlainStore {
+            layout,
+            entry_reader: reader.into(),
+        }))
     }
 }
 
@@ -69,19 +94,6 @@ pub struct PlainStore {
 }
 
 impl PlainStore {
-    pub fn new(parser: &mut impl Parser, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let layout = Layout::parse(parser)?;
-        let data_size = Size::parse(parser)?;
-        // [TODO] use a array_reader here
-        let entry_reader = reader
-            .create_sub_reader(pos_info.offset - data_size, data_size)
-            .into();
-        Ok(Self {
-            layout,
-            entry_reader,
-        })
-    }
-
     fn get_entry_reader(&self, idx: EntryIdx) -> SubReader {
         self.entry_reader.create_sub_reader(
             Offset::from(self.layout.size.into_u64() * idx.into_u64()),
@@ -160,7 +172,9 @@ mod tests {
         ];
         let size = Size::from(content.len());
         let reader = Reader::from(content);
-        let store = EntryStore::new(&reader, SizedOffset::new(size, Offset::zero())).unwrap();
+        let store = reader
+            .parse_data_block::<EntryStore>(SizedOffset::new(size, Offset::zero()))
+            .unwrap();
         let store = match store {
             EntryStore::Plain(s) => s,
         };
@@ -371,7 +385,9 @@ mod tests {
         ];
         let size = Size::from(content.len());
         let reader = Reader::from(content);
-        let store = EntryStore::new(&reader, SizedOffset::new(size, Offset::zero())).unwrap();
+        let store = reader
+            .parse_data_block::<EntryStore>(SizedOffset::new(size, Offset::zero()))
+            .unwrap();
         let store = match store {
             EntryStore::Plain(s) => s,
         };
