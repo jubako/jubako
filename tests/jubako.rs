@@ -513,10 +513,10 @@ test_suite! {
                     content,
                     jubako::ContentAddress{pack_id:1.into(), content_id:jubako::ContentIdx::from(i.into_u32())}
                 );
-                let reader = container.get_reader(content).unwrap();
-                let mut flux = reader.as_ref().unwrap().create_flux_all();
+                let bytes = container.get_bytes(content).unwrap();
+                let mut stream = bytes.as_ref().unwrap().stream();
                 let mut read_content: String = "".to_string();
-                flux.read_to_string(&mut read_content).unwrap();
+                stream.read_to_string(&mut read_content).unwrap();
                 assert_eq!(read_content, articles.val[i.into_u32() as usize].content);
             } else {
               panic!();

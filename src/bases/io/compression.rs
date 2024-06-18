@@ -182,6 +182,16 @@ impl Source for SeekableDecoder {
         Ok(())
     }
 
+    fn get_slice(&self, region: Region) -> Result<std::borrow::Cow<[u8]>> {
+        if !region.end().is_valid(self.size()) {
+            return Err(format!("Out of slice. {} > {}", region.end(), self.size()).into());
+        }
+        self.decode_to(region.end());
+        Ok(std::borrow::Cow::Borrowed(
+            &self.decoded_slice()[region.begin().into_usize()..region.end().into_usize()],
+        ))
+    }
+
     fn into_memory_source(
         self: Arc<Self>,
         region: Region,

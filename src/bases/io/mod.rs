@@ -6,6 +6,7 @@ use crate::bases::types::*;
 use crate::bases::{Flux, Region};
 pub use compression::*;
 pub use file::*;
+use std::borrow::Cow;
 use std::fmt;
 use std::sync::Arc;
 
@@ -13,6 +14,7 @@ pub trait Source: Sync + Send {
     fn size(&self) -> Size;
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()>;
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize>;
+    fn get_slice(&self, region: Region) -> Result<Cow<[u8]>>;
 
     fn into_memory_source(
         self: Arc<Self>,

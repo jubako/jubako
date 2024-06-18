@@ -10,6 +10,8 @@ use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex, OnceLock};
 use uuid::Uuid;
 
+use super::ByteRegion;
+
 pub struct ContentPack {
     header: ContentPackHeader,
     content_infos: ArrayReader<ContentInfo, u32>,
@@ -60,7 +62,7 @@ impl ContentPack {
         Ok(cached.clone())
     }
 
-    pub fn get_content(&self, index: ContentIdx) -> Result<Reader> {
+    pub fn get_content(&self, index: ContentIdx) -> Result<ByteRegion> {
         if !index.is_valid(self.header.content_count) {
             return Err(Error::new_arg());
         }
@@ -75,7 +77,7 @@ impl ContentPack {
             )));
         }
         let cluster = self.get_cluster(content_info.cluster_index)?;
-        cluster.get_reader(content_info.blob_index)
+        cluster.get_bytes(content_info.blob_index)
     }
 
     pub fn get_free_data(&self) -> &[u8] {
@@ -219,27 +221,27 @@ mod tests {
         assert!(&content_pack.check().unwrap());
 
         {
-            let sub_reader = content_pack.get_content(ContentIdx::from(0)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(5_u64));
+            let bytes = content_pack.get_content(ContentIdx::from(0)).unwrap();
+            assert_eq!(bytes.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
-            let mut flux = sub_reader.create_flux_all();
-            flux.read_to_end(&mut v).unwrap();
+            let mut stream = bytes.stream();
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
         {
-            let sub_reader = content_pack.get_content(ContentIdx::from(1)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(3_u64));
+            let bytes = content_pack.get_content(ContentIdx::from(1)).unwrap();
+            assert_eq!(bytes.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
-            let mut flux = sub_reader.create_flux_all();
-            flux.read_to_end(&mut v).unwrap();
+            let mut stream = bytes.stream();
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
         {
-            let sub_reader = content_pack.get_content(ContentIdx::from(2)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(7_u64));
+            let bytes = content_pack.get_content(ContentIdx::from(2)).unwrap();
+            assert_eq!(bytes.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
-            let mut flux = sub_reader.create_flux_all();
-            flux.read_to_end(&mut v).unwrap();
+            let mut stream = bytes.stream();
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }
     }

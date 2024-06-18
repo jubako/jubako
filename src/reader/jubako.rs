@@ -5,7 +5,7 @@ use super::content_pack::ContentPack;
 use super::directory_pack::{DirectoryPack, EntryStorage};
 use super::locator::{ChainedLocator, FsLocator, PackLocatorTrait};
 use super::manifest_pack::ManifestPack;
-use super::{Index, MayMissPack, ValueStorage};
+use super::{ByteRegion, Index, MayMissPack, ValueStorage};
 use crate::bases::*;
 use crate::common::{ContentAddress, FullPackKind, Pack, PackKind};
 use std::path::{Path, PathBuf};
@@ -152,7 +152,7 @@ impl Container {
         Ok(MayMissPack::FOUND(cache_slot.get().unwrap()))
     }
 
-    pub fn get_reader(&self, content: ContentAddress) -> Result<MayMissPack<Reader>> {
+    pub fn get_bytes(&self, content: ContentAddress) -> Result<MayMissPack<ByteRegion>> {
         let pack = self.get_pack(content.pack_id)?;
         pack.map(|p| p.get_content(content.content_id)).transpose()
     }

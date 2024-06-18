@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 // A wrapper arount someting to implement Flux trait
 pub struct Flux<'s> {
-    source: &'s Arc<dyn Source>,
-    region: Region,
-    offset: Offset,
+    pub(crate) source: &'s Arc<dyn Source>,
+    pub(crate) region: Region,
+    pub(crate) offset: Offset,
 }
 
 impl<'s> std::fmt::Debug for Flux<'s> {
@@ -20,10 +20,6 @@ impl<'s> std::fmt::Debug for Flux<'s> {
 }
 
 impl<'s> Flux<'s> {
-    pub fn to_owned(&self) -> Stream {
-        Stream::new_from_parts(Arc::clone(self.source), self.region, self.offset)
-    }
-
     pub fn new_from_parts(source: &'s Arc<dyn Source>, region: Region, offset: Offset) -> Self {
         Self {
             source,
@@ -145,12 +141,6 @@ impl<'s> Read for Flux<'s> {
 impl<'s> From<&'s Reader> for Flux<'s> {
     fn from(reader: &'s Reader) -> Self {
         reader.create_flux_all()
-    }
-}
-
-impl<'s> From<&'s Stream> for Flux<'s> {
-    fn from(stream: &'s Stream) -> Self {
-        stream.as_flux()
     }
 }
 

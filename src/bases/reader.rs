@@ -1,3 +1,5 @@
+use crate::reader::ByteSlice;
+
 use super::flux::*;
 use super::sub_reader::*;
 use super::types::*;
@@ -44,6 +46,11 @@ impl Reader {
     }
     pub fn create_flux_all(&self) -> Flux {
         self.create_flux(Offset::zero(), self.region.size())
+    }
+
+    pub fn get_byte_slice(&self, offset: Offset, size: Size) -> ByteSlice {
+        let region = self.region.cut_rel(offset, size);
+        ByteSlice::new_from_parts(&self.source, region)
     }
 
     pub fn as_sub_reader(&self) -> SubReader {

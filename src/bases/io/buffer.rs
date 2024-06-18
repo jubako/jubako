@@ -30,6 +30,13 @@ where
         Ok(())
     }
 
+    fn get_slice(&self, region: Region) -> Result<std::borrow::Cow<[u8]>> {
+        debug_assert!(region.end().into_usize() <= self.as_ref().len());
+        Ok(std::borrow::Cow::Borrowed(
+            &self.as_ref()[region.begin().into_usize()..region.end().into_usize()],
+        ))
+    }
+
     fn into_memory_source(
         self: Arc<Self>,
         region: Region,

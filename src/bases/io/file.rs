@@ -66,6 +66,12 @@ impl Source for FileSource {
         }
     }
 
+    fn get_slice(&self, region: Region) -> Result<std::borrow::Cow<[u8]>> {
+        let mut buf = vec![0; region.size().into_usize()];
+        self.read_exact(region.begin(), &mut buf)?;
+        Ok(std::borrow::Cow::Owned(buf))
+    }
+
     fn into_memory_source(
         self: Arc<Self>,
         region: Region,

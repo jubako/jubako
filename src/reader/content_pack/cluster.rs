@@ -1,5 +1,6 @@
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
+use crate::reader::{ByteRegion, Stream};
 use std::sync::{Arc, RwLock};
 
 enum ClusterReader {
@@ -153,13 +154,13 @@ impl Cluster {
         BlobCount::from((self.blob_offsets.len() - 1) as u16)
     }
 
-    pub fn get_reader(&self, index: BlobIdx) -> Result<Reader> {
+    pub fn get_bytes(&self, index: BlobIdx) -> Result<ByteRegion> {
         self.build_plain_reader()?;
         let offset = self.blob_offsets[index.into_usize()];
         let end_offset = self.blob_offsets[index.into_usize() + 1];
         let size = end_offset - offset;
         if let ClusterReader::Plain(r) = &*self.reader.read().unwrap() {
-            Ok(r.create_sub_reader(offset, size).into())
+            Ok(r.get_byte_slice(offset, size).into())
         } else {
             unreachable!()
         }
@@ -183,12 +184,20 @@ impl serde::Serialize for Cluster {
 
 #[cfg(feature = "explorable")]
 impl Explorable for Cluster {
-    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
-        let (item, decode) = if let Some(item) = item.strip_suffix('#') {
-            (item, true)
+    fn explore<'item>(
+        &self,
+        item: &'item str,
+    ) -> Result<(Option<Box<dyn Explorable>>, Option<&'item str>)> {
+        let (item, left) = if item.ends_with('#') {
+            let (item, left) = item.split_at(item.len() - 1);
+            (item, Some(left))
         } else {
-            (item, false)
+            (item, None)
         };
+        self.explore_one(item).map(|explo| (explo, left))
+    }
+
+    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
         let index = item
             .parse::<u16>()
             .map_err(|e| Error::from(format!("{e}")))?;
@@ -196,15 +205,8 @@ impl Explorable for Cluster {
         if index >= (self.blob_offsets.len() as u16 - 1) {
             return Ok(None);
         }
-        let reader = self.get_reader(BlobIdx::from(index))?;
-        let data = reader
-            .create_flux_all()
-            .read_vec(reader.size().into_usize())?;
-        Ok(Some(if decode {
-            Box::new(String::from_utf8_lossy(&data).into_owned())
-        } else {
-            Box::new(data)
-        }))
+        let bytes = self.get_bytes(BlobIdx::from(index))?;
+        Ok(Some(Box::new(bytes)))
     }
 }
 
@@ -345,27 +347,27 @@ mod tests {
         assert_eq!(cluster.blob_count(), 3.into());
 
         {
-            let sub_reader = cluster.get_reader(BlobIdx::from(0)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(5_u64));
+            let region = cluster.get_bytes(BlobIdx::from(0)).unwrap();
+            assert_eq!(region.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
-            let mut flux = sub_reader.create_flux_all();
-            flux.read_to_end(&mut v).unwrap();
+            let mut stream = region.stream();
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
         {
-            let sub_reader = cluster.get_reader(BlobIdx::from(1)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(3_u64));
+            let region = cluster.get_bytes(BlobIdx::from(1)).unwrap();
+            assert_eq!(region.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
-            let mut flux = sub_reader.create_flux_all();
-            flux.read_to_end(&mut v).unwrap();
+            let mut stream = region.stream();
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
         {
-            let sub_reader = cluster.get_reader(BlobIdx::from(2)).unwrap();
-            assert_eq!(sub_reader.size(), Size::from(7_u64));
+            let region = cluster.get_bytes(BlobIdx::from(2)).unwrap();
+            assert_eq!(region.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
-            let mut flux = sub_reader.create_flux_all();
-            flux.read_to_end(&mut v).unwrap();
+            let mut stream = region.stream();
+            stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }
     }

@@ -9,7 +9,6 @@ mod memory_reader;
 mod prop_type;
 mod reader;
 mod skip;
-mod stream;
 mod sub_reader;
 mod write;
 
@@ -24,7 +23,6 @@ pub use reader::*;
 pub use skip::*;
 use std::cmp;
 use std::marker::PhantomData;
-pub use stream::*;
 pub use sub_reader::*;
 pub use types::*;
 pub use write::*;
