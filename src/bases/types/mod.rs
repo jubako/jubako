@@ -30,7 +30,7 @@ pub use idx::{Idx, IndexTrait};
 pub use mayref::MayRef;
 pub use offset::Offset;
 pub use pstring::PString;
-pub use range::{EntryRange, Range};
+pub use range::{EntryRange, Region};
 pub use size::Size;
 pub use sized_offset::SizedOffset;
 pub use specific_types::*;

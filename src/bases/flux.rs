@@ -1,4 +1,3 @@
-use super::Region;
 use crate::bases::*;
 use std::io::Read;
 use std::sync::Arc;
