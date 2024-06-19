@@ -28,6 +28,20 @@ impl Parsable for Id<u16> {
     }
 }
 
+impl RandomParsable for Id<u8> {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self> {
+        Ok(parser.read_u8(offset)?.into())
+    }
+}
+
+impl RandomParsable for Id<u16> {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self> {
+        Ok(parser.read_u16(offset)?.into())
+    }
+}
+
 impl<T> SizedParsable for Id<T>
 where
     Id<T>: Parsable,

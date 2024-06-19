@@ -15,5 +15,5 @@ pub(crate) trait DataBlockParsable {
     type TailParser: BlockParsable<Output = (Self::Intermediate, Size)>;
     type Output;
 
-    fn finalize(intermediate: Self::Intermediate, reader: SubReader) -> Result<Self::Output>;
+    fn finalize(intermediate: Self::Intermediate, reader: Reader) -> Result<Self::Output>;
 }

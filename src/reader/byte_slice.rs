@@ -51,3 +51,25 @@ impl<'s> ByteSlice<'s> {
         self.source.get_slice(region)
     }
 }
+
+impl<'s> RandomParser for ByteSlice<'s> {
+    type Parser<'p> = SliceParser<'p> where 's: 'p;
+    fn create_parser(&self, offset: Offset) -> Result<Self::Parser<'_>> {
+        let region = self
+            .region
+            .cut_rel(offset, self.region.size() - offset.into());
+        Ok(SliceParser::new(
+            self.source.get_slice(region)?,
+            self.region.begin() + offset,
+        ))
+    }
+
+    fn read_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>> {
+        let region = self.region.cut_rel(offset, Size::from(size));
+        self.source.get_slice(region)
+    }
+
+    fn read_data(&self, offset: Offset, buf: &mut [u8]) -> Result<()> {
+        self.source.read_exact(self.region.begin() + offset, buf)
+    }
+}

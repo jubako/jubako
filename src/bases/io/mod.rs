@@ -194,29 +194,4 @@ mod tests {
         assert_eq!(parser.read_u16().unwrap(), parser1.read_u16().unwrap());
         assert_eq!(parser.read_u32().unwrap(), parser1.read_u32().unwrap());
     }
-
-    #[test_case(create_buf_reader)]
-    #[test_case(create_file_reader)]
-    #[test_case(create_lz4_reader)]
-    #[test_case(create_lzma_reader)]
-    #[test_case(create_zstd_reader)]
-    fn test_create_sub_reader(creator: ReaderCreator) {
-        let reader = creator(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
-        if reader.is_none() {
-            return;
-        }
-        let reader = reader.unwrap();
-        assert_eq!(reader.size(), Size::new(9));
-        let sub_reader = reader.create_sub_reader(Offset::zero(), Size::from(6u64));
-        assert_eq!(sub_reader.size(), Size::new(6));
-        let sub_reader = reader.create_sub_reader(Offset::new(2), Size::from(6u64));
-        assert_eq!(sub_reader.size(), Size::new(6));
-
-        let reader = reader.create_sub_reader(Offset::new(1), Size::from(8u64));
-        assert_eq!(reader.size(), Size::new(8));
-        let sub_reader = reader.create_sub_reader(Offset::zero(), Size::from(6u64));
-        assert_eq!(sub_reader.size(), Size::new(6));
-        let sub_reader = reader.create_sub_reader(Offset::new(2), Size::from(6u64));
-        assert_eq!(sub_reader.size(), Size::new(6));
-    }
 }

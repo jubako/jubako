@@ -43,6 +43,34 @@ impl Parsable for Idx<u64> {
     }
 }
 
+impl RandomParsable for Idx<u8> {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self> {
+        Ok(parser.read_u8(offset)?.into())
+    }
+}
+
+impl RandomParsable for Idx<u16> {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self> {
+        Ok(parser.read_u16(offset)?.into())
+    }
+}
+
+impl RandomParsable for Idx<u32> {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self> {
+        Ok(parser.read_u32(offset)?.into())
+    }
+}
+
+impl RandomParsable for Idx<u64> {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self> {
+        Ok(parser.read_u64(offset)?.into())
+    }
+}
+
 impl<T> SizedParsable for Idx<T>
 where
     Idx<T>: Parsable,

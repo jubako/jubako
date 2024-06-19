@@ -1,7 +1,6 @@
 use crate::reader::ByteSlice;
 use crate::reader::Stream;
 
-use super::sub_reader::*;
 use super::types::*;
 use super::BlockParsable;
 use super::DataBlockParsable;
@@ -57,7 +56,7 @@ impl Reader {
     ) -> Result<T::Output> {
         let (intermediate, data_size) =
             self.parse_in::<T::TailParser>(sized_offset.offset, sized_offset.size)?;
-        let data_reader = self.create_sub_reader(sized_offset.offset - data_size, data_size);
+        let data_reader = self.cut(sized_offset.offset - data_size, data_size);
         T::finalize(intermediate, data_reader)
     }
 
@@ -86,13 +85,9 @@ impl Reader {
         Stream::new_from_parts(Arc::clone(&self.source), region, region.begin())
     }
 
-    pub fn as_sub_reader(&self) -> SubReader {
-        self.create_sub_reader(Offset::zero(), self.region.size())
-    }
-
-    pub fn create_sub_reader(&self, offset: Offset, size: Size) -> SubReader {
+    pub fn cut(&self, offset: Offset, size: Size) -> Reader {
         let region = self.region.cut_rel(offset, size);
-        SubReader::new_from_parts(&self.source, region)
+        Self::new_from_parts(Arc::clone(&self.source), region)
     }
 
     pub fn create_sub_memory_reader(&self, offset: Offset, size: Size) -> Result<Reader> {
@@ -108,12 +103,6 @@ impl Reader {
         let region = self.region.cut_rel(offset, size);
         let (source, region) = Arc::clone(&self.source).into_memory_source(region)?;
         Ok(MemoryReader::new_from_parts(source, region))
-    }
-}
-
-impl From<SubReader<'_>> for Reader {
-    fn from(sub: SubReader) -> Self {
-        sub.to_owned()
     }
 }
 

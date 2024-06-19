@@ -75,7 +75,7 @@ pub fn locate_pack(reader: Reader) -> Result<ContainerPack> {
 
     match kind {
         PackKind::Directory | PackKind::Content => Err("Not a valid pack".into()),
-        PackKind::Container => ContainerPack::new(reader.create_sub_reader(offset, size).into()),
+        PackKind::Container => ContainerPack::new(reader.cut(offset, size)),
         PackKind::Manifest => {
             let uuid = Uuid::from_bytes(buffer_reader[10..26].try_into().unwrap());
             Ok(ContainerPack::new_fake(reader, uuid))

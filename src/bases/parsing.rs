@@ -67,6 +67,69 @@ pub trait Parser {
     }
 }
 
+/// A RandomParser is something parsing data from a [u8] at random position
+pub trait RandomParser {
+    type Parser<'a>: Parser
+    where
+        Self: 'a;
+
+    fn create_parser(&self, offset: Offset) -> Result<Self::Parser<'_>>;
+    fn read_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>>;
+    fn read_data(&self, offset: Offset, buf: &mut [u8]) -> Result<()>;
+
+    fn read_u8(&self, offset: Offset) -> Result<u8> {
+        let slice = self.read_slice(offset, 1)?;
+        Ok(slice[0])
+    }
+
+    fn read_u16(&self, offset: Offset) -> Result<u16> {
+        let slice = self.read_slice(offset, 2)?;
+        Ok(LE::read_u16(&slice))
+    }
+
+    fn read_u32(&self, offset: Offset) -> Result<u32> {
+        let slice = self.read_slice(offset, 4)?;
+        Ok(LE::read_u32(&slice))
+    }
+
+    fn read_u64(&self, offset: Offset) -> Result<u64> {
+        let slice = self.read_slice(offset, 8)?;
+        Ok(LE::read_u64(&slice))
+    }
+
+    fn read_usized(&self, offset: Offset, size: ByteSize) -> Result<u64> {
+        let size = size as usize;
+        let slice = self.read_slice(offset, size)?;
+        Ok(LE::read_uint(&slice, size))
+    }
+
+    fn read_i8(&self, offset: Offset) -> Result<i8> {
+        let slice = self.read_slice(offset, 1)?;
+        Ok(slice[0] as i8)
+    }
+
+    fn read_i16(&self, offset: Offset) -> Result<i16> {
+        let slice = self.read_slice(offset, 2)?;
+        Ok(LE::read_i16(&slice))
+    }
+
+    fn read_i32(&self, offset: Offset) -> Result<i32> {
+        let slice = self.read_slice(offset, 4)?;
+        Ok(LE::read_i32(&slice))
+    }
+
+    fn read_i64(&self, offset: Offset) -> Result<i64> {
+        let slice = self.read_slice(offset, 8)?;
+        Ok(LE::read_i64(&slice))
+    }
+
+    fn read_isized(&self, offset: Offset, size: ByteSize) -> Result<i64> {
+        let size = size as usize;
+        let slice = self.read_slice(offset, size)?;
+        Ok(LE::read_int(&slice, size))
+    }
+}
+
 pub struct SliceParser<'a> {
     slice: Cow<'a, [u8]>,
     global_offset: Offset,
@@ -195,4 +258,48 @@ impl SizedParsable for u32 {
 }
 impl SizedParsable for u64 {
     const SIZE: usize = 8;
+}
+
+pub trait RandomParsable {
+    type Output;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self::Output>
+    where
+        Self::Output: Sized;
+}
+
+impl RandomParsable for u8 {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self::Output>
+    where
+        Self::Output: Sized,
+    {
+        parser.read_u8(offset)
+    }
+}
+impl RandomParsable for u16 {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self::Output>
+    where
+        Self::Output: Sized,
+    {
+        parser.read_u16(offset)
+    }
+}
+impl RandomParsable for u32 {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self::Output>
+    where
+        Self::Output: Sized,
+    {
+        parser.read_u32(offset)
+    }
+}
+impl RandomParsable for u64 {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self::Output>
+    where
+        Self::Output: Sized,
+    {
+        parser.read_u64(offset)
+    }
 }

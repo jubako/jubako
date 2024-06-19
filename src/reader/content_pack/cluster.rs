@@ -123,11 +123,11 @@ impl DataBlockParsable for Cluster {
     type TailParser = ClusterBuilder;
     type Output = Self;
 
-    fn finalize(intermediate: Self::Intermediate, reader: SubReader) -> Result<Self::Output> {
+    fn finalize(intermediate: Self::Intermediate, reader: Reader) -> Result<Self::Output> {
         let reader = if intermediate.compression == CompressionType::None {
-            ClusterReader::Plain(reader.into())
+            ClusterReader::Plain(reader)
         } else {
-            ClusterReader::Raw(reader.into())
+            ClusterReader::Raw(reader)
         };
         Ok(Cluster {
             blob_offsets: intermediate.blob_offsets,

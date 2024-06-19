@@ -104,7 +104,7 @@ impl DataBlockParsable for ValueStore {
     type TailParser = ValueStoreBuilder;
     type Output = Self;
 
-    fn finalize(intermediate: Self::Intermediate, reader: SubReader) -> Result<Self::Output> {
+    fn finalize(intermediate: Self::Intermediate, reader: Reader) -> Result<Self::Output> {
         let reader = reader.create_sub_memory_reader(Offset::zero(), reader.size())?;
         Ok(match intermediate {
             ValueStoreBuilder::Plain => Self::Plain(PlainValueStore {

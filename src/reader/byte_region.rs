@@ -66,6 +66,28 @@ impl From<ByteSlice<'_>> for ByteRegion {
     }
 }
 
+impl RandomParser for ByteRegion {
+    type Parser<'s> = SliceParser<'s>;
+    fn create_parser(&self, offset: Offset) -> Result<Self::Parser<'_>> {
+        let region = self
+            .region
+            .cut_rel(offset, self.region.size() - offset.into());
+        Ok(SliceParser::new(
+            self.source.get_slice(region)?,
+            self.region.begin() + offset,
+        ))
+    }
+
+    fn read_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>> {
+        let region = self.region.cut_rel(offset, Size::from(size));
+        self.source.get_slice(region)
+    }
+
+    fn read_data(&self, offset: Offset, buf: &mut [u8]) -> Result<()> {
+        self.source.read_exact(self.region.begin() + offset, buf)
+    }
+}
+
 #[cfg(feature = "explorable")]
 impl serde::Serialize for ByteRegion {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>

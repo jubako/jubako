@@ -10,7 +10,6 @@ mod parsing;
 mod prop_type;
 mod reader;
 mod skip;
-mod sub_reader;
 mod write;
 
 pub use block::*;
@@ -25,7 +24,6 @@ pub use reader::*;
 pub use skip::*;
 use std::cmp;
 use std::marker::PhantomData;
-pub use sub_reader::*;
 pub use types::*;
 pub use write::*;
 

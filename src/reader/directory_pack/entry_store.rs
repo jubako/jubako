@@ -1,5 +1,5 @@
 use super::layout::Layout;
-use crate::bases::*;
+use crate::{bases::*, reader::ByteSlice};
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -28,7 +28,7 @@ pub enum EntryStore {
 }
 
 impl EntryStore {
-    pub fn get_entry_reader(&self, idx: EntryIdx) -> SubReader {
+    pub fn get_entry_reader(&self, idx: EntryIdx) -> ByteSlice {
         match self {
             EntryStore::Plain(store) => store.get_entry_reader(idx),
             /*  todo!() */
@@ -70,10 +70,10 @@ impl DataBlockParsable for EntryStore {
     type TailParser = EntryStoreBuilder;
     type Output = Self;
 
-    fn finalize(layout: Self::Intermediate, reader: SubReader) -> Result<Self::Output> {
+    fn finalize(layout: Self::Intermediate, entry_reader: Reader) -> Result<Self::Output> {
         Ok(EntryStore::Plain(PlainStore {
             layout,
-            entry_reader: reader.into(),
+            entry_reader,
         }))
     }
 }
@@ -94,8 +94,8 @@ pub struct PlainStore {
 }
 
 impl PlainStore {
-    fn get_entry_reader(&self, idx: EntryIdx) -> SubReader {
-        self.entry_reader.create_sub_reader(
+    fn get_entry_reader(&self, idx: EntryIdx) -> ByteSlice {
+        self.entry_reader.get_byte_slice(
             Offset::from(self.layout.size.into_u64() * idx.into_u64()),
             self.layout.size,
         )
@@ -130,9 +130,7 @@ impl Explorable for PlainStore {
             .map_err(|e| Error::from(format!("{e}")))?;
         let entry_reader = self.get_entry_reader(EntryIdx::from(index));
         let mut data = vec![];
-        entry_reader
-            .create_stream(Offset::zero(), entry_reader.size())
-            .read_to_end(&mut data)?;
+        entry_reader.stream().read_to_end(&mut data)?;
         Ok(Some(Box::new(data)))
     }
 }

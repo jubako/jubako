@@ -26,8 +26,8 @@ impl AnyVariantBuilder {
     pub fn contains(&self, name: &str) -> bool {
         self.properties.contains_key(name)
     }
-    pub fn create_value(&self, name: &str, reader: &SubReader) -> Result<RawValue> {
-        self.properties[name].create(reader)
+    pub fn create_value(&self, name: &str, parser: &impl RandomParser) -> Result<RawValue> {
+        self.properties[name].create(parser)
     }
 
     pub fn new<ValueStorage>(properties: &LProperties, value_storage: &ValueStorage) -> Result<Self>
@@ -111,7 +111,6 @@ impl BuilderTrait for AnyBuilder {
     type Entry = LazyEntry;
     fn create_entry(&self, idx: EntryIdx) -> Result<LazyEntry> {
         let reader = self.store.get_entry_reader(idx);
-        let reader = reader.create_sub_reader(Offset::zero(), reader.size());
         Ok(LazyEntry::new(Rc::clone(&self.properties), reader.into()))
     }
 }

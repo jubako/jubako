@@ -25,9 +25,7 @@ impl ContainerPack {
         for _idx in header.pack_count {
             let pack_locator = reader.parse_at::<PackLocator>(pack_offset)?;
             pack_offset += PackLocator::SIZE;
-            let pack_reader = reader
-                .create_sub_reader(pack_locator.pack_pos, pack_locator.pack_size)
-                .into();
+            let pack_reader = reader.cut(pack_locator.pack_pos, pack_locator.pack_size);
             packs.insert(pack_locator.uuid, pack_reader);
             packs_uuid.push(pack_locator.uuid);
         }
