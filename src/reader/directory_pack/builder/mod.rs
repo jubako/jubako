@@ -110,14 +110,9 @@ impl AnyBuilder {
 impl BuilderTrait for AnyBuilder {
     type Entry = LazyEntry;
     fn create_entry(&self, idx: EntryIdx) -> Result<LazyEntry> {
-        let reader = self
-            .store
-            .get_entry_reader(idx)
-            .create_sub_reader(Offset::zero(), End::None);
-        Ok(LazyEntry::new(
-            Rc::clone(&self.properties),
-            reader.create_sub_reader(Offset::zero(), End::None).into(),
-        ))
+        let reader = self.store.get_entry_reader(idx);
+        let reader = reader.create_sub_reader(Offset::zero(), reader.size());
+        Ok(LazyEntry::new(Rc::clone(&self.properties), reader.into()))
     }
 }
 

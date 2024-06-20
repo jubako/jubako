@@ -77,7 +77,7 @@ pub struct DirectoryPack {
 
 impl DirectoryPack {
     pub fn new(reader: Reader) -> Result<DirectoryPack> {
-        let reader = reader.create_sub_memory_reader(Offset::zero(), End::None)?;
+        let reader = reader.create_sub_memory_reader(Offset::zero(), reader.size())?;
         let mut flux = reader.create_flux_all();
         let header = DirectoryPackHeader::produce(&mut flux)?;
         let value_stores_ptrs = ArrayReader::new_memory_from_reader(
@@ -192,7 +192,7 @@ impl Pack for DirectoryPack {
         }
         let mut check_flux = self
             .reader
-            .create_flux_to(End::Offset(self.header.pack_header.check_info_pos));
+            .create_flux_to(Size::from(self.header.pack_header.check_info_pos));
         self.check_info
             .read()
             .unwrap()

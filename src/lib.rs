@@ -8,7 +8,7 @@ pub mod reader;
 pub mod tools;
 
 pub use crate::bases::{
-    Bound, ContentIdx, ContentPackFreeData, DirectoryPackFreeData, End, EntryCount, EntryIdx,
+    Bound, ContentIdx, ContentPackFreeData, DirectoryPackFreeData, EntryCount, EntryIdx,
     EntryRange, EntryStoreIdx, Error, ErrorKind, FileSource, IndexFreeData, ManifestPackFreeData,
     MayRef, MemoryReader, Offset, PString, PackId, PackInfoFreeData, PropertyCount, PropertyIdx,
     Reader, Result, Size, SubReader, ValueIdx, VariantIdx, VendorId, Vow, Word,

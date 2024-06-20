@@ -67,8 +67,7 @@ where
         length: Count<IdxType>,
     ) -> Result<Self> {
         let elem_size = Size::from(OutType::SIZE);
-        let sub_reader =
-            reader.create_sub_memory_reader(at, End::Size(elem_size * u64::from(length.0)))?;
+        let sub_reader = reader.create_sub_memory_reader(at, elem_size * u64::from(length.0))?;
         Ok(Self {
             reader: sub_reader,
             length,
@@ -94,7 +93,7 @@ where
         let offset = u64::from(idx.0) * self.elem_size as u64;
         let mut flux = self
             .reader
-            .create_flux(Offset::from(offset), End::new_size(self.elem_size as u64));
+            .create_flux(Offset::from(offset), Size::from(self.elem_size));
         OutType::produce(&mut flux)
     }
 }

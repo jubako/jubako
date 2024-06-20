@@ -26,7 +26,7 @@ impl ContainerPack {
         for _idx in header.pack_count {
             let pack_locator = PackLocator::produce(&mut flux)?;
             let pack_reader = reader
-                .create_sub_reader(pack_locator.pack_pos, End::Size(pack_locator.pack_size))
+                .create_sub_reader(pack_locator.pack_pos, pack_locator.pack_size)
                 .into();
             packs.insert(pack_locator.uuid, pack_reader);
             packs_uuid.push(pack_locator.uuid);
@@ -106,7 +106,7 @@ impl serde::Serialize for ContainerPack {
         let mut container = serializer.serialize_map(Some(self.packs.len()))?;
         for (uuid, reader) in self.packs.iter() {
             let pack_header =
-                PackHeader::produce(&mut reader.create_flux_to(End::new_size(PackHeader::SIZE)))
+                PackHeader::produce(&mut reader.create_flux_to(Size::from(PackHeader::SIZE)))
                     .unwrap();
             container.serialize_entry(&uuid, &pack_header)?;
         }

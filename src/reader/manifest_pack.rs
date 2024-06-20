@@ -164,7 +164,7 @@ impl Pack for ManifestPack {
         let check_info = self.get_check_info()?;
         let mut check_flux = self
             .reader
-            .create_flux_to(End::Offset(self.header.pack_header.check_info_pos));
+            .create_flux_to(Size::from(self.header.pack_header.check_info_pos));
         let mut check_stream = ManifestCheckStream::new(
             &mut check_flux,
             self.header.packs_offset(),
@@ -270,10 +270,9 @@ mod tests {
         }
         let hash = {
             let mut hasher = blake3::Hasher::new();
-            let reader = Reader::new_from_arc(Arc::clone(&content) as Arc<dyn Source>, End::None);
-            let mut flux = reader.create_flux_all();
+            let mut reader = std::io::Cursor::new(content.as_ref());
             let mut check_stream =
-                ManifestCheckStream::new(&mut flux, Offset::new(128), PackCount::from(3));
+                ManifestCheckStream::new(&mut reader, Offset::new(128), PackCount::from(3));
             io::copy(&mut check_stream, &mut hasher).unwrap();
             hasher.finalize()
         };
@@ -282,7 +281,8 @@ mod tests {
             content.push(0x01);
             content.extend(hash.as_bytes());
         }
-        let reader = Reader::new_from_arc(content, End::None);
+        let content_size = content.size();
+        let reader = Reader::new_from_arc(content, content_size);
         let main_pack = ManifestPack::new(reader).unwrap();
         assert_eq!(main_pack.kind(), PackKind::Manifest);
         assert_eq!(main_pack.app_vendor_id(), VendorId::from([00, 00, 00, 01]));

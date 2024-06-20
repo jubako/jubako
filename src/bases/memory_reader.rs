@@ -10,16 +10,16 @@ pub struct MemoryReader {
 }
 
 impl MemoryReader {
-    pub fn new<T: MemorySource + 'static>(source: T, end: End) -> Self {
-        Self::new_from_arc(Arc::new(source), end)
+    pub fn new<T: MemorySource + 'static>(source: T, size: Size) -> Self {
+        Self::new_from_arc(Arc::new(source), size)
     }
 
     pub fn new_from_parts(source: Arc<dyn MemorySource>, region: Region) -> Self {
         Self { source, region }
     }
 
-    pub fn new_from_arc(source: Arc<dyn MemorySource>, end: End) -> Self {
-        let region = Region::new_to_end(Offset::zero(), end, source.size());
+    pub fn new_from_arc(source: Arc<dyn MemorySource>, size: Size) -> Self {
+        let region = Region::new_from_size(Offset::zero(), size);
         Self { source, region }
     }
 
@@ -30,8 +30,8 @@ impl MemoryReader {
     /// Get a slice from the reader.
     /// This is usefull only if this is a memory reader, panic if not
     /// [TODO] Use a new trait/type for this.
-    pub fn get_slice(&self, offset: Offset, end: End) -> Result<&[u8]> {
-        let region = self.region.cut_rel(offset, end);
+    pub fn get_slice(&self, offset: Offset, size: Size) -> Result<&[u8]> {
+        let region = self.region.cut_rel(offset, size);
         // We know for sure that our reader in inside the region of our source.
         // This is also true for SeekableDecoder as it has already called
         // decode_to before casting itself to a MemorySource
@@ -58,6 +58,6 @@ impl MemoryReader {
 impl TryFrom<Reader> for MemoryReader {
     type Error = Error;
     fn try_from(reader: Reader) -> Result<Self> {
-        reader.into_memory_reader(Offset::zero(), End::None)
+        reader.into_memory_reader(Offset::zero(), reader.size())
     }
 }

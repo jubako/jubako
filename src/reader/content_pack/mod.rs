@@ -151,7 +151,7 @@ impl Pack for ContentPack {
         let check_info = self.check_info.get().unwrap();
         let mut check_flux = self
             .reader
-            .create_flux_to(End::Offset(self.header.pack_header.check_info_pos));
+            .create_flux_to(Size::from(self.header.pack_header.check_info_pos));
         check_info.check(&mut check_flux as &mut dyn Read)
     }
 }

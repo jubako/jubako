@@ -1,4 +1,4 @@
-use super::{End, EntryIdx, Offset, Size};
+use super::{EntryIdx, Offset, Size};
 use std::ops::{Add, Sub};
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -47,26 +47,12 @@ pub type EntryRange = Range<EntryIdx>;
 pub type Region = Range<Offset>;
 
 impl Region {
-    #[inline]
-    pub fn new_to_end(begin: Offset, end: End, size: Size) -> Self {
-        let end = match end {
-            End::None => size.into(),
-            End::Offset(o) => o,
-            End::Size(s) => s.into(),
-        };
-        Self::new(begin, end)
-    }
-
     /// Relative cut.
     /// offset and end are relative to the current region
     #[inline]
-    pub fn cut_rel(&self, offset: Offset, end: End) -> Self {
+    pub fn cut_rel(&self, offset: Offset, size: Size) -> Self {
         let begin = self.begin() + offset;
-        let end = match end {
-            End::None => self.end(),
-            End::Offset(o) => self.begin() + o,
-            End::Size(s) => begin + s,
-        };
+        let end = begin + size;
         debug_assert!(
             end <= self.end(),
             "end({end:?}) <= self.end({:?})",
@@ -79,7 +65,7 @@ impl Region {
 #[cfg(test)]
 mod tests {
     use super::{Range, Region};
-    use crate::{End, Offset, Size};
+    use crate::{Offset, Size};
 
     #[test]
     fn test_empty_range() {
@@ -112,31 +98,17 @@ mod tests {
         assert_eq!(region.end(), Offset::new(5));
         assert_eq!(region.size(), Size::zero());
 
-        let sub_region = region.cut_rel(Offset::zero(), End::None);
-        assert_eq!(sub_region.begin(), Offset::new(5));
-        assert_eq!(sub_region.end(), Offset::new(5));
-        assert_eq!(sub_region.size(), Size::zero());
-        let sub_region = region.cut_rel(Offset::zero(), End::Offset(Offset::zero()));
-        assert_eq!(sub_region.begin(), Offset::new(5));
-        assert_eq!(sub_region.end(), Offset::new(5));
-        assert_eq!(sub_region.size(), Size::zero());
-        let sub_region = region.cut_rel(Offset::zero(), End::Size(Size::zero()));
+        let sub_region = region.cut_rel(Offset::zero(), Size::zero());
         assert_eq!(sub_region.begin(), Offset::new(5));
         assert_eq!(sub_region.end(), Offset::new(5));
         assert_eq!(sub_region.size(), Size::zero());
 
         // Offset too big
-        let result = std::panic::catch_unwind(|| region.cut_rel(Offset::new(4), End::None));
-        assert!(result.is_err());
-
-        // End Offset after end
-        let result =
-            std::panic::catch_unwind(|| region.cut_rel(Offset::zero(), End::new_offset(1_u64)));
+        let result = std::panic::catch_unwind(|| region.cut_rel(Offset::new(4), Size::zero()));
         assert!(result.is_err());
 
         // Size too big
-        let result =
-            std::panic::catch_unwind(|| region.cut_rel(Offset::zero(), End::new_size(1_u64)));
+        let result = std::panic::catch_unwind(|| region.cut_rel(Offset::zero(), Size::new(1)));
         assert!(result.is_err());
     }
 
@@ -148,47 +120,29 @@ mod tests {
         assert_eq!(region.size(), Size::new(5));
 
         // Cut with empty size
-        let sub_region = region.cut_rel(Offset::zero(), End::Size(Size::zero()));
+        let sub_region = region.cut_rel(Offset::zero(), Size::zero());
         assert_eq!(sub_region.begin(), Offset::new(5));
         assert_eq!(sub_region.end(), Offset::new(5));
         assert_eq!(sub_region.size(), Size::zero());
 
         // Cut with offset at end
-        let sub_region = region.cut_rel(Offset::new(5), End::None);
+        let sub_region = region.cut_rel(Offset::new(5), Size::zero());
         assert_eq!(sub_region.begin(), Offset::new(10));
         assert_eq!(sub_region.end(), Offset::new(10));
         assert_eq!(sub_region.size(), Size::zero());
 
-        // Cut with small offset no end
-        let sub_region = region.cut_rel(Offset::new(1), End::None);
-        assert_eq!(sub_region.begin(), Offset::new(6));
-        assert_eq!(sub_region.end(), Offset::new(10));
-        assert_eq!(sub_region.size(), Size::new(4));
-
-        // Cut with small offset and offset end
-        let sub_region = region.cut_rel(Offset::new(1), End::new_offset(3_u64));
-        assert_eq!(sub_region.begin(), Offset::new(6));
-        assert_eq!(sub_region.end(), Offset::new(8));
-        assert_eq!(sub_region.size(), Size::new(2));
-
         // Cut with small offset and sized end
-        let sub_region = region.cut_rel(Offset::new(1), End::new_size(3_u64));
+        let sub_region = region.cut_rel(Offset::new(1), Size::from(3_u64));
         assert_eq!(sub_region.begin(), Offset::new(6));
         assert_eq!(sub_region.end(), Offset::new(9));
         assert_eq!(sub_region.size(), Size::new(3));
 
         // Offset too big
-        let result = std::panic::catch_unwind(|| region.cut_rel(Offset::new(6), End::None));
-        assert!(result.is_err());
-
-        // End Offset after end
-        let result =
-            std::panic::catch_unwind(|| region.cut_rel(Offset::new(1), End::new_offset(6_u64)));
+        let result = std::panic::catch_unwind(|| region.cut_rel(Offset::new(6), Size::zero()));
         assert!(result.is_err());
 
         // Size too big
-        let result =
-            std::panic::catch_unwind(|| region.cut_rel(Offset::new(3), End::new_size(3_u64)));
+        let result = std::panic::catch_unwind(|| region.cut_rel(Offset::new(3), Size::from(3_u64)));
         assert!(result.is_err());
     }
 }

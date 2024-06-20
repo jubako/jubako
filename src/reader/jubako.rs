@@ -55,16 +55,14 @@ pub fn locate_pack(reader: Reader) -> Result<ContainerPack> {
     let mut buffer_reader = [0u8; 64];
 
     // Check at beginning
-    let mut flux = reader.create_flux_to(End::Size(Size::new(64)));
+    let mut flux = reader.create_flux_to(Size::new(64));
     flux.read_exact(&mut buffer_reader)?;
     let (kind, offset, size) = match parse_header(buffer_reader) {
         Ok((kind, size)) => (kind, Offset::zero(), size),
         Err(_) => {
             //Check at end
-            let mut flux = reader.create_flux(
-                (reader.size() - Size::new(64)).into(),
-                End::Size(Size::new(64)),
-            );
+            let mut flux =
+                reader.create_flux((reader.size() - Size::new(64)).into(), Size::new(64));
             flux.read_exact(&mut buffer_reader)?;
             buffer_reader.reverse();
             let (kind, size) = parse_header(buffer_reader)?;
@@ -75,9 +73,7 @@ pub fn locate_pack(reader: Reader) -> Result<ContainerPack> {
 
     match kind {
         PackKind::Directory | PackKind::Content => Err("Not a valid pack".into()),
-        PackKind::Container => {
-            ContainerPack::new(reader.create_sub_reader(offset, End::Size(size)).into())
-        }
+        PackKind::Container => ContainerPack::new(reader.create_sub_reader(offset, size).into()),
         PackKind::Manifest => {
             let uuid = Uuid::from_bytes(buffer_reader[10..26].try_into().unwrap());
             Ok(ContainerPack::new_fake(reader, uuid))
@@ -111,7 +107,7 @@ impl Container {
             .unwrap();
 
         let manifest_pack =
-            ManifestPack::new(reader.create_sub_memory_reader(Offset::zero(), End::None)?)?;
+            ManifestPack::new(reader.create_sub_memory_reader(Offset::zero(), reader.size())?)?;
 
         let locators: Vec<Arc<dyn PackLocatorTrait>> = vec![container_pack, locator];
         let locator = Arc::new(ChainedLocator(locators));

@@ -11,8 +11,8 @@ pub struct Stream {
 }
 
 impl Stream {
-    pub fn new<T: Source + 'static + Sync>(source: T, end: End) -> Self {
-        let region = Region::new_to_end(Offset::zero(), end, source.size());
+    pub fn new<T: Source + 'static + Sync>(source: T, size: Size) -> Self {
+        let region = Region::new_from_size(Offset::zero(), size);
         Self {
             source: Arc::new(source),
             region,

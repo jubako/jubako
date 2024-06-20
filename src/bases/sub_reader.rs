@@ -12,8 +12,8 @@ pub struct SubReader<'s> {
 }
 
 impl<'s> SubReader<'s> {
-    pub fn new_from_arc(source: &'s Arc<dyn Source>, end: End) -> Self {
-        let region = Region::new_to_end(Offset::zero(), end, source.size());
+    pub fn new_from_arc(source: &'s Arc<dyn Source>, size: Size) -> Self {
+        let region = Region::new_from_size(Offset::zero(), size);
         Self { source, region }
     }
 
@@ -29,37 +29,37 @@ impl<'s> SubReader<'s> {
         self.region.size()
     }
 
-    pub fn create_flux(&self, offset: Offset, end: End) -> Flux<'s> {
-        let region = self.region.cut_rel(offset, end);
+    pub fn create_flux(&self, offset: Offset, size: Size) -> Flux<'s> {
+        let region = self.region.cut_rel(offset, size);
         Flux::new_from_parts(self.source, region, region.begin())
     }
     pub fn create_flux_for(&self, size_offset: SizedOffset) -> Flux<'s> {
-        self.create_flux(size_offset.offset, End::Size(size_offset.size))
+        self.create_flux(size_offset.offset, size_offset.size)
     }
     pub fn create_flux_from(&self, offset: Offset) -> Flux<'s> {
-        self.create_flux(offset, End::None)
+        self.create_flux(offset, self.region.size() - offset.into())
     }
-    pub fn create_flux_to(&self, end: End) -> Flux<'s> {
-        self.create_flux(Offset::zero(), end)
+    pub fn create_flux_to(&self, size: Size) -> Flux<'s> {
+        self.create_flux(Offset::zero(), size)
     }
     pub fn create_flux_all(&self) -> Flux<'s> {
-        self.create_flux(Offset::zero(), End::None)
+        self.create_flux(Offset::zero(), self.region.size())
     }
-    pub fn create_sub_reader(&self, offset: Offset, end: End) -> SubReader<'s> {
-        let region = self.region.cut_rel(offset, end);
+    pub fn create_sub_reader(&self, offset: Offset, size: Size) -> SubReader<'s> {
+        let region = self.region.cut_rel(offset, size);
         SubReader {
             source: self.source,
             region,
         }
     }
-    pub fn create_sub_memory_reader(&self, offset: Offset, end: End) -> Result<Reader> {
-        let region = self.region.cut_rel(offset, end);
+    pub fn create_sub_memory_reader(&self, offset: Offset, size: Size) -> Result<Reader> {
+        let region = self.region.cut_rel(offset, size);
         let (source, region) = Arc::clone(self.source).into_memory_source(region)?;
         Ok(Reader::new_from_parts(source.into_source(), region))
     }
 
-    pub fn into_memory_reader(&self, offset: Offset, end: End) -> Result<MemoryReader> {
-        let region = self.region.cut_rel(offset, end);
+    pub fn into_memory_reader(&self, offset: Offset, size: Size) -> Result<MemoryReader> {
+        let region = self.region.cut_rel(offset, size);
         let (source, region) = Arc::clone(self.source).into_memory_source(region)?;
         Ok(MemoryReader::new_from_parts(source, region))
     }

@@ -35,31 +35,3 @@ pub use size::Size;
 pub use sized_offset::SizedOffset;
 pub use specific_types::*;
 pub use vendor_id::VendorId;
-
-/// The end of a buffer.
-#[derive(Debug)]
-pub enum End {
-    Offset(Offset),
-    Size(Size),
-    None,
-}
-
-impl End {
-    pub fn new_size<T>(s: T) -> Self
-    where
-        Size: From<T>,
-    {
-        Self::Size(Size::from(s))
-    }
-
-    pub fn new_offset<T>(o: T) -> Self
-    where
-        Offset: From<T>,
-    {
-        Self::Offset(Offset::from(o))
-    }
-
-    pub fn none() -> Self {
-        End::None
-    }
-}

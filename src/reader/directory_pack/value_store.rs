@@ -34,8 +34,7 @@ pub enum ValueStore {
 
 impl ValueStore {
     pub fn new(reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let header_reader =
-            reader.create_sub_memory_reader(pos_info.offset, End::Size(pos_info.size))?;
+        let header_reader = reader.create_sub_memory_reader(pos_info.offset, pos_info.size)?;
         let mut header_flux = header_reader.create_flux_all();
         Ok(match ValueStoreKind::produce(&mut header_flux)? {
             ValueStoreKind::Plain => {
@@ -75,8 +74,7 @@ pub struct PlainValueStore {
 impl PlainValueStore {
     fn new(flux: &mut Flux, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
         let data_size = Size::produce(flux)?;
-        let reader =
-            reader.create_sub_memory_reader(pos_info.offset - data_size, End::Size(data_size))?;
+        let reader = reader.create_sub_memory_reader(pos_info.offset - data_size, data_size)?;
         Ok(PlainValueStore {
             reader: reader.try_into()?,
         })
@@ -85,7 +83,7 @@ impl PlainValueStore {
     fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
         if let Some(size) = size {
             let offset = id.into_u64().into();
-            self.reader.get_slice(offset, End::Size(size))
+            self.reader.get_slice(offset, size)
         } else {
             panic!("Cannot use unsized with PlainValueStore");
         }
@@ -163,8 +161,7 @@ impl IndexedValueStore {
         unsafe { value_offsets.set_len(value_count) }
         value_offsets.push(data_size.into());
         assert_eq!(flux.tell().into_u64(), pos_info.size.into_u64());
-        let reader =
-            reader.create_sub_memory_reader(pos_info.offset - data_size, End::Size(data_size))?;
+        let reader = reader.create_sub_memory_reader(pos_info.offset - data_size, data_size)?;
         Ok(IndexedValueStore {
             value_offsets,
             reader: reader.try_into()?,
@@ -180,7 +177,7 @@ impl IndexedValueStore {
             Some(s) => s,
             None => self.value_offsets[id.into_usize() + 1] - start,
         };
-        self.reader.get_slice(start, End::Size(size))
+        self.reader.get_slice(start, size)
     }
 }
 

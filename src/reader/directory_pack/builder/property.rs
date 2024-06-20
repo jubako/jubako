@@ -393,7 +393,7 @@ impl PropertyBuilderTrait for ContentProperty {
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
         let content_size =
             self.content_id_size as usize + if self.pack_id_default.is_some() { 0 } else { 1 };
-        let mut flux = reader.create_flux(self.offset, End::new_size(content_size));
+        let mut flux = reader.create_flux(self.offset, Size::from(content_size));
         let pack_id = match self.pack_id_default {
             None => (flux.read_usized(self.pack_id_size)? as u16).into(),
             Some(d) => d,
@@ -520,8 +520,7 @@ mod tests {
 
     #[test]
     fn test_uint() {
-        let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from([0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
         let prop = IntProperty::new(Offset::new(0), ByteSize::U1, None, None);
         assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 0xFE);
         let prop = IntProperty::new(Offset::new(2), ByteSize::U1, None, None);
@@ -583,8 +582,7 @@ mod tests {
 
     #[test]
     fn test_sint() {
-        let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from([0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
         let prop = SignedProperty::new(Offset::new(0), ByteSize::U1, None, None);
         assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), -0x02);
         let prop = SignedProperty::new(Offset::new(2), ByteSize::U1, None, None);
@@ -646,7 +644,7 @@ mod tests {
 
     #[test]
     fn test_default_int() {
-        let reader = Reader::new(vec![], End::None);
+        let reader = Reader::from([]);
         let prop = IntProperty::new(Offset::new(0), ByteSize::U1, Some(50), None);
         assert_eq!(prop.create(&reader.as_sub_reader()).unwrap(), 50);
 
@@ -698,8 +696,7 @@ mod tests {
     #[test]
     fn test_deported_int() {
         let value_store = Arc::new(mock::ValueStore::new());
-        let content = vec![0x01, 0x00, 0x02, 0x03, 0x04, 0x1A, 0x04, 0x20, 0x04, 0xff];
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from([0x01, 0x00, 0x02, 0x03, 0x04, 0x1A, 0x04, 0x20, 0x04, 0xff]);
 
         let prop = IntProperty::new(
             Offset::new(0),
@@ -820,8 +817,7 @@ mod tests {
     #[test]
     fn test_deported_sint() {
         let value_store = Arc::new(mock::ValueStore::new());
-        let content = vec![0x01, 0x00, 0x02, 0x03, 0x04, 0x1A, 0x04, 0x20, 0x04, 0xff];
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from([0x01, 0x00, 0x02, 0x03, 0x04, 0x1A, 0x04, 0x20, 0x04, 0xff]);
 
         let prop = SignedProperty::new(
             Offset::new(0),
@@ -992,8 +988,7 @@ mod tests {
 
     #[test]
     fn test_array() {
-        let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from([0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
         let prop = ArrayProperty::new(Offset::new(0), Some(ByteSize::U1), 1, None, None);
         assert_eq!(
             FakeArray::new(Some(Size::new(0xFE)), BaseArray::new(&[0xDC]), 1, None),
@@ -1074,8 +1069,7 @@ mod tests {
 
     #[test]
     fn test_deported_array() {
-        let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from([0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
         let value_store = Arc::new(fake::ValueStore {}) as Arc<dyn ValueStoreTrait>;
         let prop = ArrayProperty::new(
             Offset::new(0),                                 // offset on the entry
@@ -1246,7 +1240,7 @@ mod tests {
 
     #[test]
     fn default_array() {
-        let reader = Reader::new(vec![], End::None);
+        let reader = Reader::from([]);
         let value_store = Arc::new(fake::ValueStore {}) as Arc<dyn ValueStoreTrait>;
 
         let prop = ArrayProperty::new(
@@ -1281,8 +1275,7 @@ mod tests {
 
     #[test]
     fn test_content() {
-        let content = vec![0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff];
-        let reader = Reader::new(content, End::None);
+        let reader = Reader::from([0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
 
         let prop = ContentProperty::new(Offset::new(0), None, ByteSize::U1, ByteSize::U3);
         assert_eq!(

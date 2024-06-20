@@ -74,7 +74,7 @@ impl PlainStore {
         let data_size = Size::produce(flux)?;
         // [TODO] use a array_reader here
         let entry_reader = reader
-            .create_sub_reader(pos_info.offset - data_size, End::Size(data_size))
+            .create_sub_reader(pos_info.offset - data_size, data_size)
             .into();
         Ok(Self {
             layout,
@@ -85,7 +85,7 @@ impl PlainStore {
     fn get_entry_reader(&self, idx: EntryIdx) -> SubReader {
         self.entry_reader.create_sub_reader(
             Offset::from(self.layout.size.into_u64() * idx.into_u64()),
-            End::Size(self.layout.size),
+            self.layout.size,
         )
     }
 

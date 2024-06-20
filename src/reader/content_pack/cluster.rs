@@ -68,7 +68,7 @@ fn zstd_source(_raw_stream: Stream, _data_size: Size) -> Result<Arc<dyn Source>>
 impl Cluster {
     pub fn new(reader: &Reader, cluster_info: SizedOffset) -> Result<Self> {
         let header_reader =
-            reader.create_sub_memory_reader(cluster_info.offset, End::Size(cluster_info.size))?;
+            reader.create_sub_memory_reader(cluster_info.offset, cluster_info.size)?;
         let mut flux = header_reader.create_flux_all();
         let header = ClusterHeader::produce(&mut flux)?;
         let raw_data_size: Size = flux.read_usized(header.offset_size)?.into();
@@ -100,19 +100,13 @@ impl Cluster {
             }
             ClusterReader::Plain(
                 reader
-                    .create_sub_reader(
-                        cluster_info.offset - raw_data_size,
-                        End::Size(raw_data_size),
-                    )
+                    .create_sub_reader(cluster_info.offset - raw_data_size, raw_data_size)
                     .into(),
             )
         } else {
             ClusterReader::Raw(
                 reader
-                    .create_sub_reader(
-                        cluster_info.offset - raw_data_size,
-                        End::Size(raw_data_size),
-                    )
+                    .create_sub_reader(cluster_info.offset - raw_data_size, raw_data_size)
                     .into(),
             )
         };
@@ -131,23 +125,22 @@ impl Cluster {
         };
 
         let raw_reader = if let ClusterReader::Raw(r) = &*cluster_reader {
-            r.create_sub_reader(Offset::zero(), End::None)
+            r.create_sub_reader(Offset::zero(), r.size())
         } else {
             unreachable!()
         };
         let raw_flux = raw_reader.create_flux_all();
         let decompress_reader = match self.compression {
-            CompressionType::Lz4 => Reader::new_from_arc(
-                lz4_source(raw_flux.into(), self.data_size)?,
-                End::Size(self.data_size),
-            ),
+            CompressionType::Lz4 => {
+                Reader::new_from_arc(lz4_source(raw_flux.into(), self.data_size)?, self.data_size)
+            }
             CompressionType::Lzma => Reader::new_from_arc(
                 lzma_source(raw_flux.into(), self.data_size)?,
-                End::Size(self.data_size),
+                self.data_size,
             ),
             CompressionType::Zstd => Reader::new_from_arc(
                 zstd_source(raw_flux.into(), self.data_size)?,
-                End::Size(self.data_size),
+                self.data_size,
             ),
             CompressionType::None => unreachable!(),
         };
@@ -164,8 +157,9 @@ impl Cluster {
         self.build_plain_reader()?;
         let offset = self.blob_offsets[index.into_usize()];
         let end_offset = self.blob_offsets[index.into_usize() + 1];
+        let size = end_offset - offset;
         if let ClusterReader::Plain(r) = &*self.reader.read().unwrap() {
-            Ok(r.create_sub_reader(offset, End::Offset(end_offset)).into())
+            Ok(r.create_sub_reader(offset, size).into())
         } else {
             unreachable!()
         }
