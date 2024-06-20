@@ -11,20 +11,6 @@ pub trait Serializable {
     fn serialize(&self, stream: &mut Serializer) -> IoResult<usize>;
 }
 
-pub enum BlockCheck {
-    None,
-    Crc32,
-}
-
-impl BlockCheck {
-    pub(crate) const fn size(&self) -> Size {
-        match self {
-            Self::None => Size::zero(),
-            Self::Crc32 => Size::new(4),
-        }
-    }
-}
-
 /// A Buffer on which we can write data.
 pub struct Serializer {
     buf: Cursor<Vec<u8>>,

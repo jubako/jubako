@@ -1,5 +1,19 @@
 use crate::bases::*;
 
+pub enum BlockCheck {
+    None,
+    Crc32,
+}
+
+impl BlockCheck {
+    pub(crate) const fn size(&self) -> Size {
+        match self {
+            Self::None => Size::zero(),
+            Self::Crc32 => Size::new(4),
+        }
+    }
+}
+
 pub trait BlockParsable: Parsable {}
 
 pub trait SizedBlockParsable: BlockParsable + SizedParsable {
