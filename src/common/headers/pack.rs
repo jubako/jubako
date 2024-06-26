@@ -158,7 +158,7 @@ mod tests {
             0xee, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // check_info_pos
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
         ];
-        content.extend_from_slice(&[0; 4]); // Dummy CRC
+        content.extend_from_slice(&[0xA1, 0x6A, 0x08, 0x3F]); // CRC
         let reader = Reader::from(content);
         let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero()).unwrap();
         assert_eq!(

@@ -85,7 +85,7 @@ mod tests {
         ];
         content.extend_from_slice(&[0x00; 12]); // padding
         content.extend_from_slice(&[0xff; 24]); // free_data
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC32
+        content.extend_from_slice(&[0x41, 0x90, 0xD3, 0x8A]); // CRC32
         let reader = Reader::from(content);
         let content_pack_header = reader
             .parse_block_at::<ContentPackHeader>(Offset::zero())

@@ -28,7 +28,22 @@ impl Serializer {
     pub fn close(self) -> (Vec<u8>, Option<[u8; 4]>) {
         match self.check {
             BlockCheck::None => (self.buf.into_inner(), None),
-            BlockCheck::Crc32 => (self.buf.into_inner(), Some([0; 4])),
+            BlockCheck::Crc32 => {
+                let buf = self.buf.into_inner();
+                let mut digest = CRC.digest();
+                digest.update(&buf);
+                let checksum = digest.finalize();
+                let checksum = checksum.to_be_bytes();
+
+                #[cfg(debug_assertions)]
+                {
+                    let mut digest = CRC.digest();
+                    digest.update(&buf);
+                    digest.update(&checksum);
+                    assert_eq!(digest.finalize(), 0);
+                }
+                (buf, Some(checksum))
+            }
         }
     }
 

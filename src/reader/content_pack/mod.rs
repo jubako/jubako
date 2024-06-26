@@ -189,7 +189,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, // reserved
         ]);
-        content.extend_from_slice(&[0; 4]); // Dummy CRC
+        content.extend_from_slice(&[0xE8, 0x9E, 0x15, 0x60]); // CRC
 
         // ContentPack header offset 64/0x40
         content.extend_from_slice(&[
@@ -199,7 +199,7 @@ mod tests {
             0x01, 0x00, 0x00, 0x00, // cluster count
         ]);
         content.extend_from_slice(&[0xff; 36]); // free_data
-        content.extend_from_slice(&[0; 4]); // Dummy CRC
+        content.extend_from_slice(&[0x93, 0xF9, 0x45, 0x68]); // CRC
 
         // Entry ptr array offset 128/0x80 (entry_ptr_pos)
         content.extend_from_slice(&[
@@ -207,14 +207,14 @@ mod tests {
             0x01, 0x00, 0x00, 0x00, // second entry info
             0x02, 0x00, 0x00, 0x00, // third entry info
         ]);
-        content.extend_from_slice(&[0; 4]); // Dummy CRC
+        content.extend_from_slice(&[0x84, 0xC1, 0x1C, 0xD2]); // CRC
 
         // Cluster ptr array offset 128 + 16 = 144/0x90 (cluste_ptr_pos)
         content.extend_from_slice(&[
             0x08, 0x00, // first (and only) cluster size
             0xAB, 0x00, 0x00, 0x00, 0x00, 0x00, // first (and only) ptr pos.
         ]);
-        content.extend_from_slice(&[0; 4]); // Dummy CRC
+        content.extend_from_slice(&[0x35, 0x23, 0x26, 0x1E]); // CRC
 
         // Cluster data offset 144 + 12 = 156/0x9C
         content.extend_from_slice(&[
@@ -233,13 +233,13 @@ mod tests {
             0x05, // Offset of blob 1
             0x08, // Offset of blob 2
         ]);
-        content.extend_from_slice(&[0; 4]); // Dummy CRC
+        content.extend_from_slice(&[0x42, 0xCC, 0x02, 0x58]); // CRC
 
         // Check info offset 171 + 8 + 4 = 183/0xB7 (check_info_pos)
         let hash = blake3::hash(&content);
         content.push(0x01);
         content.extend(hash.as_bytes());
-        content.extend_from_slice(&[0; 4]); // Dummy CRC
+        content.extend_from_slice(&[0x78, 0x20, 0x61, 0xB7]); // CRC
 
         // Footer offset 183 + 33 + 4 = 220/0xDC
         let mut footer = [0; 64];

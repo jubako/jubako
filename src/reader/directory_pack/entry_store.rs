@@ -157,7 +157,7 @@ mod tests {
     fn test_1variant_allproperties() {
         #[rustfmt::skip]
         let content = vec![
-            0x00, 0x00, 0x00, 0x00, // Dummy CRC of the non existant data
+            0xFF, 0xFF, 0xFF, 0xFF, // Dummy CRC of the non existant data
             0x00, // kind
             0x00, 0x00, 0x00, 0x00, // entry_count (0 as we are testing layout parsing only)
             0x00, // flag
@@ -180,7 +180,7 @@ mod tests {
             0b0101_0001, 0b001_00010, 0x0F, 3 , b'V', b'1', b'2', // char1[2] + deported(1), idx 0x0F   offset: 93
             0b0101_0010, 0b111_00010, 0x0F, 3 , b'V', b'1', b'3', // char2[2] + deported(7), idx 0x0F   offset: 97
             0b0001_1100, 0x01, 0x02, 3 , b'V', b'1', b'4', // content address, with default 0x0201 and 1 byte of data offset: 108
-            0x00, 0x00, 0x00, 0x00, // dummy crc
+            0x1A, 0x01, 0x65, 0xB7, // crc
         ];
         let size = Size::from(content.len() - 8);
         let reader = Reader::from(content);
@@ -378,7 +378,7 @@ mod tests {
     fn test_2variants() {
         #[rustfmt::skip]
         let content = vec![
-            0x00, 0x00, 0x00, 0x00, // Dummy CRC of the non existant data
+            0xFF, 0xFF, 0xFF, 0xFF, // Dummy CRC of the non existant data
             0x00, // kind
             0x00, 0x00, 0x00, 0x00, // entry_count (0),
             0x00, //flag
@@ -396,7 +396,7 @@ mod tests {
             0b0001_0101, 2, b'V', b'1',  // content address size: 2 + 2                                  offset: 23
             0b0010_0010, 2, b'V', b'2',  // u24 size: 3                                                  offset: 27
             0b0000_0000,  // padding (1)                                                                 offset: 30  => Variant size 31
-            0x00, 0x00, 0x00, 0x00, // dummy crc
+            0x10, 0xBC, 0x0F, 0xB7, // crc
         ];
         let size = Size::from(content.len() - 8);
         let reader = Reader::from(content);

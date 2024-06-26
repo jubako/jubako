@@ -2,6 +2,27 @@ use galvanic_test::test_suite;
 
 use std::path::PathBuf;
 
+/// Our CRC algorithm is CRC-32C (Castagnoli), without refin or refout.
+/// With don't xorout to keep the property that CRC of (data + CRC) equals 0.
+const CUSTOM_ALG: crc::Algorithm<u32> = crc::Algorithm {
+    width: 32,
+    poly: 0x1EDC6F41,
+    init: 0xFFFFFFFF,
+    refin: false,
+    refout: false,
+    xorout: 0x00000000,
+    check: 0xFABBF0EA,
+    residue: 0x00000000,
+};
+
+pub(crate) const CRC: crc::Crc<u32> = crc::Crc::<u32>::new(&CUSTOM_ALG);
+
+fn crc32(buf: &[u8]) -> u32 {
+    let mut digest = CRC.digest();
+    digest.update(buf);
+    digest.finalize()
+}
+
 struct Entry {
     path: String,
     content: String,
@@ -60,7 +81,8 @@ impl Cluster {
             data.extend((*offset as u64).to_le_bytes());
         }
         self.tail_size = Some(data.len() as u16);
-        data.extend_from_slice(&[0; 4]); // Dummy Crc32
+        let crc = crc32(&data);
+        data.extend_from_slice(&crc.to_be_bytes()); // Crc32
         data
     }
 
@@ -97,7 +119,8 @@ impl KeyStore {
         for content in &self.data {
             data.extend(content);
         }
-        data.extend_from_slice(&[0; 4]); // Dummy Crc32
+        let crc = crc32(&data);
+        data.extend_from_slice(&crc.to_be_bytes()); // Crc32
         data
     }
 
@@ -111,7 +134,8 @@ impl KeyStore {
             data.extend((*offset as u64).to_le_bytes());
         }
         self.tail_size = Some(data.len() as u16);
-        data.extend_from_slice(&[0; 4]); // Dummy Crc32
+        let crc = crc32(&data);
+        data.extend_from_slice(&crc.to_be_bytes()); // Crc32
         data
     }
 
@@ -140,7 +164,8 @@ impl IndexStore {
             data.extend(&entry.word_count.to_le_bytes().to_vec());
             idx += 1;
         }
-        data.extend_from_slice(&[0; 4]); // Dummy Crc32
+        let crc = crc32(&data);
+        data.extend_from_slice(&crc.to_be_bytes()); // Crc32
         IndexStore {
             data,
             tail_size: None,
@@ -167,7 +192,8 @@ impl IndexStore {
         data.extend(&[2, b'V', b'2']); // The name of the third key "V2"
         data.extend((self.data.len() as u64 - 4).to_le_bytes()); //data size
         self.tail_size = Some(data.len() as u16);
-        data.extend_from_slice(&[0; 4]); // Dummy Crc32
+        let crc = crc32(&data);
+        data.extend_from_slice(&crc.to_be_bytes()); // Crc32
         data
     }
 
@@ -205,7 +231,8 @@ impl Index {
         data.push(self.index_name.len() as u8);
         data.extend(self.index_name.bytes()); // The index name
         self.tail_size = Some(data.len() as u16);
-        data.extend_from_slice(&[0; 4]); // Dummy Crc32
+        let crc = crc32(&data);
+        data.extend_from_slice(&crc.to_be_bytes()); // Crc32
         data
     }
 
@@ -224,7 +251,8 @@ impl CheckInfo {
         let mut data = vec![];
         data.push(self.kind);
         data.extend(&self.data);
-        data.extend_from_slice(&[0; 4]); // Dummy CRC32
+        let crc = crc32(&data);
+        data.extend_from_slice(&crc.to_be_bytes()); // Crc32
         data
     }
 
@@ -256,7 +284,8 @@ impl PackInfo {
         data.extend((path_data.len() as u8).to_le_bytes());
         data.extend(path_data.as_bytes());
         data.extend(vec![0; 252 - data.len()]);
-        data.extend_from_slice(&[0; 4]); // Dummy Crc32
+        let crc = crc32(&data);
+        data.extend_from_slice(&crc.to_be_bytes()); // Crc32
         data
     }
 
@@ -276,6 +305,7 @@ test_suite! {
     use std::path::PathBuf;
     use crate::{Entry as TestEntry, Cluster, KeyStore, IndexStore, Index, PackInfo, CheckInfo};
     use uuid::Uuid;
+    use super::crc32;
 
     fixture compression() -> jubako::CompressionType {
         setup(&mut self) {
@@ -309,37 +339,18 @@ test_suite! {
                         .truncate(true)
                         .open(&content_pack_path)?;
 
-        // Write pack header
-        file.write_all(&[
-            0x6a, 0x62, 0x6b, 0x63,
-            0x00, 0x00, 0x00, 0x01,
-            0x00, 0x02,
-        ])?;
-        let uuid = Uuid::new_v4();
-        file.write_all(uuid.as_bytes())?;
-        file.write_all(&[0x00;6])?; // padding
-        file.write_all(&[0x00;16])?; // file size and checksum pos, to be write after
-        file.write_all(&[0x00;12])?; // reserved
-        file.write_all(&[0; 4])?; // Dummy Crc32
-
-        // Write content pack header
-        file.write_all(&0x80_u64.to_le_bytes())?; // entry_ptr_offset
-        file.write_all(&0x8C_u64.to_le_bytes())?; // cluster_ptr_offset
-        file.write_all(&(entries.len() as u32).to_le_bytes())?; // entry count
-        file.write_all(&1_u32.to_le_bytes())?; // cluster count
-        file.write_all(&[0xff;36])?; // free_data
-        file.write_all(&[0; 4])?; // Dummy Crc32
+        // Reserve some place for headers
+        file.seek(SeekFrom::Start(128))?;
 
         // Offse 128/0x80
         // Write entry infos
         file.write_all(&[0x00, 0x00, 0x00, 0x00])?; // first entry info
         file.write_all(&[0x01, 0x00, 0x00, 0x00])?; // second entry info
-        file.write_all(&[0; 4])?; // Dummy Crc32
+        file.write_all(&[0x52, 0x21, 0xEE, 0x84])?; // Crc32
 
         // Offset 128 + 12 = 140/0x8C
         let cluster_ptr_info_offset = file.seek(SeekFrom::Current(0))?;
-        file.write_all(&[0x00;8])?; // cluster offset, to be write after
-        file.write_all(&[0; 4])?; // Dummy Crc32
+        file.write_all(&[0x00;12])?; // cluster offset and crc of the array,  to be write after
 
         let mut cluster = Cluster::new(compression, &entries);
         // Cluster data 140 + 12 = 152/0x98
@@ -350,15 +361,50 @@ test_suite! {
         file.write_all(&cluster.tail_bytes())?;
 
         // Write back info about where cluster is
+        let mut array_data = vec![];
+        array_data.write_all(&cluster.tail_size().to_le_bytes())?; // write the cluster offset
+        array_data.write_all(&cluster_info_offset[..6])?;
+        let array_crc = crc32(&array_data);
         file.seek(SeekFrom::Start(cluster_ptr_info_offset))?;
-        file.write_all(&cluster.tail_size().to_le_bytes())?; // write the cluster offset
-        file.write_all(&cluster_info_offset[..6])?;
+        file.write_all(&array_data)?;
+        file.write_all(&array_crc.to_be_bytes())?; // crc
 
-        // Write back info about file_size and checksum_pos
+
         let checksum_pos = file.seek(SeekFrom::End(0))?;
-        file.seek(SeekFrom::Start(32))?;
-        file.write_all(&(checksum_pos+33+4+64).to_le_bytes())?;
-        file.write_all(&checksum_pos.to_le_bytes())?;
+
+        // Write pack header
+        let mut pack_header_data = vec![];
+        pack_header_data.write_all(&[
+            0x6a, 0x62, 0x6b, 0x63,
+            0x00, 0x00, 0x00, 0x01,
+            0x00, 0x02,
+        ])?;
+        let uuid = Uuid::from_slice(&[
+            0xC6, 0x50, 0xD8, 0x3D, 0x80, 0x33, 0x44, 0xDF, 0xA2, 0xCD, 0x30, 0xAE, 0xEC, 0x84, 0x76, 0xA7
+        ]
+        ).unwrap();
+        pack_header_data.write_all(uuid.as_bytes())?;
+        pack_header_data.write_all(&[0x00;6])?; // padding
+        pack_header_data.write_all(&(checksum_pos+33+4+64).to_le_bytes())?; // write file size
+        pack_header_data.write_all(&checksum_pos.to_le_bytes())?; // checksum pos
+        pack_header_data.write_all(&[0x00;12])?; // reserved
+        let pack_header_crc = crc32(&pack_header_data);
+        file.seek(SeekFrom::Start(0))?;
+        file.write_all(&pack_header_data)?;
+        file.write_all(&pack_header_crc.to_be_bytes())?; // Crc32
+
+
+        // Write content pack header
+        let mut content_pack_header_data = vec![];
+        content_pack_header_data.write_all(&0x80_u64.to_le_bytes())?; // entry_ptr_offset
+        content_pack_header_data.write_all(&0x8C_u64.to_le_bytes())?; // cluster_ptr_offset
+        content_pack_header_data.write_all(&(entries.len() as u32).to_le_bytes())?; // entry count
+        content_pack_header_data.write_all(&1_u32.to_le_bytes())?; // cluster count
+        content_pack_header_data.write_all(&[0xff;36])?; // free_data
+        let content_pack_header_crc = crc32(&content_pack_header_data);
+
+        file.write_all(&content_pack_header_data)?;
+        file.write_all(&content_pack_header_crc.to_be_bytes())?; // Crc32
 
         file.seek(SeekFrom::Start(0))?;
         let mut hasher = blake3::Hasher::new();
@@ -366,7 +412,7 @@ test_suite! {
         let hash = hasher.finalize();
         file.write_all(&[0x01])?;
         file.write_all(hash.as_bytes())?;
-        file.write_all(&[0; 4])?; // Dummy Crc32
+        file.write_all(&[0x35, 0x76, 0x0D, 0x7C])?; // Crc32
 
         // Write footer
         file.seek(SeekFrom::Start(0))?;
@@ -399,26 +445,10 @@ test_suite! {
                         .create(true)
                         .truncate(true)
                         .open(&directory_pack_path)?;
-        // Pack header
-        file.write_all(&[
-            0x6a, 0x62, 0x6b, 0x64,
-            0x00, 0x00, 0x00, 0x01,
-            0x00, 0x02,
-        ])?;
-        let uuid = Uuid::new_v4();
-        file.write_all(uuid.as_bytes())?;
-        file.write_all(&[0x00;6])?; // padding
-        file.write_all(&[0x00;16])?; // file size and checksum pos, to be write after
-        file.write_all(&[0x00;12])?; // reserved
-        file.write_all(&[0x00; 4])?; // Dummy CRC32
 
-        // Directory pack header
-        file.write_all(&[0x00;24])?; // index_ptr_offset, entry_store_ptr_offset, key_store_ptr_offset, to be write after
-        file.write_all(&1_u32.to_le_bytes())?; // index count
-        file.write_all(&1_u32.to_le_bytes())?; // entry_store count
-        file.write_all(&1_u8.to_le_bytes())?; // value_store count
-        file.write_all(&[0xff;27])?; // free_data
-        file.write_all(&[0; 4])?; // Crc32
+
+        // Reserve some space for the headers
+        file.seek(SeekFrom::Start(128))?;
 
         let value_store_ptr_offset = {
             // Write Value Store
@@ -428,9 +458,12 @@ test_suite! {
             file.write_all(&key_store.tail_bytes())?;
             // Write value store ptr array
             let key_store_ptr_offset = file.seek(SeekFrom::Current(0))?;
-            file.write_all(&key_store.tail_size().to_le_bytes())?;
-            file.write_all(&key_store_offset[..6])?;
-            file.write_all(&[0; 4])?; // Dummy Crc32
+            let mut array_data = vec![];
+            array_data.write_all(&key_store.tail_size().to_le_bytes())?;
+            array_data.write_all(&key_store_offset[..6])?;
+            let array_crc = crc32(&array_data);
+            file.write_all(&array_data)?;
+            file.write_all(&array_crc.to_be_bytes())?; // crc
             key_store_ptr_offset
         };
 
@@ -443,9 +476,12 @@ test_suite! {
 
             // Write entry store ptr array
             let index_store_ptr_offset = file.seek(SeekFrom::Current(0))?;
-            file.write_all(&index_store.tail_size().to_le_bytes())?;
-            file.write_all(&index_store_offset[..6])?;
-            file.write_all(&[0; 4])?; // Dummy Crc32
+            let mut array_data = vec![];
+            array_data.write_all(&index_store.tail_size().to_le_bytes())?;
+            array_data.write_all(&index_store_offset[..6])?;
+            let array_crc = crc32(&array_data);
+            file.write_all(&array_data)?;
+            file.write_all(&array_crc.to_be_bytes())?; // crc
             index_store_ptr_offset
         };
 
@@ -457,20 +493,51 @@ test_suite! {
 
             // Write index ptr array
             let index_ptr_offset = file.seek(SeekFrom::Current(0))?;
-            file.write_all(&index.tail_size().to_le_bytes())?;
-            file.write_all(&index_offset[..6])?;
-            file.write_all(&[0; 4])?; // Dummy Crc32
+            let mut array_data = vec![];
+            array_data.write_all(&index.tail_size().to_le_bytes())?;
+            array_data.write_all(&index_offset[..6])?;
+            let array_crc = crc32(&array_data);
+            file.write_all(&array_data)?;
+            file.write_all(&array_crc.to_be_bytes())?; // crc
             index_ptr_offset
         };
 
         let checksum_pos = file.seek(SeekFrom::End(0))?;
-        file.seek(SeekFrom::Start(32))?;
-        file.write_all(&(checksum_pos+33+4+64).to_le_bytes())?;
-        file.write_all(&checksum_pos.to_le_bytes())?;
-        file.seek(SeekFrom::Start(64))?;
-        file.write_all(&index_ptr_offset.to_le_bytes())?;
-        file.write_all(&index_store_ptr_offset.to_le_bytes())?;
-        file.write_all(&value_store_ptr_offset.to_le_bytes())?;
+
+
+        // Pack header
+        let mut pack_header_data = vec![];
+        pack_header_data.write_all(&[
+            0x6a, 0x62, 0x6b, 0x64,
+            0x00, 0x00, 0x00, 0x01,
+            0x00, 0x02,
+        ])?;
+        let uuid = Uuid::from_slice(&[
+            0x24, 0x5F, 0x7B, 0x1D, 0xF0, 0x4E, 0x42, 0x2E, 0x99, 0x9D, 0xE3, 0x37, 0x15, 0x62, 0x68, 0x92
+        ]
+        ).unwrap();
+        pack_header_data.write_all(uuid.as_bytes())?;
+        pack_header_data.write_all(&[0x00;6])?; // padding
+        pack_header_data.write_all(&(checksum_pos+33+4+64).to_le_bytes())?; // File size
+        pack_header_data.write_all(&checksum_pos.to_le_bytes())?; // checksum pos
+        pack_header_data.write_all(&[0x00;12])?; // reserved
+        let pack_header_crc = crc32(&pack_header_data);
+        file.seek(SeekFrom::Start(0))?;
+        file.write_all(&pack_header_data)?;
+        file.write_all(&pack_header_crc.to_be_bytes())?; // CRC32
+
+        // Directory pack header
+        let mut directory_header_data = vec![];
+        directory_header_data.write_all(&index_ptr_offset.to_le_bytes())?;
+        directory_header_data.write_all(&index_store_ptr_offset.to_le_bytes())?;
+        directory_header_data.write_all(&value_store_ptr_offset.to_le_bytes())?;
+        directory_header_data.write_all(&1_u32.to_le_bytes())?; // index count
+        directory_header_data.write_all(&1_u32.to_le_bytes())?; // entry_store count
+        directory_header_data.write_all(&1_u8.to_le_bytes())?; // value_store count
+        directory_header_data.write_all(&[0xff;27])?; // free_data
+        let directory_header_crc = crc32(&directory_header_data);
+        file.write_all(&directory_header_data)?;
+        file.write_all(&directory_header_crc.to_be_bytes())?; // CRC32
 
         file.seek(SeekFrom::Start(0))?;
         let mut hasher = blake3::Hasher::new();
@@ -478,7 +545,7 @@ test_suite! {
         let hash = hasher.finalize();
         file.write_all(&[0x01])?;
         file.write_all(hash.as_bytes())?;
-        file.write_all(&[0; 4])?; // Dummy Crc32
+        file.write_all(&[0x25, 0x9F, 0x55, 0x12])?; // Crc32
 
         // Write footer
         file.seek(SeekFrom::Start(0))?;
@@ -505,7 +572,10 @@ test_suite! {
     fn create_main_pack(directory_pack: PackInfo, content_pack:PackInfo) -> Result<PathBuf> {
         let mut manifest_pack_path = std::env::temp_dir();
         manifest_pack_path.push("manifestPack.jbkm");
-        let uuid = Uuid::new_v4();
+        let uuid = Uuid::from_slice(&[
+            0x3E, 0xED, 0x3E, 0xED, 0xBA, 0x54, 0xFB, 0xC6, 0x44, 0x4A, 0x97, 0x23, 0x68, 0x8F, 0x01, 0x5F
+        ]
+        ).unwrap();
         let mut file_size:u64 = 128;
         let directory_check_info_pos = file_size;
         file_size += directory_pack.get_check_size();
@@ -532,13 +602,13 @@ test_suite! {
         file.write_all(&file_size.to_le_bytes())?;
         file.write_all(&check_info_pos.to_le_bytes())?;
         file.write_all(&[0x00;12])?; // reserved
-        file.write_all(&[0; 4])?; // Dummy Crc32
+        file.write_all(&[0x4C, 0x03, 0x3B, 0xD2])?; // Crc32
 
         // Manifest header
         file.write_all(&[0x02, 0x00])?; // number of pack
         file.write_all(&[0x00; 8])?; // Value store offset
         file.write_all(&[0xff;50])?; // free_data
-        file.write_all(&[0; 4])?; // Dummy Crc32
+        file.write_all(&[0x2c, 0x67, 0x28, 0xD0])?; // Crc32
 
         assert_eq!(directory_check_info_pos, file.seek(SeekFrom::End(0))?);
         file.write_all(&directory_pack.check_info.bytes())?;
@@ -560,7 +630,7 @@ test_suite! {
         let hash = hasher.finalize();
         file.write_all(&[0x01])?;
         file.write_all(hash.as_bytes())?;
-        file.write_all(&[0; 4])?; // Dummy Crc32
+        file.write_all(&[0xD9, 0xA9, 0xF7, 0xDE])?; // Crc32
 
         // Write footer
         file.seek(SeekFrom::Start(0))?;

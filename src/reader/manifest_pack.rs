@@ -258,7 +258,7 @@ mod tests {
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
                 0x00, 0x00, 0x00, 0x00, // reserved
             ]);
-            content.extend_from_slice(&[0; 4]); // Dummy Crc32
+            content.extend_from_slice(&[0x1E, 0x59, 0x00, 0x9B]); // Crc32
 
             // Manifest pack heaader offset 64/0x40
             content.extend_from_slice(&[
@@ -266,7 +266,7 @@ mod tests {
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Value Store pos
             ]);
             content.extend_from_slice(&[0xff; 50]);
-            content.extend_from_slice(&[0; 4]); // Dummy Crc32
+            content.extend_from_slice(&[0x77, 0x04, 0x2C, 0x88]); // Crc32
 
             // Offset 128/0x80
 
@@ -283,7 +283,7 @@ mod tests {
             ]);
             // Offset 128 + 38 = 166/0xA6
             content.extend_from_slice(&[0x00; 214]); // empty pack_location
-            content.extend_from_slice(&[0; 4]); // Dummy Crc32
+            content.extend_from_slice(&[0xD8, 0x88, 0xA4, 0x3C]); // Crc32
 
             // Offset 128 + 256 = 384/0xA6
 
@@ -299,7 +299,7 @@ mod tests {
                 0x00, 0x00, // free_data_id
             ]);
             content.extend_from_slice(&[0x00; 214]); // empty pack_location
-            content.extend_from_slice(&[0; 4]); // Dummy Crc32
+            content.extend_from_slice(&[0x89, 0xF9, 0x48, 0xD4]); // Crc32
 
             // Offset 384 + 256 = 640/x0280
 
@@ -316,7 +316,7 @@ mod tests {
                 8, b'p', b'a', b'c', b'k', b'p', b'a', b't', b'h',
             ]);
             content.extend_from_slice(&[0x00; 214 - 9]);
-            content.extend_from_slice(&[0; 4]); // Dummy Crc32
+            content.extend_from_slice(&[0x71, 0x0C, 0x8F, 0x11]); // Crc32
         }
 
         let hash = {
@@ -332,7 +332,7 @@ mod tests {
             // Check info Offset 640 + 256 = 896/0x0380 (check_info_pos)
             content.push(0x01);
             content.extend(hash.as_bytes());
-            content.extend_from_slice(&[0; 4]); // Dummy Crc32
+            content.extend_from_slice(&[0x5D, 0xD6, 0x39, 0xD7]); // Crc32
         }
 
         // Footer 896 + 33 + 4 = 933/0x3A5

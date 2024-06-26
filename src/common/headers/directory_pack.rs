@@ -98,7 +98,7 @@ mod tests {
         ];
         content.extend_from_slice(&[0x00; 3]);
         content.extend_from_slice(&[0xff; 24]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC32
+        content.extend_from_slice(&[0xBD, 0x7A, 0xC5, 0x13]); // CRC32
         let reader = Reader::from(content);
         let directory_pack_header = reader
             .parse_block_at::<DirectoryPackHeader>(Offset::zero())

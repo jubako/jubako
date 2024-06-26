@@ -244,7 +244,7 @@ mod tests {
         let mut cluster_data = Vec::new();
         cluster_data.extend_from_slice(&data);
         #[rustfmt::skip]
-        cluster_data.extend_from_slice(&[
+        let cluster_header = [
             comp as u8,       // compression
             0x01,             // offset_size
             0x03, 0x00,       // blob_count
@@ -252,8 +252,12 @@ mod tests {
             0x0f,             // Data size
             0x05,             // Offset of blob 1
             0x08,             // Offset of blob 2
-        ]);
-        cluster_data.extend_from_slice(&[0; 4]);
+        ];
+        cluster_data.extend_from_slice(&cluster_header);
+        let mut digest = CRC.digest();
+        digest.update(&cluster_header);
+        let checksum = digest.finalize().to_be_bytes();
+        cluster_data.extend_from_slice(&checksum);
         (
             SizedOffset::new(
                 Size::from(cluster_data.len() - data.len() - 4),

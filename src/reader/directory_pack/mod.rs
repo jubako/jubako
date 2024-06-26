@@ -362,7 +362,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
             0x00, 0x00, 0x00, 0x00, // reserved
         ];
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
+        content.extend_from_slice(&[0x77, 0x41, 0x69, 0x29]); // CRC
 
         // Directory pack header offset 64/0x40
         content.extend_from_slice(&[
@@ -374,7 +374,7 @@ mod tests {
             0x01, //value_store count
         ]);
         content.extend_from_slice(&[0xff; 27]); // free data
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
+        content.extend_from_slice(&[0xD9, 0xA4, 0x04, 0x38]); // CRC
 
         // Value Store data. Offset 128/0x80
         content.extend_from_slice(&[
@@ -382,7 +382,7 @@ mod tests {
             b'F', b'o', b'o', // value 1
             b'J', 0xc5, 0xab, b'b', b'a', b'k', b'o', // value 2
         ]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
+        content.extend_from_slice(&[0x71, 0x51, 0xDF, 0x1D]); // CRC
 
         // Value store header. Offset 128 + 15 + 4 = 147/0x93
         content.extend_from_slice(&[
@@ -393,14 +393,14 @@ mod tests {
             0x05, // Offset of entry 1
             0x08, // Offset of entry 2
         ]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
+        content.extend_from_slice(&[0x1E, 0x6E, 0xE7, 0xB7]); // CRC
 
         // Value store ptr. Offset 147 + 13 + 4 = 164/0xA4 (value_store_ptr_pos)
         content.extend_from_slice(&[
             13, 0x00, //size
             0x93, 0x00, 0x00, 0x00, 0x00, 0x00, // Offset the tailler (147/0x93)
         ]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
+        content.extend_from_slice(&[0xE0, 0x14, 0x59, 0xCA]); // CRC
 
         // One variant, with on Char1[0], a Char1[2]+Deported(1), a u24 and a content address
         // Entry store data. Offset 164+8+4=176/0xB0
@@ -412,7 +412,7 @@ mod tests {
             0x07, 0x02, 0x05, b'A', b'B', 0x01, 0x43, 0x42, 0x41, 0x00, 0x02, 0x00, 0x00, // Entry 3
             0x05, 0x00, 0x05, 0x00, 0x00, 0x01, 0x53, 0x52, 0x51, 0x00, 0xaa, 0xaa, 0xaa, // Entry 4
         ]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
+        content.extend_from_slice(&[0x4C, 0x67, 0x87, 0x9B]); // CRC
 
         // Entry store header Offset 176 + (13*5) + 4 = 245/0xF5
         #[rustfmt::skip]
@@ -428,14 +428,14 @@ mod tests {
             0b0010_0010, 1, b'C', // u24
             0b0001_0010, 1, b'D', // content address
         ]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
+        content.extend_from_slice(&[0x49, 0x82, 0x74, 0xD6]); // CRC
 
         // Entry store array. Offset 245 + 26 + 4 = 275/0x113 (entry_store_ptr_pos)
         content.extend_from_slice(&[
             26, 0x00, // size
             0xF5, 0x00, 0x00, 0x00, 0x00, 0x00, // offset of the tailler (245)
         ]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
+        content.extend_from_slice(&[0x03, 0x73, 0x94, 0x0B]); // CRC
 
         // Index. Offset 275+8+4=287/0x11F)
         content.extend_from_slice(&[
@@ -446,20 +446,20 @@ mod tests {
             0x00, // index_property (use the first pstring a binary search property
             0x08, b'm', b'y', b' ', b'i', b'n', b'd', b'e', b'x', // Pstring "my index"
         ]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
+        content.extend_from_slice(&[0x86, 0x5C, 0x21, 0xDF]); // CRC
 
         // Add a index_ptr (offset 287+26+4=317/0x13D) (index_ptr_pos)
         content.extend_from_slice(&[
             26, 0x00, //size (26)
             0x1F, 0x01, 0x00, 0x00, 0x00, 0x00, // offset
         ]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
+        content.extend_from_slice(&[0x27, 0x31, 0x53, 0x6F]); // CRC
 
         // Check Info. Offset 317 + 8 + 4 = 329/0x149 (check_info_pos)
         let hash = blake3::hash(&content);
         content.push(0x01); // check info
         content.extend(hash.as_bytes());
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
+        content.extend_from_slice(&[0x72, 0x28, 0x30, 0x8F]); // CRC
 
         // Footer offset 329 + 33 + 4 = 366/0x16E
         let mut footer = [0; 64];
@@ -470,6 +470,7 @@ mod tests {
         // File size 366 + 64 = 430/0x1AE (file_size)
 
         let directory_pack = Arc::new(DirectoryPack::new(content.into()).unwrap());
+        assert!(directory_pack.check().unwrap());
         let index = directory_pack.get_index(0.into()).unwrap();
         let value_storage = directory_pack.create_value_storage();
         let entry_storage = directory_pack.create_entry_storage();

@@ -69,7 +69,7 @@ mod tests {
         ];
         content.extend_from_slice(&[0x00; 26]);
         content.extend_from_slice(&[0xff; 24]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC32
+        content.extend_from_slice(&[0x91, 0xAF, 0xA1, 0xBC]); // CRC32
         let reader = Reader::from(content);
         let manifest_pack_header = reader
             .parse_block_at::<ManifestPackHeader>(Offset::zero())

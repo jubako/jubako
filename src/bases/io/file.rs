@@ -65,15 +65,12 @@ impl Source for FileSource {
     }
 
     fn get_slice(&self, region: Region, block_check: BlockCheck) -> Result<Cow<[u8]>> {
-        let mut buf = vec![0; region.size().into_usize()];
+        let mut buf = vec![0; region.size().into_usize() + block_check.size().into_usize()];
         self.read_exact(region.begin(), &mut buf)?;
         if let BlockCheck::Crc32 = block_check {
-            let mut crc_buf = [0; 4];
-            self.read_exact(region.end(), &mut crc_buf)?;
-            if crc_buf != [0; 4] {
-                return Err(format_error!("Not a valid checksum"));
-            }
+            assert_slice_crc(&buf)?;
         }
+        buf.truncate(region.size().into_usize());
         Ok(Cow::Owned(buf))
     }
 
@@ -91,9 +88,7 @@ impl Source for FileSource {
                 .take(full_size.into_u64())
                 .read_to_end(&mut buf)?;
             if let BlockCheck::Crc32 = block_check {
-                if buf[region.size().into_usize()..full_size.into_usize()] != [0; 4] {
-                    return Err(format_error!("Not a valid checksum"));
-                }
+                assert_slice_crc(&buf)?;
             }
             Ok((
                 Arc::new(buf),
@@ -111,9 +106,7 @@ impl Source for FileSource {
             #[cfg(unix)]
             mmap.advise(Advice::will_need())?;
             if let BlockCheck::Crc32 = block_check {
-                if mmap[region.size().into_usize()..full_size.into_usize()] != [0; 4] {
-                    return Err(format_error!("Not a valid checksum"));
-                }
+                assert_slice_crc(&mmap)?;
             }
 
             Ok((
