@@ -14,12 +14,15 @@ use zerocopy::AsBytes;
 
 pub struct FileSource {
     source: Mutex<io::BufReader<File>>,
+    path: std::path::PathBuf,
     len: u64,
 }
 
 impl FileSource {
     pub fn open<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
-        Self::new(std::fs::File::open(path)?)
+        let mut s = Self::new(std::fs::File::open(&path)?)?;
+        s.path = path.as_ref().into();
+        Ok(s)
     }
 
     pub fn new(mut source: File) -> Result<Self> {
@@ -29,6 +32,7 @@ impl FileSource {
         Ok(FileSource {
             source: Mutex::new(source),
             len,
+            path: "".into(),
         })
     }
 }
@@ -213,5 +217,9 @@ impl Source for FileSource {
         f.seek(SeekFrom::Start(offset.into_u64()))?;
         f.read_exact(&mut buf[..size as usize])?;
         Ok(LE::read_int(&buf, size as usize))
+    }
+
+    fn display(&self) -> String {
+        format!("File {}", self.path.display())
     }
 }

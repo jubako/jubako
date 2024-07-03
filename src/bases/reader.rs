@@ -117,3 +117,15 @@ where
         Self::new(source, End::None)
     }
 }
+
+impl std::fmt::Display for Reader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} at range [{}, {}]",
+            self.source.display(),
+            self.region.begin().into_u64(),
+            self.region.end().into_u64()
+        )
+    }
+}

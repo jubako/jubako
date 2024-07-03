@@ -3,7 +3,10 @@ use std::io::Read;
 use std::sync::Arc;
 use zerocopy::byteorder::{ByteOrder, LittleEndian as LE};
 
-impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
+impl<T> Source for T
+where
+    T: AsRef<[u8]> + 'static + Sync + Send + std::fmt::Debug,
+{
     fn size(&self) -> Size {
         self.as_ref().len().into()
     }
@@ -124,9 +127,15 @@ impl<T: AsRef<[u8]> + 'static + Sync + Send> Source for T {
         let slice = &self.as_ref()[offset.into_usize()..end.into_usize()];
         Ok(LE::read_int(slice, size as usize))
     }
+    fn display(&self) -> String {
+        format!("{:?}", self)
+    }
 }
 
-impl<T: AsRef<[u8]> + 'static + Sync + Send> MemorySource for T {
+impl<T> MemorySource for T
+where
+    T: AsRef<[u8]> + 'static + Sync + Send + std::fmt::Debug,
+{
     fn get_slice(&self, region: Region) -> Result<&[u8]> {
         debug_assert!(region.end().into_usize() <= self.as_ref().len());
         Ok(&self.as_ref()[region.begin().into_usize()..region.end().into_usize()])
