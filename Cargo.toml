@@ -14,6 +14,8 @@ default = ["zstd"]
 lz4 = ["dep:lz4"]
 lzma = ["dep:xz2"]
 zstd = ["dep:zstd"]
+explorable = ["dep:serde", "dep:erased-serde", "uuid/serde"]
+build_bin = ["explorable", "dep:serde_json", "dep:serde_yaml", "dep:ron"]
 
 [dependencies]
 uuid = { version = "1.4.1", features = ["v4"] }
@@ -35,8 +37,17 @@ deranged = "0.3.10"
 tempfile = "3.8.0"
 bstr = "1.9.1"
 dropout = "0.1.0"
+serde = { version = "1.0.197", features = ["derive", "rc"], optional = true }
+serde_json = { version = "1.0.114", optional = true }
+serde_yaml = { version = "0.9.32", optional = true }
+erased-serde = { version = "0.4", optional = true }
+ron = { version = "0.8.1", optional = true }
 
 [dev-dependencies]
 test-case = "3.2.1"
 tempfile  = "3.8.0"
 galvanic-test = "0.2.0"
+
+[[bin]]
+name = "jbk"
+required-features = ["build_bin"]

@@ -57,11 +57,24 @@ jobs:
       - name: Test code
         run: cargo test --features ${{ matrix.feature }} --verbose
 
+      - name: Test binary compilation
+        if: ${{ matrix.toolchain == 'stable' && matrix.feature == 'zstd,lzma,lz4' }}
+        run: cargo build --features zstd,lzma,lz4,build_bin --verbose
+
       - name: Build and run exemples
         run: |
           cargo build --examples
           cargo run --example simple_create
           cargo run --example simple_read
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ runner.os }}-jbk
+          path: |
+            target/debug/jbk
+            target/debug/jbk.exe
+          compression-level: 0
 
 
   check_publication:

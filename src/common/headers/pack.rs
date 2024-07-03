@@ -96,6 +96,28 @@ impl Writable for PackHeader {
     }
 }
 
+#[cfg(feature = "explorable")]
+impl serde::Serialize for PackHeader {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let name = match self.magic {
+            PackKind::Manifest => "ManifestPack",
+            PackKind::Container => "ContainerPack",
+            PackKind::Content => "ContentPack",
+            PackKind::Directory => "DirectoryPack",
+        };
+        let mut obj = serializer.serialize_struct(name, 4)?;
+        obj.serialize_field("uuid", &self.uuid)?;
+        obj.serialize_field("app_vendor_id", &self.app_vendor_id)?;
+        obj.serialize_field("version", &(self.major_version, self.minor_version))?;
+        obj.serialize_field("size", &self.file_size.into_u64())?;
+        obj.end()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

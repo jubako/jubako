@@ -201,6 +201,82 @@ impl Pack for DirectoryPack {
     }
 }
 
+#[cfg(feature = "explorable")]
+impl serde::Serialize for DirectoryPack {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut cont = serializer.serialize_struct("DirectoryPack", 5)?;
+        cont.serialize_field("uuid", &self.uuid())?;
+        cont.serialize_field(
+            "indexes",
+            &self
+                .header
+                .index_count
+                .into_iter()
+                .map(|c| {
+                    let sized_offset = self.index_ptrs.index(*c).unwrap();
+                    let mut index_flux = self.reader.create_flux_for(sized_offset);
+                    let index_header = IndexHeader::produce(&mut index_flux).unwrap();
+                    Index::new(index_header)
+                })
+                .collect::<Vec<_>>(),
+        )?;
+        cont.serialize_field(
+            "entry_stores",
+            &self
+                .header
+                .entry_store_count
+                .into_iter()
+                .map(|c| {
+                    let sized_offset = self.entry_stores_ptrs.index(*c).unwrap();
+                    EntryStore::new(&self.reader, sized_offset).unwrap()
+                })
+                .collect::<Vec<_>>(),
+        )?;
+        cont.serialize_field(
+            "value_stores",
+            &self
+                .header
+                .value_store_count
+                .into_iter()
+                .map(|c| {
+                    let sized_offset = self.value_stores_ptrs.index(*c).unwrap();
+                    ValueStore::new(&self.reader, sized_offset).unwrap()
+                })
+                .collect::<Vec<_>>(),
+        )?;
+        cont.serialize_field("free_data", &self.header.free_data)?;
+        cont.end()
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl Explorable for DirectoryPack {
+    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
+        if let Some(item) = item.strip_prefix("e.") {
+            let index = if let Ok(index) = item.parse::<u32>() {
+                EntryStoreIdx::from(index)
+            } else {
+                let index = self.get_index_from_name(item)?;
+                index.get_store_id()
+            };
+            let sized_offset = self.entry_stores_ptrs.index(*index)?;
+            Ok(Some(Box::new(EntryStore::new(&self.reader, sized_offset)?)))
+        } else if let Some(item) = item.strip_prefix("v.") {
+            let index = item
+                .parse::<u8>()
+                .map_err(|e| Error::from(format!("{e}")))?;
+            let sized_offset = self.value_stores_ptrs.index(index.into())?;
+            Ok(Some(Box::new(ValueStore::new(&self.reader, sized_offset)?)))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::raw_value::*;

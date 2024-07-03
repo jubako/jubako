@@ -7,6 +7,7 @@ use crate::bases::*;
 /// BaseArray is a structure to store this prefix, at reading time.
 /// As the prefix cannot be longer than 31, BaseArray is wrapper around a 31 bytes length array.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub struct BaseArray {
     pub data: [u8; 31],
 }

@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::cmp::Ordering;
 
 #[derive(Debug)]
+#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub struct VariantPart {
     pub variant_id_offset: Offset,
     pub variants: Box<[SharedProperties]>,
@@ -20,6 +21,7 @@ pub struct VariantPart {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub struct Layout {
     pub common: Properties,
     pub variant_part: Option<VariantPart>,

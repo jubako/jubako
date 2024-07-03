@@ -5,7 +5,6 @@ use crate::common::{CheckInfo, ManifestCheckStream, ManifestPackHeader, Pack, Pa
 use crate::reader::directory_pack::{ValueStore, ValueStoreTrait};
 use std::cmp;
 use std::io::Read;
-
 use uuid::Uuid;
 
 pub struct ManifestPack {
@@ -76,6 +75,16 @@ impl ManifestPack {
         CheckInfo::produce(&mut checkinfo_flux)
     }
 
+    pub fn get_pack_check_info(&self, uuid: Uuid) -> Result<CheckInfo> {
+        let pack_info = if self.directory_pack_info.uuid == uuid {
+            &self.directory_pack_info
+        } else {
+            self.get_content_pack_info_uuid(uuid)?
+        };
+        let mut checkinfo_flux = self.reader.create_flux_from(pack_info.check_info_pos);
+        CheckInfo::produce(&mut checkinfo_flux)
+    }
+
     pub fn get_directory_pack_info(&self) -> &PackInfo {
         &self.directory_pack_info
     }
@@ -89,15 +98,45 @@ impl ManifestPack {
         Err(Error::new_arg())
     }
 
-    pub fn get_free_data(&self, pack_id: PackId) -> Result<Option<&[u8]>> {
+    pub fn get_content_pack_info_uuid(&self, uuid: Uuid) -> Result<&PackInfo> {
+        for pack_info in &self.pack_infos {
+            if pack_info.uuid == uuid {
+                return Ok(pack_info);
+            }
+        }
+        Err(Error::new_arg())
+    }
+
+    pub fn get_pack_infos(&self) -> &[PackInfo] {
+        &self.pack_infos
+    }
+
+    pub fn get_free_data(&self) -> ManifestPackFreeData {
+        self.header.free_data
+    }
+
+    pub fn get_pack_free_data(&self, pack_id: PackId) -> Result<Option<&[u8]>> {
         let pack_info = if pack_id.into_u16() == 0 {
             &self.directory_pack_info
         } else {
             self.get_content_pack_info(pack_id)?
         };
+        self.get_pack_free_data_raw(pack_info.free_data_id)
+    }
+
+    pub fn get_pack_free_data_uuid(&self, pack_uuid: Uuid) -> Result<Option<&[u8]>> {
+        let pack_info = if self.directory_pack_info.uuid == pack_uuid {
+            &self.directory_pack_info
+        } else {
+            self.get_content_pack_info_uuid(pack_uuid)?
+        };
+        self.get_pack_free_data_raw(pack_info.free_data_id)
+    }
+
+    pub fn get_pack_free_data_raw(&self, idx: ValueIdx) -> Result<Option<&[u8]>> {
         Ok(match &self.value_store {
             None => None,
-            Some(v) => Some(v.get_data(pack_info.free_data_id, None)?),
+            Some(v) => Some(v.get_data(idx, None)?),
         })
     }
 }
@@ -134,6 +173,24 @@ impl Pack for ManifestPack {
         check_info.check(&mut check_stream as &mut dyn Read)
     }
 }
+
+#[cfg(feature = "explorable")]
+impl serde::Serialize for ManifestPack {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut cont = serializer.serialize_struct("ManifestPack", 3)?;
+        cont.serialize_field("uuid", &self.uuid())?;
+        cont.serialize_field("directoryPack", &self.directory_pack_info)?;
+        cont.serialize_field("contentPacks", &self.pack_infos)?;
+        cont.end()
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl Explorable for ManifestPack {}
 
 #[cfg(test)]
 mod tests {

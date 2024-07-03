@@ -3,6 +3,11 @@ use crate::bases::*;
 use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "explorable",
+    derive(serde::Serialize),
+    serde(rename = "Index")
+)]
 pub struct IndexHeader {
     pub store_id: EntryStoreIdx,
     pub entry_count: EntryCount,
@@ -33,6 +38,8 @@ impl Producable for IndexHeader {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
+
 pub struct Index {
     header: IndexHeader,
 }
