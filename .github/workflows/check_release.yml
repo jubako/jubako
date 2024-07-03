@@ -57,10 +57,63 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
 
-    - name: Build library
+    - name: Build binary
       shell: bash
       run: |
-        cargo build --verbose --release
+        cargo build --verbose --release --features=lz4,lzma,zstd,build_bin
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          bin="target/release/jbk.exe"
+        else
+          bin="target/release/jbk"
+        fi
+        echo "BIN=$bin" >> $GITHUB_ENV
+
+    - name: Strip release binary (macos)
+      if: matrix.os == 'macos-latest'
+      shell: bash
+      run: strip "$BIN"
+
+    - name: Determine archive name
+      shell: bash
+      run: |
+        version="${{ needs.check-version.outputs.version }}"
+        echo "ARCHIVE=jbk-$version-${{ matrix.build }}" >> $GITHUB_ENV
+
+    - name: Creating directory for archive
+      shell: bash
+      run: |
+        mkdir -p "$ARCHIVE/doc"
+        cp "$BIN" "$ARCHIVE"/
+        cp {README.md,LICENSE-MIT} "$ARCHIVE"/
+        cp Changelog.md "$ARCHIVE"/doc/
+
+    - name: Build archive (Windows)
+      shell: bash
+      if: matrix.os == 'windows-latest'
+      run: |
+        7z a "$ARCHIVE.zip" "$ARCHIVE"
+        certutil -hashfile "$ARCHIVE.zip" SHA256 > "$ARCHIVE.zip.sha256"
+        echo "ASSET=$ARCHIVE.zip" >> $GITHUB_ENV
+        echo "ASSET_SUM=$ARCHIVE.zip.sha256" >> $GITHUB_ENV
+
+    - name: Build archive (Unix)
+      shell: bash
+      if: matrix.os != 'windows-latest'
+      run: |
+        tar czf "$ARCHIVE.tar.gz" "$ARCHIVE"
+        shasum -a 256 "$ARCHIVE.tar.gz" > "$ARCHIVE.tar.gz.sha256"
+        echo "ASSET=$ARCHIVE.tar.gz" >> $GITHUB_ENV
+        echo "ASSET_SUM=$ARCHIVE.tar.gz.sha256" >> $GITHUB_ENV
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: pre_release-${{ matrix.build }}-jbk
+        path: |
+          ${{ env.ASSET }}
+        compression-level: 0
+
+
 
   check-publication:
     name: Check cargo publication
