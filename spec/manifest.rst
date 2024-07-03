@@ -39,22 +39,22 @@ There is ``packCount+1`` packInfo (one for the directoryPack and ``packCount`` f
 It describe the pack parts of a Jubako container and where to find them.
 
 
-================ ========= ====== ===========
-Field Name       Type      Offset Description
-================ ========= ====== ===========
-uuid             [u8,16]   0      The id of the pack
-                                  Must be equal to the id in the packheader of the pointed pack
-packSize         Size      16     The size of the pack.
-packCheckInfoPos Offset    24     The checkInfo of the pack (mandatory)
-packId           u16       32     The id of the pack.
-packKind         u8        34     | The kind of the pack.
-                                  | b'm' for manifest pack
-                                  | b'c' for content pack
-                                  | b'd' for directory pack
-packGroup        u8        35     Reserved
-freeDataId       u16       36     A id in the value store. Application specific.
-packLocation     [u8,218]  38     A string locating the pack file
-================ ========= ====== ===========
+================ =========== ====== ===========
+Field Name       Type        Offset Description
+================ =========== ====== ===========
+uuid             [u8,16]     0      The id of the pack
+                                    Must be equal to the id in the packheader of the pointed pack
+packSize         Size        16     The size of the pack.
+packCheckInfoPos SizedOffset 24     The checkInfo of the pack (mandatory)
+packId           u16         32     The id of the pack.
+packKind         u8          34     | The kind of the pack.
+                                    | b'm' for manifest pack
+                                    | b'c' for content pack
+                                    | b'd' for directory pack
+packGroup        u8          35     Reserved
+freeDataId       u16         36     A id in the value store. Application specific.
+packLocation     [u8,218]    38     A string locating the pack file
+================ =========== ====== ===========
 
 Full Size : 256 bytes.
 

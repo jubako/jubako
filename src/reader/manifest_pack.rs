@@ -79,9 +79,10 @@ impl ManifestPack {
         } else {
             self.get_content_pack_info_uuid(uuid)?
         };
-        // [TODO] Use correct size
-        self.reader
-            .parse_block_in::<CheckInfo>(pack_info.check_info_pos, Size::new(33))
+        self.reader.parse_block_in::<CheckInfo>(
+            pack_info.check_info_pos.offset,
+            pack_info.check_info_pos.size,
+        )
     }
 
     pub fn get_directory_pack_info(&self) -> &PackInfo {
@@ -225,7 +226,7 @@ mod tests {
                 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d,
                 0x1e, 0x1f, // pack uuid
                 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // pack size
-                0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // pack check offset
+                0x01, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, // pack check offset
                 0x00, 0x00, //pack id
                 b'd', // pack_kind
                 0xF0, // pack_group
@@ -241,7 +242,7 @@ mod tests {
                 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d,
                 0x2e, 0x2f, // pack uuid
                 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, // pack size
-                0xff, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, // pack check offset
+                0x21, 0x00, 0xff, 0x00, 0xff, 0x00, 0x00, 0x00, // pack check offset
                 0x01, 0x00, //pack id
                 b'c', //pack_kind
                 0x00, // pack_group
@@ -256,7 +257,7 @@ mod tests {
                 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d,
                 0x3e, 0x3f, // pack uuid
                 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, // pack size
-                0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, // pack check offset
+                0x01, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, // pack check offset
                 0x02, 0x00, //pack id,
                 b'c', // pack_kind
                 0x00, // pack_group
@@ -319,7 +320,7 @@ mod tests {
                 pack_group: 240,
                 free_data_id: ValueIdx::from(1).into(),
                 pack_size: Size::new(0xffff),
-                check_info_pos: Offset::new(0xff),
+                check_info_pos: SizedOffset::new(Size::new(0x01), Offset::new(0xff)),
                 pack_location: vec![],
             }
         );
@@ -335,7 +336,7 @@ mod tests {
                 pack_group: 0,
                 free_data_id: ValueIdx::from(0).into(),
                 pack_size: Size::new(0xffffff),
-                check_info_pos: Offset::new(0xff00ff),
+                check_info_pos: SizedOffset::new(Size::new(0x21), Offset::new(0xff00ff)),
                 pack_location: vec![],
             }
         );
@@ -352,7 +353,7 @@ mod tests {
                 free_data_id: ValueIdx::from(0).into(),
 
                 pack_size: Size::new(0xffffff),
-                check_info_pos: Offset::new(0xffffff),
+                check_info_pos: SizedOffset::new(Size::new(0x01), Offset::new(0xffffff)),
                 pack_location: vec![b'p', b'a', b'c', b'k', b'p', b'a', b't', b'h'],
             }
         );

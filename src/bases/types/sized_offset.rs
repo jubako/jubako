@@ -1,6 +1,7 @@
 use crate::bases::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub struct SizedOffset {
     pub size: Size,
     pub offset: Offset,
