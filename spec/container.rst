@@ -14,14 +14,16 @@ The full header is:
 ============= ======== ====== ===========
 Field Name    Type     Offset Description
 ============= ======== ====== ===========
-magic         u32      0      The magic number to detect the type of the file
-version       u8       4      The version of the container
-packCount     u16      5      The number of pack contained in the container.
-_padding      u8       7
-size          Size     8     The size of the file (include header and tail)
+packsPos      Offset   0      A offset to a array of PackLocator
+packCount     u16      8      The number of pack contained in the container.
+_reserved     [u8;54]  10     MUST be 0.
 ============= ======== ====== ===========
 
-The size of of this header, is 16 bytes.
+The size of of this header, is 64 bytes
+
+This mainly reuse the same structure than Pack header.
+Readers may want to always parse the first 64 bytes of a pack as a PackHeader to gather basic
+information on it (as knowing its kind and size).
 
 PackLocator
 ===========
@@ -37,9 +39,9 @@ Field Name       Type      Offset Description
 ================ ========= ====== ===========
 id               [u8,16]   0      The id of the pack
                                   Must be equal to the id in the packheader of the pointed pack
-packSize         Size      120    The size of the pack.
+packSize         Size      16     The size of the pack.
                                   Must be equal to the packSize in the packheader of the pointed pack
-packOffset       Offset    128    | The offset (starting from the beginning of
+packOffset       Offset    24     | The offset (starting from the beginning of
                                     the container file) where to find the pack.
 ================ ========= ====== ===========
 

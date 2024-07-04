@@ -7,13 +7,11 @@ use super::locator::{ChainedLocator, FsLocator, PackLocatorTrait};
 use super::manifest_pack::ManifestPack;
 use super::{ByteRegion, Index, MayMissPack, ValueStorage};
 use crate::bases::*;
-use crate::common::{ContentAddress, FullPackKind, Pack, PackKind};
+use crate::common::{ContentAddress, Pack, PackHeader, PackKind};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
-use zerocopy::little_endian::U64;
-use zerocopy::FromBytes;
 
 /// Container is the main structure which reunit other structures to read a Jubako container.
 ///
@@ -33,53 +31,35 @@ pub struct Container {
     packs: Vec<OnceLock<ContentPack>>,
 }
 
-fn parse_header(buffer: [u8; 64]) -> Result<(PackKind, Size)> {
-    let reader: Reader = buffer.into();
-    let kind = reader.parse_at::<FullPackKind>(Offset::zero())?;
-    Ok(match kind {
-        PackKind::Directory | PackKind::Content => (kind, Size::zero()),
-        PackKind::Container => {
-            let size = U64::read_from(&buffer[8..16]).unwrap();
-            let size: Size = size.get().into();
-            (kind, size)
-        }
-        PackKind::Manifest => {
-            let size = U64::read_from(&buffer[32..40]).unwrap();
-            let size: Size = size.get().into();
-            (kind, size)
-        }
-    })
-}
-
-pub fn locate_pack(reader: Reader) -> Result<ContainerPack> {
-    let mut buffer_reader = [0u8; 64];
-
+/// Open the reader as a container pack.
+/// Blindly opening from a Reader is a bit complex as:
+/// - We don't know what we will open
+/// - Pack may be located at end of the reader so we have to check for footer
+pub fn open_as_container_pack(reader: Reader) -> Result<ContainerPack> {
     // Check at beginning
-    {
-        let mut stream = reader.create_stream(Offset::zero(), Size::new(64));
-        stream.read_exact(&mut buffer_reader)?;
-    }
-    let (kind, offset, size) = match parse_header(buffer_reader) {
-        Ok((kind, size)) => (kind, Offset::zero(), size),
+    let (pack_header, offset) = match reader.parse_block_at::<PackHeader>(Offset::zero()) {
+        Ok(pack_header) => (pack_header, Offset::zero()),
         Err(_) => {
             //Check at end
-            let mut stream =
-                reader.create_stream((reader.size() - Size::new(64)).into(), Size::new(64));
-            stream.read_exact(&mut buffer_reader)?;
+            let mut buffer_reader = [0u8; 64];
+            reader
+                .create_stream((reader.size() - Size::new(64)).into(), Size::new(64))
+                .read_exact(&mut buffer_reader)?;
             buffer_reader.reverse();
-            let (kind, size) = parse_header(buffer_reader)?;
-            let origin = reader.size() - size;
-            (kind, origin.into(), size)
+            let end_reader: Reader = buffer_reader.into();
+            let pack_header = end_reader.parse_block_at::<PackHeader>(Offset::zero())?;
+            let origin = reader.size() - pack_header.file_size;
+            (pack_header, origin.into())
         }
     };
 
-    match kind {
+    match pack_header.magic {
         PackKind::Directory | PackKind::Content => Err("Not a valid pack".into()),
-        PackKind::Container => ContainerPack::new(reader.cut(offset, size)),
-        PackKind::Manifest => {
-            let uuid = Uuid::from_bytes(buffer_reader[10..26].try_into().unwrap());
-            Ok(ContainerPack::new_fake(reader, uuid))
-        }
+        PackKind::Container => ContainerPack::new(reader.cut(offset, pack_header.file_size)),
+        PackKind::Manifest => Ok(ContainerPack::new_fake(
+            reader.cut(offset, pack_header.file_size),
+            pack_header.uuid,
+        )),
     }
 }
 
@@ -103,10 +83,13 @@ impl Container {
     ) -> Result<Self> {
         let path: PathBuf = path.as_ref().into();
         let reader = Reader::from(FileSource::open(path)?);
-        let container_pack = Arc::new(locate_pack(reader)?);
-        let reader = container_pack
-            .get_pack_reader_from_idx(PackId::from(container_pack.pack_count().into_u16() - 1))
-            .unwrap();
+        let container_pack = Arc::new(open_as_container_pack(reader)?);
+        let reader = container_pack.get_manifest_pack_reader()?;
+
+        if reader.is_none() {
+            return Err("Impossible to locate the manifest_pack".into());
+        }
+        let reader = reader.unwrap();
 
         let manifest_pack =
             ManifestPack::new(reader.create_sub_memory_reader(Offset::zero(), reader.size())?)?;

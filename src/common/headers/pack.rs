@@ -72,6 +72,8 @@ impl Parsable for PackHeader {
     }
 }
 
+impl BlockParsable for PackHeader {}
+
 impl SizedParsable for PackHeader {
     const SIZE: usize = FullPackKind::SIZE
         + 4 // app_vendor_id
@@ -83,8 +85,6 @@ impl SizedParsable for PackHeader {
         + Offset::SIZE
         + 16; // padding
 }
-
-impl BlockParsable for PackHeader {}
 
 impl Serializable for PackHeader {
     fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {

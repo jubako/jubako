@@ -1,20 +1,17 @@
 use crate::bases::*;
-use crate::common::{FullPackKind, PackKind};
 use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ContainerPackHeader {
-    pub version: u8,
+    pub pack_locators_pos: Offset,
     pub pack_count: PackCount,
-    pub file_size: Size,
 }
 
 impl ContainerPackHeader {
-    pub fn new(pack_count: PackCount, file_size: Size) -> Self {
+    pub fn new(pack_locators_pos: Offset, pack_count: PackCount) -> Self {
         ContainerPackHeader {
+            pack_locators_pos,
             pack_count,
-            file_size,
-            version: 0,
         }
     }
 }
@@ -22,18 +19,12 @@ impl ContainerPackHeader {
 impl Parsable for ContainerPackHeader {
     type Output = Self;
     fn parse(parser: &mut impl Parser) -> Result<Self> {
-        let magic = FullPackKind::parse(parser)?;
-        if magic != PackKind::Container {
-            return Err(format_error!("Pack Magic is not ContainerPack"));
-        }
-        let version = parser.read_u8()?;
+        let pack_locators_pos = Offset::parse(parser)?;
         let pack_count = parser.read_u16()?.into();
-        parser.skip(1)?;
-        let file_size = Size::parse(parser)?;
+        parser.skip(54)?;
         Ok(ContainerPackHeader {
-            version,
+            pack_locators_pos,
             pack_count,
-            file_size,
         })
     }
 }
@@ -41,21 +32,17 @@ impl Parsable for ContainerPackHeader {
 impl BlockParsable for ContainerPackHeader {}
 
 impl SizedParsable for ContainerPackHeader {
-    const SIZE: usize = FullPackKind::SIZE
-         + 1 // version
+    const SIZE: usize = Offset::SIZE
          + 2 // packCount
-         + 1 //padding
-         + Size::SIZE;
+         + 54; //padding
 }
 
 impl Serializable for ContainerPackHeader {
     fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
-        written += FullPackKind(PackKind::Container).serialize(ser)?;
-        written += ser.write_u8(self.version)?;
-        written += ser.write_u16(self.pack_count.into_u16())?;
-        written += ser.write_data(&[0_u8; 1])?;
-        written += self.file_size.serialize(ser)?;
+        written += self.pack_locators_pos.serialize(ser)?;
+        written += self.pack_count.serialize(ser)?;
+        written += ser.write_data(&[0_u8; 54])?;
         Ok(written)
     }
 }
@@ -66,13 +53,11 @@ mod tests {
 
     #[test]
     fn test_containerpackheader() {
-        let content = vec![
-            0x6a, 0x62, 0x6b, 0x43, // magic
-            0x01, // version
+        let mut content = vec![
+            0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // pack_locators_pos
             0x05, 0x00, // pack_count
-            0x00, // padding
-            0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size
         ];
+        content.extend_from_slice(&[0; 54]); // padding
         let reader = Reader::from(content);
         let container_header = reader
             .parse_block_at::<ContainerPackHeader>(Offset::zero())
@@ -80,9 +65,8 @@ mod tests {
         assert_eq!(
             container_header,
             ContainerPackHeader {
-                version: 0x01_u8,
+                pack_locators_pos: Offset::from(0xffff_u64),
                 pack_count: 0x05_u16.into(),
-                file_size: Size::from(0xffff_u64),
             }
         );
     }
