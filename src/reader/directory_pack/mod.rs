@@ -194,14 +194,15 @@ impl Pack for DirectoryPack {
             let mut s_check_info = self.check_info.write().unwrap();
             *s_check_info = Some(check_info);
         }
-        let mut check_flux = self
-            .reader
-            .create_flux_to(Size::from(self.header.pack_header.check_info_pos));
+        let mut check_stream = self.reader.create_stream(
+            Offset::zero(),
+            Size::from(self.header.pack_header.check_info_pos),
+        );
         self.check_info
             .read()
             .unwrap()
             .unwrap()
-            .check(&mut check_flux)
+            .check(&mut check_stream)
     }
 }
 

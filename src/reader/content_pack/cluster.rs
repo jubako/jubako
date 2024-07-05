@@ -73,24 +73,21 @@ impl Cluster {
             return Ok(());
         };
 
-        let raw_reader = if let ClusterReader::Raw(r) = &*cluster_reader {
-            r.create_sub_reader(Offset::zero(), r.size())
+        let raw_stream = if let ClusterReader::Raw(r) = &*cluster_reader {
+            r.create_stream(Offset::zero(), r.size())
         } else {
             unreachable!()
         };
-        let raw_flux = raw_reader.create_flux_all();
         let decompress_reader = match self.compression {
             CompressionType::Lz4 => {
-                Reader::new_from_arc(lz4_source(raw_flux.into(), self.data_size)?, self.data_size)
+                Reader::new_from_arc(lz4_source(raw_stream, self.data_size)?, self.data_size)
             }
-            CompressionType::Lzma => Reader::new_from_arc(
-                lzma_source(raw_flux.into(), self.data_size)?,
-                self.data_size,
-            ),
-            CompressionType::Zstd => Reader::new_from_arc(
-                zstd_source(raw_flux.into(), self.data_size)?,
-                self.data_size,
-            ),
+            CompressionType::Lzma => {
+                Reader::new_from_arc(lzma_source(raw_stream, self.data_size)?, self.data_size)
+            }
+            CompressionType::Zstd => {
+                Reader::new_from_arc(zstd_source(raw_stream, self.data_size)?, self.data_size)
+            }
             CompressionType::None => unreachable!(),
         };
         *cluster_reader = ClusterReader::Plain(decompress_reader);

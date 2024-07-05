@@ -151,10 +151,11 @@ impl Pack for ContentPack {
             )?);
         }
         let check_info = self.check_info.get().unwrap();
-        let mut check_flux = self
-            .reader
-            .create_flux_to(Size::from(self.header.pack_header.check_info_pos));
-        check_info.check(&mut check_flux)
+        let mut check_stream = self.reader.create_stream(
+            Offset::zero(),
+            Size::from(self.header.pack_header.check_info_pos),
+        );
+        check_info.check(&mut check_stream)
     }
 }
 

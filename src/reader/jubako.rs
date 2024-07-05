@@ -8,6 +8,7 @@ use super::manifest_pack::ManifestPack;
 use super::{ByteRegion, Index, MayMissPack, ValueStorage};
 use crate::bases::*;
 use crate::common::{ContentAddress, FullPackKind, Pack, PackKind};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -55,16 +56,16 @@ pub fn locate_pack(reader: Reader) -> Result<ContainerPack> {
 
     // Check at beginning
     {
-        let mut flux = reader.create_flux_to(Size::new(64));
-        flux.read_exact(&mut buffer_reader)?;
+        let mut stream = reader.create_stream(Offset::zero(), Size::new(64));
+        stream.read_exact(&mut buffer_reader)?;
     }
     let (kind, offset, size) = match parse_header(buffer_reader) {
         Ok((kind, size)) => (kind, Offset::zero(), size),
         Err(_) => {
             //Check at end
-            let mut flux =
-                reader.create_flux((reader.size() - Size::new(64)).into(), Size::new(64));
-            flux.read_exact(&mut buffer_reader)?;
+            let mut stream =
+                reader.create_stream((reader.size() - Size::new(64)).into(), Size::new(64));
+            stream.read_exact(&mut buffer_reader)?;
             buffer_reader.reverse();
             let (kind, size) = parse_header(buffer_reader)?;
             let origin = reader.size() - size;

@@ -227,7 +227,7 @@ test_suite! {
             println!("Readir is {:?}", bytes);
             let mut stream = bytes.as_ref().unwrap().stream();
             let mut read_content: String = "".to_string();
-            println!("Read from flux");
+            println!("Read from stream");
             stream.read_to_string(&mut read_content).unwrap();
             assert_eq!(read_content, articles.val[i.into_usize()].content);
             println!("Check value 2");

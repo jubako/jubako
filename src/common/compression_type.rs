@@ -40,7 +40,7 @@ mod tests {
     #[test]
     fn test_compressiontype() {
         let reader = Reader::from(vec![0x00, 0x01, 0x02, 0x03, 0x4, 0xFF]);
-        let mut parser = reader.create_flux_all();
+        let mut parser = reader.create_parser(Offset::zero(), Size::new(6)).unwrap();
         assert_eq!(
             CompressionType::parse(&mut parser).unwrap(),
             CompressionType::None

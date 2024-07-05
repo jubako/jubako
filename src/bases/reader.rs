@@ -1,11 +1,12 @@
 use crate::reader::ByteSlice;
+use crate::reader::Stream;
 
-use super::flux::*;
 use super::sub_reader::*;
 use super::types::*;
 use super::BlockParsable;
 use super::DataBlockParsable;
 use super::Parsable;
+use super::Parser;
 use super::SizedBlockParsable;
 use super::SizedParsable;
 use super::SliceParser;
@@ -46,9 +47,7 @@ impl Reader {
         offset: Offset,
         size: Size,
     ) -> Result<T::Output> {
-        let region = self.region.cut_rel(offset, size);
-        let slice = self.source.get_slice(region)?;
-        let mut parser = SliceParser::new(slice, self.region.begin() + offset);
+        let mut parser = self.create_parser(offset, size)?;
         T::parse(&mut parser)
     }
 
@@ -67,30 +66,24 @@ impl Reader {
     }
 
     pub fn parse_in<T: Parsable>(&self, offset: Offset, size: Size) -> Result<T::Output> {
-        let mut flux = self.create_flux(offset, size);
-        T::parse(&mut flux)
-    }
-
-    pub fn create_flux(&self, offset: Offset, size: Size) -> Flux {
-        let region = self.region.cut_rel(offset, size);
-        Flux::new_from_parts(&self.source, region, region.begin())
-    }
-    pub fn create_flux_for(&self, size_offset: SizedOffset) -> Flux {
-        self.create_flux(size_offset.offset, size_offset.size)
-    }
-    pub fn create_flux_from(&self, offset: Offset) -> Flux {
-        self.create_flux(offset, self.region.size() - offset.into())
-    }
-    pub fn create_flux_to(&self, size: Size) -> Flux {
-        self.create_flux(Offset::zero(), size)
-    }
-    pub fn create_flux_all(&self) -> Flux {
-        self.create_flux(Offset::zero(), self.region.size())
+        let mut parser = self.create_parser(offset, size)?;
+        T::parse(&mut parser)
     }
 
     pub fn get_byte_slice(&self, offset: Offset, size: Size) -> ByteSlice {
         let region = self.region.cut_rel(offset, size);
         ByteSlice::new_from_parts(&self.source, region)
+    }
+
+    pub fn create_parser(&self, offset: Offset, size: Size) -> Result<impl Parser + '_> {
+        let region = self.region.cut_rel(offset, size);
+        let slice = self.source.get_slice(region)?;
+        Ok(SliceParser::new(slice, self.region.begin() + offset))
+    }
+
+    pub fn create_stream(&self, offset: Offset, size: Size) -> Stream {
+        let region = self.region.cut_rel(offset, size);
+        Stream::new_from_parts(Arc::clone(&self.source), region, region.begin())
     }
 
     pub fn as_sub_reader(&self) -> SubReader {

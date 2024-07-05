@@ -24,7 +24,7 @@ impl ManifestPack {
         let mut pack_infos: Vec<PackInfo> = Vec::with_capacity(header.pack_count.into_usize());
         let mut max_id = 0;
         for pack_offset in pack_offsets {
-            let pack_info = reader.parse_at::<PackInfo>(pack_offset)?;
+            let pack_info = reader.parse_block_at::<PackInfo>(pack_offset)?;
             match pack_info.pack_kind {
                 PackKind::Directory => directory_pack_info = Some(pack_info),
                 _ => {
@@ -161,11 +161,14 @@ impl Pack for ManifestPack {
     }
     fn check(&self) -> Result<bool> {
         let check_info = self.get_check_info()?;
-        let mut check_flux = self
-            .reader
-            .create_flux_to(Size::from(self.header.pack_header.check_info_pos));
-        let mut check_stream =
-            ManifestCheckStream::new_from_offset_iter(&mut check_flux, self.header.packs_offset());
+        let mut check_stream = self.reader.create_stream(
+            Offset::zero(),
+            Size::from(self.header.pack_header.check_info_pos),
+        );
+        let mut check_stream = ManifestCheckStream::new_from_offset_iter(
+            &mut check_stream,
+            self.header.packs_offset(),
+        );
         check_info.check(&mut check_stream)
     }
 }

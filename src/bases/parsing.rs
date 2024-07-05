@@ -135,7 +135,7 @@ impl<'a> Parser for SliceParser<'a> {
     }
 }
 
-/// A Producable is a object that can be produce from a flux.
+/// A Producable is a object that can be produce from a parser.
 pub trait Parsable {
     type Output;
     fn parse(parser: &mut impl Parser) -> Result<Self::Output>

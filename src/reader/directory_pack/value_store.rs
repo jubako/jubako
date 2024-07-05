@@ -241,8 +241,8 @@ mod tests {
 
     #[test]
     fn test_valuestorekind() {
-        let reader = Reader::from(vec![0x00, 0x01, 0x02]);
-        let mut parser = reader.create_flux_all();
+        let reader = Reader::from([0x00, 0x01, 0x02]);
+        let mut parser = reader.create_parser(Offset::zero(), reader.size()).unwrap();
         assert_eq!(
             ValueStoreKind::parse(&mut parser).unwrap(),
             ValueStoreKind::Plain

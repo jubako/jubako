@@ -130,7 +130,9 @@ impl Explorable for PlainStore {
             .map_err(|e| Error::from(format!("{e}")))?;
         let entry_reader = self.get_entry_reader(EntryIdx::from(index));
         let mut data = vec![];
-        entry_reader.create_flux_all().read_to_end(&mut data)?;
+        entry_reader
+            .create_stream(Offset::zero(), entry_reader.size())
+            .read_to_end(&mut data)?;
         Ok(Some(Box::new(data)))
     }
 }

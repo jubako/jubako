@@ -38,12 +38,6 @@ impl Read for Stream {
     }
 }
 
-impl From<Flux<'_>> for Stream {
-    fn from(flux: Flux) -> Self {
-        Self::new_from_parts(Arc::clone(flux.source), flux.region, flux.offset)
-    }
-}
-
 impl From<ByteRegion> for Stream {
     fn from(bregion: ByteRegion) -> Self {
         Self::new_from_parts(bregion.source, bregion.region, Offset::zero())

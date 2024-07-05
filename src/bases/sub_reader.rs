@@ -1,8 +1,11 @@
-use super::flux::*;
+use crate::reader::Stream;
+
 use super::reader::*;
 use super::types::*;
 use super::Parsable;
+use super::Parser;
 use super::SizedParsable;
+use super::SliceParser;
 use super::{MemoryReader, Region, Source};
 use std::sync::Arc;
 
@@ -36,26 +39,21 @@ impl<'s> SubReader<'s> {
     }
 
     pub fn parse_in<T: Parsable>(&self, offset: Offset, size: Size) -> Result<T::Output> {
-        let mut flux = self.create_flux(offset, size);
-        T::parse(&mut flux)
+        let mut parser = self.create_parser(offset, size)?;
+        T::parse(&mut parser)
     }
 
-    pub fn create_flux(&self, offset: Offset, size: Size) -> Flux<'s> {
+    pub fn create_parser(&self, offset: Offset, size: Size) -> Result<impl Parser + '_> {
         let region = self.region.cut_rel(offset, size);
-        Flux::new_from_parts(self.source, region, region.begin())
+        let slice = self.source.get_slice(region)?;
+        Ok(SliceParser::new(slice, self.region.begin() + offset))
     }
-    pub fn create_flux_for(&self, size_offset: SizedOffset) -> Flux<'s> {
-        self.create_flux(size_offset.offset, size_offset.size)
+
+    pub fn create_stream(&self, offset: Offset, size: Size) -> Stream {
+        let region = self.region.cut_rel(offset, size);
+        Stream::new_from_parts(Arc::clone(self.source), region, region.begin())
     }
-    pub fn create_flux_from(&self, offset: Offset) -> Flux<'s> {
-        self.create_flux(offset, self.region.size() - offset.into())
-    }
-    pub fn create_flux_to(&self, size: Size) -> Flux<'s> {
-        self.create_flux(Offset::zero(), size)
-    }
-    pub fn create_flux_all(&self) -> Flux<'s> {
-        self.create_flux(Offset::zero(), self.region.size())
-    }
+
     pub fn create_sub_reader(&self, offset: Offset, size: Size) -> SubReader<'s> {
         let region = self.region.cut_rel(offset, size);
         SubReader {

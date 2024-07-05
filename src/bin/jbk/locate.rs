@@ -50,15 +50,17 @@ pub fn run(options: Options) -> jbk::Result<()> {
         return Ok(());
     };
     let manifest_pack_reader = manifest_pack_reader.unwrap();
-    let header = manifest_pack_reader.parse_at::<ManifestPackHeader>(jbk::Offset::zero())?;
+    let header = manifest_pack_reader.parse_block_at::<ManifestPackHeader>(jbk::Offset::zero())?;
     let pack_offsets = header.packs_offset();
     for pack_offset in pack_offsets {
-        let pack_info = manifest_pack_reader.parse_at::<jbk::reader::PackInfo>(pack_offset)?;
+        let pack_info =
+            manifest_pack_reader.parse_block_at::<jbk::reader::PackInfo>(pack_offset)?;
         if let Some(uuid) = uuid {
             if pack_info.uuid != uuid {
                 continue;
             }
         }
+
         let location = String::from_utf8_lossy(&pack_info.pack_location);
 
         if let Some(new_location) = options.new_location {

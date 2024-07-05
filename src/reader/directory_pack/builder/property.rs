@@ -111,7 +111,7 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
 impl PropertyBuilderTrait for IntProperty {
     type Output = u64;
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        let mut parser = reader.create_flux_from(self.offset);
+        let mut parser = reader.create_parser(self.offset, reader.size() - self.offset.into())?;
         Ok(match self.default {
             Some(v) => v,
             None => match &self.deported {
@@ -213,7 +213,7 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
 impl PropertyBuilderTrait for SignedProperty {
     type Output = i64;
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        let mut parser = reader.create_flux_from(self.offset);
+        let mut parser = reader.create_parser(self.offset, reader.size() - self.offset.into())?;
         Ok(match self.default {
             Some(v) => v,
             None => match &self.deported {
@@ -320,15 +320,16 @@ impl PropertyBuilderTrait for ArrayProperty {
                     .map(|(_, store)| Extend::new(Arc::clone(store), value_id.unwrap().into())),
             ),
             None => {
-                let mut flux = reader.create_flux_from(self.offset);
+                let mut parser =
+                    reader.create_parser(self.offset, reader.size() - self.offset.into())?;
                 let array_size = match self.array_len_size {
                     None => None,
-                    Some(size) => Some(flux.read_usized(size)?.into()),
+                    Some(size) => Some(parser.read_usized(size)?.into()),
                 };
-                let base_array = BaseArray::parse(self.fixed_array_len, &mut flux)?;
+                let base_array = BaseArray::parse(self.fixed_array_len, &mut parser)?;
                 let deported_info = match &self.deported_array_info {
                     Some((value_size, store)) => {
-                        let value_id = flux.read_usized(*value_size)?.into();
+                        let value_id = parser.read_usized(*value_size)?.into();
                         Some(Extend::new(Arc::clone(store), value_id))
                     }
                     None => None,
@@ -391,15 +392,17 @@ impl TryFrom<&layout::Property> for ContentProperty {
 impl PropertyBuilderTrait for ContentProperty {
     type Output = ContentAddress;
     fn create(&self, reader: &SubReader) -> Result<Self::Output> {
-        let content_size =
-            self.content_id_size as usize + if self.pack_id_default.is_some() { 0 } else { 1 };
-        let mut flux = reader.create_flux(self.offset, Size::from(content_size));
+        let mut content_size = self.content_id_size as usize;
+        if self.pack_id_default.is_none() {
+            content_size += self.pack_id_size as usize;
+        }
+        let mut parser = reader.create_parser(self.offset, Size::from(content_size))?;
         let pack_id = match self.pack_id_default {
-            None => (flux.read_usized(self.pack_id_size)? as u16).into(),
+            None => (parser.read_usized(self.pack_id_size)? as u16).into(),
             Some(d) => d,
         };
 
-        let content_id = flux.read_usized(self.content_id_size)? as u32;
+        let content_id = parser.read_usized(self.content_id_size)? as u32;
         Ok(ContentAddress::new(pack_id, content_id.into()))
     }
 }

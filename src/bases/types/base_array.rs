@@ -35,7 +35,7 @@ impl BaseArray {
         s
     }
 
-    /// Create a BaseArray taking `size` bytes from `flux`.
+    /// Create a BaseArray taking `size` bytes from `parser`.
     ///
     /// # Panics
     ///
@@ -43,7 +43,7 @@ impl BaseArray {
     ///
     /// # Error
     ///
-    /// This function will return an error if reading from `flux` fails.
+    /// This function will return an error if reading from `parser` fails.
     pub fn parse(size: u8, parser: &mut impl Parser) -> Result<Self> {
         assert!(size <= 31);
         let mut s = Self { data: [0; 31] };
