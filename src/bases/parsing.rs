@@ -67,13 +67,13 @@ pub trait Parser {
     }
 }
 
-pub struct SliceParse<'a> {
+pub struct SliceParser<'a> {
     slice: Cow<'a, [u8]>,
     global_offset: Offset,
     offset: usize,
 }
 
-impl<'a> SliceParse<'a> {
+impl<'a> SliceParser<'a> {
     pub fn new(slice: Cow<'a, [u8]>, global_offset: Offset) -> Self {
         Self {
             slice,
@@ -83,7 +83,7 @@ impl<'a> SliceParse<'a> {
     }
 }
 
-impl<'a> Parser for SliceParse<'a> {
+impl<'a> Parser for SliceParser<'a> {
     fn read_slice(&mut self, size: usize) -> Result<Cow<[u8]>> {
         if self.slice.len() < size + self.offset {
             return Err(format!(
@@ -109,6 +109,7 @@ impl<'a> Parser for SliceParse<'a> {
             .into());
         }
         buf.copy_from_slice(&self.slice[self.offset..self.offset + buf.len()]);
+        self.offset += buf.len();
         Ok(())
     }
 

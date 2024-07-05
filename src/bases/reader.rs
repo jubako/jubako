@@ -8,6 +8,7 @@ use super::DataBlockParsable;
 use super::Parsable;
 use super::SizedBlockParsable;
 use super::SizedParsable;
+use super::SliceParser;
 use super::{MemoryReader, Region, Source};
 use std::sync::Arc;
 
@@ -45,8 +46,10 @@ impl Reader {
         offset: Offset,
         size: Size,
     ) -> Result<T::Output> {
-        let mut flux = self.create_flux(offset, size);
-        T::parse(&mut flux)
+        let region = self.region.cut_rel(offset, size);
+        let slice = self.source.get_slice(region)?;
+        let mut parser = SliceParser::new(slice, self.region.begin() + offset);
+        T::parse(&mut parser)
     }
 
     pub(crate) fn parse_data_block<T: DataBlockParsable>(

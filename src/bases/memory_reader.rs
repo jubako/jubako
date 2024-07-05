@@ -1,4 +1,4 @@
-use super::{types::*, Parsable, Parser, SizedParsable, SliceParse};
+use super::{types::*, Parsable, Parser, SizedParsable, SliceParser};
 use super::{MemorySource, Reader, Region};
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -38,7 +38,7 @@ impl MemoryReader {
     }
 
     pub fn create_parser(&self, offset: Offset, size: Size) -> Result<impl Parser + '_> {
-        Ok(SliceParse::new(
+        Ok(SliceParser::new(
             Cow::Borrowed(self.get_slice(offset, size)?),
             self.region.begin() + offset,
         ))
