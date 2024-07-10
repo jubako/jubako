@@ -5,9 +5,9 @@ use std::cmp;
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
-pub struct Extend {
-    pub(crate) store: Arc<dyn ValueStoreTrait>,
-    pub value_id: ValueIdx,
+pub(crate) struct Extend {
+    store: Arc<dyn ValueStoreTrait>,
+    pub(crate) value_id: ValueIdx,
 }
 
 impl Extend {
@@ -27,13 +27,13 @@ impl Eq for Extend {}
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Array {
     pub size: Option<Size>,
-    pub base: BaseArray,
-    pub base_len: u8,
-    pub extend: Option<Extend>,
+    pub(crate) base: BaseArray,
+    pub(crate) base_len: u8,
+    pub(crate) extend: Option<Extend>,
 }
 
 impl Array {
-    pub fn new(
+    pub(crate) fn new(
         size: Option<Size>,
         base: BaseArray,
         mut base_len: u8,
@@ -66,7 +66,7 @@ impl Array {
         Ok(())
     }
 
-    pub fn is_equal(&self, other: &[u8]) -> Result<bool> {
+    pub(crate) fn is_equal(&self, other: &[u8]) -> Result<bool> {
         if let Some(s) = self.size {
             if s.into_usize() != other.len() {
                 return Ok(false);
@@ -114,14 +114,14 @@ enum ArrayIterMode<'a> {
 }
 
 #[derive(Debug)]
-pub struct ArrayIter<'a> {
+struct ArrayIter<'a> {
     array: &'a Array,
     mode: ArrayIterMode<'a>,
     idx: usize,
 }
 
 impl<'a> ArrayIter<'a> {
-    pub fn new(array: &'a Array) -> Result<Self> {
+    fn new(array: &'a Array) -> Result<Self> {
         let mode = if array.base_len > 0 {
             ArrayIterMode::Base {
                 data: array.base.data.as_slice(),
@@ -266,7 +266,7 @@ impl RawValue {
         }
     }
 
-    pub fn is_equal(&self, other: &Value) -> Result<bool> {
+    pub(crate) fn is_equal(&self, other: &Value) -> Result<bool> {
         Ok(match other {
             Value::Content(_) => false,
             Value::Unsigned(v) => match self {
@@ -304,7 +304,7 @@ impl RawValue {
         })
     }
 
-    pub fn partial_cmp(&self, other: &Value) -> Result<Option<cmp::Ordering>> {
+    pub(crate) fn partial_cmp(&self, other: &Value) -> Result<Option<cmp::Ordering>> {
         match other {
             Value::Content(_) => Ok(None),
             Value::Unsigned(v) => Ok(match self {

@@ -9,7 +9,7 @@ use std::string::FromUtf8Error;
 use xz2::stream::Error as lzmaError;
 
 #[derive(Debug)]
-pub struct FormatError {
+pub(crate) struct FormatError {
     what: String,
     where_: Option<Offset>,
 }

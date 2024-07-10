@@ -10,9 +10,9 @@ use properties::Properties;
 
 #[derive(Debug)]
 pub struct Schema<PN: PropertyName, VN: VariantName> {
-    pub common: Properties<PN>,
-    pub variants: Vec<(VN, Properties<PN>)>,
-    pub sort_keys: Option<Vec<PN>>,
+    pub(crate) common: Properties<PN>,
+    pub(crate) variants: Vec<(VN, Properties<PN>)>,
+    pub(crate) sort_keys: Option<Vec<PN>>,
 }
 
 impl<PN: PropertyName, VN: VariantName> Schema<PN, VN> {
@@ -31,7 +31,7 @@ impl<PN: PropertyName, VN: VariantName> Schema<PN, VN> {
         }
     }
 
-    pub fn process(&mut self, entry: &dyn EntryTrait<PN, VN>) {
+    pub(crate) fn process(&mut self, entry: &dyn EntryTrait<PN, VN>) {
         self.common.process(entry);
         if let Some(variant_name) = entry.variant_name() {
             for (n, p) in &mut self.variants {
@@ -43,7 +43,7 @@ impl<PN: PropertyName, VN: VariantName> Schema<PN, VN> {
         }
     }
 
-    pub fn finalize(self) -> layout::Entry<PN, VN> {
+    pub(crate) fn finalize(self) -> layout::Entry<PN, VN> {
         let common_layout = self.common.finalize(None);
         let mut variants_layout = Vec::new();
         let mut variants_map = HashMap::new();

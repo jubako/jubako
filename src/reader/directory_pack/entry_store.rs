@@ -99,9 +99,9 @@ impl Explorable for EntryStore {
 }
 
 #[derive(Debug)]
-pub struct PlainStore {
-    pub layout: Layout,
-    pub entry_reader: Reader,
+pub(crate) struct PlainStore {
+    pub(crate) layout: Layout,
+    pub(crate) entry_reader: Reader,
 }
 
 impl PlainStore {

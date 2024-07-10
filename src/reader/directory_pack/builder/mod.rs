@@ -4,8 +4,9 @@ use super::entry_store::EntryStore;
 use super::layout::Properties as LProperties;
 use super::layout::VariantPart;
 use super::raw_value::RawValue;
-use super::{LazyEntry, PropertyCompare, Value};
+use super::{LazyEntry, PropertyCompare};
 use crate::bases::*;
+use crate::common::Value;
 use crate::reader::directory_pack::private::ValueStorageTrait;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -23,14 +24,17 @@ pub struct AnyVariantBuilder {
 }
 
 impl AnyVariantBuilder {
-    pub fn contains(&self, name: &str) -> bool {
+    pub(super) fn contains(&self, name: &str) -> bool {
         self.properties.contains_key(name)
     }
-    pub fn create_value(&self, name: &str, parser: &impl RandomParser) -> Result<RawValue> {
+    pub(super) fn create_value(&self, name: &str, parser: &impl RandomParser) -> Result<RawValue> {
         self.properties[name].create(parser)
     }
 
-    pub fn new<ValueStorage>(properties: &LProperties, value_storage: &ValueStorage) -> Result<Self>
+    pub(super) fn new<ValueStorage>(
+        properties: &LProperties,
+        value_storage: &ValueStorage,
+    ) -> Result<Self>
     where
         ValueStorage: ValueStorageTrait,
     {
@@ -46,12 +50,12 @@ impl AnyVariantBuilder {
         })
     }
 
-    pub fn count(&self) -> u8 {
+    pub(super) fn count(&self) -> u8 {
         self.properties.len() as u8
     }
 }
 
-pub struct LazyEntryProperties {
+pub(super) struct LazyEntryProperties {
     pub common: AnyVariantBuilder,
     pub variant_part: Option<(
         VariantIdProperty,
@@ -94,11 +98,11 @@ impl AnyBuilder {
         Ok(Self { properties, store })
     }
 
-    pub fn new_property_compare(&self, property_name: String, value: Value) -> PropertyCompare {
+    fn new_property_compare(&self, property_name: String, value: Value) -> PropertyCompare {
         PropertyCompare::new(self, vec![property_name], vec![value])
     }
 
-    pub fn new_multiple_property_compare(
+    fn new_multiple_property_compare(
         &self,
         property_names: Vec<String>,
         values: Vec<Value>,

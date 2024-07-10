@@ -4,10 +4,10 @@ use crate::common::ContentAddress;
 use static_assertions as sa;
 use std::cmp;
 
-pub trait PropertyName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send + 'static {}
+trait PropertyName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send + 'static {}
 impl PropertyName for &'static str {}
 
-pub trait VariantName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send {}
+trait VariantName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send {}
 impl VariantName for &str {}
 
 #[derive(Debug, PartialEq)]

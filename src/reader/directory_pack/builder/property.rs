@@ -48,7 +48,7 @@ pub struct IntProperty {
 }
 
 impl IntProperty {
-    pub fn new(
+    pub(self) fn new(
         offset: Offset,
         size: ByteSize,
         default: Option<u64>,
@@ -147,7 +147,7 @@ pub struct SignedProperty {
 }
 
 impl SignedProperty {
-    pub fn new(
+    pub(self) fn new(
         offset: Offset,
         size: ByteSize,
         default: Option<i64>,
@@ -253,7 +253,7 @@ pub struct ArrayProperty {
 }
 
 impl ArrayProperty {
-    pub fn new(
+    pub(self) fn new(
         offset: Offset,
         array_len_size: Option<ByteSize>,
         fixed_array_len: u8,
@@ -354,7 +354,7 @@ pub struct ContentProperty {
 }
 
 impl ContentProperty {
-    pub fn new(
+    pub(self) fn new(
         offset: Offset,
         pack_id_default: Option<PackId>,
         pack_id_size: ByteSize,

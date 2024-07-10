@@ -2,14 +2,14 @@ use crate::bases::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "explorable", derive(serde::Serialize))]
-pub enum DeportedDefault {
+pub(crate) enum DeportedDefault {
     Value(u64),
     KeySize(ByteSize),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "explorable", derive(serde::Serialize))]
-pub struct DeportedInfo {
+pub(crate) struct DeportedInfo {
     // The size of the id
     pub id_size: ByteSize,
     // The store in which search the deported array
@@ -19,7 +19,7 @@ pub struct DeportedInfo {
 /// The kind of property definition as specified in the store.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "explorable", derive(serde::Serialize))]
-pub enum PropertyKind {
+pub(crate) enum PropertyKind {
     Padding,
     ContentAddress {
         pack_id_size: ByteSize,
@@ -55,7 +55,7 @@ pub enum PropertyKind {
 
 /// The property definition as defined in the store.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RawProperty {
+pub(crate) struct RawProperty {
     pub size: usize, // The size of the value stored in the entry.
     pub name: Option<String>,
     pub kind: PropertyKind,
@@ -261,7 +261,7 @@ impl Parsable for RawProperty {
     }
 }
 
-pub struct RawLayout(Vec<RawProperty>);
+pub(super) struct RawLayout(Vec<RawProperty>);
 
 impl std::ops::Deref for RawLayout {
     type Target = Vec<RawProperty>;

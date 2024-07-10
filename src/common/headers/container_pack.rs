@@ -2,7 +2,7 @@ use crate::bases::*;
 use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ContainerPackHeader {
+pub(crate) struct ContainerPackHeader {
     pub pack_locators_pos: Offset,
     pub pack_count: PackCount,
     pub free_data: PackFreeData,

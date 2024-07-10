@@ -1,6 +1,6 @@
 use clap::Parser;
 use jbk::creator::OutStream;
-use jbk::reader::{ManifestPackHeader, PackHeader, PackLocatorTrait, PackOffsetsIter};
+use jbk::reader::PackLocatorTrait;
 use jubako as jbk;
 use std::io::{Seek, SeekFrom};
 use std::path::PathBuf;
@@ -35,52 +35,50 @@ pub fn run(options: Options) -> jbk::Result<()> {
             eprintln!("{location} is too long. Only 217 bytes allowed");
             return Ok(());
         }
-    }
-    let container = Arc::new(jbk::tools::open_pack(&options.infile)?);
 
-    let manifest_pack_reader = container.get_manifest_pack_reader()?;
-    let fs_locator = Arc::new(jbk::reader::FsLocator::new(
-        options.infile.parent().unwrap().to_path_buf(),
-    ));
-    let locators: Vec<Arc<dyn jbk::reader::PackLocatorTrait>> = vec![container, fs_locator];
-    let locator = Arc::new(jbk::reader::ChainedLocator(locators));
-
-    if manifest_pack_reader.is_none() {
-        eprintln!("No manifest pack in {}", options.infile.display());
-        return Ok(());
-    };
-    let manifest_pack_reader = manifest_pack_reader.unwrap();
-    let pack_header = manifest_pack_reader.parse_block_at::<PackHeader>(jbk::Offset::zero())?;
-    let header =
-        manifest_pack_reader.parse_block_at::<ManifestPackHeader>(jbk::Offset::from(64u64))?;
-    let pack_offsets = PackOffsetsIter::new(pack_header.check_info_pos, header.pack_count);
-    for pack_offset in pack_offsets {
-        let pack_info =
-            manifest_pack_reader.parse_block_at::<jbk::reader::PackInfo>(pack_offset)?;
-        if let Some(uuid) = uuid {
-            if pack_info.uuid != uuid {
-                continue;
-            }
+        if uuid.is_none() {
+            eprintln!("You must specify a uuid if you want to change the location");
+            return Ok(());
         }
+        let uuid = uuid.unwrap();
 
-        let location = String::from_utf8_lossy(&pack_info.pack_location);
+        match jbk::tools::set_location(options.infile, uuid, location.as_bytes().to_owned()) {
+            Ok((pack_kind, old_location)) => {
+                let old_location = String::from_utf8_lossy(&old_location);
+                println!(
+                    "Change {:?} pack {} location from `{}` to `{}`",
+                    pack_kind, uuid, old_location, location
+                );
+            }
 
-        if let Some(new_location) = options.new_location {
-            let location_offset = pack_offset + jbk::Size::new(38);
-            let mut file = std::fs::OpenOptions::new()
-                .write(true)
-                .open(&options.infile)?;
-            file.seek(SeekFrom::Start(location_offset.into_u64()))?;
-            file.ser_callable(&|ser| -> std::io::Result<()> {
-                jbk::PString::serialize_string_padded(new_location.as_bytes(), 217, ser)?;
-                Ok(())
-            })?;
-            println!(
-                "Change {:?} pack {} location from `{}` to `{}`",
-                pack_info.pack_kind, pack_info.uuid, location, new_location
-            );
-            break;
-        } else {
+            Err(e) => {
+                eprintln!("{e}");
+            }
+        };
+    } else {
+        let container = Arc::new(jbk::tools::open_pack(&options.infile)?);
+
+        let manifest_pack_reader = container.get_manifest_pack_reader()?;
+        if manifest_pack_reader.is_none() {
+            eprintln!("No manifest pack in {}", options.infile.display());
+            return Ok(());
+        };
+        let manifest_pack_reader = manifest_pack_reader.unwrap();
+        let manifest = jbk::reader::ManifestPack::new(manifest_pack_reader)?;
+        for pack_info in manifest.get_pack_infos() {
+            if let Some(uuid) = uuid {
+                if pack_info.uuid != uuid {
+                    continue;
+                }
+            }
+
+            let location = String::from_utf8_lossy(&pack_info.pack_location).into_owned();
+
+            let fs_locator = Arc::new(jbk::reader::FsLocator::new(
+                options.infile.parent().unwrap().to_path_buf(),
+            ));
+            let locators: Vec<Arc<dyn jbk::reader::PackLocatorTrait>> = vec![container, fs_locator];
+            let locator = Arc::new(jbk::reader::ChainedLocator::new(locators));
             match locator.locate(pack_info.uuid, &pack_info.pack_location)? {
                 None => println!(
                     "{:?} pack {} has declared location `{}`",
@@ -91,8 +89,8 @@ pub fn run(options: Options) -> jbk::Result<()> {
                     pack_info.pack_kind, pack_info.uuid, location, reader
                 ),
             }
+            break;
         }
-    }
-
+    };
     Ok(())
 }

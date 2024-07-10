@@ -11,23 +11,28 @@ mod reader;
 mod skip;
 mod write;
 
-pub use block::*;
-pub use cache::*;
+pub(crate) use block::*;
+pub(crate) use cache::*;
 #[cfg(feature = "explorable")]
-pub use explorable::*;
-pub use io::*;
-pub use parsing::*;
+pub use explorable::Explorable;
+pub use io::FileSource;
+pub(crate) use io::*;
+pub(crate) use parsing::*;
 pub(crate) use prop_type::*;
-pub use reader::*;
-pub use skip::*;
+pub(crate) use reader::CheckReader;
+pub use reader::Reader;
+pub(crate) use skip::*;
 use std::cmp;
 use std::marker::PhantomData;
 pub use types::*;
-pub use write::*;
+pub use write::OutStream;
+pub(crate) use write::*;
+
+pub(crate) use std::io::Result as IoResult;
 
 /// ArrayReader is a wrapper a reader to access element stored as a array.
 /// (Consecutif block of data of the same size).
-pub struct ArrayReader<OutType, IdxType> {
+pub(crate) struct ArrayReader<OutType, IdxType> {
     reader: CheckReader,
     length: Count<IdxType>,
     elem_size: usize,
@@ -59,7 +64,7 @@ where
         length: Count<IdxType>,
     ) -> Result<Self> {
         let elem_size = Size::from(OutType::SIZE);
-        let array_size = elem_size * length.0.into();
+        let array_size = elem_size * length.into_base().into();
         let reader = reader.cut_check(at, array_size, BlockCheck::Crc32)?;
         Ok(Self {
             reader,
@@ -83,13 +88,13 @@ where
             idx,
             self.length
         );
-        let offset = u64::from(idx.0) * self.elem_size as u64;
+        let offset = u64::from(idx.into_base()) * self.elem_size as u64;
         self.reader
             .parse_in::<OutType>(Offset::from(offset), Size::from(self.elem_size))
     }
 }
 
-pub fn needed_bytes<T>(mut val: T) -> ByteSize
+pub(crate) fn needed_bytes<T>(mut val: T) -> ByteSize
 where
     T: std::cmp::PartialOrd + std::ops::Shr<Output = T> + From<u8>,
 {

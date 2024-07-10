@@ -5,7 +5,8 @@ mod directory_pack;
 mod manifest_pack;
 
 use crate::bases::*;
-pub use crate::bases::{FileSource, InOutStream, OutStream, Reader};
+pub use crate::bases::{FileSource, OutStream};
+use crate::bases::{InOutStream, Reader};
 use crate::common::{CheckInfo, CompressionType, PackKind};
 pub use basic_creator::{BasicCreator, ConcatMode, EntryStoreTrait};
 pub use container_pack::{ContainerPackCreator, InContainerFile};
@@ -13,16 +14,16 @@ pub use content_pack::{
     CacheProgress, CachedContentAdder, CompHint, ContentAdder, ContentPackCreator, Progress,
 };
 pub use directory_pack::{
-    schema, Array, ArrayS, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait,
-    FullEntryTrait, IndexedValueStore, PlainValueStore, PropertyName, StoreHandle, Value,
-    ValueHandle, ValueStore, ValueTransformer, VariantName,
+    schema, ArrayS, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, FullEntryTrait,
+    PropertyName, StoreHandle, Value, ValueHandle, ValueStore, VariantName,
 };
+use directory_pack::{Array, IndexedValueStore, PlainValueStore, ValueTransformer};
 pub use manifest_pack::ManifestPackCreator;
 use std::fs::OpenOptions;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 
-pub enum Embedded {
+enum Embedded {
     Yes,
     No(PathBuf),
 }
@@ -31,7 +32,7 @@ use bstr::ByteVec;
 
 mod private {
     use super::*;
-    pub trait WritableTell {
+    pub(super) trait WritableTell {
         fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()>;
         fn serialize_tail(&mut self, stream: &mut Serializer) -> Result<()>;
         fn write(&mut self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
@@ -56,7 +57,7 @@ pub struct PackData {
     pub check_info: CheckInfo,
 }
 
-pub enum MaybeFileReader {
+pub(crate) enum MaybeFileReader {
     Yes(std::io::Take<std::fs::File>),
     No(Box<dyn Read + Send>),
 }
@@ -76,7 +77,7 @@ impl<T: AsRef<[u8]> + Send + 'static> InputReader for std::io::Cursor<T> {
 }
 
 pub struct InputFile {
-    pub(crate) source: std::fs::File,
+    source: std::fs::File,
     position: u64,
     origin: u64,
     len: u64,

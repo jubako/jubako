@@ -6,7 +6,7 @@ use std::cell::Cell;
 use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ValueStoreKind {
+pub(crate) enum ValueStoreKind {
     Plain,
     Indexed,
 }
@@ -80,11 +80,11 @@ impl From<ValueHandle> for Word<u64> {
 pub struct StoreHandle(Arc<RwLock<ValueStore>>);
 
 impl StoreHandle {
-    pub fn key_size(&self) -> ByteSize {
+    pub(crate) fn key_size(&self) -> ByteSize {
         self.0.read().unwrap().key_size()
     }
 
-    pub fn get_idx(&self) -> Option<ValueStoreIdx> {
+    pub(crate) fn get_idx(&self) -> Option<ValueStoreIdx> {
         self.0.read().unwrap().get_idx()
     }
 
@@ -93,11 +93,11 @@ impl StoreHandle {
         ValueHandle::new(&self.0, idx)
     }
 
-    pub fn finalize(&self, idx: ValueStoreIdx) {
+    pub(crate) fn finalize(&self, idx: ValueStoreIdx) {
         self.0.write().unwrap().finalize(idx)
     }
 
-    pub fn kind(&self) -> ValueStoreKind {
+    pub(crate) fn kind(&self) -> ValueStoreKind {
         self.0.read().unwrap().kind()
     }
 
@@ -134,35 +134,35 @@ impl ValueStore {
         Self::Indexed(IndexedValueStore(BaseValueStore::new(Some(0)))).into()
     }
 
-    pub fn finalize(&mut self, idx: ValueStoreIdx) {
+    pub(crate) fn finalize(&mut self, idx: ValueStoreIdx) {
         match self {
             Self::Plain(ref mut s) => s.finalize(idx),
             Self::Indexed(ref mut s) => s.finalize(idx),
         }
     }
 
-    pub fn add_value(&mut self, data: Vec<u8>) -> usize {
+    pub(crate) fn add_value(&mut self, data: Vec<u8>) -> usize {
         match self {
             Self::Plain(s) => s.add_value(data),
             Self::Indexed(s) => s.add_value(data),
         }
     }
 
-    pub fn key_size(&self) -> ByteSize {
+    pub(crate) fn key_size(&self) -> ByteSize {
         match &self {
             Self::Plain(s) => s.key_size(),
             Self::Indexed(s) => s.key_size(),
         }
     }
 
-    pub fn get_idx(&self) -> Option<ValueStoreIdx> {
+    pub(crate) fn get_idx(&self) -> Option<ValueStoreIdx> {
         match &self {
             Self::Plain(s) => s.get_idx(),
             Self::Indexed(s) => s.get_idx(),
         }
     }
 
-    pub fn kind(&self) -> ValueStoreKind {
+    pub(crate) fn kind(&self) -> ValueStoreKind {
         match &self {
             Self::Plain(_) => ValueStoreKind::Plain,
             Self::Indexed(_) => ValueStoreKind::Indexed,
@@ -193,7 +193,7 @@ impl WritableTell for ValueStore {
     }
 }
 
-pub struct BaseValueStore {
+struct BaseValueStore {
     idx: Option<ValueStoreIdx>,
     data: Vec<(Box<[u8]>, u64)>, // The array storing the data and the index it will be written when sorted.
     sorted_indirect: Vec<usize>, // An array reindexing the data in sorted order.
@@ -203,7 +203,7 @@ pub struct BaseValueStore {
 }
 
 impl BaseValueStore {
-    pub fn new(size_hint: Option<usize>) -> Self {
+    pub(crate) fn new(size_hint: Option<usize>) -> Self {
         let data = Vec::with_capacity(size_hint.unwrap_or(1024));
         let sorted_indirect = Vec::with_capacity(size_hint.unwrap_or(1024));
         Self {
@@ -215,7 +215,7 @@ impl BaseValueStore {
         }
     }
 
-    pub fn add_value(&mut self, data: Vec<u8>) -> usize {
+    pub(crate) fn add_value(&mut self, data: Vec<u8>) -> usize {
         // Let's act like if data is sorted when we add it
         let key = self.data.len();
         self.data.push((data.into(), 0));
@@ -232,7 +232,7 @@ impl BaseValueStore {
 }
 
 #[repr(transparent)]
-pub struct PlainValueStore(BaseValueStore);
+pub(crate) struct PlainValueStore(BaseValueStore);
 
 impl PlainValueStore {
     fn size(&self) -> Size {
@@ -324,7 +324,7 @@ impl std::fmt::Debug for PlainValueStore {
 }
 
 #[repr(transparent)]
-pub struct IndexedValueStore(BaseValueStore);
+pub(crate) struct IndexedValueStore(BaseValueStore);
 // data[sorted_indirect[i]].1 == i
 
 impl IndexedValueStore {

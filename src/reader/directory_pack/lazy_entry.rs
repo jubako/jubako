@@ -12,7 +12,7 @@ pub struct LazyEntry {
 }
 
 impl LazyEntry {
-    pub fn new(properties: Rc<LazyEntryProperties>, bytes: ByteRegion) -> Self {
+    pub(crate) fn new(properties: Rc<LazyEntryProperties>, bytes: ByteRegion) -> Self {
         Self { properties, bytes }
     }
 

@@ -23,7 +23,7 @@ impl Parsable for ValueStoreKind {
     }
 }
 
-pub trait ValueStoreTrait: std::fmt::Debug + Send + Sync {
+pub(crate) trait ValueStoreTrait: std::fmt::Debug + Send + Sync {
     fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]>;
 }
 
@@ -128,7 +128,7 @@ impl DataBlockParsable for ValueStore {
 }
 
 #[derive(Debug)]
-pub struct PlainValueStore {
+struct PlainValueStore {
     reader: CheckReader,
 }
 
@@ -188,7 +188,7 @@ impl Explorable for PlainValueStore {
 }
 
 #[derive(Debug)]
-pub struct IndexedValueStore {
+struct IndexedValueStore {
     value_offsets: Vec<Offset>,
     reader: CheckReader,
 }

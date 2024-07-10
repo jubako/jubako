@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::io::Read;
 
 #[derive(Clone, Copy)]
-pub enum CheckKind {
+pub(crate) enum CheckKind {
     None = 0,
     Blake3 = 1,
 }
@@ -78,18 +78,18 @@ impl Serializable for CheckInfo {
 }
 
 impl CheckInfo {
-    pub fn new_none() -> Self {
+    pub(crate) fn new_none() -> Self {
         Self { b3hash: None }
     }
 
-    pub fn new_blake3(source: &mut dyn Read) -> Result<Self> {
+    pub(crate) fn new_blake3(source: &mut dyn Read) -> Result<Self> {
         let mut hasher = blake3::Hasher::new();
         hasher.update_reader(source)?;
         let hash = hasher.finalize();
         Ok(Self { b3hash: Some(hash) })
     }
 
-    pub fn check(&self, source: &mut dyn Read) -> Result<bool> {
+    pub(crate) fn check(&self, source: &mut dyn Read) -> Result<bool> {
         if let Some(b3hash) = self.b3hash {
             let mut hasher = blake3::Hasher::new();
             hasher.update_reader(source)?;
@@ -100,7 +100,7 @@ impl CheckInfo {
         }
     }
 
-    pub fn size(&self) -> Size {
+    pub(crate) fn size(&self) -> Size {
         match self.b3hash {
             None => Size::new(1),
             Some(_) => Size::new(33),
@@ -114,7 +114,7 @@ const PACK_INFO_SIZE: u64 = super::PackInfo::BLOCK_SIZE as u64;
 // The first 38 bytes of the PackInfo must be checked.
 const PACK_INFO_TO_CHECK: u64 = 38;
 
-pub struct ManifestCheckStream<'a, S: Read> {
+pub(crate) struct ManifestCheckStream<'a, S: Read> {
     source: &'a mut S,
     current_offset: u64,
     pack_offset: u64,

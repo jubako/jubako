@@ -2,12 +2,12 @@ use std::{borrow::Cow, u32};
 
 use zerocopy::{ByteOrder, LE};
 
-use crate::{Offset, Result};
+use super::{Offset, Result};
 
 use super::ByteSize;
 
 /// A Parser is something parsing data from a [u8]
-pub trait Parser {
+pub(crate) trait Parser {
     fn read_slice(&mut self, size: usize) -> Result<Cow<[u8]>>;
     fn read_data(&mut self, buf: &mut [u8]) -> Result<()>;
     fn tell(&self) -> Offset;
@@ -68,7 +68,7 @@ pub trait Parser {
 }
 
 /// A RandomParser is something parsing data from a [u8] at random position
-pub trait RandomParser {
+pub(crate) trait RandomParser {
     type Parser<'a>: Parser
     where
         Self: 'a;
@@ -130,7 +130,7 @@ pub trait RandomParser {
     }
 }
 
-pub struct SliceParser<'a> {
+pub(crate) struct SliceParser<'a> {
     slice: Cow<'a, [u8]>,
     global_offset: Offset,
     offset: usize,
@@ -206,7 +206,7 @@ pub trait Parsable {
         Self::Output: Sized;
 }
 
-pub trait SizedParsable: Parsable {
+pub(crate) trait SizedParsable: Parsable {
     const SIZE: usize;
 }
 
@@ -260,7 +260,7 @@ impl SizedParsable for u64 {
     const SIZE: usize = 8;
 }
 
-pub trait RandomParsable {
+pub(crate) trait RandomParsable {
     type Output;
     fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self::Output>
     where

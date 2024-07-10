@@ -3,7 +3,7 @@ use crate::common::{FullPackKind, PackKind};
 use std::fmt::Debug;
 use uuid::Uuid;
 
-pub struct PackHeaderInfo {
+pub(crate) struct PackHeaderInfo {
     pub app_vendor_id: VendorId,
     pub file_size: Size,
     pub check_info_pos: Offset,
@@ -20,7 +20,7 @@ impl PackHeaderInfo {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct PackHeader {
+pub(crate) struct PackHeader {
     pub magic: PackKind,
     pub app_vendor_id: VendorId,
     pub major_version: u8,

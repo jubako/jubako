@@ -87,7 +87,7 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
         }
     }
 
-    pub fn add_content(
+    fn add_content(
         &mut self,
         mut reader: Box<dyn InputReader>,
         comp_hint: CompHint,

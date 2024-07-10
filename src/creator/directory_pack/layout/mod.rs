@@ -2,8 +2,8 @@ mod entry;
 mod properties;
 mod property;
 
-pub use entry::Entry;
-pub use properties::Properties;
-pub use property::Property;
+pub(crate) use entry::Entry;
+pub(crate) use properties::Properties;
+pub(crate) use property::Property;
 
 use super::{StoreHandle, Value};

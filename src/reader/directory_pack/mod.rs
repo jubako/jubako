@@ -17,12 +17,14 @@ use uuid::Uuid;
 
 pub use self::entry_store::EntryStore;
 pub use self::index::Index;
-pub use self::property_compare::PropertyCompare;
+pub(self) use self::property_compare::PropertyCompare;
 pub use self::range::{CompareTrait, RangeTrait};
-pub use self::value_store::{ValueStore, ValueStoreTrait};
-pub use crate::common::{ContentAddress, Value};
+pub(crate) use self::value_store::{ValueStore, ValueStoreTrait};
+use crate::common::ContentAddress;
+use crate::common::Value;
 pub use lazy_entry::LazyEntry;
-pub use raw_value::{Array, Extend, RawValue};
+pub use raw_value::RawValue;
+pub(crate) use raw_value::{Array, Extend};
 
 pub trait EntryTrait {
     fn get_variant_id(&self) -> Result<Option<VariantIdx>>;
@@ -40,7 +42,7 @@ mod private {
 pub struct ValueStorage(VecCache<ValueStore, DirectoryPack>);
 
 impl ValueStorage {
-    pub fn new(source: Arc<DirectoryPack>) -> Self {
+    fn new(source: Arc<DirectoryPack>) -> Self {
         Self(VecCache::new(source))
     }
 }
@@ -56,7 +58,7 @@ impl private::ValueStorageTrait for ValueStorage {
 pub struct EntryStorage(VecCache<EntryStore, DirectoryPack>);
 
 impl EntryStorage {
-    pub fn new(source: Arc<DirectoryPack>) -> Self {
+    fn new(source: Arc<DirectoryPack>) -> Self {
         Self(VecCache::new(source))
     }
 

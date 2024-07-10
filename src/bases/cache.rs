@@ -1,13 +1,13 @@
 use super::types::*;
 use std::sync::{Arc, OnceLock};
 
-pub trait CachableSource<Value> {
+pub(crate) trait CachableSource<Value> {
     type Idx: Into<usize> + Copy;
     fn get_len(&self) -> usize;
     fn get_value(&self, id: Self::Idx) -> Result<Arc<Value>>;
 }
 
-pub struct VecCache<Value, Source>
+pub(crate) struct VecCache<Value, Source>
 where
     Source: CachableSource<Value>,
 {

@@ -8,7 +8,7 @@ use std::sync::Arc;
 #[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub struct Properties(HashMap<String, Property>);
 
-pub type SharedProperties = Arc<Properties>;
+pub(crate) type SharedProperties = Arc<Properties>;
 
 impl std::ops::Deref for Properties {
     type Target = HashMap<String, Property>;

@@ -1,18 +1,17 @@
 use crate::bases::*;
 use crate::creator::MaybeFileReader;
 use std::fmt::Debug;
-pub use std::io::Result as IoResult;
 use std::io::{Cursor, Read, Seek, Write};
 use zerocopy::byteorder::little_endian::{U16, U32, U64};
 use zerocopy::{AsBytes, ByteOrder, LittleEndian as LE};
 
 /// A Serializable is a object we can serialized on a [Serializer].
-pub trait Serializable {
+pub(crate) trait Serializable {
     fn serialize(&self, stream: &mut Serializer) -> IoResult<usize>;
 }
 
 /// A Buffer on which we can write data.
-pub struct Serializer {
+pub(crate) struct Serializer {
     buf: Cursor<Vec<u8>>,
     check: BlockCheck,
 }
@@ -125,7 +124,7 @@ pub trait OutStream: Write + Seek + Send + Debug {
     }
 }
 
-pub trait InOutStream: OutStream + Read {}
+pub(crate) trait InOutStream: OutStream + Read {}
 
 impl OutStream for std::fs::File {
     fn copy(

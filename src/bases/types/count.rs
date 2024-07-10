@@ -7,7 +7,14 @@ use std::ops::{Add, AddAssign};
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
 #[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
 #[repr(transparent)]
-pub struct Count<T>(pub T);
+pub struct Count<T>(T);
+
+impl<T> Count<T> {
+    #[inline]
+    pub(crate) fn into_base(self) -> T {
+        self.0
+    }
+}
 
 impl<T> From<T> for Count<T> {
     fn from(v: T) -> Count<T> {

@@ -1,10 +1,11 @@
 use super::builder::{AnyBuilder, BuilderTrait};
 use super::range::CompareTrait;
-use super::{EntryTrait, Value};
+use super::EntryTrait;
 use crate::bases::*;
+use crate::common::Value;
 use std::cmp::Ordering;
 
-pub struct PropertyCompare<'builder> {
+pub(super) struct PropertyCompare<'builder> {
     builder: &'builder AnyBuilder,
     property_names: Box<[String]>,
     values: Box<[Value]>,

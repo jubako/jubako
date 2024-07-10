@@ -106,7 +106,7 @@ where
     }
 }
 
-pub struct FinalEntryStore<PN, VN, Entry>
+struct FinalEntryStore<PN, VN, Entry>
 where
     PN: PropertyName,
     VN: VariantName,

@@ -16,7 +16,7 @@ pub trait RangeTrait {
         builder: &Builder,
         id: EntryIdx,
     ) -> Result<Builder::Entry> {
-        if id.is_valid(self.count()) {
+        if id.is_valid(*self.count()) {
             builder.create_entry(self.offset() + id)
         } else {
             Err("Invalid id".to_string().into())
@@ -94,7 +94,7 @@ mod tests {
             v: RawValue,
         }
         impl Entry {
-            pub fn new(v: u16) -> Self {
+            fn new(v: u16) -> Self {
                 let v = RawValue::U16(v);
                 Self { v }
             }
@@ -142,14 +142,14 @@ mod tests {
         }
 
         #[derive(Debug)]
-        pub struct ValueStore {}
+        struct ValueStore {}
         impl ValueStoreTrait for ValueStore {
             fn get_data(&self, _id: ValueIdx, _size: Option<Size>) -> Result<&[u8]> {
                 unreachable!()
             }
         }
 
-        pub struct ValueStorage {}
+        struct ValueStorage {}
         impl ValueStorageTrait for ValueStorage {
             type ValueStore = ValueStore;
             fn get_value_store(&self, _id: ValueStoreIdx) -> Result<Arc<Self::ValueStore>> {

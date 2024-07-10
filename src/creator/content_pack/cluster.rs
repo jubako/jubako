@@ -2,7 +2,7 @@ use crate::bases::*;
 use crate::common::ContentInfo;
 use crate::creator::InputReader;
 
-pub struct ClusterCreator {
+pub(super) struct ClusterCreator {
     compressed: bool,
     pub index: ClusterIdx,
     pub data: Vec<Box<dyn InputReader>>,
@@ -20,10 +20,6 @@ impl ClusterCreator {
             data: Vec::with_capacity(MAX_BLOBS_PER_CLUSTER),
             offsets: vec![],
         }
-    }
-
-    pub fn index(&self) -> ClusterIdx {
-        self.index
     }
 
     pub fn data_size(&self) -> Size {

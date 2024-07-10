@@ -5,9 +5,10 @@ mod property;
 use super::raw_layout::RawLayout;
 use crate::bases::*;
 
-pub use super::raw_layout::{DeportedInfo, PropertyKind};
-pub use properties::{Properties, SharedProperties};
-pub use property::Property;
+pub(crate) use super::raw_layout::DeportedInfo;
+pub(super) use super::raw_layout::PropertyKind;
+pub(crate) use properties::{Properties, SharedProperties};
+pub(crate) use property::Property;
 use std::collections::HashMap;
 
 use std::cmp::Ordering;
@@ -23,8 +24,8 @@ pub struct VariantPart {
 #[derive(Debug)]
 #[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub struct Layout {
-    pub entry_count: EntryCount,
-    pub is_entry_checked: bool,
+    pub(crate) entry_count: EntryCount,
+    pub(crate) is_entry_checked: bool,
     pub common: Properties,
     pub variant_part: Option<VariantPart>,
     pub entry_size: Size,

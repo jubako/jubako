@@ -4,15 +4,15 @@ mod file;
 
 use crate::bases::types::*;
 use crate::bases::Region;
-pub use compression::*;
-pub use file::*;
+pub(crate) use compression::*;
+pub use file::FileSource;
 use std::borrow::Cow;
 use std::fmt;
 use std::sync::Arc;
 
 use super::BlockCheck;
 
-pub trait Source: Sync + Send {
+pub(crate) trait Source: Sync + Send {
     fn size(&self) -> Size;
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()>;
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize>;
@@ -27,7 +27,7 @@ pub trait Source: Sync + Send {
     fn display(&self) -> String;
 }
 
-pub trait MemorySource: Source {
+pub(crate) trait MemorySource: Source {
     fn get_slice(&self, region: Region) -> Result<&[u8]>;
 
     /// Get a slice from the MemorySource

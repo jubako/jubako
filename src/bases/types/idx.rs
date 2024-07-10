@@ -7,9 +7,14 @@ use std::ops::{Add, AddAssign};
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug, Default, Hash)]
 #[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
 #[repr(transparent)]
-pub struct Idx<T>(pub T);
+pub struct Idx<T>(T);
 
 impl<T> Idx<T> {
+    #[inline]
+    pub(crate) fn new(v: T) -> Self {
+        Self(v)
+    }
+    #[inline]
     pub(crate) fn into_base(self) -> T {
         self.0
     }
@@ -103,7 +108,7 @@ where
     T: std::cmp::PartialOrd,
 {
     pub fn is_valid(&self, s: Count<T>) -> bool {
-        self.0 < s.0
+        self.0 < s.into_base()
     }
 }
 
@@ -123,7 +128,7 @@ where
 {
     type Output = Self;
     fn add(self, other: Count<T>) -> Self {
-        Idx(self.0 + other.0)
+        Idx(self.0 + other.into_base())
     }
 }
 

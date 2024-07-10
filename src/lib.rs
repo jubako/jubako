@@ -8,13 +8,13 @@ pub mod reader;
 pub mod tools;
 
 pub use crate::bases::{
-    Bound, ContentIdx, EntryCount, EntryIdx, EntryRange, EntryStoreIdx, Error, ErrorKind,
-    FileSource, IndexFreeData, MayRef, Offset, PString, PackFreeData, PackId, PropertyCount,
-    PropertyIdx, Reader, Result, Size, ValueIdx, VariantIdx, VendorId, Vow, Word,
+    Bound, ContentIdx, EntryCount, EntryIdx, EntryRange, Error, ErrorKind, FileSource, MayRef,
+    Offset, PackId, PropertyCount, PropertyIdx, Reader, Result, Size, VariantIdx, VendorId, Vow,
 };
-pub use crate::common::{CompressionType, ContentAddress, PackKind, Value};
-pub use crate::tools::concat;
-//pub use crate::reader::directory_pack::layout;
+use crate::bases::{EntryStoreIdx, IndexFreeData, PackFreeData, ValueIdx, Word};
+use crate::common::PackKind;
+pub use crate::common::{CompressionType, ContentAddress, Value};
+//use crate::reader::directory_pack::layout;
 
 #[cfg(doctest)]
-pub use bases::BaseArray;
+use bases::BaseArray;

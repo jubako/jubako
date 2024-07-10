@@ -11,7 +11,7 @@ enum ClusterReader {
     Plain(Reader),
 }
 
-pub struct Cluster {
+pub(super) struct Cluster {
     blob_offsets: Vec<Offset>,
     data_size: Size,
     compression: CompressionType,
