@@ -295,16 +295,18 @@ mod tests {
                 assert_eq!(
                     plainvaluestore
                         .reader
-                        .parse_at::<u64>(Offset::zero())
-                        .unwrap(),
-                    0x2322211514131211_u64
+                        .get_slice(Offset::zero(), Size::new(8))
+                        .unwrap()
+                        .as_ref(),
+                    &[0x11, 0x12, 0x13, 0x14, 0x15, 0x21, 0x22, 0x23]
                 );
                 assert_eq!(
                     plainvaluestore
                         .reader
-                        .parse_at::<u64>(Offset::new(7))
-                        .unwrap(),
-                    0x3736353433323123_u64
+                        .get_slice(Offset::new(7), Size::new(5))
+                        .unwrap()
+                        .as_ref(),
+                    &[0x23, 0x31, 0x32, 0x33, 0x34]
                 );
             }
             _ => panic!("Wrong type"),
@@ -355,18 +357,18 @@ mod tests {
                 assert_eq!(
                     indexedvaluestore
                         .reader
-                        .parse_at::<u64>(Offset::zero())
-                        .unwrap(),
-                    0x2322211514131211_u64
+                        .get_slice(Offset::zero(), Size::new(8))
+                        .unwrap()
+                        .as_ref(),
+                    &[0x11, 0x12, 0x13, 0x14, 0x15, 0x21, 0x22, 0x23]
                 );
                 assert_eq!(
                     indexedvaluestore
                         .reader
-                        .create_parser(Offset::new(8), Size::from(ByteSize::U7 as usize))
+                        .get_slice(Offset::new(8), Size::from(ByteSize::U7 as usize))
                         .unwrap()
-                        .read_usized(ByteSize::U7)
-                        .unwrap(),
-                    0x37363534333231_u64
+                        .as_ref(),
+                    &[0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]
                 );
             }
             _ => panic!("Wrong type"),

@@ -26,6 +26,7 @@ impl BaseArray {
     /// # Panics
     ///
     /// The function panics if `data` length is higher than 31.
+    #[cfg(test)]
     pub fn new(data: &[u8]) -> Self {
         assert!(data.len() <= 31);
         let mut s = Self { data: [0; 31] };

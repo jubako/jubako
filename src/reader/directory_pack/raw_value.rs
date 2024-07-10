@@ -66,23 +66,6 @@ impl Array {
         Ok(())
     }
 
-    pub(crate) fn is_equal(&self, other: &[u8]) -> Result<bool> {
-        if let Some(s) = self.size {
-            if s.into_usize() != other.len() {
-                return Ok(false);
-            }
-        } else if other.len() <= self.base_len as usize {
-            return Ok(false);
-        }
-        let our_iter = ArrayIter::new(self)?;
-        for (s, o) in our_iter.zip(other) {
-            if s? != *o {
-                return Ok(false);
-            }
-        }
-        Ok(true)
-    }
-
     pub fn partial_cmp(&self, other: &[u8]) -> Result<Option<cmp::Ordering>> {
         let our_iter = ArrayIter::new(self)?;
         let mut other_iter = other.iter();
@@ -264,44 +247,6 @@ impl RawValue {
             RawValue::I64(v) => *v,
             _ => panic!(),
         }
-    }
-
-    pub(crate) fn is_equal(&self, other: &Value) -> Result<bool> {
-        Ok(match other {
-            Value::Content(_) => false,
-            Value::Unsigned(v) => match self {
-                RawValue::U8(r) => PartialEq::eq(&(*r as u64), v),
-                RawValue::U16(r) => PartialEq::eq(&(*r as u64), v),
-                RawValue::U32(r) => PartialEq::eq(&(*r as u64), v),
-                RawValue::U64(r) => PartialEq::eq(r, v),
-                _ => false,
-            },
-            Value::UnsignedWord(v) => match self {
-                RawValue::U8(r) => PartialEq::eq(&(*r as u64), &v.get()),
-                RawValue::U16(r) => PartialEq::eq(&(*r as u64), &v.get()),
-                RawValue::U32(r) => PartialEq::eq(&(*r as u64), &v.get()),
-                RawValue::U64(r) => PartialEq::eq(r, &v.get()),
-                _ => false,
-            },
-            Value::Signed(v) => match self {
-                RawValue::I8(r) => PartialEq::eq(&(*r as i64), v),
-                RawValue::I16(r) => PartialEq::eq(&(*r as i64), v),
-                RawValue::I32(r) => PartialEq::eq(&(*r as i64), v),
-                RawValue::I64(r) => PartialEq::eq(r, v),
-                _ => false,
-            },
-            Value::SignedWord(v) => match self {
-                RawValue::I8(r) => PartialEq::eq(&(*r as i64), &v.get()),
-                RawValue::I16(r) => PartialEq::eq(&(*r as i64), &v.get()),
-                RawValue::I32(r) => PartialEq::eq(&(*r as i64), &v.get()),
-                RawValue::I64(r) => PartialEq::eq(r, &v.get()),
-                _ => false,
-            },
-            Value::Array(v) => match self {
-                RawValue::Array(a) => a.is_equal(v.as_slice())?,
-                _ => false,
-            },
-        })
     }
 
     pub(crate) fn partial_cmp(&self, other: &Value) -> Result<Option<cmp::Ordering>> {

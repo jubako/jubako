@@ -99,13 +99,6 @@ impl CheckInfo {
             Ok(true)
         }
     }
-
-    pub(crate) fn size(&self) -> Size {
-        match self.b3hash {
-            None => Size::new(1),
-            Some(_) => Size::new(33),
-        }
-    }
 }
 
 // Pack info size is pack info + 4 bytes of crc32

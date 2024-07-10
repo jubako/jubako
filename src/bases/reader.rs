@@ -157,12 +157,9 @@ impl CheckReader {
         Ok(SliceParser::new(slice, self.region.begin() + offset))
     }
 
+    #[cfg(any(feature = "explorable", test))]
     pub fn size(&self) -> Size {
         self.region.size()
-    }
-
-    pub fn parse_at<T: super::SizedParsable>(&self, offset: Offset) -> Result<T::Output> {
-        self.parse_in::<T>(offset, Size::from(T::SIZE))
     }
 
     pub fn parse_in<T: Parsable>(&self, offset: Offset, size: Size) -> Result<T::Output> {
@@ -172,10 +169,6 @@ impl CheckReader {
     pub fn get_slice(&self, offset: Offset, size: Size) -> Result<Cow<[u8]>> {
         let region = self.region.cut_rel(offset, size);
         self.source.get_slice(region, BlockCheck::None)
-    }
-    pub fn get_byte_slice(&self, offset: Offset, size: Size) -> ByteSlice {
-        let region = self.region.cut_rel(offset, size);
-        ByteSlice::new_from_parts(&self.source, region)
     }
 }
 

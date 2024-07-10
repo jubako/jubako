@@ -29,10 +29,6 @@ impl<PN: PropertyName> FromIterator<Property<PN>> for Properties<PN> {
 }
 
 impl<PN: PropertyName> Properties<PN> {
-    pub fn new(keys: Vec<Property<PN>>) -> Self {
-        Self(keys)
-    }
-
     pub(crate) fn entry_size(&self) -> u16 {
         self.iter().map(|k| k.size()).sum::<u16>()
     }

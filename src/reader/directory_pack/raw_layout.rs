@@ -62,6 +62,7 @@ pub(crate) struct RawProperty {
 }
 
 impl RawProperty {
+    #[cfg(test)]
     pub fn new(kind: PropertyKind, size: usize, name: Option<String>) -> Self {
         Self { size, kind, name }
     }

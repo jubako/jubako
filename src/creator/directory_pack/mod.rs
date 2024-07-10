@@ -226,7 +226,7 @@ impl<PN: PropertyName, VN: VariantName> BasicEntry<PN, VN> {
         Self::new_idx(variant_name, value_transformer.collect(), idx)
     }
 
-    pub(crate) fn new(variant_name: Option<VN>, values: HashMap<PN, Value>) -> Self {
+    pub fn new(variant_name: Option<VN>, values: HashMap<PN, Value>) -> Self {
         Self::new_idx(variant_name, values, Default::default())
     }
 

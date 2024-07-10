@@ -160,12 +160,12 @@ macro_rules! impl_add {
                 $count_name::from(self.0.into_base() - other.0.into_base())
             }
         }
-
+        /*
         impl $idx_name {
             fn is_valid(&self, c: $count_name) -> bool {
                 self.0.is_valid(*c)
             }
-        }
+        }*/
     };
 }
 

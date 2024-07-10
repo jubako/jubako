@@ -1,7 +1,6 @@
 use clap::Parser;
 use jbk::reader::PackLocatorTrait;
 use jubako as jbk;
-use std::io::{Seek, SeekFrom};
 use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;

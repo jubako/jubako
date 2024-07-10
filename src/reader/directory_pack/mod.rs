@@ -17,7 +17,6 @@ use uuid::Uuid;
 
 pub use self::entry_store::EntryStore;
 pub use self::index::Index;
-pub(self) use self::property_compare::PropertyCompare;
 pub use self::range::{CompareTrait, RangeTrait};
 pub(crate) use self::value_store::{ValueStore, ValueStoreTrait};
 pub use lazy_entry::LazyEntry;

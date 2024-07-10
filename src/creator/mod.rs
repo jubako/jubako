@@ -23,11 +23,6 @@ use std::fs::OpenOptions;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 
-enum Embedded {
-    Yes,
-    No(PathBuf),
-}
-
 use bstr::ByteVec;
 
 mod private {

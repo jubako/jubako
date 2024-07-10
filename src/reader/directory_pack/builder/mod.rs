@@ -3,8 +3,9 @@ mod property;
 use super::entry_store::EntryStore;
 use super::layout::Properties as LProperties;
 use super::layout::VariantPart;
+use super::property_compare::PropertyCompare;
 use super::raw_value::RawValue;
-use super::{LazyEntry, PropertyCompare};
+use super::LazyEntry;
 use crate::bases::*;
 use crate::common::Value;
 use crate::reader::directory_pack::private::ValueStorageTrait;
@@ -48,10 +49,6 @@ impl AnyVariantBuilder {
         Ok(Self {
             properties: properties?,
         })
-    }
-
-    pub(super) fn count(&self) -> u8 {
-        self.properties.len() as u8
     }
 }
 
@@ -98,11 +95,11 @@ impl AnyBuilder {
         Ok(Self { properties, store })
     }
 
-    fn new_property_compare(&self, property_name: String, value: Value) -> PropertyCompare {
+    pub fn new_property_compare(&self, property_name: String, value: Value) -> PropertyCompare {
         PropertyCompare::new(self, vec![property_name], vec![value])
     }
 
-    fn new_multiple_property_compare(
+    pub fn new_multiple_property_compare(
         &self,
         property_names: Vec<String>,
         values: Vec<Value>,

@@ -71,5 +71,5 @@ pub fn set_location<P: AsRef<Path>>(
 
         return Ok((pack_info.pack_kind, old_location));
     }
-    return Err(format!("Cannot find pack {uuid}").into());
+    Err(format!("Cannot find pack {uuid}").into())
 }

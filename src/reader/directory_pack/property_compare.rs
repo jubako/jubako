@@ -5,7 +5,7 @@ use crate::bases::*;
 use crate::common::Value;
 use std::cmp::Ordering;
 
-pub(super) struct PropertyCompare<'builder> {
+pub struct PropertyCompare<'builder> {
     builder: &'builder AnyBuilder,
     property_names: Box<[String]>,
     values: Box<[Value]>,
@@ -13,7 +13,7 @@ pub(super) struct PropertyCompare<'builder> {
 }
 
 impl<'builder> PropertyCompare<'builder> {
-    pub fn new(
+    pub(crate) fn new(
         builder: &'builder AnyBuilder,
         property_names: Vec<String>,
         values: Vec<Value>,
