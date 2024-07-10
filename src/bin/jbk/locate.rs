@@ -1,5 +1,4 @@
 use clap::Parser;
-use jbk::creator::OutStream;
 use jbk::reader::PackLocatorTrait;
 use jubako as jbk;
 use std::io::{Seek, SeekFrom};

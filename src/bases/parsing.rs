@@ -7,7 +7,7 @@ use super::{Offset, Result};
 use super::ByteSize;
 
 /// A Parser is something parsing data from a [u8]
-pub(crate) trait Parser {
+pub trait Parser {
     fn read_slice(&mut self, size: usize) -> Result<Cow<[u8]>>;
     fn read_data(&mut self, buf: &mut [u8]) -> Result<()>;
     fn tell(&self) -> Offset;
@@ -68,7 +68,7 @@ pub(crate) trait Parser {
 }
 
 /// A RandomParser is something parsing data from a [u8] at random position
-pub(crate) trait RandomParser {
+pub trait RandomParser {
     type Parser<'a>: Parser
     where
         Self: 'a;
@@ -130,14 +130,14 @@ pub(crate) trait RandomParser {
     }
 }
 
-pub(crate) struct SliceParser<'a> {
+pub struct SliceParser<'a> {
     slice: Cow<'a, [u8]>,
     global_offset: Offset,
     offset: usize,
 }
 
 impl<'a> SliceParser<'a> {
-    pub fn new(slice: Cow<'a, [u8]>, global_offset: Offset) -> Self {
+    pub(crate) fn new(slice: Cow<'a, [u8]>, global_offset: Offset) -> Self {
         Self {
             slice,
             global_offset,

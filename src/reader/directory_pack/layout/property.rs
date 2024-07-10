@@ -12,7 +12,7 @@ pub struct Property {
 }
 
 impl Property {
-    pub fn new(offset: usize, kind: PropertyKind) -> Self {
+    pub(crate) fn new(offset: usize, kind: PropertyKind) -> Self {
         Self {
             offset: Offset::from(offset),
             kind,

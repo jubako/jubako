@@ -4,9 +4,10 @@ mod content_pack;
 mod directory_pack;
 mod manifest_pack;
 
+pub use crate::bases::FileSource;
+use crate::bases::InOutStream;
+pub(crate) use crate::bases::OutStream;
 use crate::bases::*;
-pub use crate::bases::{FileSource, OutStream};
-use crate::bases::{InOutStream, Reader};
 use crate::common::{CheckInfo, CompressionType, PackKind};
 pub use basic_creator::{BasicCreator, ConcatMode, EntryStoreTrait};
 pub use container_pack::{ContainerPackCreator, InContainerFile};
@@ -14,10 +15,9 @@ pub use content_pack::{
     CacheProgress, CachedContentAdder, CompHint, ContentAdder, ContentPackCreator, Progress,
 };
 pub use directory_pack::{
-    schema, ArrayS, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait, FullEntryTrait,
-    PropertyName, StoreHandle, Value, ValueHandle, ValueStore, VariantName,
+    schema, Array, ArrayS, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait,
+    FullEntryTrait, PropertyName, StoreHandle, Value, ValueHandle, ValueStore, VariantName,
 };
-use directory_pack::{Array, IndexedValueStore, PlainValueStore, ValueTransformer};
 pub use manifest_pack::ManifestPackCreator;
 use std::fs::OpenOptions;
 use std::io::{self, Read, Seek, SeekFrom};
@@ -32,7 +32,7 @@ use bstr::ByteVec;
 
 mod private {
     use super::*;
-    pub(super) trait WritableTell {
+    pub trait WritableTell {
         fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()>;
         fn serialize_tail(&mut self, stream: &mut Serializer) -> Result<()>;
         fn write(&mut self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
@@ -46,6 +46,11 @@ mod private {
     }
 
     pub trait Sealed {}
+
+    pub enum MaybeFileReader {
+        Yes(std::io::Take<std::fs::File>),
+        No(Box<dyn Read + Send>),
+    }
 }
 
 pub struct PackData {
@@ -57,10 +62,7 @@ pub struct PackData {
     pub check_info: CheckInfo,
 }
 
-pub(crate) enum MaybeFileReader {
-    Yes(std::io::Take<std::fs::File>),
-    No(Box<dyn Read + Send>),
-}
+pub(crate) use private::MaybeFileReader;
 
 pub trait InputReader: Read + Seek + Send + 'static {
     fn size(&self) -> Size;

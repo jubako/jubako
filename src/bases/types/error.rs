@@ -9,13 +9,13 @@ use std::string::FromUtf8Error;
 use xz2::stream::Error as lzmaError;
 
 #[derive(Debug)]
-pub(crate) struct FormatError {
+pub struct FormatError {
     what: String,
     where_: Option<Offset>,
 }
 
 impl FormatError {
-    pub fn new(what: &str, where_: Option<Offset>) -> Self {
+    pub(crate) fn new(what: &str, where_: Option<Offset>) -> Self {
         FormatError {
             what: what.into(),
             where_,

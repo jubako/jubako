@@ -25,7 +25,7 @@ pub(crate) use skip::*;
 use std::cmp;
 use std::marker::PhantomData;
 pub use types::*;
-pub use write::OutStream;
+pub(crate) use write::OutStream;
 pub(crate) use write::*;
 
 pub(crate) use std::io::Result as IoResult;

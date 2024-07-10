@@ -55,7 +55,7 @@ impl AnyVariantBuilder {
     }
 }
 
-pub(super) struct LazyEntryProperties {
+pub(crate) struct LazyEntryProperties {
     pub common: AnyVariantBuilder,
     pub variant_part: Option<(
         VariantIdProperty,
@@ -125,7 +125,8 @@ mod tests {
     use crate::common::ContentAddress;
     use crate::reader::directory_pack::entry_store::PlainStore;
     use crate::reader::directory_pack::raw_layout::{PropertyKind, RawProperty};
-    use crate::reader::directory_pack::{Array, EntryTrait};
+    use crate::reader::directory_pack::raw_value::Array;
+    use crate::reader::directory_pack::EntryTrait;
     use crate::reader::layout::{Layout, Properties};
     use crate::reader::RawValue;
 

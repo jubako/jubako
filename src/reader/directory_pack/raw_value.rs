@@ -346,7 +346,7 @@ impl RawValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::reader::directory_pack::{Extend, ValueStoreTrait};
+    use crate::reader::directory_pack::ValueStoreTrait;
     use crate::ContentAddress;
     use galvanic_test::test_suite;
 

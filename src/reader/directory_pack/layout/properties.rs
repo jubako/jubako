@@ -18,7 +18,7 @@ impl std::ops::Deref for Properties {
 }
 
 impl Properties {
-    pub fn new(initial_offset: usize, raw_properties: Vec<RawProperty>) -> Result<Self> {
+    pub(crate) fn new(initial_offset: usize, raw_properties: Vec<RawProperty>) -> Result<Self> {
         let mut offset = initial_offset;
         let mut properties = HashMap::new();
         for raw_property in raw_properties {

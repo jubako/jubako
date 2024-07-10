@@ -232,14 +232,14 @@ impl BaseValueStore {
 }
 
 #[repr(transparent)]
-pub(crate) struct PlainValueStore(BaseValueStore);
+pub struct PlainValueStore(BaseValueStore);
 
 impl PlainValueStore {
-    fn size(&self) -> Size {
+    pub(self) fn size(&self) -> Size {
         self.0.size
     }
 
-    fn finalize(&mut self, idx: ValueStoreIdx) {
+    pub(self) fn finalize(&mut self, idx: ValueStoreIdx) {
         self.0.idx = Some(idx);
         self.0
             .sorted_indirect
@@ -269,19 +269,19 @@ impl PlainValueStore {
         self.0.finalized = true;
     }
 
-    fn add_value(&mut self, data: Vec<u8>) -> usize {
+    pub(self) fn add_value(&mut self, data: Vec<u8>) -> usize {
         self.0.add_value(data)
     }
 
-    fn get(&self, idx: usize) -> ValueIdx {
+    pub(self) fn get(&self, idx: usize) -> ValueIdx {
         self.0.get(idx)
     }
 
-    fn key_size(&self) -> ByteSize {
+    pub(self) fn key_size(&self) -> ByteSize {
         needed_bytes(self.size().into_u64())
     }
 
-    fn get_idx(&self) -> Option<ValueStoreIdx> {
+    pub(self) fn get_idx(&self) -> Option<ValueStoreIdx> {
         self.0.idx
     }
 }
@@ -324,11 +324,11 @@ impl std::fmt::Debug for PlainValueStore {
 }
 
 #[repr(transparent)]
-pub(crate) struct IndexedValueStore(BaseValueStore);
+pub struct IndexedValueStore(BaseValueStore);
 // data[sorted_indirect[i]].1 == i
 
 impl IndexedValueStore {
-    fn finalize(&mut self, idx: ValueStoreIdx) {
+    pub(self) fn finalize(&mut self, idx: ValueStoreIdx) {
         self.0.idx = Some(idx);
         self.0
             .sorted_indirect
@@ -339,7 +339,7 @@ impl IndexedValueStore {
         self.0.finalized = true;
     }
 
-    fn add_value(&mut self, data: Vec<u8>) -> usize {
+    pub(self) fn add_value(&mut self, data: Vec<u8>) -> usize {
         // [TODO] This is a long search when we have a lot of values...
         let potential_idx = if self.0.data.len() >= 1024 {
             let d = data.as_slice();
@@ -362,15 +362,15 @@ impl IndexedValueStore {
         }
     }
 
-    fn get(&self, idx: usize) -> ValueIdx {
+    pub(self) fn get(&self, idx: usize) -> ValueIdx {
         self.0.get(idx)
     }
 
-    fn key_size(&self) -> ByteSize {
+    pub(self) fn key_size(&self) -> ByteSize {
         needed_bytes(self.0.sorted_indirect.len())
     }
 
-    fn get_idx(&self) -> Option<ValueStoreIdx> {
+    pub(self) fn get_idx(&self) -> Option<ValueStoreIdx> {
         self.0.idx
     }
 }

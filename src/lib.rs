@@ -11,8 +11,6 @@ pub use crate::bases::{
     Bound, ContentIdx, EntryCount, EntryIdx, EntryRange, Error, ErrorKind, FileSource, MayRef,
     Offset, PackId, PropertyCount, PropertyIdx, Reader, Result, Size, VariantIdx, VendorId, Vow,
 };
-use crate::bases::{EntryStoreIdx, IndexFreeData, PackFreeData, ValueIdx, Word};
-use crate::common::PackKind;
 pub use crate::common::{CompressionType, ContentAddress, Value};
 //use crate::reader::directory_pack::layout;
 

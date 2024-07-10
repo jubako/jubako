@@ -5,7 +5,6 @@ mod property;
 use super::raw_layout::RawLayout;
 use crate::bases::*;
 
-pub(crate) use super::raw_layout::DeportedInfo;
 pub(super) use super::raw_layout::PropertyKind;
 pub(crate) use properties::{Properties, SharedProperties};
 pub(crate) use property::Property;

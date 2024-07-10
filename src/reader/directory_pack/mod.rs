@@ -20,11 +20,8 @@ pub use self::index::Index;
 pub(self) use self::property_compare::PropertyCompare;
 pub use self::range::{CompareTrait, RangeTrait};
 pub(crate) use self::value_store::{ValueStore, ValueStoreTrait};
-use crate::common::ContentAddress;
-use crate::common::Value;
 pub use lazy_entry::LazyEntry;
 pub use raw_value::RawValue;
-pub(crate) use raw_value::{Array, Extend};
 
 pub trait EntryTrait {
     fn get_variant_id(&self) -> Result<Option<VariantIdx>>;
@@ -305,6 +302,7 @@ impl Explorable for DirectoryPack {
 mod tests {
     use super::raw_value::*;
     use super::*;
+    use crate::common::ContentAddress;
 
     #[derive(Debug)]
     struct FakeArray {

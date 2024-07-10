@@ -23,7 +23,7 @@ impl Parsable for ValueStoreKind {
     }
 }
 
-pub(crate) trait ValueStoreTrait: std::fmt::Debug + Send + Sync {
+pub trait ValueStoreTrait: std::fmt::Debug + Send + Sync {
     fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]>;
 }
 
@@ -128,12 +128,12 @@ impl DataBlockParsable for ValueStore {
 }
 
 #[derive(Debug)]
-struct PlainValueStore {
+pub struct PlainValueStore {
     reader: CheckReader,
 }
 
 impl PlainValueStore {
-    fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
+    pub(self) fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
         if let Some(size) = size {
             let offset = id.into_u64().into();
             if let Cow::Borrowed(s) = self.reader.get_slice(offset, size)? {
@@ -188,13 +188,13 @@ impl Explorable for PlainValueStore {
 }
 
 #[derive(Debug)]
-struct IndexedValueStore {
+pub struct IndexedValueStore {
     value_offsets: Vec<Offset>,
     reader: CheckReader,
 }
 
 impl IndexedValueStore {
-    fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
+    pub(self) fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
         if id.into_usize() + 1 >= self.value_offsets.len() {
             return Err(format_error!(&format!("{id} is not a valid id")));
         }
