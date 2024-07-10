@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::bases::*;
 
 #[repr(u8)]
@@ -105,14 +107,13 @@ impl DataBlockParsable for ValueStore {
     type Output = Self;
 
     fn finalize(intermediate: Self::Intermediate, reader: Reader) -> Result<Self::Output> {
+        // We want to be sure that we load all the ValueStore data in memory first.
         let reader = reader.create_sub_memory_reader(Offset::zero(), reader.size())?;
         Ok(match intermediate {
-            ValueStoreBuilder::Plain => Self::Plain(PlainValueStore {
-                reader: reader.try_into()?,
-            }),
+            ValueStoreBuilder::Plain => Self::Plain(PlainValueStore { reader }),
             ValueStoreBuilder::Indexed(value_offsets) => Self::Indexed(IndexedValueStore {
                 value_offsets,
-                reader: reader.try_into()?,
+                reader,
             }),
         })
     }
@@ -120,14 +121,18 @@ impl DataBlockParsable for ValueStore {
 
 #[derive(Debug)]
 pub struct PlainValueStore {
-    pub reader: MemoryReader,
+    reader: Reader,
 }
 
 impl PlainValueStore {
     fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
         if let Some(size) = size {
             let offset = id.into_u64().into();
-            self.reader.get_slice(offset, size)
+            if let Cow::Borrowed(s) = self.reader.get_slice(offset, size)? {
+                Ok(s)
+            } else {
+                unreachable!("Reader must be from memory")
+            }
         } else {
             panic!("Cannot use unsized with PlainValueStore");
         }
@@ -176,8 +181,8 @@ impl Explorable for PlainValueStore {
 
 #[derive(Debug)]
 pub struct IndexedValueStore {
-    pub value_offsets: Vec<Offset>,
-    pub reader: MemoryReader,
+    value_offsets: Vec<Offset>,
+    reader: Reader,
 }
 
 impl IndexedValueStore {
@@ -190,7 +195,11 @@ impl IndexedValueStore {
             Some(s) => s,
             None => self.value_offsets[id.into_usize() + 1] - start,
         };
-        self.reader.get_slice(start, size)
+        if let Cow::Borrowed(s) = self.reader.get_slice(start, size)? {
+            Ok(s)
+        } else {
+            unreachable!("Reader must be from memory")
+        }
     }
 }
 

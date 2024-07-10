@@ -5,7 +5,6 @@ mod cache;
 #[cfg(feature = "explorable")]
 mod explorable;
 mod io;
-mod memory_reader;
 mod parsing;
 mod prop_type;
 mod reader;
@@ -17,7 +16,6 @@ pub use cache::*;
 #[cfg(feature = "explorable")]
 pub use explorable::*;
 pub use io::*;
-pub use memory_reader::*;
 pub use parsing::*;
 pub(crate) use prop_type::*;
 pub use reader::*;

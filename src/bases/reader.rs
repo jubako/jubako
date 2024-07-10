@@ -9,7 +9,8 @@ use super::Parser;
 use super::SizedBlockParsable;
 use super::SizedParsable;
 use super::SliceParser;
-use super::{MemoryReader, Region, Source};
+use super::{Region, Source};
+use std::borrow::Cow;
 use std::sync::Arc;
 
 // A wrapper around a source. Allowing access only on a region of the source
@@ -74,6 +75,11 @@ impl Reader {
         ByteSlice::new_from_parts(&self.source, region)
     }
 
+    pub fn get_slice(&self, offset: Offset, size: Size) -> Result<Cow<[u8]>> {
+        let region = self.region.cut_rel(offset, size);
+        self.source.get_slice(region)
+    }
+
     pub fn create_parser(&self, offset: Offset, size: Size) -> Result<impl Parser + '_> {
         let region = self.region.cut_rel(offset, size);
         let slice = self.source.get_slice(region)?;
@@ -97,12 +103,6 @@ impl Reader {
             source: source.into_source(),
             region,
         })
-    }
-
-    pub fn into_memory_reader(&self, offset: Offset, size: Size) -> Result<MemoryReader> {
-        let region = self.region.cut_rel(offset, size);
-        let (source, region) = Arc::clone(&self.source).into_memory_source(region)?;
-        Ok(MemoryReader::new_from_parts(source, region))
     }
 }
 
