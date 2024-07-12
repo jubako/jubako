@@ -3,7 +3,7 @@ use super::clusterwriter::ClusterWriterProxy;
 use super::{CompHint, ContentAdder, Progress};
 use crate::bases::*;
 use crate::common::{
-    CheckInfo, ContentAddress, ContentInfo, ContentPackHeader, PackHeaderInfo, PackKind,
+    CheckInfo, ContentAddress, ContentInfo, ContentPackHeader, PackHeader, PackHeaderInfo, PackKind,
 };
 use crate::creator::{Compression, InputReader, NamedFile, PackData, PackRecipient};
 use std::cell::Cell;
@@ -128,7 +128,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         progress: Arc<dyn Progress>,
     ) -> Result<Self> {
         file.seek(SeekFrom::Start(
-            ContentPackHeader::SIZE as u64, /* + 4*/
+            PackHeader::BLOCK_SIZE as u64 + ContentPackHeader::BLOCK_SIZE as u64,
         ))?;
         let nb_threads = std::cmp::max(
             std::thread::available_parallelism()
@@ -282,9 +282,15 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         let pack_size: Size = (check_offset + 33 + 64).into();
         buffered.rewind()?;
 
-        info!("----- Write header -----");
-        let header = ContentPackHeader::new(
+        info!("----- Write pack header -----");
+        let pack_header = PackHeader::new(
+            PackKind::Content,
             PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset),
+        );
+        buffered.ser_write(&pack_header)?;
+
+        info!("----- Write content pack header -----");
+        let header = ContentPackHeader::new(
             self.free_data,
             clusters_offset,
             (nb_clusters as u32).into(),
@@ -311,7 +317,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         Ok((
             file,
             PackData {
-                uuid: header.pack_header.uuid,
+                uuid: pack_header.uuid,
                 pack_id: self.pack_id,
                 pack_kind: PackKind::Content,
                 free_data: Default::default(),

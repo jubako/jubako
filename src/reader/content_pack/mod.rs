@@ -1,7 +1,7 @@
 mod cluster;
 
 use crate::bases::*;
-use crate::common::{CheckInfo, ContentInfo, ContentPackHeader, Pack, PackKind};
+use crate::common::{CheckInfo, ContentInfo, ContentPackHeader, Pack, PackHeader, PackKind};
 use cluster::Cluster;
 use fxhash::FxBuildHasher;
 use lru::LruCache;
@@ -12,6 +12,7 @@ use uuid::Uuid;
 use super::ByteRegion;
 
 pub struct ContentPack {
+    pack_header: PackHeader,
     header: ContentPackHeader,
     content_infos: ArrayReader<ContentInfo, u32>,
     cluster_ptrs: ArrayReader<SizedOffset, u32>,
@@ -22,7 +23,13 @@ pub struct ContentPack {
 
 impl ContentPack {
     pub fn new(reader: Reader) -> Result<Self> {
-        let header = reader.parse_block_at::<ContentPackHeader>(Offset::zero())?;
+        let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero())?;
+        if pack_header.magic != PackKind::Content {
+            return Err(format_error!("Pack Magic is not ContentPack"));
+        }
+
+        let header =
+            reader.parse_block_at::<ContentPackHeader>(Offset::from(PackHeader::BLOCK_SIZE))?;
         let content_infos = ArrayReader::new_memory_from_reader(
             &reader,
             header.content_ptr_pos,
@@ -34,6 +41,7 @@ impl ContentPack {
             *header.cluster_count,
         )?;
         Ok(ContentPack {
+            pack_header,
             header,
             content_infos,
             cluster_ptrs,
@@ -126,35 +134,34 @@ impl Explorable for ContentPack {
 }
 impl Pack for ContentPack {
     fn kind(&self) -> PackKind {
-        self.header.pack_header.magic
+        self.pack_header.magic
     }
     fn app_vendor_id(&self) -> VendorId {
-        self.header.pack_header.app_vendor_id
+        self.pack_header.app_vendor_id
     }
     fn version(&self) -> (u8, u8) {
         (
-            self.header.pack_header.major_version,
-            self.header.pack_header.minor_version,
+            self.pack_header.major_version,
+            self.pack_header.minor_version,
         )
     }
     fn uuid(&self) -> Uuid {
-        self.header.pack_header.uuid
+        self.pack_header.uuid
     }
     fn size(&self) -> Size {
-        self.header.pack_header.file_size
+        self.pack_header.file_size
     }
     fn check(&self) -> Result<bool> {
         if self.check_info.get().is_none() {
             let _ = self.check_info.set(self.reader.parse_block_in::<CheckInfo>(
-                self.header.pack_header.check_info_pos,
-                self.header.pack_header.check_info_size(),
+                self.pack_header.check_info_pos,
+                self.pack_header.check_info_size(),
             )?);
         }
         let check_info = self.check_info.get().unwrap();
-        let mut check_stream = self.reader.create_stream(
-            Offset::zero(),
-            Size::from(self.header.pack_header.check_info_pos),
-        );
+        let mut check_stream = self
+            .reader
+            .create_stream(Offset::zero(), Size::from(self.pack_header.check_info_pos));
         check_info.check(&mut check_stream)
     }
 }

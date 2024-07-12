@@ -1,6 +1,6 @@
 use super::{entry_store, value_store, Index};
 use crate::bases::*;
-use crate::common::{CheckInfo, DirectoryPackHeader, PackHeaderInfo, PackKind};
+use crate::common::{CheckInfo, DirectoryPackHeader, PackHeader, PackHeaderInfo, PackKind};
 use crate::creator::private::WritableTell;
 use crate::creator::PackData;
 use entry_store::EntryStoreTrait;
@@ -91,7 +91,7 @@ pub struct FinalizedDirectoryPackCreator {
 impl FinalizedDirectoryPackCreator {
     pub fn write<O: InOutStream>(mut self, file: &mut O) -> Result<PackData> {
         let origin_offset = file.stream_position()?;
-        let to_skip = DirectoryPackHeader::SIZE;
+        let to_skip = PackHeader::BLOCK_SIZE + DirectoryPackHeader::SIZE;
         file.seek(SeekFrom::Current(to_skip as i64))?;
 
         let mut buffered = BufWriter::new(file);
@@ -144,12 +144,19 @@ impl FinalizedDirectoryPackCreator {
         buffered.flush()?;
         let file = buffered.into_inner().unwrap();
 
-        info!("----- Write header -----");
         let check_offset = file.seek(SeekFrom::End(0))? - origin_offset;
         let pack_size: Size = (check_offset + 33 + 64).into();
         file.seek(SeekFrom::Start(origin_offset))?;
-        let header = DirectoryPackHeader::new(
+
+        info!("----- Write pack header -----");
+        let pack_header = PackHeader::new(
+            PackKind::Directory,
             PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset.into()),
+        );
+        file.ser_write(&pack_header)?;
+
+        info!("----- Write directory pack header -----");
+        let header = DirectoryPackHeader::new(
             self.free_data,
             (
                 (indexes_offsets.len() as u32).into(),
@@ -180,7 +187,7 @@ impl FinalizedDirectoryPackCreator {
 
         file.seek(SeekFrom::Start(origin_offset))?;
         Ok(PackData {
-            uuid: header.uuid(),
+            uuid: pack_header.uuid,
             pack_id: self.pack_id,
             pack_kind: PackKind::Directory,
             free_data: Default::default(),

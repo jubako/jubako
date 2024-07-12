@@ -3,8 +3,6 @@ use std::cmp;
 use std::fmt::Debug;
 use std::io::Read;
 
-use super::PackOffsetsIter;
-
 #[derive(Clone, Copy)]
 pub enum CheckKind {
     None = 0,
@@ -115,7 +113,10 @@ pub struct ManifestCheckStream<'a, S: Read> {
 }
 
 impl<'a, S: Read> ManifestCheckStream<'a, S> {
-    pub fn new_from_offset_iter(source: &'a mut S, mut pack_offsets: PackOffsetsIter) -> Self {
+    pub fn new_from_offset_iter(
+        source: &'a mut S,
+        mut pack_offsets: impl Iterator<Item = Offset>,
+    ) -> Self {
         let (pack_offset, pack_count) = match pack_offsets.next() {
             Some(pack_offset) => {
                 let pack_count = pack_offsets.count() + 1;

@@ -16,7 +16,7 @@ pub use content_pack::ContentPack;
 pub use directory_pack::{builder, layout};
 pub use missing::MayMissPack;
 pub type EntryStore = std::sync::Arc<directory_pack::EntryStore>;
-pub use crate::common::{ManifestPackHeader, PackInfo};
+pub use crate::common::{ManifestPackHeader, PackHeader, PackInfo};
 pub use byte_region::ByteRegion;
 pub use byte_slice::ByteSlice;
 pub use directory_pack::{
@@ -25,7 +25,7 @@ pub use directory_pack::{
 };
 pub use layout::VariantPart;
 pub use locator::{ChainedLocator, FsLocator, PackLocatorTrait};
-pub use manifest_pack::ManifestPack;
+pub use manifest_pack::{ManifestPack, PackOffsetsIter};
 pub use stream::Stream;
 
 pub mod testing {

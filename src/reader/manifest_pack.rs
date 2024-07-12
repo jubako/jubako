@@ -1,12 +1,46 @@
 use std::sync::OnceLock;
 
 use crate::bases::*;
-use crate::common::{CheckInfo, ManifestCheckStream, ManifestPackHeader, Pack, PackInfo, PackKind};
+use crate::common::{
+    CheckInfo, ManifestCheckStream, ManifestPackHeader, Pack, PackHeader, PackInfo, PackKind,
+};
 use crate::reader::directory_pack::{ValueStore, ValueStoreTrait};
 use std::cmp;
 use uuid::Uuid;
 
+pub struct PackOffsetsIter {
+    offset: Offset,
+    left: u16,
+}
+
+impl PackOffsetsIter {
+    pub fn new(check_info_pos: Offset, pack_count: PackCount) -> Self {
+        let offset = Offset::from(
+            check_info_pos.into_u64() - pack_count.into_u64() * (PackInfo::SIZE as u64/* + 4*/),
+        );
+        Self {
+            offset,
+            left: pack_count.into_u16(),
+        }
+    }
+}
+
+impl Iterator for PackOffsetsIter {
+    type Item = Offset;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.left != 0 {
+            let offset = self.offset;
+            self.offset += PackInfo::SIZE;
+            self.left -= 1;
+            Some(offset)
+        } else {
+            None
+        }
+    }
+}
+
 pub struct ManifestPack {
+    pack_header: PackHeader,
     header: ManifestPackHeader,
     reader: Reader,
     directory_pack_info: PackInfo,
@@ -18,8 +52,13 @@ pub struct ManifestPack {
 
 impl ManifestPack {
     pub fn new(reader: Reader) -> Result<Self> {
-        let header = reader.parse_at::<ManifestPackHeader>(Offset::zero())?;
-        let pack_offsets = header.packs_offset();
+        let pack_header = reader.parse_at::<PackHeader>(Offset::zero())?;
+        if pack_header.magic != PackKind::Manifest {
+            return Err(format_error!("Pack Magic is not ManifestPack"));
+        }
+
+        let header = reader.parse_at::<ManifestPackHeader>(Offset::from(PackHeader::BLOCK_SIZE))?;
+        let pack_offsets = PackOffsetsIter::new(pack_header.check_info_pos, header.pack_count);
         let mut directory_pack_info = None;
         let mut pack_infos: Vec<PackInfo> = Vec::with_capacity(header.pack_count.into_usize());
         let mut max_id = 0;
@@ -40,6 +79,7 @@ impl ManifestPack {
             None
         };
         Ok(Self {
+            pack_header,
             header,
             reader,
             directory_pack_info: directory_pack_info.unwrap(),
@@ -48,6 +88,10 @@ impl ManifestPack {
             value_store,
             max_id,
         })
+    }
+
+    fn packs_offset(&self) -> PackOffsetsIter {
+        PackOffsetsIter::new(self.pack_header.check_info_pos, self.header.pack_count)
     }
 }
 
@@ -68,8 +112,8 @@ impl ManifestPack {
 
     fn _get_check_info(&self) -> Result<CheckInfo> {
         self.reader.parse_block_in::<CheckInfo>(
-            self.header.pack_header.check_info_pos,
-            self.header.pack_header.check_info_size(),
+            self.pack_header.check_info_pos,
+            self.pack_header.check_info_size(),
         )
     }
 
@@ -143,33 +187,30 @@ impl ManifestPack {
 
 impl Pack for ManifestPack {
     fn kind(&self) -> PackKind {
-        self.header.pack_header.magic
+        self.pack_header.magic
     }
     fn app_vendor_id(&self) -> VendorId {
-        self.header.pack_header.app_vendor_id
+        self.pack_header.app_vendor_id
     }
     fn version(&self) -> (u8, u8) {
         (
-            self.header.pack_header.major_version,
-            self.header.pack_header.minor_version,
+            self.pack_header.major_version,
+            self.pack_header.minor_version,
         )
     }
     fn uuid(&self) -> Uuid {
-        self.header.pack_header.uuid
+        self.pack_header.uuid
     }
     fn size(&self) -> Size {
-        self.header.pack_header.file_size
+        self.pack_header.file_size
     }
     fn check(&self) -> Result<bool> {
         let check_info = self.get_check_info()?;
-        let mut check_stream = self.reader.create_stream(
-            Offset::zero(),
-            Size::from(self.header.pack_header.check_info_pos),
-        );
-        let mut check_stream = ManifestCheckStream::new_from_offset_iter(
-            &mut check_stream,
-            self.header.packs_offset(),
-        );
+        let mut check_stream = self
+            .reader
+            .create_stream(Offset::zero(), Size::from(self.pack_header.check_info_pos));
+        let mut check_stream =
+            ManifestCheckStream::new_from_offset_iter(&mut check_stream, self.packs_offset());
         check_info.check(&mut check_stream)
     }
 }

@@ -1,6 +1,8 @@
 use super::{private::WritableTell, PackData, StoreHandle, ValueStore};
 use crate::bases::*;
-use crate::common::{CheckInfo, ManifestCheckStream, ManifestPackHeader, PackHeaderInfo, PackInfo};
+use crate::common::{
+    CheckInfo, ManifestCheckStream, ManifestPackHeader, PackHeader, PackHeaderInfo, PackInfo,
+};
 use std::io::SeekFrom;
 
 pub struct ManifestPackCreator {
@@ -65,12 +67,13 @@ impl ManifestPackCreator {
         let pack_size: Size = (check_offset + 33 + 64).into();
 
         file.seek(SeekFrom::Start(origin_offset))?;
-        let header = ManifestPackHeader::new(
+
+        let pack_header = PackHeader::new(
+            crate::PackKind::Manifest,
             PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset.into()),
-            self.free_data,
-            nb_packs.into(),
-            value_store_pos,
         );
+        file.ser_write(&pack_header)?;
+        let header = ManifestPackHeader::new(self.free_data, nb_packs.into(), value_store_pos);
         file.ser_write(&header)?;
         file.seek(SeekFrom::Start(origin_offset))?;
 
@@ -85,6 +88,6 @@ impl ManifestPackCreator {
         file.seek(SeekFrom::End(0))?;
         file.write_all(&tail_buffer)?;
 
-        Ok(header.pack_header.uuid)
+        Ok(pack_header.uuid)
     }
 }
