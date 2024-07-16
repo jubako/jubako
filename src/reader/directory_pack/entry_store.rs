@@ -67,10 +67,19 @@ impl BlockParsable for EntryStoreBuilder {}
 
 impl DataBlockParsable for EntryStore {
     type Intermediate = Layout;
+    type DataReader = CheckReader;
     type TailParser = EntryStoreBuilder;
     type Output = Self;
 
-    fn finalize(layout: Self::Intermediate, entry_reader: Reader) -> Result<Self::Output> {
+    fn get_data_reader(
+        reader: &Reader,
+        header_offset: Offset,
+        data_size: Size,
+    ) -> Result<Self::DataReader> {
+        reader.cut_check(header_offset - data_size, data_size)
+    }
+
+    fn finalize(layout: Self::Intermediate, entry_reader: CheckReader) -> Result<Self::Output> {
         Ok(EntryStore::Plain(PlainStore {
             layout,
             entry_reader,
@@ -90,7 +99,7 @@ impl Explorable for EntryStore {
 #[derive(Debug)]
 pub struct PlainStore {
     pub layout: Layout,
-    pub entry_reader: Reader,
+    pub entry_reader: CheckReader,
 }
 
 impl PlainStore {

@@ -120,8 +120,17 @@ pub(crate) struct ClusterBuilder {
 
 impl DataBlockParsable for Cluster {
     type Intermediate = ClusterBuilder;
+    type DataReader = Reader;
     type TailParser = ClusterBuilder;
     type Output = Self;
+
+    fn get_data_reader(
+        reader: &Reader,
+        header_offset: Offset,
+        data_size: Size,
+    ) -> Result<Self::DataReader> {
+        Ok(reader.cut(header_offset - data_size, data_size))
+    }
 
     fn finalize(intermediate: Self::Intermediate, reader: Reader) -> Result<Self::Output> {
         let reader = if intermediate.compression == CompressionType::None {

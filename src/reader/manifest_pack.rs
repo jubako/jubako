@@ -52,12 +52,13 @@ pub struct ManifestPack {
 
 impl ManifestPack {
     pub fn new(reader: Reader) -> Result<Self> {
-        let pack_header = reader.parse_at::<PackHeader>(Offset::zero())?;
+        let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero())?;
         if pack_header.magic != PackKind::Manifest {
             return Err(format_error!("Pack Magic is not ManifestPack"));
         }
 
-        let header = reader.parse_at::<ManifestPackHeader>(Offset::from(PackHeader::BLOCK_SIZE))?;
+        let header =
+            reader.parse_block_at::<ManifestPackHeader>(Offset::from(PackHeader::BLOCK_SIZE))?;
         let pack_offsets = PackOffsetsIter::new(pack_header.check_info_pos, header.pack_count);
         let mut directory_pack_info = None;
         let mut pack_infos: Vec<PackInfo> = Vec::with_capacity(header.pack_count.into_usize());

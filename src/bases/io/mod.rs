@@ -51,23 +51,23 @@ impl fmt::Debug for dyn MemorySource {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bases::{Parser, Reader};
+    use crate::bases::{CheckReader, Parser};
     use std::io::{Cursor, Write};
     use tempfile::tempfile;
     use test_case::test_case;
 
-    fn create_buf_reader(data: &[u8]) -> Option<Reader> {
+    fn create_buf_reader(data: &[u8]) -> Option<CheckReader> {
         Some(data.to_vec().into())
     }
 
-    fn create_file_reader(data: &[u8]) -> Option<Reader> {
+    fn create_file_reader(data: &[u8]) -> Option<CheckReader> {
         let mut file = tempfile().unwrap();
         file.write_all(data).unwrap();
         Some(FileSource::new(file).unwrap().into())
     }
 
     #[cfg(feature = "lz4")]
-    fn create_lz4_reader(data: &[u8]) -> Option<Reader> {
+    fn create_lz4_reader(data: &[u8]) -> Option<CheckReader> {
         let compressed_content = {
             let compressed_content = Vec::new();
             let mut encoder = lz4::EncoderBuilder::new()
@@ -81,19 +81,16 @@ mod tests {
             compressed_content.into_inner()
         };
         let decoder = lz4::Decoder::new(Cursor::new(compressed_content)).unwrap();
-        Some(Reader::new(
-            SeekableDecoder::new(decoder, Size::from(data.len())),
-            Size::from(data.len()),
-        ))
+        Some(SeekableDecoder::new(decoder, Size::from(data.len())).into())
     }
 
     #[cfg(not(feature = "lz4"))]
-    fn create_lz4_reader(_data: &[u8]) -> Option<Reader> {
+    fn create_lz4_reader(_data: &[u8]) -> Option<CheckReader> {
         None
     }
 
     #[cfg(feature = "lzma")]
-    fn create_lzma_reader(data: &[u8]) -> Option<Reader> {
+    fn create_lzma_reader(data: &[u8]) -> Option<CheckReader> {
         let compressed_content = {
             let compressed_content = Vec::new();
             let mut encoder = xz2::write::XzEncoder::new_stream(
@@ -111,19 +108,16 @@ mod tests {
             Cursor::new(compressed_content),
             xz2::stream::Stream::new_lzma_decoder(128 * 1024 * 1024).unwrap(),
         );
-        Some(Reader::new(
-            SeekableDecoder::new(decoder, Size::from(data.len())),
-            Size::from(data.len()),
-        ))
+        Some(SeekableDecoder::new(decoder, Size::from(data.len())).into())
     }
 
     #[cfg(not(feature = "lzma"))]
-    fn create_lzma_reader(_data: &[u8]) -> Option<Reader> {
+    fn create_lzma_reader(_data: &[u8]) -> Option<CheckReader> {
         None
     }
 
     #[cfg(feature = "zstd")]
-    fn create_zstd_reader(data: &[u8]) -> Option<Reader> {
+    fn create_zstd_reader(data: &[u8]) -> Option<CheckReader> {
         let compressed_content = {
             let compressed_content = Vec::new();
             let mut encoder = zstd::Encoder::new(Cursor::new(compressed_content), 0).unwrap();
@@ -132,18 +126,15 @@ mod tests {
             encoder.finish().unwrap().into_inner()
         };
         let decoder = zstd::Decoder::new(Cursor::new(compressed_content)).unwrap();
-        Some(Reader::new(
-            SeekableDecoder::new(decoder, Size::from(data.len())),
-            Size::from(data.len()),
-        ))
+        Some(SeekableDecoder::new(decoder, Size::from(data.len())).into())
     }
 
     #[cfg(not(feature = "zstd"))]
-    fn create_zstd_reader(_data: &[u8]) -> Option<Reader> {
+    fn create_zstd_reader(_data: &[u8]) -> Option<CheckReader> {
         None
     }
 
-    type ReaderCreator = fn(&[u8]) -> Option<Reader>;
+    type ReaderCreator = fn(&[u8]) -> Option<CheckReader>;
 
     #[test_case(create_buf_reader)]
     #[test_case(create_file_reader)]

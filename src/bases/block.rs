@@ -12,8 +12,16 @@ impl<T: BlockParsable + SizedParsable> SizedBlockParsable for T {
 
 pub(crate) trait DataBlockParsable {
     type Intermediate;
+    type DataReader;
     type TailParser: BlockParsable<Output = (Self::Intermediate, Size)>;
     type Output;
 
-    fn finalize(intermediate: Self::Intermediate, reader: Reader) -> Result<Self::Output>;
+    fn get_data_reader(
+        reader: &Reader,
+        header_offset: Offset,
+        data_size: Size,
+    ) -> Result<Self::DataReader>;
+
+    fn finalize(intermediate: Self::Intermediate, reader: Self::DataReader)
+        -> Result<Self::Output>;
 }

@@ -232,7 +232,7 @@ impl serde::Serialize for DirectoryPack {
                     let sized_offset = self.index_ptrs.index(*c).unwrap();
                     let index_header = self
                         .reader
-                        .parse_in::<IndexHeader>(sized_offset.offset, sized_offset.size)
+                        .parse_block_in::<IndexHeader>(sized_offset.offset, sized_offset.size)
                         .unwrap();
                     Index::new(index_header)
                 })

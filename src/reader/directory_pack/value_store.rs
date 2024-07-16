@@ -103,12 +103,23 @@ impl BlockParsable for ValueStoreBuilder {}
 
 impl DataBlockParsable for ValueStore {
     type Intermediate = ValueStoreBuilder;
+    type DataReader = CheckReader;
     type TailParser = ValueStoreBuilder;
     type Output = Self;
 
-    fn finalize(intermediate: Self::Intermediate, reader: Reader) -> Result<Self::Output> {
+    fn get_data_reader(
+        reader: &Reader,
+        header_offset: Offset,
+        data_size: Size,
+    ) -> Result<Self::DataReader> {
+        // [TOOD] Replace by one call to check_memory something
+        reader
+            .create_sub_memory_reader(header_offset - data_size, data_size)?
+            .cut_check(Offset::zero(), data_size)
+    }
+
+    fn finalize(intermediate: Self::Intermediate, reader: CheckReader) -> Result<Self::Output> {
         // We want to be sure that we load all the ValueStore data in memory first.
-        let reader = reader.create_sub_memory_reader(Offset::zero(), reader.size())?;
         Ok(match intermediate {
             ValueStoreBuilder::Plain => Self::Plain(PlainValueStore { reader }),
             ValueStoreBuilder::Indexed(value_offsets) => Self::Indexed(IndexedValueStore {
@@ -121,7 +132,7 @@ impl DataBlockParsable for ValueStore {
 
 #[derive(Debug)]
 pub struct PlainValueStore {
-    reader: Reader,
+    reader: CheckReader,
 }
 
 impl PlainValueStore {
@@ -182,7 +193,7 @@ impl Explorable for PlainValueStore {
 #[derive(Debug)]
 pub struct IndexedValueStore {
     value_offsets: Vec<Offset>,
-    reader: Reader,
+    reader: CheckReader,
 }
 
 impl IndexedValueStore {
@@ -250,7 +261,7 @@ mod tests {
 
     #[test]
     fn test_valuestorekind() {
-        let reader = Reader::from([0x00, 0x01, 0x02]);
+        let reader = CheckReader::from([0x00, 0x01, 0x02]);
         let mut parser = reader.create_parser(Offset::zero(), reader.size()).unwrap();
         assert_eq!(
             ValueStoreKind::parse(&mut parser).unwrap(),
