@@ -1,7 +1,8 @@
 use super::{private::WritableTell, PackData, StoreHandle, ValueStore};
 use crate::bases::*;
 use crate::common::{
-    CheckInfo, ManifestCheckStream, ManifestPackHeader, PackHeader, PackHeaderInfo, PackInfo,
+    CheckInfo, CheckKind, ManifestCheckStream, ManifestPackHeader, PackHeader, PackHeaderInfo,
+    PackInfo,
 };
 use std::io::SeekFrom;
 
@@ -28,7 +29,9 @@ impl ManifestPackCreator {
 
     pub fn finalize<O: InOutStream>(self, file: &mut O) -> Result<uuid::Uuid> {
         let origin_offset = file.stream_position()?;
-        file.seek(SeekFrom::Current(128))?;
+        file.seek(SeekFrom::Current(
+            PackHeader::BLOCK_SIZE as i64 + ManifestPackHeader::BLOCK_SIZE as i64,
+        ))?;
 
         let mut pack_infos = vec![];
         let mut free_data_ids = vec![];
@@ -64,7 +67,10 @@ impl ManifestPackCreator {
         }
 
         let check_offset = file.stream_position()? - origin_offset;
-        let pack_size: Size = (check_offset + 33 + 64).into();
+        let pack_size: Size = (check_offset
+            + CheckKind::Blake3.block_size().into_u64()
+            + PackHeader::BLOCK_SIZE as u64)
+            .into();
 
         file.seek(SeekFrom::Start(origin_offset))?;
 
@@ -82,7 +88,7 @@ impl ManifestPackCreator {
         file.ser_write(&check_info)?;
 
         file.seek(SeekFrom::Start(origin_offset))?;
-        let mut tail_buffer = [0u8; 64];
+        let mut tail_buffer = [0u8; PackHeader::BLOCK_SIZE];
         file.read_exact(&mut tail_buffer)?;
         tail_buffer.reverse();
         file.seek(SeekFrom::End(0))?;

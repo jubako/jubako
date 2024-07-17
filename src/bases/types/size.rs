@@ -79,6 +79,13 @@ impl Add<Size> for Size {
     }
 }
 
+impl Add<u64> for Size {
+    type Output = Self;
+    fn add(self, other: u64) -> Size {
+        Size(self.0 + other)
+    }
+}
+
 impl AddAssign<u64> for Size {
     fn add_assign(&mut self, other: u64) {
         self.0 += other;

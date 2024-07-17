@@ -173,49 +173,59 @@ mod tests {
 
     #[test]
     fn test_contentpack() {
-        let mut content = vec![
-            0x6a, 0x62, 0x6b, 0x63, // magic off:0
-            0x00, 0x00, 0x00, 0x01, // app_vendor_id off:4
-            0x00, // major_version off:8
-            0x02, // minor_version off:9
+        let mut content = vec![];
+
+        // Pack header offset 0/0x00
+        content.extend_from_slice(&[
+            0x6a, 0x62, 0x6b, 0x63, // magic
+            0x00, 0x00, 0x00, 0x01, // app_vendor_id
+            0x00, // major_version
+            0x02, // minor_version
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
-            0x0e, 0x0f, // uuid off:10
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding off:26
-            0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size off:32
-            0xAB, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // check_info_pos off:40
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved off:48
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
-            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // entry_ptr_pos off:64
-            0x8C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // cluster_ptr_pos off:72
-            0x03, 0x00, 0x00, 0x00, // entry count off:80
-            0x01, 0x00, 0x00, 0x00, // cluster count off:84
-        ];
-        content.extend_from_slice(&[0xff; 40]); // free_data off:88
-
-        // Offset 128/0x80 (entry_ptr_pos)
-        content.extend_from_slice(&[
-            0x00, 0x00, 0x00, 0x00, // first entry info off:128
-            0x01, 0x00, 0x00, 0x00, // second entry info off: 132
-            0x02, 0x00, 0x00, 0x00, // third entry info off: 136
+            0x0e, 0x0f, // uuid
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
+            0x1C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size
+            0xB7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // check_info_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, // reserved
         ]);
+        content.extend_from_slice(&[0; 4]); // Dummy CRC
 
-        // Offset 128 + 12 = 140/0x8C (cluste_ptr_pos)
+        // ContentPack header offset 64/0x40
         content.extend_from_slice(&[
-            0x08, 0x00, // first (and only) cluster size off:140
-            0xA3, 0x00, 0x00, 0x00, 0x00, 0x00, // first (and only) ptr pos. off:143
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // entry_ptr_pos
+            0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // cluster_ptr_pos
+            0x03, 0x00, 0x00, 0x00, // entry count
+            0x01, 0x00, 0x00, 0x00, // cluster count
         ]);
+        content.extend_from_slice(&[0xff; 36]); // free_data
+        content.extend_from_slice(&[0; 4]); // Dummy CRC
 
-        // Offset 140 + 8 = 148/0x94 (cluster_data)
+        // Entry ptr array offset 128/0x80 (entry_ptr_pos)
         content.extend_from_slice(&[
-            // Cluster off:148
+            0x00, 0x00, 0x00, 0x00, // first entry info
+            0x01, 0x00, 0x00, 0x00, // second entry info
+            0x02, 0x00, 0x00, 0x00, // third entry info
+        ]);
+        content.extend_from_slice(&[0; 4]); // Dummy CRC
+
+        // Cluster ptr array offset 128 + 16 = 144/0x90 (cluste_ptr_pos)
+        content.extend_from_slice(&[
+            0x08, 0x00, // first (and only) cluster size
+            0xAB, 0x00, 0x00, 0x00, 0x00, 0x00, // first (and only) ptr pos.
+        ]);
+        content.extend_from_slice(&[0; 4]); // Dummy CRC
+
+        // Cluster data offset 144 + 12 = 156/0x9C
+        content.extend_from_slice(&[
             0x11, 0x12, 0x13, 0x14, 0x15, // Data of blob 0
             0x21, 0x22, 0x23, // Data of blob 1
             0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of blob 2
         ]);
 
-        // Offset 148 + 15(0x0f) = 163/0xA3 (cluster_header)
+        // Cluster tail offset 156 + 15(0x0f) = 171/0xAB (cluster_header)
         content.extend_from_slice(&[
-            0x00, // compression off: 148+15 = 163
+            0x00, // compression
             0x01, // offset_size
             0x03, 0x00, // blob_count
             0x0f, // raw data size
@@ -223,21 +233,21 @@ mod tests {
             0x05, // Offset of blob 1
             0x08, // Offset of blob 2
         ]);
+        content.extend_from_slice(&[0; 4]); // Dummy CRC
 
-        // Offset end 163 + 8 = 171/0xAB (check_info_pos)
+        // Check info offset 171 + 8 + 4 = 183/0xB7 (check_info_pos)
         let hash = blake3::hash(&content);
-        content.push(0x01); // check info off: 171
-        content.extend(hash.as_bytes()); // end : 171+32 = 203
+        content.push(0x01);
+        content.extend(hash.as_bytes());
+        content.extend_from_slice(&[0; 4]); // Dummy CRC
 
-        // Offset 171 + 33 = 204/0xCC
-
-        // Add footer
+        // Footer offset 183 + 33 + 4 = 220/0xDC
         let mut footer = [0; 64];
         footer.copy_from_slice(&content[..64]);
         footer.reverse();
         content.extend_from_slice(&footer);
 
-        // FileSize 204 + 64 = 268/0x010C (file_size)
+        // FileSize 220 + 64 = 284/0x011C (file_size)
 
         let content_pack = ContentPack::new(content.into()).unwrap();
         assert_eq!(content_pack.get_content_count(), ContentCount::from(3));

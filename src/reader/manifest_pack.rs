@@ -15,9 +15,7 @@ pub struct PackOffsetsIter {
 
 impl PackOffsetsIter {
     pub fn new(check_info_pos: Offset, pack_count: PackCount) -> Self {
-        let offset = Offset::from(
-            check_info_pos.into_u64() - pack_count.into_u64() * (PackInfo::SIZE as u64/* + 4*/),
-        );
+        let offset = check_info_pos - pack_count * Size::from(PackInfo::BLOCK_SIZE);
         Self {
             offset,
             left: pack_count.into_u16(),
@@ -30,7 +28,7 @@ impl Iterator for PackOffsetsIter {
     fn next(&mut self) -> Option<Self::Item> {
         if self.left != 0 {
             let offset = self.offset;
-            self.offset += PackInfo::SIZE;
+            self.offset += PackInfo::BLOCK_SIZE;
             self.left -= 1;
             Some(offset)
         } else {
@@ -245,6 +243,8 @@ mod tests {
         let mut content = Arc::new(Vec::new());
         {
             let content = Arc::get_mut(&mut content).unwrap();
+
+            // Pack header offset 0/0x00
             content.extend_from_slice(&[
                 b'j', b'b', b'k', b'm', // magic
                 0x00, 0x00, 0x00, 0x01, // app_vendor_id
@@ -253,16 +253,23 @@ mod tests {
                 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
                 0x0e, 0x0f, // uuid
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
-                0xE1, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size
+                0xE5, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size
                 0x80, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // check_info_pos
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
+                0x00, 0x00, 0x00, 0x00, // reserved
+            ]);
+            content.extend_from_slice(&[0; 4]); // Dummy Crc32
+
+            // Manifest pack heaader offset 64/0x40
+            content.extend_from_slice(&[
                 0x03, 0x00, // pack_count
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Value Store pos
             ]);
-            content.extend_from_slice(&[0xff; 54]);
+            content.extend_from_slice(&[0xff; 50]);
+            content.extend_from_slice(&[0; 4]); // Dummy Crc32
 
             // Offset 128/0x80
+
             // First packInfo (directory pack)
             content.extend_from_slice(&[
                 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d,
@@ -275,7 +282,8 @@ mod tests {
                 0x01, 0x00, // free_data_id
             ]);
             // Offset 128 + 38 = 166/0xA6
-            content.extend_from_slice(&[0x00; 218]); // empty pack_location
+            content.extend_from_slice(&[0x00; 214]); // empty pack_location
+            content.extend_from_slice(&[0; 4]); // Dummy Crc32
 
             // Offset 128 + 256 = 384/0xA6
 
@@ -290,7 +298,8 @@ mod tests {
                 0x00, // pack_group
                 0x00, 0x00, // free_data_id
             ]);
-            content.extend_from_slice(&[0x00; 218]); // empty pack_location
+            content.extend_from_slice(&[0x00; 214]); // empty pack_location
+            content.extend_from_slice(&[0; 4]); // Dummy Crc32
 
             // Offset 384 + 256 = 640/x0280
 
@@ -306,10 +315,10 @@ mod tests {
                 0x00, 0x00, // free_data_id
                 8, b'p', b'a', b'c', b'k', b'p', b'a', b't', b'h',
             ]);
-            content.extend_from_slice(&[0x00; 218 - 9]);
-
-            // Offset 640 + 256 = 896/0x0380
+            content.extend_from_slice(&[0x00; 214 - 9]);
+            content.extend_from_slice(&[0; 4]); // Dummy Crc32
         }
+
         let hash = {
             let mut hasher = blake3::Hasher::new();
             let mut reader = std::io::Cursor::new(content.as_ref());
@@ -320,13 +329,13 @@ mod tests {
         };
         {
             let content = Arc::get_mut(&mut content).unwrap();
+            // Check info Offset 640 + 256 = 896/0x0380 (check_info_pos)
             content.push(0x01);
             content.extend(hash.as_bytes());
+            content.extend_from_slice(&[0; 4]); // Dummy Crc32
         }
 
-        // Offset 896 + 33 = 929/0x03A1
-
-        // Add footer
+        // Footer 896 + 33 + 4 = 933/0x3A5
         let mut footer = [0; 64];
         footer.copy_from_slice(&content[..64]);
         footer.reverse();
@@ -334,7 +343,7 @@ mod tests {
             .unwrap()
             .extend_from_slice(&footer);
 
-        // FileSize 929 + 64 = 993/0x03E1
+        // FileSize 933 + 64 = 993/0x03E5 (file_size)
         let content_size = content.size();
         let reader = Reader::new_from_arc(content, content_size);
         let main_pack = ManifestPack::new(reader).unwrap();
@@ -348,7 +357,7 @@ mod tests {
                 0x0e, 0x0f
             ])
         );
-        assert_eq!(main_pack.size(), Size::new(993));
+        assert_eq!(main_pack.size(), Size::new(997));
         assert!(main_pack.check().unwrap());
         assert_eq!(
             main_pack.get_directory_pack_info(),

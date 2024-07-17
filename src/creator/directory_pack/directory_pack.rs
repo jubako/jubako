@@ -1,6 +1,8 @@
 use super::{entry_store, value_store, Index};
 use crate::bases::*;
-use crate::common::{CheckInfo, DirectoryPackHeader, PackHeader, PackHeaderInfo, PackKind};
+use crate::common::{
+    CheckInfo, CheckKind, DirectoryPackHeader, PackHeader, PackHeaderInfo, PackKind,
+};
 use crate::creator::private::WritableTell;
 use crate::creator::PackData;
 use entry_store::EntryStoreTrait;
@@ -91,7 +93,7 @@ pub struct FinalizedDirectoryPackCreator {
 impl FinalizedDirectoryPackCreator {
     pub fn write<O: InOutStream>(mut self, file: &mut O) -> Result<PackData> {
         let origin_offset = file.stream_position()?;
-        let to_skip = PackHeader::BLOCK_SIZE + DirectoryPackHeader::SIZE;
+        let to_skip = PackHeader::BLOCK_SIZE + DirectoryPackHeader::BLOCK_SIZE;
         file.seek(SeekFrom::Current(to_skip as i64))?;
 
         let mut buffered = BufWriter::new(file);
@@ -145,7 +147,10 @@ impl FinalizedDirectoryPackCreator {
         let file = buffered.into_inner().unwrap();
 
         let check_offset = file.seek(SeekFrom::End(0))? - origin_offset;
-        let pack_size: Size = (check_offset + 33 + 64).into();
+        let pack_size: Size = (check_offset
+            + CheckKind::Blake3.block_size().into_u64()
+            + PackHeader::BLOCK_SIZE as u64)
+            .into();
         file.seek(SeekFrom::Start(origin_offset))?;
 
         info!("----- Write pack header -----");
@@ -179,7 +184,7 @@ impl FinalizedDirectoryPackCreator {
         file.ser_write(&check_info)?;
 
         file.seek(SeekFrom::Start(origin_offset))?;
-        let mut tail_buffer = [0u8; 64];
+        let mut tail_buffer = [0u8; PackHeader::BLOCK_SIZE];
         file.read_exact(&mut tail_buffer)?;
         tail_buffer.reverse();
         file.seek(SeekFrom::End(0))?;

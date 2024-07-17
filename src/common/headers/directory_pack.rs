@@ -42,7 +42,6 @@ impl Parsable for DirectoryPackHeader {
         let value_store_count = Count::<u8>::parse(parser)?.into();
         parser.skip(3)?;
         let free_data = PackFreeData::parse(parser)?;
-        parser.skip(4)?;
         Ok(DirectoryPackHeader {
             entry_store_ptr_pos,
             value_store_ptr_pos,
@@ -65,8 +64,7 @@ impl SizedParsable for DirectoryPackHeader {
         + Count::<u32>::SIZE
         + Count::<u8>::SIZE
         + 3 // padding
-        + PackFreeData::SIZE
-+ 4; // padding
+        + PackFreeData::SIZE;
 }
 
 impl Serializable for DirectoryPackHeader {
@@ -80,7 +78,6 @@ impl Serializable for DirectoryPackHeader {
         written += self.value_store_count.serialize(ser)?;
         written += ser.write_data(&[0; 3])?;
         written += self.free_data.serialize(ser)?;
-        written += ser.write_data(&[0; 4])?;
         Ok(written)
     }
 }
@@ -101,7 +98,7 @@ mod tests {
         ];
         content.extend_from_slice(&[0x00; 3]);
         content.extend_from_slice(&[0xff; 24]);
-        content.extend_from_slice(&[0x00; 4]);
+        content.extend_from_slice(&[0x00; 4]); // Dummy CRC32
         let reader = Reader::from(content);
         let directory_pack_header = reader
             .parse_block_at::<DirectoryPackHeader>(Offset::zero())

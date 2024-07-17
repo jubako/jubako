@@ -37,7 +37,6 @@ impl Parsable for ContentPackHeader {
         let cluster_count = Count::<u32>::parse(parser)?.into();
         parser.skip(12)?;
         let free_data = PackFreeData::parse(parser)?;
-        parser.skip(4)?;
         Ok(ContentPackHeader {
             content_ptr_pos,
             cluster_ptr_pos,
@@ -54,8 +53,7 @@ impl SizedParsable for ContentPackHeader {
         + 4 // ContentCount::SIZE
         + 4 // ClusterCount::SIZE
         + 12 // Padding
-        + PackFreeData::SIZE
-  + 4; // reserved
+        + PackFreeData::SIZE;
 }
 
 impl BlockParsable for ContentPackHeader {}
@@ -69,7 +67,6 @@ impl Serializable for ContentPackHeader {
         written += self.cluster_count.serialize(ser)?;
         written += ser.write_data(&[0; 12])?;
         written += self.free_data.serialize(ser)?;
-        written += ser.write_data(&[0; 4])?;
         Ok(written)
     }
 }
@@ -88,7 +85,7 @@ mod tests {
         ];
         content.extend_from_slice(&[0x00; 12]); // padding
         content.extend_from_slice(&[0xff; 24]); // free_data
-        content.extend_from_slice(&[0x00; 4]);
+        content.extend_from_slice(&[0x00; 4]); // Dummy CRC32
         let reader = Reader::from(content);
         let content_pack_header = reader
             .parse_block_at::<ContentPackHeader>(Offset::zero())

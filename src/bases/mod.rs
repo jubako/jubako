@@ -60,9 +60,7 @@ where
     ) -> Result<Self> {
         let elem_size = Size::from(OutType::SIZE);
         let array_size = elem_size * length.0.into();
-        let reader = reader
-            .create_sub_memory_reader(at, array_size)?
-            .cut_check(Offset::zero(), array_size)?;
+        let reader = reader.cut_check(at, array_size)?;
         Ok(Self {
             reader,
             length,

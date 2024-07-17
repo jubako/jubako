@@ -60,6 +60,7 @@ impl Cluster {
             data.extend((*offset as u64).to_le_bytes());
         }
         self.tail_size = Some(data.len() as u16);
+        data.extend_from_slice(&[0; 4]); // Dummy Crc32
         data
     }
 
@@ -96,6 +97,7 @@ impl KeyStore {
         for content in &self.data {
             data.extend(content);
         }
+        data.extend_from_slice(&[0; 4]); // Dummy Crc32
         data
     }
 
@@ -109,6 +111,7 @@ impl KeyStore {
             data.extend((*offset as u64).to_le_bytes());
         }
         self.tail_size = Some(data.len() as u16);
+        data.extend_from_slice(&[0; 4]); // Dummy Crc32
         data
     }
 
@@ -137,6 +140,7 @@ impl IndexStore {
             data.extend(&entry.word_count.to_le_bytes().to_vec());
             idx += 1;
         }
+        data.extend_from_slice(&[0; 4]); // Dummy Crc32
         IndexStore {
             data,
             tail_size: None,
@@ -150,6 +154,8 @@ impl IndexStore {
     pub fn tail_bytes(&mut self) -> Vec<u8> {
         let mut data = vec![];
         data.push(0x00); // kind
+        data.extend(2_u32.to_le_bytes()); // entry_count
+        data.push(0x00); // flags
         data.extend(6_u16.to_le_bytes()); // entry_size
         data.push(0x00); // variant count
         data.push(0x03); // key count
@@ -159,8 +165,9 @@ impl IndexStore {
         data.extend(&[2, b'V', b'1']); // The name of the second key "V1"
         data.extend(&[0b0010_0001]); // The third key, the u16
         data.extend(&[2, b'V', b'2']); // The name of the third key "V2"
-        data.extend((self.data.len() as u64).to_le_bytes()); //data size
+        data.extend((self.data.len() as u64 - 4).to_le_bytes()); //data size
         self.tail_size = Some(data.len() as u16);
+        data.extend_from_slice(&[0; 4]); // Dummy Crc32
         data
     }
 
@@ -198,6 +205,7 @@ impl Index {
         data.push(self.index_name.len() as u8);
         data.extend(self.index_name.bytes()); // The index name
         self.tail_size = Some(data.len() as u16);
+        data.extend_from_slice(&[0; 4]); // Dummy Crc32
         data
     }
 
@@ -216,11 +224,12 @@ impl CheckInfo {
         let mut data = vec![];
         data.push(self.kind);
         data.extend(&self.data);
+        data.extend_from_slice(&[0; 4]); // Dummy CRC32
         data
     }
 
     pub fn size(&self) -> u64 {
-        (self.data.len() as u64) + 1
+        (self.data.len() as u64) + 1 + 4
     }
 }
 
@@ -246,7 +255,8 @@ impl PackInfo {
         let path_data = self.pack_path.to_str().unwrap();
         data.extend((path_data.len() as u8).to_le_bytes());
         data.extend(path_data.as_bytes());
-        data.extend(vec![0; 256 - data.len()]);
+        data.extend(vec![0; 252 - data.len()]);
+        data.extend_from_slice(&[0; 4]); // Dummy Crc32
         data
     }
 
@@ -298,6 +308,8 @@ test_suite! {
                         .create(true)
                         .truncate(true)
                         .open(&content_pack_path)?;
+
+        // Write pack header
         file.write_all(&[
             0x6a, 0x62, 0x6b, 0x63,
             0x00, 0x00, 0x00, 0x01,
@@ -307,26 +319,45 @@ test_suite! {
         file.write_all(uuid.as_bytes())?;
         file.write_all(&[0x00;6])?; // padding
         file.write_all(&[0x00;16])?; // file size and checksum pos, to be write after
-        file.write_all(&[0x00;16])?; // reserved
+        file.write_all(&[0x00;12])?; // reserved
+        file.write_all(&[0; 4])?; // Dummy Crc32
+
+        // Write content pack header
         file.write_all(&0x80_u64.to_le_bytes())?; // entry_ptr_offset
-        file.write_all(&((0x80+4*entries.len()) as u64).to_le_bytes())?; // cluster_ptr_offset
+        file.write_all(&0x8C_u64.to_le_bytes())?; // cluster_ptr_offset
         file.write_all(&(entries.len() as u32).to_le_bytes())?; // entry count
         file.write_all(&1_u32.to_le_bytes())?; // cluster count
-        file.write_all(&[0xff;40])?; // free_data
+        file.write_all(&[0xff;36])?; // free_data
+        file.write_all(&[0; 4])?; // Dummy Crc32
+
+        // Offse 128/0x80
+        // Write entry infos
         file.write_all(&[0x00, 0x00, 0x00, 0x00])?; // first entry info
         file.write_all(&[0x01, 0x00, 0x00, 0x00])?; // second entry info
+        file.write_all(&[0; 4])?; // Dummy Crc32
+
+        // Offset 128 + 12 = 140/0x8C
         let cluster_ptr_info_offset = file.seek(SeekFrom::Current(0))?;
-        file.write_all(&[0x00;8])?; // cluster offset.
+        file.write_all(&[0x00;8])?; // cluster offset, to be write after
+        file.write_all(&[0; 4])?; // Dummy Crc32
+
         let mut cluster = Cluster::new(compression, &entries);
+        // Cluster data 140 + 12 = 152/0x98
         file.write_all(&cluster.data_bytes())?;
+
+        // Cluster tail
         let cluster_info_offset = file.seek(SeekFrom::Current(0))?.to_le_bytes();
         file.write_all(&cluster.tail_bytes())?;
+
+        // Write back info about where cluster is
         file.seek(SeekFrom::Start(cluster_ptr_info_offset))?;
-        file.write_all(&cluster.tail_size().to_le_bytes())?;
+        file.write_all(&cluster.tail_size().to_le_bytes())?; // write the cluster offset
         file.write_all(&cluster_info_offset[..6])?;
+
+        // Write back info about file_size and checksum_pos
         let checksum_pos = file.seek(SeekFrom::End(0))?;
         file.seek(SeekFrom::Start(32))?;
-        file.write_all(&(checksum_pos+33+64).to_le_bytes())?;
+        file.write_all(&(checksum_pos+33+4+64).to_le_bytes())?;
         file.write_all(&checksum_pos.to_le_bytes())?;
 
         file.seek(SeekFrom::Start(0))?;
@@ -335,6 +366,7 @@ test_suite! {
         let hash = hasher.finalize();
         file.write_all(&[0x01])?;
         file.write_all(hash.as_bytes())?;
+        file.write_all(&[0; 4])?; // Dummy Crc32
 
         // Write footer
         file.seek(SeekFrom::Start(0))?;
@@ -367,6 +399,7 @@ test_suite! {
                         .create(true)
                         .truncate(true)
                         .open(&directory_pack_path)?;
+        // Pack header
         file.write_all(&[
             0x6a, 0x62, 0x6b, 0x64,
             0x00, 0x00, 0x00, 0x01,
@@ -376,47 +409,63 @@ test_suite! {
         file.write_all(uuid.as_bytes())?;
         file.write_all(&[0x00;6])?; // padding
         file.write_all(&[0x00;16])?; // file size and checksum pos, to be write after
-        file.write_all(&[0x00;16])?; // reserved
+        file.write_all(&[0x00;12])?; // reserved
+        file.write_all(&[0x00; 4])?; // Dummy CRC32
+
+        // Directory pack header
         file.write_all(&[0x00;24])?; // index_ptr_offset, entry_store_ptr_offset, key_store_ptr_offset, to be write after
         file.write_all(&1_u32.to_le_bytes())?; // index count
         file.write_all(&1_u32.to_le_bytes())?; // entry_store count
         file.write_all(&1_u8.to_le_bytes())?; // value_store count
-        file.write_all(&[0xff;31])?; // free_data
+        file.write_all(&[0xff;27])?; // free_data
+        file.write_all(&[0; 4])?; // Crc32
 
         let value_store_ptr_offset = {
+            // Write Value Store
             let mut key_store = KeyStore::new(entries);
             file.write_all(&key_store.data_bytes())?;
             let key_store_offset = file.seek(SeekFrom::Current(0))?.to_le_bytes();
             file.write_all(&key_store.tail_bytes())?;
+            // Write value store ptr array
             let key_store_ptr_offset = file.seek(SeekFrom::Current(0))?;
             file.write_all(&key_store.tail_size().to_le_bytes())?;
             file.write_all(&key_store_offset[..6])?;
+            file.write_all(&[0; 4])?; // Dummy Crc32
             key_store_ptr_offset
         };
 
         let index_store_ptr_offset = {
+            // Write Entry store
             let mut index_store = IndexStore::new(entries);
             file.write_all(&index_store.data_bytes())?;
             let index_store_offset = file.seek(SeekFrom::Current(0))?.to_le_bytes();
             file.write_all(&index_store.tail_bytes())?;
+
+            // Write entry store ptr array
             let index_store_ptr_offset = file.seek(SeekFrom::Current(0))?;
             file.write_all(&index_store.tail_size().to_le_bytes())?;
             file.write_all(&index_store_offset[..6])?;
+            file.write_all(&[0; 4])?; // Dummy Crc32
             index_store_ptr_offset
         };
 
         let index_ptr_offset = {
+            // Write index
             let mut index = Index::new(entries);
             let index_offset = file.seek(SeekFrom::Current(0))?.to_le_bytes();
             file.write_all(&index.bytes())?;
+
+            // Write index ptr array
             let index_ptr_offset = file.seek(SeekFrom::Current(0))?;
             file.write_all(&index.tail_size().to_le_bytes())?;
             file.write_all(&index_offset[..6])?;
+            file.write_all(&[0; 4])?; // Dummy Crc32
             index_ptr_offset
         };
+
         let checksum_pos = file.seek(SeekFrom::End(0))?;
         file.seek(SeekFrom::Start(32))?;
-        file.write_all(&(checksum_pos+33+64).to_le_bytes())?;
+        file.write_all(&(checksum_pos+33+4+64).to_le_bytes())?;
         file.write_all(&checksum_pos.to_le_bytes())?;
         file.seek(SeekFrom::Start(64))?;
         file.write_all(&index_ptr_offset.to_le_bytes())?;
@@ -429,6 +478,7 @@ test_suite! {
         let hash = hasher.finalize();
         file.write_all(&[0x01])?;
         file.write_all(hash.as_bytes())?;
+        file.write_all(&[0; 4])?; // Dummy Crc32
 
         // Write footer
         file.seek(SeekFrom::Start(0))?;
@@ -463,13 +513,15 @@ test_suite! {
         file_size += content_pack.get_check_size();
         file_size += 2*256;
         let check_info_pos = file_size;
-        file_size += 33+64;
+        file_size += 33+4+64;
         let mut file = OpenOptions::new()
                         .read(true)
                         .write(true)
                         .create(true)
                         .truncate(true)
                         .open(&manifest_pack_path)?;
+
+        // Pack header
         file.write_all(&[
             0x6a, 0x62, 0x6b, 0x6d,
             0x00, 0x00, 0x00, 0x01,
@@ -479,14 +531,19 @@ test_suite! {
         file.write_all(&[0x00;6])?; // padding
         file.write_all(&file_size.to_le_bytes())?;
         file.write_all(&check_info_pos.to_le_bytes())?;
-        file.write_all(&[0x00;16])?; // reserved
+        file.write_all(&[0x00;12])?; // reserved
+        file.write_all(&[0; 4])?; // Dummy Crc32
+
+        // Manifest header
         file.write_all(&[0x02, 0x00])?; // number of pack
         file.write_all(&[0x00; 8])?; // Value store offset
-        file.write_all(&[0xff;54])?; // free_data
+        file.write_all(&[0xff;50])?; // free_data
+        file.write_all(&[0; 4])?; // Dummy Crc32
 
         assert_eq!(directory_check_info_pos, file.seek(SeekFrom::End(0))?);
         file.write_all(&directory_pack.check_info.bytes())?;
         file.write_all(&content_pack.check_info.bytes())?;
+
         let pack_offset = file.seek(SeekFrom::Current(0))?;
         file.write_all(&directory_pack.bytes(directory_check_info_pos))?;
         file.write_all(&content_pack.bytes(content_check_info_pos))?;
@@ -496,13 +553,14 @@ test_suite! {
         io::copy(&mut Read::by_ref(&mut file).take(pack_offset), &mut hasher)?;
         for _i in 0..2 {
             io::copy(&mut Read::by_ref(&mut file).take(38), &mut hasher)?;
-            io::copy(&mut io::repeat(0).take(218), &mut hasher)?; // fill with 0 the path
-            file.seek(SeekFrom::Current(218))?;
+            io::copy(&mut io::repeat(0).take(214+4), &mut hasher)?; // fill with 0 the path
+            file.seek(SeekFrom::Current(214+4))?;
         }
         io::copy(&mut file, &mut hasher)?; // finish
         let hash = hasher.finalize();
         file.write_all(&[0x01])?;
         file.write_all(hash.as_bytes())?;
+        file.write_all(&[0; 4])?; // Dummy Crc32
 
         // Write footer
         file.seek(SeekFrom::Start(0))?;

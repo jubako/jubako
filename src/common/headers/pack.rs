@@ -46,7 +46,12 @@ impl PackHeader {
     }
 
     pub fn check_info_size(&self) -> Size {
-        Size::new(self.file_size.into_u64() - 64 - self.check_info_pos.into_u64())
+        Size::new(
+            self.file_size.into_u64()
+                - Self::BLOCK_SIZE as u64
+                - self.check_info_pos.into_u64()
+                - BlockCheck::Crc32.size().into_u64(),
+        )
     }
 }
 
@@ -65,7 +70,7 @@ impl Parsable for PackHeader {
         parser.skip(5)?;
         let file_size = Size::parse(parser)?;
         let check_info_pos = Offset::parse(parser)?;
-        parser.skip(16)?;
+        parser.skip(12)?;
         Ok(PackHeader {
             magic,
             app_vendor_id,
@@ -91,7 +96,7 @@ impl SizedParsable for PackHeader {
         + 5 // padding
         + Size::SIZE
         + Offset::SIZE
-        + 16; // padding
+        + 12; // padding
 }
 
 impl Serializable for PackHeader {
@@ -106,7 +111,7 @@ impl Serializable for PackHeader {
         written += ser.write_data(&[0_u8; 5])?;
         written += self.file_size.serialize(ser)?;
         written += self.check_info_pos.serialize(ser)?;
-        written += ser.write_data(&[0_u8; 16])?;
+        written += ser.write_data(&[0_u8; 12])?;
         Ok(written)
     }
 }
@@ -151,9 +156,9 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, // padding
             0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size
             0xee, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // check_info_pos
-            0x00, // No check
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
         ];
-        content.extend_from_slice(&[0xff; 56]);
+        content.extend_from_slice(&[0; 4]); // Dummy CRC
         let reader = Reader::from(content);
         let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero()).unwrap();
         assert_eq!(

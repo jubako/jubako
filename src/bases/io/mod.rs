@@ -10,15 +10,18 @@ use std::borrow::Cow;
 use std::fmt;
 use std::sync::Arc;
 
+use super::BlockCheck;
+
 pub trait Source: Sync + Send {
     fn size(&self) -> Size;
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()>;
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize>;
-    fn get_slice(&self, region: Region) -> Result<Cow<[u8]>>;
+    fn get_slice(&self, region: Region, block_check: BlockCheck) -> Result<Cow<[u8]>>;
 
     fn into_memory_source(
         self: Arc<Self>,
         region: Region,
+        block_check: BlockCheck,
     ) -> Result<(Arc<dyn MemorySource>, Region)>;
 
     fn display(&self) -> String;

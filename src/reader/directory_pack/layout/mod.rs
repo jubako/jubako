@@ -23,14 +23,19 @@ pub struct VariantPart {
 #[derive(Debug)]
 #[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub struct Layout {
+    pub entry_count: EntryCount,
+    pub is_entry_checked: bool,
     pub common: Properties,
     pub variant_part: Option<VariantPart>,
-    pub size: Size,
+    pub entry_size: Size,
 }
 
 impl Parsable for Layout {
     type Output = Self;
     fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let entry_count: EntryCount = Count::<u32>::parse(parser)?.into();
+        let flag = parser.read_u8()?;
+        let is_entry_checked = (flag & 0b0000_0001) != 0;
         let entry_size = parser.read_u16()? as usize;
         let variant_count: VariantCount = Count::<u8>::parse(parser)?.into();
         let mut raw_layout = RawLayout::parse(parser)?;
@@ -114,9 +119,11 @@ impl Parsable for Layout {
             None
         };
         Ok(Self {
+            entry_count,
+            is_entry_checked,
             common: common_properties,
             variant_part,
-            size: Size::from(entry_size),
+            entry_size: Size::from(entry_size),
         })
     }
 }

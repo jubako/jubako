@@ -46,7 +46,7 @@ impl EntryStore {
 pub(crate) struct EntryStoreBuilder {}
 
 impl Parsable for EntryStoreBuilder {
-    type Output = (Layout, Size);
+    type Output = Layout;
     fn parse(parser: &mut impl Parser) -> Result<Self::Output>
     where
         Self::Output: Sized,
@@ -55,8 +55,7 @@ impl Parsable for EntryStoreBuilder {
         match kind {
             StoreKind::Plain => {
                 let layout = Layout::parse(parser)?;
-                let data_size = Size::parse(parser)?;
-                Ok((layout, data_size))
+                Ok(layout)
             }
             _ => todo!(),
         }
@@ -66,20 +65,22 @@ impl Parsable for EntryStoreBuilder {
 impl BlockParsable for EntryStoreBuilder {}
 
 impl DataBlockParsable for EntryStore {
-    type Intermediate = Layout;
-    type DataReader = CheckReader;
     type TailParser = EntryStoreBuilder;
     type Output = Self;
 
-    fn get_data_reader(
-        reader: &Reader,
-        header_offset: Offset,
-        data_size: Size,
-    ) -> Result<Self::DataReader> {
-        reader.cut_check(header_offset - data_size, data_size)
-    }
-
-    fn finalize(layout: Self::Intermediate, entry_reader: CheckReader) -> Result<Self::Output> {
+    fn finalize(layout: Layout, header_offset: Offset, reader: &Reader) -> Result<Self> {
+        let entry_reader = if layout.is_entry_checked {
+            let data_size = layout.entry_count * (layout.entry_size + BlockCheck::Crc32.size());
+            reader.cut(header_offset - data_size, data_size)
+        } else {
+            let data_size = layout.entry_count * layout.entry_size;
+            reader
+                .cut_check(
+                    header_offset - data_size - BlockCheck::Crc32.size(),
+                    data_size,
+                )?
+                .into()
+        };
         Ok(EntryStore::Plain(PlainStore {
             layout,
             entry_reader,
@@ -99,14 +100,14 @@ impl Explorable for EntryStore {
 #[derive(Debug)]
 pub struct PlainStore {
     pub layout: Layout,
-    pub entry_reader: CheckReader,
+    pub entry_reader: Reader,
 }
 
 impl PlainStore {
     fn get_entry_reader(&self, idx: EntryIdx) -> ByteSlice {
         self.entry_reader.get_byte_slice(
-            Offset::from(self.layout.size.into_u64() * idx.into_u64()),
-            self.layout.size,
+            Offset::from(self.layout.entry_size.into_u64() * idx.into_u64()),
+            self.layout.entry_size,
         )
     }
 
@@ -122,9 +123,8 @@ impl serde::Serialize for PlainStore {
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let nb_entries = self.entry_reader.size().into_u64() / self.layout.size.into_u64();
         let mut ser = serializer.serialize_struct("PlainStore", 2)?;
-        ser.serialize_field("nb_entries", &nb_entries)?;
+        ser.serialize_field("nb_entries", &self.layout.entry_count)?;
         ser.serialize_field("layout", &self.layout)?;
         ser.end()
     }
@@ -157,7 +157,10 @@ mod tests {
     fn test_1variant_allproperties() {
         #[rustfmt::skip]
         let content = vec![
+            0x00, 0x00, 0x00, 0x00, // Dummy CRC of the non existant data
             0x00, // kind
+            0x00, 0x00, 0x00, 0x00, // entry_count (0 as we are testing layout parsing only)
+            0x00, // flag
             0x6D, 0x00,  //entry_size (108)
             0x00,        // variant count
             0x10,       // property count (16)
@@ -177,12 +180,12 @@ mod tests {
             0b0101_0001, 0b001_00010, 0x0F, 3 , b'V', b'1', b'2', // char1[2] + deported(1), idx 0x0F   offset: 93
             0b0101_0010, 0b111_00010, 0x0F, 3 , b'V', b'1', b'3', // char2[2] + deported(7), idx 0x0F   offset: 97
             0b0001_1100, 0x01, 0x02, 3 , b'V', b'1', b'4', // content address, with default 0x0201 and 1 byte of data offset: 108
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size           offset: 109
+            0x00, 0x00, 0x00, 0x00, // dummy crc
         ];
-        let size = Size::from(content.len());
+        let size = Size::from(content.len() - 8);
         let reader = Reader::from(content);
         let store = reader
-            .parse_data_block::<EntryStore>(SizedOffset::new(size, Offset::zero()))
+            .parse_data_block::<EntryStore>(SizedOffset::new(size, Offset::new(4)))
             .unwrap();
         let store = match store {
             EntryStore::Plain(s) => s,
@@ -375,7 +378,10 @@ mod tests {
     fn test_2variants() {
         #[rustfmt::skip]
         let content = vec![
+            0x00, 0x00, 0x00, 0x00, // Dummy CRC of the non existant data
             0x00, // kind
+            0x00, 0x00, 0x00, 0x00, // entry_count (0),
+            0x00, //flag
             0x1F, 0x00,  //entry_size (32)
             0x02,        // variant count
             0x0B,        // property count (9)
@@ -390,12 +396,12 @@ mod tests {
             0b0001_0101, 2, b'V', b'1',  // content address size: 2 + 2                                  offset: 23
             0b0010_0010, 2, b'V', b'2',  // u24 size: 3                                                  offset: 27
             0b0000_0000,  // padding (1)                                                                 offset: 30  => Variant size 31
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //data size
+            0x00, 0x00, 0x00, 0x00, // dummy crc
         ];
-        let size = Size::from(content.len());
+        let size = Size::from(content.len() - 8);
         let reader = Reader::from(content);
         let store = reader
-            .parse_data_block::<EntryStore>(SizedOffset::new(size, Offset::zero()))
+            .parse_data_block::<EntryStore>(SizedOffset::new(size, Offset::new(4)))
             .unwrap();
         let store = match store {
             EntryStore::Plain(s) => s,

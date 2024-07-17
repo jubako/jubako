@@ -11,22 +11,39 @@ pub trait Serializable {
     fn serialize(&self, stream: &mut Serializer) -> IoResult<usize>;
 }
 
+pub enum BlockCheck {
+    None,
+    Crc32,
+}
+
+impl BlockCheck {
+    pub(crate) const fn size(&self) -> Size {
+        match self {
+            Self::None => Size::zero(),
+            Self::Crc32 => Size::new(4),
+        }
+    }
+}
+
 /// A Buffer on which we can write data.
-#[derive(Default)]
 pub struct Serializer {
     buf: Cursor<Vec<u8>>,
+    check: BlockCheck,
 }
 
 impl Serializer {
-    pub fn new() -> Self {
+    pub fn new(check: BlockCheck) -> Self {
         Self {
             buf: Cursor::new(Vec::with_capacity(256)),
+            check,
         }
     }
 
-    pub fn close(self) -> Vec<u8> {
-        //        self.buf.write(&[0; 4]).unwrap();
-        self.buf.into_inner()
+    pub fn close(self) -> (Vec<u8>, Option<[u8; 4]>) {
+        match self.check {
+            BlockCheck::None => (self.buf.into_inner(), None),
+            BlockCheck::Crc32 => (self.buf.into_inner(), Some([0; 4])),
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -84,21 +101,24 @@ pub trait OutStream: Write + Seek + Send + Debug {
         self.stream_position().unwrap().into()
     }
 
-    fn write_serializer(&mut self, serialazer: Serializer) -> IoResult<usize> {
-        let buf = serialazer.close();
-        self.write_all(&buf)?;
-        Ok(buf.len())
+    fn write_serializer(&mut self, serializer: Serializer) -> IoResult<usize> {
+        let (data, check) = serializer.close();
+        self.write_all(&data)?;
+        if let Some(check) = check {
+            self.write_all(&check)?;
+        }
+        Ok(data.len())
     }
 
     fn ser_write(&mut self, obj: &dyn Serializable) -> IoResult<usize> {
-        let mut serializer = Serializer::new();
+        let mut serializer = Serializer::new(BlockCheck::Crc32);
         let written = obj.serialize(&mut serializer)?;
         assert_eq!(written, serializer.len());
         self.write_serializer(serializer)
     }
 
     fn ser_callable(&mut self, fun: &dyn Fn(&mut Serializer) -> IoResult<()>) -> IoResult<usize> {
-        let mut serializer = Serializer::new();
+        let mut serializer = Serializer::new(BlockCheck::Crc32);
         fun(&mut serializer)?;
         self.write_serializer(serializer)
     }

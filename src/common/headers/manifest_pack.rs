@@ -25,8 +25,7 @@ impl SizedParsable for ManifestPackHeader {
     const SIZE: usize = Count::<u16>::SIZE // pack_count
       + SizedOffset::SIZE // value_store_posinfo
       + 26 // padding
-      + PackFreeData::SIZE
-      + 4; // padding
+      + PackFreeData::SIZE;
 }
 
 impl Parsable for ManifestPackHeader {
@@ -36,7 +35,6 @@ impl Parsable for ManifestPackHeader {
         let value_store_posinfo = SizedOffset::parse(parser)?;
         parser.skip(26)?;
         let free_data = PackFreeData::parse(parser)?;
-        parser.skip(4)?;
 
         Ok(Self {
             pack_count,
@@ -55,7 +53,6 @@ impl Serializable for ManifestPackHeader {
         written += self.value_store_posinfo.serialize(ser)?;
         written += ser.write_data(&[0; 26])?;
         written += self.free_data.serialize(ser)?;
-        written += ser.write_data(&[0; 4])?;
         Ok(written)
     }
 }
@@ -72,7 +69,7 @@ mod tests {
         ];
         content.extend_from_slice(&[0x00; 26]);
         content.extend_from_slice(&[0xff; 24]);
-        content.extend_from_slice(&[0x00; 4]);
+        content.extend_from_slice(&[0x00; 4]); // Dummy CRC32
         let reader = Reader::from(content);
         let manifest_pack_header = reader
             .parse_block_at::<ManifestPackHeader>(Offset::zero())

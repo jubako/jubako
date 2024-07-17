@@ -2,6 +2,7 @@ use crate::reader::ByteSlice;
 use crate::reader::Stream;
 
 use super::types::*;
+use super::BlockCheck;
 use super::BlockParsable;
 use super::DataBlockParsable;
 use super::Parsable;
@@ -54,10 +55,9 @@ impl Reader {
         &self,
         sized_offset: SizedOffset,
     ) -> Result<T::Output> {
-        let (intermediate, data_size) =
+        let intermediate =
             self.parse_block_in::<T::TailParser>(sized_offset.offset, sized_offset.size)?;
-        let data_reader = T::get_data_reader(self, sized_offset.offset, data_size)?;
-        T::finalize(intermediate, data_reader)
+        T::finalize(intermediate, sized_offset.offset, self)
     }
 
     pub fn get_byte_slice(&self, offset: Offset, size: Size) -> ByteSlice {
@@ -77,14 +77,15 @@ impl Reader {
 
     pub fn cut_check(&self, offset: Offset, size: Size) -> Result<CheckReader> {
         let region = self.region.cut_rel(offset, size);
-        // [TODO] Replace into_memory_source into
-        let (source, region) = Arc::clone(&self.source).into_memory_source(region)?;
+        let (source, region) =
+            Arc::clone(&self.source).into_memory_source(region, BlockCheck::Crc32)?;
         Ok(CheckReader::new_from_parts(source.into_source(), region))
     }
 
     pub fn create_sub_memory_reader(&self, offset: Offset, size: Size) -> Result<Reader> {
         let region = self.region.cut_rel(offset, size);
-        let (source, region) = Arc::clone(&self.source).into_memory_source(region)?;
+        let (source, region) =
+            Arc::clone(&self.source).into_memory_source(region, BlockCheck::None)?;
         Ok(Reader {
             source: source.into_source(),
             region,
@@ -135,7 +136,7 @@ impl CheckReader {
 
     pub(crate) fn create_parser(&self, offset: Offset, size: Size) -> Result<impl Parser + '_> {
         let region = self.region.cut_rel(offset, size);
-        let slice = self.source.get_slice(region)?;
+        let slice = self.source.get_slice(region, BlockCheck::None)?;
         Ok(SliceParser::new(slice, self.region.begin() + offset))
     }
 
@@ -153,7 +154,7 @@ impl CheckReader {
     }
     pub fn get_slice(&self, offset: Offset, size: Size) -> Result<Cow<[u8]>> {
         let region = self.region.cut_rel(offset, size);
-        self.source.get_slice(region)
+        self.source.get_slice(region, BlockCheck::None)
     }
     pub fn get_byte_slice(&self, offset: Offset, size: Size) -> ByteSlice {
         let region = self.region.cut_rel(offset, size);

@@ -9,6 +9,15 @@ pub enum CheckKind {
     Blake3 = 1,
 }
 
+impl CheckKind {
+    pub(crate) fn block_size(self) -> Size {
+        match self {
+            Self::None => BlockCheck::Crc32.size() + 1,
+            Self::Blake3 => BlockCheck::Crc32.size() + 33,
+        }
+    }
+}
+
 impl Parsable for CheckKind {
     type Output = Self;
     fn parse(parser: &mut impl Parser) -> Result<Self> {
@@ -100,7 +109,7 @@ impl CheckInfo {
 }
 
 // Pack info size is pack info + 4 bytes of crc32
-const PACK_INFO_SIZE: u64 = super::PackInfo::SIZE as u64; // + 4;
+const PACK_INFO_SIZE: u64 = super::PackInfo::BLOCK_SIZE as u64;
 
 // The first 38 bytes of the PackInfo must be checked.
 const PACK_INFO_TO_CHECK: u64 = 38;
@@ -144,7 +153,7 @@ impl<S: Read> Read for ManifestCheckStream<'_, S> {
     #[allow(clippy::unused_io_amount)]
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         // The check stream want to exclude the 218 bytes (PACK_INFO_SIZE-PACK_INFO_TO_CHECK)
-        // in all pack_info locating the pack.
+        // in all pack_info (location of the pack and CRC32).
         // So data we don't want to check are positionned between
         // pack_offset + k*(256+4) + 38  and 128 + (k+1)*(256+4)
         // for k < pack_count

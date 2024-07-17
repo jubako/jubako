@@ -45,7 +45,7 @@ impl Serializable for PackInfo {
         written += self.pack_kind.serialize(ser)?;
         written += ser.write_u8(self.pack_group)?;
         written += ser.write_u16(self.free_data_id.into_u64() as u16)?;
-        written += PString::serialize_string_padded(self.pack_location.as_ref(), 217, ser)?;
+        written += PString::serialize_string_padded(self.pack_location.as_ref(), 213, ser)?;
         Ok(written)
     }
 }
@@ -59,7 +59,7 @@ impl SizedParsable for PackInfo {
         + PackKind::SIZE
         + 1 // pack_group
         + 2 // free_data_id
-        + 218 // pack locator
+        + 214 // pack locator
     ;
 }
 
@@ -74,7 +74,7 @@ impl Parsable for PackInfo {
         let pack_group = parser.read_u8()?;
         let free_data_id = ValueIdx::from(parser.read_u16()? as u64);
         let pack_location = PString::parse(parser)?;
-        parser.skip(217 - pack_location.len())?;
+        parser.skip(213 - pack_location.len())?;
         Ok(Self {
             uuid,
             pack_size,

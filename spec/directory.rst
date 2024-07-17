@@ -200,10 +200,10 @@ Field Name    Type               Offset            Description
 ============= ================== ================= =============
 indexType     u8                 0                 0
 entrySize     u16                1                 The size of one entry.
-variantCount  u8                 3                 The number of variants in this index.
-keyCount (N)  u8                 4                 The number of key info.
-entryCount    u64                5                 Number of entries
-flag          u8                 14
+entryCount    u32                3                 Number of entries
+flag          u8                 7
+variantCount  u8                 8                 The number of variants in this index.
+keyCount (N)  u8                 9                 The number of key info.
 keyInfo0                                           The type of the key0
 keyInfo1                                           The type of the key1
 ...                                                ...
@@ -224,7 +224,7 @@ the key info.
 EntryStore tail is a block.
 
 If lowest bit of flag is 0, the whole data is a block.
-If lowest bit of flag is 1, each entry in the block.
+If lowest bit of flag is 1, each entry data is a block.
 
 
 Variant

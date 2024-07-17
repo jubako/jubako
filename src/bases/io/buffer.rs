@@ -29,8 +29,13 @@ where
         Ok(())
     }
 
-    fn get_slice(&self, region: Region) -> Result<Cow<[u8]>> {
+    fn get_slice(&self, region: Region, block_check: BlockCheck) -> Result<Cow<[u8]>> {
         debug_assert!(region.end().into_usize() <= self.as_ref().len());
+        if let BlockCheck::Crc32 = block_check {
+            if self.as_ref()[region.end().into_usize()..region.end().into_usize() + 4] != [0; 4] {
+                return Err(format_error!("Not a valid checksum"));
+            }
+        }
         Ok(Cow::Borrowed(
             &self.as_ref()[region.begin().into_usize()..region.end().into_usize()],
         ))
@@ -39,8 +44,16 @@ where
     fn into_memory_source(
         self: Arc<Self>,
         region: Region,
+        block_check: BlockCheck,
     ) -> Result<(Arc<dyn MemorySource>, Region)> {
         debug_assert!(region.end().into_usize() <= self.as_ref().as_ref().len());
+        if let BlockCheck::Crc32 = block_check {
+            if self.as_ref().as_ref()[region.end().into_usize()..region.end().into_usize() + 4]
+                != [0; 4]
+            {
+                return Err(format_error!("Not a valid checksum"));
+            }
+        }
         Ok((Arc::clone(&(self as Arc<dyn MemorySource>)), region))
     }
 

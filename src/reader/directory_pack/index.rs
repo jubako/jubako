@@ -99,6 +99,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, // free data
             0x01, // index_property
             0x05, 0x48, 0x65, 0x6C, 0x6C, 0x6F, // PString Hello
+            0x00, 0x00, 0x00, 0x00,
         ];
         let reader = Reader::from(content);
         let header = reader

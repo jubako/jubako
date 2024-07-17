@@ -37,7 +37,7 @@ mod private {
         fn write(&mut self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
             self.write_data(stream)?;
             let offset = stream.tell();
-            let mut serializer = Serializer::new();
+            let mut serializer = Serializer::new(BlockCheck::Crc32);
             self.serialize_tail(&mut serializer)?;
             let size = stream.write_serializer(serializer)?.into();
             Ok(SizedOffset { size, offset })
