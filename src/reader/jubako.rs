@@ -54,9 +54,8 @@ pub fn open_as_container_pack(reader: Reader) -> Result<ContainerPack> {
     };
 
     match pack_header.magic {
-        PackKind::Directory | PackKind::Content => Err("Not a valid pack".into()),
         PackKind::Container => ContainerPack::new(reader.cut(offset, pack_header.file_size)),
-        PackKind::Manifest => Ok(ContainerPack::new_fake(
+        _ => Ok(ContainerPack::new_fake(
             reader.cut(offset, pack_header.file_size),
             pack_header.uuid,
         )),
@@ -175,7 +174,27 @@ impl Container {
 
     /// Check the container
     pub fn check(&self) -> Result<bool> {
-        self.manifest_pack.check()
+        if !self.manifest_pack.check()? {
+            return Ok(false);
+        }
+        if !self.directory_pack.check()? {
+            return Ok(false);
+        }
+
+        for pack_info in self.manifest_pack.get_pack_infos().iter() {
+            let pack_reader = self
+                .locator
+                .locate(pack_info.uuid, &pack_info.pack_location)?;
+            if let Some(r) = pack_reader {
+                let pseudo_container_pack = open_as_container_pack(r)?;
+                // check the container in itself.
+                if !pseudo_container_pack.check()? {
+                    return Ok(false);
+                }
+                // [TODO] Check with the checkinfo contained in the manifest.
+            }
+        }
+        Ok(true)
     }
 
     /// Get the uuid of the container (manifest_pack)
