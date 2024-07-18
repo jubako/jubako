@@ -16,7 +16,9 @@ Field Name    Type     Offset Description
 ============= ======== ====== ===========
 packsPos      Offset   0      A offset to a array of PackLocator
 packCount     u16      8      The number of pack contained in the container.
-_reserved     [u8;54]  10     MUST be 0.
+_reserved     [u8;26]  10     MUST be 0.
+freeData      [u8;24]  36
+_reserved     [u8; 4]  4      MUST be 0.
 ============= ======== ====== ===========
 
 The size of of this header, is 64 bytes

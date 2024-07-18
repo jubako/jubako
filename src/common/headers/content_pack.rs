@@ -9,13 +9,13 @@ pub struct ContentPackHeader {
     pub cluster_ptr_pos: Offset,
     pub content_count: ContentCount,
     pub cluster_count: ClusterCount,
-    pub free_data: ContentPackFreeData,
+    pub free_data: PackFreeData,
 }
 
 impl ContentPackHeader {
     pub fn new(
         pack_info: PackHeaderInfo,
-        free_data: ContentPackFreeData,
+        free_data: PackFreeData,
         cluster_ptr_pos: Offset,
         cluster_count: ClusterCount,
         content_ptr_pos: Offset,
@@ -43,7 +43,9 @@ impl Parsable for ContentPackHeader {
         let cluster_ptr_pos = Offset::parse(parser)?;
         let content_count = Count::<u32>::parse(parser)?.into();
         let cluster_count = Count::<u32>::parse(parser)?.into();
-        let free_data = ContentPackFreeData::parse(parser)?;
+        parser.skip(12)?;
+        let free_data = PackFreeData::parse(parser)?;
+        parser.skip(4)?;
         Ok(ContentPackHeader {
             pack_header,
             content_ptr_pos,
@@ -61,7 +63,9 @@ impl SizedParsable for ContentPackHeader {
         + Offset::SIZE
         + 4 // ContentCount::SIZE
         + 4 // ClusterCount::SIZE
-        + ContentPackFreeData::SIZE;
+        + 12 // Padding
+        + PackFreeData::SIZE
+  + 4; // reserved
 }
 
 impl BlockParsable for ContentPackHeader {}
@@ -74,7 +78,9 @@ impl Serializable for ContentPackHeader {
         written += self.cluster_ptr_pos.serialize(ser)?;
         written += self.content_count.serialize(ser)?;
         written += self.cluster_count.serialize(ser)?;
+        written += ser.write_data(&[0; 12])?;
         written += self.free_data.serialize(ser)?;
+        written += ser.write_data(&[0; 4])?;
         Ok(written)
     }
 }
@@ -103,7 +109,9 @@ mod tests {
             0x50, 0x00, 0x00, 0x00, // entry ccount
             0x60, 0x00, 0x00, 0x00, // cluster ccount
         ];
-        content.extend_from_slice(&[0xff; 40]);
+        content.extend_from_slice(&[0x00; 12]); // padding
+        content.extend_from_slice(&[0xff; 24]); // free_data
+        content.extend_from_slice(&[0x00; 4]);
         let reader = Reader::from(content);
         let content_pack_header = reader
             .parse_block_at::<ContentPackHeader>(Offset::zero())
@@ -127,7 +135,7 @@ mod tests {
                 cluster_ptr_pos: Offset::from(0xeedd_u64),
                 content_count: ContentCount::from(0x50_u32),
                 cluster_count: ClusterCount::from(0x60_u32),
-                free_data: [0xff; 40].into(),
+                free_data: [0xff; 24].into(),
             }
         );
     }

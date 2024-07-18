@@ -346,7 +346,7 @@ mod tests {
                 index_count: IndexCount::from(0x50_u32),
                 entry_store_count: EntryStoreCount::from(0x60_u32),
                 value_store_count: ValueStoreCount::from(0x05_u8),
-                free_data: [0xff; 31].into(),
+                free_data: [0xff; 24].into(),
             }
         );
     }

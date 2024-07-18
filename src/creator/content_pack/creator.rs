@@ -36,7 +36,7 @@ fn shannon_entropy(data: &[u8]) -> Result<f32> {
 pub struct ContentPackCreator<O: PackRecipient + ?Sized> {
     app_vendor_id: VendorId,
     pack_id: PackId,
-    free_data: ContentPackFreeData,
+    free_data: PackFreeData,
     content_infos: Vec<ContentInfo>,
     raw_open_cluster: Option<ClusterCreator>,
     comp_open_cluster: Option<ClusterCreator>,
@@ -68,7 +68,7 @@ impl ContentPackCreator<NamedFile> {
         path: P,
         pack_id: PackId,
         app_vendor_id: VendorId,
-        free_data: ContentPackFreeData,
+        free_data: PackFreeData,
         compression: Compression,
     ) -> Result<Self> {
         Self::new_with_progress(
@@ -85,7 +85,7 @@ impl ContentPackCreator<NamedFile> {
         path: P,
         pack_id: PackId,
         app_vendor_id: VendorId,
-        free_data: ContentPackFreeData,
+        free_data: PackFreeData,
         compression: Compression,
         progress: Arc<dyn Progress>,
     ) -> Result<Self> {
@@ -106,7 +106,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         file: Box<O>,
         pack_id: PackId,
         app_vendor_id: VendorId,
-        free_data: ContentPackFreeData,
+        free_data: PackFreeData,
         compression: Compression,
     ) -> Result<Self> {
         Self::new_from_output_with_progress(
@@ -123,7 +123,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         mut file: Box<O>,
         pack_id: PackId,
         app_vendor_id: VendorId,
-        free_data: ContentPackFreeData,
+        free_data: PackFreeData,
         compression: Compression,
         progress: Arc<dyn Progress>,
     ) -> Result<Self> {

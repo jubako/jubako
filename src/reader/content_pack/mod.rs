@@ -246,7 +246,7 @@ mod tests {
                 0x0e, 0x0f
             ])
         );
-        assert_eq!(&content_pack.get_free_data()[..], &[0xff; 40][..]);
+        assert_eq!(content_pack.get_free_data(), [0xff; 24]);
         assert!(&content_pack.check().unwrap());
 
         {

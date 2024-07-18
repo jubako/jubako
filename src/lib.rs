@@ -8,10 +8,9 @@ pub mod reader;
 pub mod tools;
 
 pub use crate::bases::{
-    Bound, ContentIdx, ContentPackFreeData, DirectoryPackFreeData, EntryCount, EntryIdx,
-    EntryRange, EntryStoreIdx, Error, ErrorKind, FileSource, IndexFreeData, ManifestPackFreeData,
-    MayRef, Offset, PString, PackId, PackInfoFreeData, PropertyCount, PropertyIdx, Reader, Result,
-    Size, ValueIdx, VariantIdx, VendorId, Vow, Word,
+    Bound, ContentIdx, EntryCount, EntryIdx, EntryRange, EntryStoreIdx, Error, ErrorKind,
+    FileSource, IndexFreeData, MayRef, Offset, PString, PackFreeData, PackId, PackInfoFreeData,
+    PropertyCount, PropertyIdx, Reader, Result, Size, ValueIdx, VariantIdx, VendorId, Vow, Word,
 };
 pub use crate::common::{CompressionType, ContentAddress, PackKind, Value};
 pub use crate::tools::concat;

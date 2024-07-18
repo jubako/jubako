@@ -9,27 +9,30 @@ use super::{MaybeFileReader, NamedFile, PackRecipient};
 pub struct ContainerPackCreator<F: PackRecipient> {
     packs: Vec<PackLocator>,
     file: Box<F>,
+    free_data: PackFreeData,
 }
 
 #[derive(Debug)]
 pub struct InContainerFile<F: PackRecipient> {
     file: Skip<Box<F>>,
     packs: Vec<PackLocator>,
+    container_free_data: PackFreeData,
 }
 
 impl ContainerPackCreator<NamedFile> {
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
-        Self::from_file(NamedFile::new(path)?)
+    pub fn new<P: AsRef<Path>>(path: P, free_data: PackFreeData) -> Result<Self> {
+        Self::from_file(NamedFile::new(path)?, free_data)
     }
 }
 impl<F: PackRecipient> ContainerPackCreator<F> {
-    pub fn from_file(mut file: Box<F>) -> Result<Self> {
+    pub fn from_file(mut file: Box<F>, free_data: PackFreeData) -> Result<Self> {
         file.seek(SeekFrom::Start(
             PackHeader::BLOCK_SIZE as u64 + ContainerPackHeader::BLOCK_SIZE as u64,
         ))?;
         Ok(ContainerPackCreator {
             packs: vec![],
             file,
+            free_data,
         })
     }
 
@@ -37,6 +40,7 @@ impl<F: PackRecipient> ContainerPackCreator<F> {
         Ok(Box::new(self::InContainerFile {
             file: Skip::new(self.file)?,
             packs: self.packs,
+            container_free_data: self.free_data,
         }))
     }
 
@@ -68,8 +72,11 @@ impl<F: PackRecipient> ContainerPackCreator<F> {
         self.file.ser_write(&pack_header)?;
 
         // Write container pack header
-        let header =
-            ContainerPackHeader::new(pack_locators_pos, PackCount::from(self.packs.len() as u16));
+        let header = ContainerPackHeader::new(
+            pack_locators_pos,
+            PackCount::from(self.packs.len() as u16),
+            self.free_data,
+        );
         self.file.ser_write(&header)?;
 
         self.file.seek(SeekFrom::End(0))?;
@@ -99,6 +106,7 @@ impl<F: PackRecipient> InContainerFile<F> {
         Ok(ContainerPackCreator {
             file,
             packs: self.packs,
+            free_data: self.container_free_data,
         })
     }
 }

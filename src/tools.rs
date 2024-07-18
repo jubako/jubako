@@ -4,7 +4,7 @@ use jbk::reader::ContainerPack;
 use std::path::Path;
 
 pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
-    let mut container = jbk::creator::ContainerPackCreator::new(&outfile)?;
+    let mut container = jbk::creator::ContainerPackCreator::new(&outfile, Default::default())?;
 
     for infile in infiles {
         let in_container = open_pack(infile)?;

@@ -57,7 +57,9 @@ valueStorePtrPos Offset  16     A Offset to a array of keyStore offsets.
 indexCount       u32     24     Number of index in the directory
 entryStoreCount  u32     28     Number of entryStore in the directory
 valueStoreCount  u8      32     Numbre of keyStore in the directory (16 store max).
-freeData         [u8,31] 33     Free data, application specific to extend the header
+_reserved        [u8; 3] 33     Reserved, must be 0
+freeData         [u8;24] 36     Free data, application specific to extend the header
+_reserved        [u8; 4] 60     Reserved, must be 0
 ================ ======= ====== ===========
 
 Full Size : 64
@@ -392,14 +394,15 @@ Field Name    Type               Offset            Description
 storeId       u32                0                 The entry store where to find the entries.
 entryCount    u32                4                 The number of entries in the index.
 entryOffset   u32                8                 The offset of the first entry in the entry store.
-freeData      [u8;4]             12                Some data specific type are free to use
-indexKey      u8                 16                | The primary key of the index.
+_reserved     [u8;3]             12                Reserved, must be 0.
+indexKey      u8                 15                | The primary key of the index.
                                                    | 0 if no primary key.
                                                    | 1 for the first key.
                                                    | 2 for second ...
-indexName     ``pstring``        17                The name of the index, may be used to
+FreeData      [u8; 24]           16                Free data
+indexName     ``pstring``        40                The name of the index, may be used to
                                                    identify the index
 ============= ================== ================= =============
 
 
-Full Size : 17 + size of pstring
+Full Size : 40 + size of pstring (so up to 296)

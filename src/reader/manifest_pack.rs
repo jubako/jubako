@@ -111,7 +111,7 @@ impl ManifestPack {
         &self.pack_infos
     }
 
-    pub fn get_free_data(&self) -> ManifestPackFreeData {
+    pub fn get_free_data(&self) -> PackFreeData {
         self.header.free_data
     }
 
