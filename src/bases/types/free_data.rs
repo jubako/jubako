@@ -52,5 +52,4 @@ impl<const N: usize> From<[u8; N]> for FreeData<N> {
 }
 
 pub type PackFreeData = FreeData<24>;
-pub type PackInfoFreeData = FreeData<103>;
 pub type IndexFreeData = FreeData<4>;
