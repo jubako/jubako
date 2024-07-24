@@ -32,18 +32,18 @@ impl ContentPackHeader {
     }
 }
 
-impl Producable for ContentPackHeader {
+impl Parsable for ContentPackHeader {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let pack_header = PackHeader::produce(flux)?;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let pack_header = PackHeader::parse(parser)?;
         if pack_header.magic != PackKind::Content {
             return Err(format_error!("Pack Magic is not ContentPack"));
         }
-        let content_ptr_pos = Offset::produce(flux)?;
-        let cluster_ptr_pos = Offset::produce(flux)?;
-        let content_count = Count::<u32>::produce(flux)?.into();
-        let cluster_count = Count::<u32>::produce(flux)?.into();
-        let free_data = ContentPackFreeData::produce(flux)?;
+        let content_ptr_pos = Offset::parse(parser)?;
+        let cluster_ptr_pos = Offset::parse(parser)?;
+        let content_count = Count::<u32>::parse(parser)?.into();
+        let cluster_count = Count::<u32>::parse(parser)?.into();
+        let free_data = ContentPackFreeData::parse(parser)?;
         Ok(ContentPackHeader {
             pack_header,
             content_ptr_pos,
@@ -55,7 +55,7 @@ impl Producable for ContentPackHeader {
     }
 }
 
-impl SizedProducable for ContentPackHeader {
+impl SizedParsable for ContentPackHeader {
     const SIZE: usize = PackHeader::SIZE
         + Offset::SIZE
         + Offset::SIZE
@@ -64,15 +64,17 @@ impl SizedProducable for ContentPackHeader {
         + ContentPackFreeData::SIZE;
 }
 
-impl Writable for ContentPackHeader {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+impl BlockParsable for ContentPackHeader {}
+
+impl Serializable for ContentPackHeader {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
-        written += self.pack_header.write(stream)?;
-        written += self.content_ptr_pos.write(stream)?;
-        written += self.cluster_ptr_pos.write(stream)?;
-        written += self.content_count.write(stream)?;
-        written += self.cluster_count.write(stream)?;
-        written += self.free_data.write(stream)?;
+        written += self.pack_header.serialize(ser)?;
+        written += self.content_ptr_pos.serialize(ser)?;
+        written += self.cluster_ptr_pos.serialize(ser)?;
+        written += self.content_count.serialize(ser)?;
+        written += self.cluster_count.serialize(ser)?;
+        written += self.free_data.serialize(ser)?;
         Ok(written)
     }
 }
@@ -103,9 +105,11 @@ mod tests {
         ];
         content.extend_from_slice(&[0xff; 40]);
         let reader = Reader::from(content);
-        let mut flux = reader.create_flux_all();
+        let content_pack_header = reader
+            .parse_block_at::<ContentPackHeader>(Offset::zero())
+            .unwrap();
         assert_eq!(
-            ContentPackHeader::produce(&mut flux).unwrap(),
+            content_pack_header,
             ContentPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::Content,

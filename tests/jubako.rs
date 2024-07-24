@@ -326,7 +326,7 @@ test_suite! {
         file.write_all(&cluster_info_offset[..6])?;
         let checksum_pos = file.seek(SeekFrom::End(0))?;
         file.seek(SeekFrom::Start(32))?;
-        file.write_all(&(checksum_pos+33).to_le_bytes())?;
+        file.write_all(&(checksum_pos+33+64).to_le_bytes())?;
         file.write_all(&checksum_pos.to_le_bytes())?;
 
         file.seek(SeekFrom::Start(0))?;
@@ -335,6 +335,15 @@ test_suite! {
         let hash = hasher.finalize();
         file.write_all(&[0x01])?;
         file.write_all(hash.as_bytes())?;
+
+        // Write footer
+        file.seek(SeekFrom::Start(0))?;
+        let mut footer = [0;64];
+        file.read_exact(&mut footer)?;
+        footer.reverse();
+        file.seek(SeekFrom::End(0))?;
+        file.write_all(&footer)?;
+
         let pack_size = file.seek(SeekFrom::End(0))?;
         Ok(PackInfo{
             check_info: CheckInfo {
@@ -407,7 +416,7 @@ test_suite! {
         };
         let checksum_pos = file.seek(SeekFrom::End(0))?;
         file.seek(SeekFrom::Start(32))?;
-        file.write_all(&(checksum_pos+33).to_le_bytes())?;
+        file.write_all(&(checksum_pos+33+64).to_le_bytes())?;
         file.write_all(&checksum_pos.to_le_bytes())?;
         file.seek(SeekFrom::Start(64))?;
         file.write_all(&index_ptr_offset.to_le_bytes())?;
@@ -420,6 +429,15 @@ test_suite! {
         let hash = hasher.finalize();
         file.write_all(&[0x01])?;
         file.write_all(hash.as_bytes())?;
+
+        // Write footer
+        file.seek(SeekFrom::Start(0))?;
+        let mut footer = [0;64];
+        file.read_exact(&mut footer)?;
+        footer.reverse();
+        file.seek(SeekFrom::End(0))?;
+        file.write_all(&footer)?;
+
         let pack_size = file.seek(SeekFrom::End(0))?;
         Ok(PackInfo{
             check_info: CheckInfo {
@@ -445,7 +463,7 @@ test_suite! {
         file_size += content_pack.get_check_size();
         file_size += 2*256;
         let check_info_pos = file_size;
-        file_size += 33;
+        file_size += 33+64;
         let mut file = OpenOptions::new()
                         .read(true)
                         .write(true)
@@ -485,6 +503,15 @@ test_suite! {
         let hash = hasher.finalize();
         file.write_all(&[0x01])?;
         file.write_all(hash.as_bytes())?;
+
+        // Write footer
+        file.seek(SeekFrom::Start(0))?;
+        let mut footer = [0;64];
+        file.read_exact(&mut footer)?;
+        footer.reverse();
+        file.seek(SeekFrom::End(0))?;
+        file.write_all(&footer)?;
+
         Ok(manifest_pack_path)
     }
 
@@ -513,10 +540,10 @@ test_suite! {
                     content,
                     jubako::ContentAddress{pack_id:1.into(), content_id:jubako::ContentIdx::from(i.into_u32())}
                 );
-                let reader = container.get_reader(content).unwrap();
-                let mut flux = reader.as_ref().unwrap().create_flux_all();
+                let bytes = container.get_bytes(content).unwrap();
+                let mut stream = bytes.as_ref().unwrap().stream();
                 let mut read_content: String = "".to_string();
-                flux.read_to_string(&mut read_content).unwrap();
+                stream.read_to_string(&mut read_content).unwrap();
                 assert_eq!(read_content, articles.val[i.into_u32() as usize].content);
             } else {
               panic!();

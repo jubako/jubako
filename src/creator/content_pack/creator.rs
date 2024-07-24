@@ -127,7 +127,9 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         compression: Compression,
         progress: Arc<dyn Progress>,
     ) -> Result<Self> {
-        file.seek(SeekFrom::Start(ContentPackHeader::SIZE as u64))?;
+        file.seek(SeekFrom::Start(
+            ContentPackHeader::SIZE as u64, /* + 4*/
+        ))?;
         let nb_threads = std::cmp::max(
             std::thread::available_parallelism()
                 .unwrap_or(8.try_into().unwrap())
@@ -256,20 +258,26 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         let (mut file, cluster_addresses) = self.cluster_writer.finalize()?;
         let clusters_offset = file.tell();
 
-        info!("----- Write cluster addresses -----");
-        let nb_clusters = cluster_addresses.len();
-
         let mut buffered = std::io::BufWriter::new(file);
 
-        for address in cluster_addresses {
-            address.get().write(&mut buffered)?;
-        }
+        info!("----- Write cluster addresses -----");
+        let nb_clusters = cluster_addresses.len();
+        buffered.ser_callable(&|ser| {
+            for address in &cluster_addresses {
+                address.get().serialize(ser)?;
+            }
+            Ok(())
+        })?;
 
         info!("----- Write content info -----");
         let content_infos_offset = buffered.tell();
-        for content_info in &self.content_infos {
-            content_info.write(&mut buffered)?;
-        }
+
+        buffered.ser_callable(&|ser| {
+            for content_info in &self.content_infos {
+                content_info.serialize(ser)?;
+            }
+            Ok(())
+        })?;
         let check_offset = buffered.tell();
         let pack_size: Size = (check_offset + 33 + 64).into();
         buffered.rewind()?;
@@ -283,7 +291,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
             content_infos_offset,
             (self.content_infos.len() as u32).into(),
         );
-        header.write(&mut buffered)?;
+        buffered.ser_write(&header)?;
 
         buffered.flush()?;
         let mut file = buffered.into_inner().unwrap();
@@ -291,7 +299,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         info!("----- Compute checksum -----");
         file.rewind()?;
         let check_info = CheckInfo::new_blake3(&mut file)?;
-        check_info.write(&mut file)?;
+        file.ser_write(&check_info)?;
 
         file.rewind()?;
         let mut tail_buffer = [0u8; 64];

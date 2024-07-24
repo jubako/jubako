@@ -42,20 +42,24 @@ impl PackHeader {
             check_info_pos: pack_info.check_info_pos,
         }
     }
+
+    pub fn check_info_size(&self) -> Size {
+        Size::new(self.file_size.into_u64() - 64 - self.check_info_pos.into_u64())
+    }
 }
 
-impl Producable for PackHeader {
+impl Parsable for PackHeader {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let magic = FullPackKind::produce(flux)?;
-        let app_vendor_id = VendorId::produce(flux)?;
-        let major_version = flux.read_u8()?;
-        let minor_version = flux.read_u8()?;
-        let uuid = Uuid::produce(flux)?;
-        flux.skip(Size::new(6))?;
-        let file_size = Size::produce(flux)?;
-        let check_info_pos = Offset::produce(flux)?;
-        flux.skip(Size::new(16))?;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let magic = FullPackKind::parse(parser)?;
+        let app_vendor_id = VendorId::parse(parser)?;
+        let major_version = parser.read_u8()?;
+        let minor_version = parser.read_u8()?;
+        let uuid = Uuid::parse(parser)?;
+        parser.skip(6)?;
+        let file_size = Size::parse(parser)?;
+        let check_info_pos = Offset::parse(parser)?;
+        parser.skip(16)?;
         Ok(PackHeader {
             magic,
             app_vendor_id,
@@ -68,7 +72,7 @@ impl Producable for PackHeader {
     }
 }
 
-impl SizedProducable for PackHeader {
+impl SizedParsable for PackHeader {
     const SIZE: usize = FullPackKind::SIZE
         + 4 // app_vendor_id
         + 1 // major
@@ -80,18 +84,20 @@ impl SizedProducable for PackHeader {
         + 16; // padding
 }
 
-impl Writable for PackHeader {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+impl BlockParsable for PackHeader {}
+
+impl Serializable for PackHeader {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
-        written += FullPackKind(self.magic).write(stream)?;
-        written += self.app_vendor_id.write(stream)?;
-        written += stream.write_u8(self.major_version)?;
-        written += stream.write_u8(self.minor_version)?;
-        written += self.uuid.write(stream)?;
-        written += stream.write_data(&[0_u8; 6])?;
-        written += self.file_size.write(stream)?;
-        written += self.check_info_pos.write(stream)?;
-        written += stream.write_data(&[0_u8; 16])?;
+        written += FullPackKind(self.magic).serialize(ser)?;
+        written += self.app_vendor_id.serialize(ser)?;
+        written += ser.write_u8(self.major_version)?;
+        written += ser.write_u8(self.minor_version)?;
+        written += self.uuid.serialize(ser)?;
+        written += ser.write_data(&[0_u8; 6])?;
+        written += self.file_size.serialize(ser)?;
+        written += self.check_info_pos.serialize(ser)?;
+        written += ser.write_data(&[0_u8; 16])?;
         Ok(written)
     }
 }
@@ -138,9 +144,9 @@ mod tests {
         ];
         content.extend_from_slice(&[0xff; 56]);
         let reader = Reader::from(content);
-        let mut flux = reader.create_flux_all();
+        let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero()).unwrap();
         assert_eq!(
-            PackHeader::produce(&mut flux).unwrap(),
+            pack_header,
             PackHeader {
                 magic: PackKind::Content,
                 app_vendor_id: VendorId::from([00, 00, 00, 01]),

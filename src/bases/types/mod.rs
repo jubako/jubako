@@ -30,36 +30,8 @@ pub use idx::{Idx, IndexTrait};
 pub use mayref::MayRef;
 pub use offset::Offset;
 pub use pstring::PString;
-pub use range::{EntryRange, Range};
+pub use range::{EntryRange, Region};
 pub use size::Size;
 pub use sized_offset::SizedOffset;
 pub use specific_types::*;
 pub use vendor_id::VendorId;
-
-/// The end of a buffer.
-#[derive(Debug)]
-pub enum End {
-    Offset(Offset),
-    Size(Size),
-    None,
-}
-
-impl End {
-    pub fn new_size<T>(s: T) -> Self
-    where
-        Size: From<T>,
-    {
-        Self::Size(Size::from(s))
-    }
-
-    pub fn new_offset<T>(o: T) -> Self
-    where
-        Offset: From<T>,
-    {
-        Self::Offset(Offset::from(o))
-    }
-
-    pub fn none() -> Self {
-        End::None
-    }
-}

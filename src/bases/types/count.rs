@@ -43,58 +43,58 @@ where
     }
 }
 
-impl<T> SizedProducable for Count<T>
+impl<T> SizedParsable for Count<T>
 where
-    Count<T>: Producable,
+    Count<T>: Parsable,
 {
     const SIZE: usize = std::mem::size_of::<T>();
 }
 
-impl Producable for Count<u8> {
+impl Parsable for Count<u8> {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        Ok(flux.read_u8()?.into())
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u8()?.into())
     }
 }
 
-impl Producable for Count<u16> {
+impl Parsable for Count<u16> {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        Ok(flux.read_u16()?.into())
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u16()?.into())
     }
 }
 
-impl Producable for Count<u32> {
+impl Parsable for Count<u32> {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        Ok(flux.read_u32()?.into())
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u32()?.into())
     }
 }
 
-impl Producable for Count<u64> {
+impl Parsable for Count<u64> {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        Ok(flux.read_u64()?.into())
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u64()?.into())
     }
 }
 
-impl Writable for Count<u8> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u8(self.0)
+impl Serializable for Count<u8> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u8(self.0)
     }
 }
-impl Writable for Count<u16> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u16(self.0)
+impl Serializable for Count<u16> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u16(self.0)
     }
 }
-impl Writable for Count<u32> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u32(self.0)
+impl Serializable for Count<u32> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u32(self.0)
     }
 }
-impl Writable for Count<u64> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u64(self.0)
+impl Serializable for Count<u64> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u64(self.0)
     }
 }

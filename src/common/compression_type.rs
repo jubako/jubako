@@ -10,10 +10,10 @@ pub enum CompressionType {
     Zstd = 3,
 }
 
-impl Producable for CompressionType {
+impl Parsable for CompressionType {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let v = flux.read_u8()?;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let v = parser.read_u8()?;
         match v {
             0 => Ok(CompressionType::None),
             1 => Ok(CompressionType::Lz4),
@@ -21,15 +21,15 @@ impl Producable for CompressionType {
             3 => Ok(CompressionType::Zstd),
             v => Err(format_error!(
                 &format!("Invalid compression type ({v})"),
-                flux
+                parser
             )),
         }
     }
 }
 
-impl Writable for CompressionType {
-    fn write(&self, out_stream: &mut dyn OutStream) -> IoResult<usize> {
-        out_stream.write_u8(*self as u8)
+impl Serializable for CompressionType {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u8(*self as u8)
     }
 }
 
@@ -40,24 +40,24 @@ mod tests {
     #[test]
     fn test_compressiontype() {
         let reader = Reader::from(vec![0x00, 0x01, 0x02, 0x03, 0x4, 0xFF]);
-        let mut flux = reader.create_flux_all();
+        let mut parser = reader.create_parser(Offset::zero(), Size::new(6)).unwrap();
         assert_eq!(
-            CompressionType::produce(&mut flux).unwrap(),
+            CompressionType::parse(&mut parser).unwrap(),
             CompressionType::None
         );
         assert_eq!(
-            CompressionType::produce(&mut flux).unwrap(),
+            CompressionType::parse(&mut parser).unwrap(),
             CompressionType::Lz4
         );
         assert_eq!(
-            CompressionType::produce(&mut flux).unwrap(),
+            CompressionType::parse(&mut parser).unwrap(),
             CompressionType::Lzma
         );
         assert_eq!(
-            CompressionType::produce(&mut flux).unwrap(),
+            CompressionType::parse(&mut parser).unwrap(),
             CompressionType::Zstd
         );
-        assert_eq!(flux.tell(), Offset::new(4));
-        assert!(CompressionType::produce(&mut flux).is_err());
+        assert_eq!(parser.tell(), Offset::new(4));
+        assert!(CompressionType::parse(&mut parser).is_err());
     }
 }

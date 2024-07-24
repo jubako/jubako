@@ -268,6 +268,31 @@ macro_rules! specific {
             }
         }
 
+        impl crate::bases::Parsable for $idx_name {
+            type Output = Self;
+            fn parse(parser: &mut impl crate::bases::Parser) -> crate::bases::Result<Self::Output> {
+                Ok(Self(<$inner_idx<$base> as crate::bases::Parsable>::parse(
+                    parser,
+                )?))
+            }
+        }
+
+        impl crate::bases::SizedParsable for $idx_name {
+            const SIZE: usize = <$inner_idx<$base> as crate::bases::SizedParsable>::SIZE;
+        }
+
+        impl crate::bases::RandomParsable for $idx_name {
+            type Output = Self;
+            fn rparse(
+                parser: &impl crate::bases::RandomParser,
+                offset: crate::bases::Offset,
+            ) -> crate::bases::Result<Self::Output> {
+                Ok(Self(
+                    <$inner_idx<$base> as crate::bases::RandomParsable>::rparse(parser, offset)?,
+                ))
+            }
+        }
+
         // Declare our Count
         #[derive(PartialEq, Eq, Copy, Clone)]
         #[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]

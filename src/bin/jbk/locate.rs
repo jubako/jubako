@@ -1,5 +1,6 @@
 use clap::Parser;
-use jbk::reader::{ManifestPackHeader, PackLocatorTrait, Producable};
+use jbk::creator::OutStream;
+use jbk::reader::{ManifestPackHeader, PackLocatorTrait};
 use jubako as jbk;
 use std::io::{Seek, SeekFrom};
 use std::path::PathBuf;
@@ -49,25 +50,29 @@ pub fn run(options: Options) -> jbk::Result<()> {
         return Ok(());
     };
     let manifest_pack_reader = manifest_pack_reader.unwrap();
-    let mut flux = manifest_pack_reader.create_flux_all();
-    let header = ManifestPackHeader::produce(&mut flux)?;
-    flux.seek(header.packs_offset());
-    for _i in header.pack_count {
-        let pack_info = jbk::reader::PackInfo::produce(&mut flux)?;
+    let header = manifest_pack_reader.parse_block_at::<ManifestPackHeader>(jbk::Offset::zero())?;
+    let pack_offsets = header.packs_offset();
+    for pack_offset in pack_offsets {
+        let pack_info =
+            manifest_pack_reader.parse_block_at::<jbk::reader::PackInfo>(pack_offset)?;
         if let Some(uuid) = uuid {
             if pack_info.uuid != uuid {
                 continue;
             }
         }
+
         let location = String::from_utf8_lossy(&pack_info.pack_location);
 
         if let Some(new_location) = options.new_location {
-            let location_offset = flux.global_offset() - jbk::Size::new(218);
+            let location_offset = pack_offset + jbk::Size::new(38);
             let mut file = std::fs::OpenOptions::new()
                 .write(true)
                 .open(&options.infile)?;
             file.seek(SeekFrom::Start(location_offset.into_u64()))?;
-            jbk::PString::write_string_padded(new_location.as_bytes(), 217, &mut file)?;
+            file.ser_callable(&|ser| -> std::io::Result<()> {
+                jbk::PString::serialize_string_padded(new_location.as_bytes(), 217, ser)?;
+                Ok(())
+            })?;
             println!(
                 "Change {:?} pack {} location from `{}` to `{}`",
                 pack_info.pack_kind, pack_info.uuid, location, new_location

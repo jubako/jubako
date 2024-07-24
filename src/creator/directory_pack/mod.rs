@@ -336,13 +336,13 @@ impl super::private::WritableTell for Index {
         // No data to write
         Ok(())
     }
-    fn write_tail(&mut self, stream: &mut dyn OutStream) -> Result<()> {
-        self.store_id.write(stream)?;
-        self.count.write(stream)?;
-        self.offset.get().write(stream)?;
-        self.free_data.write(stream)?;
-        self.index_key.write(stream)?;
-        PString::write_string(self.name.as_ref(), stream)?;
+    fn serialize_tail(&mut self, ser: &mut Serializer) -> Result<()> {
+        self.store_id.serialize(ser)?;
+        self.count.serialize(ser)?;
+        self.offset.get().serialize(ser)?;
+        self.free_data.serialize(ser)?;
+        self.index_key.serialize(ser)?;
+        PString::serialize_string(self.name.as_ref(), ser)?;
         Ok(())
     }
 }

@@ -20,7 +20,7 @@ fn check_one_file(path: &Path) -> jbk::Result<()> {
 
 pub fn run(options: Options) -> jbk::Result<()> {
     for path in &options.infiles {
-        check_one_file(&path)?;
+        check_one_file(path)?;
     }
     Ok(())
 }

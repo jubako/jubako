@@ -14,28 +14,54 @@ impl<T> Id<T> {
     }
 }
 
-impl Producable for Id<u8> {
+impl Parsable for Id<u8> {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        Ok(flux.read_u8()?.into())
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u8()?.into())
     }
 }
-impl SizedProducable for Id<u8> {
-    const SIZE: usize = 1;
-}
-impl Writable for Id<u8> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u8(self.0)
+
+impl Parsable for Id<u16> {
+    type Output = Self;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u16()?.into())
     }
 }
-impl Writable for Id<u16> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u16(self.0)
+
+impl RandomParsable for Id<u8> {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self> {
+        Ok(parser.read_u8(offset)?.into())
     }
 }
-impl Writable for Id<u32> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u32(self.0)
+
+impl RandomParsable for Id<u16> {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self> {
+        Ok(parser.read_u16(offset)?.into())
+    }
+}
+
+impl<T> SizedParsable for Id<T>
+where
+    Id<T>: Parsable,
+{
+    const SIZE: usize = std::mem::size_of::<T>();
+}
+
+impl Serializable for Id<u8> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u8(self.0)
+    }
+}
+impl Serializable for Id<u16> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u16(self.0)
+    }
+}
+impl Serializable for Id<u32> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u32(self.0)
     }
 }
 

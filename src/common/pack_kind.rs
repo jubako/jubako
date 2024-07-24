@@ -13,56 +13,58 @@ pub enum PackKind {
     Container = b'C',
 }
 
-impl Producable for PackKind {
+impl Parsable for PackKind {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        match flux.read_u8()? {
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        match parser.read_u8()? {
             b'm' => Ok(PackKind::Manifest),
             b'd' => Ok(PackKind::Directory),
             b'c' => Ok(PackKind::Content),
             b'C' => Ok(PackKind::Container),
-            kind => Err(format_error!(&format!("Invalid pack kind {kind}"), flux)),
+            kind => Err(format_error!(&format!("Invalid pack kind {kind}"), parser)),
         }
     }
 }
-impl SizedProducable for PackKind {
+impl SizedParsable for PackKind {
     const SIZE: usize = 1;
 }
 
-impl Writable for PackKind {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u8(*self as u8)
+impl Serializable for PackKind {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u8(*self as u8)
     }
 }
 
 pub(crate) struct FullPackKind(pub PackKind);
 
-impl Producable for FullPackKind {
+impl Parsable for FullPackKind {
     type Output = PackKind;
-    fn produce(flux: &mut Flux) -> Result<Self::Output> {
+    fn parse(parser: &mut impl Parser) -> Result<Self::Output> {
         let mut magic = [0; 3];
-        flux.read_exact(&mut magic)?;
+        parser.read_data(&mut magic)?;
         if magic != JBK_MAGIC {
-            Err(format_error!("Not a JBK kind", flux))
+            Err(format_error!("Not a JBK kind", parser))
         } else {
-            match flux.read_u8()? {
+            match parser.read_u8()? {
                 b'm' => Ok(PackKind::Manifest),
                 b'd' => Ok(PackKind::Directory),
                 b'c' => Ok(PackKind::Content),
                 b'C' => Ok(PackKind::Container),
-                kind => Err(format_error!(&format!("Invalid pack kind {kind}"), flux)),
+                kind => Err(format_error!(&format!("Invalid pack kind {kind}"), parser)),
             }
         }
     }
 }
 
-impl SizedProducable for FullPackKind {
+impl SizedParsable for FullPackKind {
     const SIZE: usize = 4;
 }
 
-impl Writable for FullPackKind {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_all(b"jbk")?;
-        self.0.write(stream)
+impl Serializable for FullPackKind {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        let mut written = 0;
+        written += ser.write_data(b"jbk")?;
+        written += self.0.serialize(ser)?;
+        Ok(written)
     }
 }

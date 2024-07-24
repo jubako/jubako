@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::bases::*;
 
 #[repr(u8)]
@@ -7,15 +9,15 @@ enum ValueStoreKind {
     Indexed = 1,
 }
 
-impl Producable for ValueStoreKind {
+impl Parsable for ValueStoreKind {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        match flux.read_u8()? {
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        match parser.read_u8()? {
             0 => Ok(ValueStoreKind::Plain),
             1 => Ok(ValueStoreKind::Indexed),
             v => Err(format_error!(
                 &format!("Invalid ValueStoreKind ({v})"),
-                flux
+                parser
             )),
         }
     }
@@ -30,22 +32,6 @@ pub trait ValueStoreTrait: std::fmt::Debug + Send + Sync {
 pub enum ValueStore {
     Plain(PlainValueStore),
     Indexed(IndexedValueStore),
-}
-
-impl ValueStore {
-    pub fn new(reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let header_reader =
-            reader.create_sub_memory_reader(pos_info.offset, End::Size(pos_info.size))?;
-        let mut header_flux = header_reader.create_flux_all();
-        Ok(match ValueStoreKind::produce(&mut header_flux)? {
-            ValueStoreKind::Plain => {
-                ValueStore::Plain(PlainValueStore::new(&mut header_flux, reader, pos_info)?)
-            }
-            ValueStoreKind::Indexed => {
-                ValueStore::Indexed(IndexedValueStore::new(&mut header_flux, reader, pos_info)?)
-            }
-        })
-    }
 }
 
 impl ValueStoreTrait for ValueStore {
@@ -67,25 +53,86 @@ impl Explorable for ValueStore {
     }
 }
 
+pub(crate) enum ValueStoreBuilder {
+    Plain,
+    Indexed(Vec<Offset>),
+}
+
+impl Parsable for ValueStoreBuilder {
+    type Output = (Self, Size);
+    fn parse(parser: &mut impl Parser) -> Result<Self::Output>
+    where
+        Self::Output: Sized,
+    {
+        let kind = ValueStoreKind::parse(parser)?;
+        match kind {
+            ValueStoreKind::Plain => {
+                let data_size = Size::parse(parser)?;
+                Ok((ValueStoreBuilder::Plain, data_size))
+            }
+            ValueStoreKind::Indexed => {
+                let value_count: ValueCount = Count::<u64>::parse(parser)?.into();
+                let offset_size = ByteSize::parse(parser)?;
+                let data_size: Size = parser.read_usized(offset_size)?.into();
+                let value_count = value_count.into_usize();
+                // [FIXME] A lot of value means a lot of allocation.
+                // A wrong value here (or a carefully choosen one) may break our program.
+                let mut value_offsets: Vec<Offset> = Vec::with_capacity(value_count + 1);
+                // [TODO] Handle 32 and 16 bits
+                let uninit = value_offsets.spare_capacity_mut();
+                let mut first = true;
+                for elem in &mut uninit[0..value_count] {
+                    let value: Offset = if first {
+                        first = false;
+                        Offset::zero()
+                    } else {
+                        parser.read_usized(offset_size)?.into()
+                    };
+                    assert!(value.is_valid(data_size));
+                    elem.write(value);
+                }
+                unsafe { value_offsets.set_len(value_count) }
+                value_offsets.push(data_size.into());
+                Ok((ValueStoreBuilder::Indexed(value_offsets), data_size))
+            }
+        }
+    }
+}
+
+impl BlockParsable for ValueStoreBuilder {}
+
+impl DataBlockParsable for ValueStore {
+    type Intermediate = ValueStoreBuilder;
+    type TailParser = ValueStoreBuilder;
+    type Output = Self;
+
+    fn finalize(intermediate: Self::Intermediate, reader: Reader) -> Result<Self::Output> {
+        // We want to be sure that we load all the ValueStore data in memory first.
+        let reader = reader.create_sub_memory_reader(Offset::zero(), reader.size())?;
+        Ok(match intermediate {
+            ValueStoreBuilder::Plain => Self::Plain(PlainValueStore { reader }),
+            ValueStoreBuilder::Indexed(value_offsets) => Self::Indexed(IndexedValueStore {
+                value_offsets,
+                reader,
+            }),
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct PlainValueStore {
-    pub reader: MemoryReader,
+    reader: Reader,
 }
 
 impl PlainValueStore {
-    fn new(flux: &mut Flux, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let data_size = Size::produce(flux)?;
-        let reader =
-            reader.create_sub_memory_reader(pos_info.offset - data_size, End::Size(data_size))?;
-        Ok(PlainValueStore {
-            reader: reader.try_into()?,
-        })
-    }
-
     fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
         if let Some(size) = size {
             let offset = id.into_u64().into();
-            self.reader.get_slice(offset, End::Size(size))
+            if let Cow::Borrowed(s) = self.reader.get_slice(offset, size)? {
+                Ok(s)
+            } else {
+                unreachable!("Reader must be from memory")
+            }
         } else {
             panic!("Cannot use unsized with PlainValueStore");
         }
@@ -134,43 +181,11 @@ impl Explorable for PlainValueStore {
 
 #[derive(Debug)]
 pub struct IndexedValueStore {
-    pub value_offsets: Vec<Offset>,
-    pub reader: MemoryReader,
+    value_offsets: Vec<Offset>,
+    reader: Reader,
 }
 
 impl IndexedValueStore {
-    fn new(flux: &mut Flux, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let value_count: ValueCount = Count::<u64>::produce(flux)?.into();
-        let offset_size = ByteSize::produce(flux)?;
-        let data_size: Size = flux.read_usized(offset_size)?.into();
-        let value_count = value_count.into_usize();
-        // [FIXME] A lot of value means a lot of allocation.
-        // A wrong value here (or a carefully choosen one) may break our program.
-        let mut value_offsets: Vec<Offset> = Vec::with_capacity(value_count + 1);
-        // [TODO] Handle 32 and 16 bits
-        let uninit = value_offsets.spare_capacity_mut();
-        let mut first = true;
-        for elem in &mut uninit[0..value_count] {
-            let value: Offset = if first {
-                first = false;
-                Offset::zero()
-            } else {
-                flux.read_usized(offset_size)?.into()
-            };
-            assert!(value.is_valid(data_size));
-            elem.write(value);
-        }
-        unsafe { value_offsets.set_len(value_count) }
-        value_offsets.push(data_size.into());
-        assert_eq!(flux.tell().into_u64(), pos_info.size.into_u64());
-        let reader =
-            reader.create_sub_memory_reader(pos_info.offset - data_size, End::Size(data_size))?;
-        Ok(IndexedValueStore {
-            value_offsets,
-            reader: reader.try_into()?,
-        })
-    }
-
     fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
         if id.into_usize() + 1 >= self.value_offsets.len() {
             return Err(format_error!(&format!("{id} is not a valid id")));
@@ -180,7 +195,11 @@ impl IndexedValueStore {
             Some(s) => s,
             None => self.value_offsets[id.into_usize() + 1] - start,
         };
-        self.reader.get_slice(start, End::Size(size))
+        if let Cow::Borrowed(s) = self.reader.get_slice(start, size)? {
+            Ok(s)
+        } else {
+            unreachable!("Reader must be from memory")
+        }
     }
 }
 
@@ -231,18 +250,18 @@ mod tests {
 
     #[test]
     fn test_valuestorekind() {
-        let reader = Reader::from(vec![0x00, 0x01, 0x02]);
-        let mut flux = reader.create_flux_all();
+        let reader = Reader::from([0x00, 0x01, 0x02]);
+        let mut parser = reader.create_parser(Offset::zero(), reader.size()).unwrap();
         assert_eq!(
-            ValueStoreKind::produce(&mut flux).unwrap(),
+            ValueStoreKind::parse(&mut parser).unwrap(),
             ValueStoreKind::Plain
         );
         assert_eq!(
-            ValueStoreKind::produce(&mut flux).unwrap(),
+            ValueStoreKind::parse(&mut parser).unwrap(),
             ValueStoreKind::Indexed
         );
-        assert_eq!(flux.tell(), Offset::new(2));
-        assert!(ValueStoreKind::produce(&mut flux).is_err());
+        assert_eq!(parser.tell(), Offset::new(2));
+        assert!(ValueStoreKind::parse(&mut parser).is_err());
     }
 
     #[test]
@@ -257,17 +276,24 @@ mod tests {
                 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // data_size
             ]
         );
-        let value_store =
-            ValueStore::new(&reader, SizedOffset::new(Size::new(9), Offset::new(15))).unwrap();
+        let value_store = reader
+            .parse_data_block::<ValueStore>(SizedOffset::new(Size::new(9), Offset::new(15)))
+            .unwrap();
         match &value_store {
             ValueStore::Plain(plainvaluestore) => {
                 assert_eq!(plainvaluestore.reader.size(), Size::from(0x0F_u64));
                 assert_eq!(
-                    plainvaluestore.reader.read_u64(Offset::zero()).unwrap(),
+                    plainvaluestore
+                        .reader
+                        .parse_at::<u64>(Offset::zero())
+                        .unwrap(),
                     0x2322211514131211_u64
                 );
                 assert_eq!(
-                    plainvaluestore.reader.read_u64(Offset::new(7)).unwrap(),
+                    plainvaluestore
+                        .reader
+                        .parse_at::<u64>(Offset::new(7))
+                        .unwrap(),
                     0x3736353433323123_u64
                 );
             }
@@ -302,10 +328,12 @@ mod tests {
                 0x0f, // data_size
                 0x05, // Offset of entry 1
                 0x08, // Offset of entry 2
+                0x00, 0x00, 0x00, 0x00, // Dummy CRC
             ]
         );
-        let value_store =
-            ValueStore::new(&reader, SizedOffset::new(Size::new(13), Offset::new(15))).unwrap();
+        let value_store = reader
+            .parse_data_block::<ValueStore>(SizedOffset::new(Size::new(13), Offset::new(15)))
+            .unwrap();
         match &value_store {
             ValueStore::Indexed(indexedvaluestore) => {
                 assert_eq!(
@@ -314,13 +342,18 @@ mod tests {
                 );
                 assert_eq!(indexedvaluestore.reader.size(), Size::from(0x0f_u64));
                 assert_eq!(
-                    indexedvaluestore.reader.read_u64(Offset::zero()).unwrap(),
+                    indexedvaluestore
+                        .reader
+                        .parse_at::<u64>(Offset::zero())
+                        .unwrap(),
                     0x2322211514131211_u64
                 );
                 assert_eq!(
                     indexedvaluestore
                         .reader
-                        .read_usized(Offset::new(8), ByteSize::U7)
+                        .create_parser(Offset::new(8), Size::from(ByteSize::U7 as usize))
+                        .unwrap()
+                        .read_usized(ByteSize::U7)
                         .unwrap(),
                     0x37363534333231_u64
                 );

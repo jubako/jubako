@@ -122,24 +122,19 @@ where
     VN: VariantName + std::fmt::Debug,
     Entry: FullEntryTrait<PN, VN>,
 {
-    fn write_data(&mut self, _stream: &mut dyn OutStream) -> Result<()> {
-        unreachable!();
-    }
-
-    fn write_tail(&mut self, _stream: &mut dyn OutStream) -> Result<()> {
-        unreachable!();
-    }
-
-    fn write(&mut self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
-        debug!("Layout is {:#?}", self.layout);
+    fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
         for entry in &self.entries {
-            self.layout.write_entry(entry, stream)?;
+            let mut serializer = Serializer::new();
+            self.layout.serialize_entry(entry, &mut serializer)?;
+            stream.write_serializer(serializer)?;
         }
-        let offset = stream.tell();
-        stream.write_u8(0x00)?; // kind
-        self.layout.write(stream)?;
-        stream.write_u64((self.entries.len() * self.layout.entry_size as usize) as u64)?;
-        let size = stream.tell() - offset;
-        Ok(SizedOffset { size, offset })
+        Ok(())
+    }
+
+    fn serialize_tail(&mut self, ser: &mut Serializer) -> Result<()> {
+        ser.write_u8(0x00)?; // kind
+        self.layout.serialize(ser)?;
+        ser.write_u64((self.entries.len() * self.layout.entry_size as usize) as u64)?;
+        Ok(())
     }
 }

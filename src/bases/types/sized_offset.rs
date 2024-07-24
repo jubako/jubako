@@ -18,23 +18,23 @@ impl SizedOffset {
     }
 }
 
-impl SizedProducable for SizedOffset {
+impl SizedParsable for SizedOffset {
     const SIZE: usize = 8;
 }
 
-impl Producable for SizedOffset {
+impl Parsable for SizedOffset {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let data = flux.read_u64()?;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let data = parser.read_u64()?;
         let size = Size::from(data & 0xFF_FF_u64);
         let offset = Offset::from(data >> 16);
         Ok(Self::new(size, offset))
     }
 }
 
-impl Writable for SizedOffset {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+impl Serializable for SizedOffset {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let data: u64 = (self.offset.into_u64() << 16) + (self.size.into_u64() & 0xFF_FF_u64);
-        stream.write_u64(data)
+        ser.write_u64(data)
     }
 }

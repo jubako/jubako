@@ -40,20 +40,20 @@ impl DirectoryPackHeader {
     }
 }
 
-impl Producable for DirectoryPackHeader {
+impl Parsable for DirectoryPackHeader {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let pack_header = PackHeader::produce(flux)?;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let pack_header = PackHeader::parse(parser)?;
         if pack_header.magic != PackKind::Directory {
             return Err(format_error!("Pack Magic is not DirectoryPack"));
         }
-        let index_ptr_pos = Offset::produce(flux)?;
-        let entry_store_ptr_pos = Offset::produce(flux)?;
-        let value_store_ptr_pos = Offset::produce(flux)?;
-        let index_count = Count::<u32>::produce(flux)?.into();
-        let entry_store_count = Count::<u32>::produce(flux)?.into();
-        let value_store_count = Count::<u8>::produce(flux)?.into();
-        let free_data = DirectoryPackFreeData::produce(flux)?;
+        let index_ptr_pos = Offset::parse(parser)?;
+        let entry_store_ptr_pos = Offset::parse(parser)?;
+        let value_store_ptr_pos = Offset::parse(parser)?;
+        let index_count = Count::<u32>::parse(parser)?.into();
+        let entry_store_count = Count::<u32>::parse(parser)?.into();
+        let value_store_count = Count::<u8>::parse(parser)?.into();
+        let free_data = DirectoryPackFreeData::parse(parser)?;
         Ok(DirectoryPackHeader {
             pack_header,
             entry_store_ptr_pos,
@@ -67,17 +67,30 @@ impl Producable for DirectoryPackHeader {
     }
 }
 
-impl Writable for DirectoryPackHeader {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+impl BlockParsable for DirectoryPackHeader {}
+
+impl SizedParsable for DirectoryPackHeader {
+    const SIZE: usize = PackHeader::SIZE
+        + Offset::SIZE
+        + Offset::SIZE
+        + Offset::SIZE
+        + Count::<u32>::SIZE
+        + Count::<u32>::SIZE
+        + Count::<u8>::SIZE
+        + DirectoryPackFreeData::SIZE;
+}
+
+impl Serializable for DirectoryPackHeader {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
-        written += self.pack_header.write(stream)?;
-        written += self.index_ptr_pos.write(stream)?;
-        written += self.entry_store_ptr_pos.write(stream)?;
-        written += self.value_store_ptr_pos.write(stream)?;
-        written += self.index_count.write(stream)?;
-        written += self.entry_store_count.write(stream)?;
-        written += self.value_store_count.write(stream)?;
-        written += self.free_data.write(stream)?;
+        written += self.pack_header.serialize(ser)?;
+        written += self.index_ptr_pos.serialize(ser)?;
+        written += self.entry_store_ptr_pos.serialize(ser)?;
+        written += self.value_store_ptr_pos.serialize(ser)?;
+        written += self.index_count.serialize(ser)?;
+        written += self.entry_store_count.serialize(ser)?;
+        written += self.value_store_count.serialize(ser)?;
+        written += self.free_data.serialize(ser)?;
         Ok(written)
     }
 }
@@ -109,9 +122,11 @@ mod tests {
         ];
         content.extend_from_slice(&[0xff; 31]);
         let reader = Reader::from(content);
-        let mut flux = reader.create_flux_all();
+        let directory_pack_header = reader
+            .parse_block_at::<DirectoryPackHeader>(Offset::zero())
+            .unwrap();
         assert_eq!(
-            DirectoryPackHeader::produce(&mut flux).unwrap(),
+            directory_pack_header,
             DirectoryPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::Directory,

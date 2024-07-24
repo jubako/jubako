@@ -1,6 +1,6 @@
 use super::super::PropertyName;
 use super::StoreHandle;
-use crate::bases::Writable;
+use crate::bases::Serializable;
 use crate::bases::*;
 
 pub enum Property<PN: PropertyName> {
@@ -173,12 +173,12 @@ impl<PN: PropertyName> Property<PN> {
     }
 }
 
-impl<PN: PropertyName> Writable for Property<PN> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+impl<PN: PropertyName> Serializable for Property<PN> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         match self {
             Property::VariantId(name) => {
-                let mut written = stream.write_u8(PropType::VariantId as u8)?;
-                written += PString::write_string(name.as_bytes(), stream)?;
+                let mut written = ser.write_u8(PropType::VariantId as u8)?;
+                written += PString::serialize_string(name.as_bytes(), ser)?;
                 Ok(written)
             }
             Property::Array {
@@ -193,16 +193,16 @@ impl<PN: PropertyName> Writable for Property<PN> {
                         None => 0,
                         Some(s) => *s as usize as u8,
                     };
-                written += stream.write_u8(keytype)?;
+                written += ser.write_u8(keytype)?;
                 let key_size = match deported_info {
                     None => 0,
                     Some((s, _)) => *s as usize as u8,
                 } << 5;
-                written += stream.write_u8(key_size + fixed_array_len)?;
+                written += ser.write_u8(key_size + fixed_array_len)?;
                 if let Some((_, store)) = deported_info {
-                    written += store.get_idx().unwrap().write(stream)?;
+                    written += store.get_idx().unwrap().serialize(ser)?;
                 }
-                written += PString::write_string(name.to_string().as_bytes(), stream)?;
+                written += PString::serialize_string(name.to_string().as_bytes(), ser)?;
                 Ok(written)
             }
             Property::IndirectArray {
@@ -210,10 +210,10 @@ impl<PN: PropertyName> Writable for Property<PN> {
                 store_handle,
                 name,
             } => {
-                let mut written = stream.write_u8(PropType::Array as u8)?;
-                written += stream.write_u8((*value_id_size as usize as u8) << 5)?;
-                written += store_handle.get_idx().unwrap().write(stream)?;
-                written += PString::write_string(name.to_string().as_bytes(), stream)?;
+                let mut written = ser.write_u8(PropType::Array as u8)?;
+                written += ser.write_u8((*value_id_size as usize as u8) << 5)?;
+                written += store_handle.get_idx().unwrap().serialize(ser)?;
+                written += PString::serialize_string(name.to_string().as_bytes(), ser)?;
                 Ok(written)
             }
             Property::ContentAddress {
@@ -228,15 +228,15 @@ impl<PN: PropertyName> Writable for Property<PN> {
                     key_type |= 0b0000_0100;
                 }
                 let mut written = match default {
-                    None => stream.write_u8(key_type)?,
+                    None => ser.write_u8(key_type)?,
                     Some(d) => {
                         let mut written = 0;
-                        written += stream.write_u8(key_type + 0b0000_1000)?;
-                        written += stream.write_usized(*d as u64, *pack_id_size)?;
+                        written += ser.write_u8(key_type + 0b0000_1000)?;
+                        written += ser.write_usized(*d as u64, *pack_id_size)?;
                         written
                     }
                 };
-                written += PString::write_string(name.to_string().as_bytes(), stream)?;
+                written += PString::serialize_string(name.to_string().as_bytes(), ser)?;
                 Ok(written)
             }
             Property::UnsignedInt {
@@ -247,15 +247,15 @@ impl<PN: PropertyName> Writable for Property<PN> {
                 let mut key_type = PropType::UnsignedInt as u8;
                 key_type += *size as u8 - 1;
                 let mut written = match default {
-                    None => stream.write_u8(key_type)?,
+                    None => ser.write_u8(key_type)?,
                     Some(d) => {
                         let mut written = 0;
-                        written += stream.write_u8(key_type + 0b0000_1000)?;
-                        written += stream.write_usized(*d, *size)?;
+                        written += ser.write_u8(key_type + 0b0000_1000)?;
+                        written += ser.write_usized(*d, *size)?;
                         written
                     }
                 };
-                written += PString::write_string(name.to_string().as_bytes(), stream)?;
+                written += PString::serialize_string(name.to_string().as_bytes(), ser)?;
                 Ok(written)
             }
             Property::SignedInt {
@@ -266,20 +266,20 @@ impl<PN: PropertyName> Writable for Property<PN> {
                 let mut key_type = PropType::SignedInt as u8;
                 key_type += *size as u8 - 1;
                 let mut written = match default {
-                    None => stream.write_u8(key_type)?,
+                    None => ser.write_u8(key_type)?,
                     Some(d) => {
                         let mut written = 0;
-                        written += stream.write_u8(key_type + 0b0000_1000)?;
-                        written += stream.write_isized(*d, *size)?;
+                        written += ser.write_u8(key_type + 0b0000_1000)?;
+                        written += ser.write_isized(*d, *size)?;
                         written
                     }
                 };
-                written += PString::write_string(name.to_string().as_bytes(), stream)?;
+                written += PString::serialize_string(name.to_string().as_bytes(), ser)?;
                 Ok(written)
             }
             Property::Padding(size) => {
                 let key_type = PropType::Padding as u8;
-                stream.write_u8(key_type + (size - 1))
+                ser.write_u8(key_type + (size - 1))
             }
         }
     }

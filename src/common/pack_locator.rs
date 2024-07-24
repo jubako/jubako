@@ -18,25 +18,26 @@ impl PackLocator {
     }
 }
 
-impl PackLocator {
-    pub fn write(&self, stream: &mut dyn OutStream) -> IoResult<()> {
-        self.uuid.write(stream)?;
-        self.pack_size.write(stream)?;
-        self.pack_pos.write(stream)?;
-        Ok(())
+impl Serializable for PackLocator {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        let mut written = 0;
+        written += self.uuid.serialize(ser)?;
+        written += self.pack_size.serialize(ser)?;
+        written += self.pack_pos.serialize(ser)?;
+        Ok(written)
     }
 }
 
-impl SizedProducable for PackLocator {
+impl SizedParsable for PackLocator {
     const SIZE: usize = Uuid::SIZE + Size::SIZE + Offset::SIZE;
 }
 
-impl Producable for PackLocator {
+impl Parsable for PackLocator {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let uuid = Uuid::produce(flux)?;
-        let pack_size = Size::produce(flux)?;
-        let pack_pos = Offset::produce(flux)?;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let uuid = Uuid::parse(parser)?;
+        let pack_size = Size::parse(parser)?;
+        let pack_pos = Offset::parse(parser)?;
         Ok(Self {
             uuid,
             pack_size,
@@ -44,3 +45,5 @@ impl Producable for PackLocator {
         })
     }
 }
+
+impl BlockParsable for PackLocator {}

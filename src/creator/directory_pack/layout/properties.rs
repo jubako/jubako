@@ -1,7 +1,7 @@
 use super::super::{PropertyName, VariantName};
 use super::property::Property;
 use super::Value;
-use crate::bases::Writable;
+use crate::bases::Serializable;
 use crate::bases::*;
 use crate::creator::directory_pack::EntryTrait;
 
@@ -51,11 +51,11 @@ impl<PN: PropertyName> Properties<PN> {
 }
 
 impl<PN: PropertyName + 'static> Properties<PN> {
-    pub fn write_entry<'a, VN: VariantName>(
+    pub fn serialize_entry<'a, VN: VariantName>(
         keys: impl Iterator<Item = &'a Property<PN>>,
         variant_id: Option<VariantIdx>,
         entry: &dyn EntryTrait<PN, VN>,
-        stream: &mut dyn OutStream,
+        ser: &mut Serializer,
     ) -> Result<usize> {
         let mut written = 0;
         for key in keys {
@@ -69,58 +69,58 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     match entry.value(name).as_ref() {
                         Value::Array0(a) => {
                             if let Some(array_len_size) = array_len_size {
-                                written += stream.write_usized(a.size as u64, *array_len_size)?;
+                                written += ser.write_usized(a.size as u64, *array_len_size)?;
                             }
-                            written += stream.write_data(&a.data)?;
+                            written += ser.write_data(&a.data)?;
                             // Data is truncate at fixed_array_len. We just want to write 0 if data is shorter than fixed_array_len
-                            written += stream.write_data(
+                            written += ser.write_data(
                                 vec![0; *fixed_array_len as usize - a.data.len()].as_slice(),
                             )?;
                             if let Some((key_size, _)) = deported_info {
                                 written +=
-                                    stream.write_usized(a.value_id.get().into_u64(), *key_size)?;
+                                    ser.write_usized(a.value_id.get().into_u64(), *key_size)?;
                             }
                         }
                         Value::Array1(a) => {
                             if let Some(array_len_size) = array_len_size {
-                                written += stream.write_usized(a.size as u64, *array_len_size)?;
+                                written += ser.write_usized(a.size as u64, *array_len_size)?;
                             }
-                            written += stream.write_data(&a.data)?;
+                            written += ser.write_data(&a.data)?;
                             // Data is truncate at fixed_array_len. We just want to write 0 if data is shorter than fixed_array_len
-                            written += stream.write_data(
+                            written += ser.write_data(
                                 vec![0; *fixed_array_len as usize - a.data.len()].as_slice(),
                             )?;
                             if let Some((key_size, _)) = deported_info {
                                 written +=
-                                    stream.write_usized(a.value_id.get().into_u64(), *key_size)?;
+                                    ser.write_usized(a.value_id.get().into_u64(), *key_size)?;
                             }
                         }
                         Value::Array2(a) => {
                             if let Some(array_len_size) = array_len_size {
-                                written += stream.write_usized(a.size as u64, *array_len_size)?;
+                                written += ser.write_usized(a.size as u64, *array_len_size)?;
                             }
-                            written += stream.write_data(&a.data)?;
+                            written += ser.write_data(&a.data)?;
                             // Data is truncate at fixed_array_len. We just want to write 0 if data is shorter than fixed_array_len
-                            written += stream.write_data(
+                            written += ser.write_data(
                                 vec![0; *fixed_array_len as usize - a.data.len()].as_slice(),
                             )?;
                             if let Some((key_size, _)) = deported_info {
                                 written +=
-                                    stream.write_usized(a.value_id.get().into_u64(), *key_size)?;
+                                    ser.write_usized(a.value_id.get().into_u64(), *key_size)?;
                             }
                         }
                         Value::Array(a) => {
                             if let Some(array_len_size) = array_len_size {
-                                written += stream.write_usized(a.size as u64, *array_len_size)?;
+                                written += ser.write_usized(a.size as u64, *array_len_size)?;
                             }
-                            written += stream.write_data(&a.data)?;
+                            written += ser.write_data(&a.data)?;
                             // Data is truncate at fixed_array_len. We just want to write 0 if data is shorter than fixed_array_len
-                            written += stream.write_data(
+                            written += ser.write_data(
                                 vec![0; *fixed_array_len as usize - a.data.len()].as_slice(),
                             )?;
                             if let Some((key_size, _)) = deported_info {
                                 written +=
-                                    stream.write_usized(a.value_id.get().into_u64(), *key_size)?;
+                                    ser.write_usized(a.value_id.get().into_u64(), *key_size)?;
                             }
                         }
                         Value::IndirectArray(value_id) => {
@@ -128,7 +128,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                             assert_eq!(*fixed_array_len, 0); // No fixed array
                             if let Some((key_size, _)) = deported_info {
                                 written +=
-                                    stream.write_usized(value_id.get().into_u64(), *key_size)?;
+                                    ser.write_usized(value_id.get().into_u64(), *key_size)?;
                             } else {
                                 return Err(
                                     "A indirect array need a array property with a deported info"
@@ -148,8 +148,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     name,
                 } => match entry.value(name).as_ref() {
                     Value::IndirectArray(value_id) => {
-                        written +=
-                            stream.write_usized(value_id.get().into_u64(), *value_id_size)?;
+                        written += ser.write_usized(value_id.get().into_u64(), *value_id_size)?;
                     }
                     _ => {
                         return Err("Not a indirect Array".to_string().into());
@@ -165,11 +164,10 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                         if let Some(d) = default {
                             assert_eq!(*d, value.pack_id.into_u16());
                         } else {
-                            written +=
-                                stream.write_usized(value.pack_id.into_u64(), *pack_id_size)?;
+                            written += ser.write_usized(value.pack_id.into_u64(), *pack_id_size)?;
                         }
                         written +=
-                            stream.write_usized(value.content_id.into_u64(), *content_id_size)?;
+                            ser.write_usized(value.content_id.into_u64(), *content_id_size)?;
                     }
                     _ => {
                         return Err("Not a Content".to_string().into());
@@ -184,14 +182,14 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                         if let Some(d) = default {
                             assert_eq!(d, value);
                         } else {
-                            written += stream.write_usized(*value, *size)?;
+                            written += ser.write_usized(*value, *size)?;
                         }
                     }
                     Value::UnsignedWord(value) => {
                         if let Some(d) = default {
                             assert_eq!(*d, value.get());
                         } else {
-                            written += stream.write_usized(value.get(), *size)?;
+                            written += ser.write_usized(value.get(), *size)?;
                         }
                     }
                     _ => {
@@ -207,14 +205,14 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                         if let Some(d) = default {
                             assert_eq!(d, value);
                         } else {
-                            written += stream.write_isized(*value, *size)?;
+                            written += ser.write_isized(*value, *size)?;
                         }
                     }
                     Value::SignedWord(value) => {
                         if let Some(d) = default {
                             assert_eq!(*d, value.get());
                         } else {
-                            written += stream.write_isized(value.get(), *size)?;
+                            written += ser.write_isized(value.get(), *size)?;
                         }
                     }
                     _ => {
@@ -223,10 +221,10 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                 },
                 Property::Padding(size) => {
                     let data = vec![0x00; *size as usize];
-                    written += stream.write(&data)?;
+                    written += ser.write_data(&data)?;
                 }
                 Property::VariantId(_name) => {
-                    written += variant_id.unwrap().write(stream)?;
+                    written += variant_id.unwrap().serialize(ser)?;
                 }
             }
         }
@@ -234,11 +232,11 @@ impl<PN: PropertyName + 'static> Properties<PN> {
     }
 }
 
-impl<PN: PropertyName> Writable for Properties<PN> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+impl<PN: PropertyName> Serializable for Properties<PN> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
         for key in &self.0 {
-            written += key.write(stream)?;
+            written += key.serialize(ser)?;
         }
         Ok(written)
     }

@@ -185,10 +185,10 @@ impl WritableTell for ValueStore {
         }
     }
 
-    fn write_tail(&mut self, stream: &mut dyn OutStream) -> Result<()> {
+    fn serialize_tail(&mut self, ser: &mut Serializer) -> Result<()> {
         match self {
-            Self::Plain(s) => s.write_tail(stream),
-            Self::Indexed(s) => s.write_tail(stream),
+            Self::Plain(s) => s.serialize_tail(ser),
+            Self::Indexed(s) => s.serialize_tail(ser),
         }
     }
 }
@@ -298,14 +298,14 @@ impl WritableTell for PlainValueStore {
                 }
             }
             last_data_key = Some(*data_key);
-            stream.write_data(&self.0.data[*data_key].0)?;
+            stream.write_all(&self.0.data[*data_key].0)?;
         }
         Ok(())
     }
 
-    fn write_tail(&mut self, stream: &mut dyn OutStream) -> Result<()> {
-        stream.write_u8(0x00)?;
-        self.size().write(stream)?;
+    fn serialize_tail(&mut self, ser: &mut Serializer) -> Result<()> {
+        ser.write_u8(0x00)?;
+        self.size().serialize(ser)?;
         Ok(())
     }
 }
@@ -376,24 +376,24 @@ impl IndexedValueStore {
 impl WritableTell for IndexedValueStore {
     fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
         for idx in &self.0.sorted_indirect {
-            stream.write_data(&self.0.data[*idx].0)?;
+            stream.write_all(&self.0.data[*idx].0)?;
         }
         Ok(())
     }
 
-    fn write_tail(&mut self, stream: &mut dyn OutStream) -> Result<()> {
-        stream.write_u8(0x01)?;
-        stream.write_u64(self.0.sorted_indirect.len() as u64)?; // key count
+    fn serialize_tail(&mut self, ser: &mut Serializer) -> Result<()> {
+        ser.write_u8(0x01)?;
+        ser.write_u64(self.0.sorted_indirect.len() as u64)?; // key count
         let data_size = self.0.size.into_u64();
         let offset_size = needed_bytes(data_size);
-        offset_size.write(stream)?; // offset_size
-        stream.write_usized(data_size, offset_size)?; // data size
+        offset_size.serialize(ser)?; // offset_size
+        ser.write_usized(data_size, offset_size)?; // data size
         let mut offset = 0;
         if !self.0.sorted_indirect.is_empty() {
             for idx in &self.0.sorted_indirect[..(self.0.sorted_indirect.len() - 1)] {
                 let data = &self.0.data[*idx].0;
                 offset += data.len() as u64;
-                stream.write_usized(offset, offset_size)?;
+                ser.write_usized(offset, offset_size)?;
             }
         }
         Ok(())

@@ -15,27 +15,77 @@ impl<T> Idx<T> {
     }
 }
 
-impl Producable for Idx<u32> {
+impl Parsable for Idx<u8> {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        Ok(flux.read_u32()?.into())
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u8()?.into())
     }
 }
-impl<T> SizedProducable for Idx<T>
+
+impl Parsable for Idx<u16> {
+    type Output = Self;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u16()?.into())
+    }
+}
+
+impl Parsable for Idx<u32> {
+    type Output = Self;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u32()?.into())
+    }
+}
+
+impl Parsable for Idx<u64> {
+    type Output = Self;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u64()?.into())
+    }
+}
+
+impl RandomParsable for Idx<u8> {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self> {
+        Ok(parser.read_u8(offset)?.into())
+    }
+}
+
+impl RandomParsable for Idx<u16> {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self> {
+        Ok(parser.read_u16(offset)?.into())
+    }
+}
+
+impl RandomParsable for Idx<u32> {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self> {
+        Ok(parser.read_u32(offset)?.into())
+    }
+}
+
+impl RandomParsable for Idx<u64> {
+    type Output = Self;
+    fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self> {
+        Ok(parser.read_u64(offset)?.into())
+    }
+}
+
+impl<T> SizedParsable for Idx<T>
 where
-    Idx<T>: Producable,
+    Idx<T>: Parsable,
 {
     const SIZE: usize = std::mem::size_of::<T>();
 }
 
-impl Writable for Idx<u8> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u8(self.0)
+impl Serializable for Idx<u8> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u8(self.0)
     }
 }
-impl Writable for Idx<u32> {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u32(self.0)
+impl Serializable for Idx<u32> {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u32(self.0)
     }
 }
 

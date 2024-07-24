@@ -37,19 +37,19 @@ impl Offset {
     }
 }
 
-impl Producable for Offset {
+impl Parsable for Offset {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        Ok(flux.read_u64()?.into())
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        Ok(parser.read_u64()?.into())
     }
 }
-impl SizedProducable for Offset {
+impl SizedParsable for Offset {
     const SIZE: usize = 8;
 }
 
-impl Writable for Offset {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
-        stream.write_u64(self.0)
+impl Serializable for Offset {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
+        ser.write_u64(self.0)
     }
 }
 

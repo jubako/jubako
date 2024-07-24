@@ -1,7 +1,16 @@
-use super::flux::*;
-use super::sub_reader::*;
+use crate::reader::ByteSlice;
+use crate::reader::Stream;
+
 use super::types::*;
-use super::{MemoryReader, Region, Source};
+use super::BlockParsable;
+use super::DataBlockParsable;
+use super::Parsable;
+use super::Parser;
+use super::SizedBlockParsable;
+use super::SizedParsable;
+use super::SliceParser;
+use super::{Region, Source};
+use std::borrow::Cow;
 use std::sync::Arc;
 
 // A wrapper around a source. Allowing access only on a region of the source
@@ -12,16 +21,16 @@ pub struct Reader {
 }
 
 impl Reader {
-    pub fn new<T: Source + 'static>(source: T, end: End) -> Self {
-        Self::new_from_arc(Arc::new(source), end)
+    pub fn new<T: Source + 'static>(source: T, size: Size) -> Self {
+        Self::new_from_arc(Arc::new(source), size)
     }
 
     pub fn new_from_parts(source: Arc<dyn Source>, region: Region) -> Self {
         Self { source, region }
     }
 
-    pub fn new_from_arc(source: Arc<dyn Source>, end: End) -> Self {
-        let region = Region::new_to_end(Offset::zero(), end, source.size());
+    pub fn new_from_arc(source: Arc<dyn Source>, size: Size) -> Self {
+        let region = Region::new_from_size(Offset::zero(), size);
         Self { source, region }
     }
 
@@ -29,83 +38,71 @@ impl Reader {
         self.region.size()
     }
 
-    pub fn create_flux(&self, offset: Offset, end: End) -> Flux {
-        let region = self.region.cut_rel(offset, end);
-        Flux::new_from_parts(&self.source, region, region.begin())
-    }
-    pub fn create_flux_for(&self, size_offset: SizedOffset) -> Flux {
-        self.create_flux(size_offset.offset, End::Size(size_offset.size))
-    }
-    pub fn create_flux_from(&self, offset: Offset) -> Flux {
-        self.create_flux(offset, End::None)
-    }
-    pub fn create_flux_to(&self, end: End) -> Flux {
-        self.create_flux(Offset::zero(), end)
-    }
-    pub fn create_flux_all(&self) -> Flux {
-        self.create_flux(Offset::zero(), End::None)
+    pub fn parse_block_at<T: SizedBlockParsable>(&self, offset: Offset) -> Result<T::Output> {
+        self.parse_block_in::<T>(offset, Size::from(T::SIZE))
     }
 
-    pub fn as_sub_reader(&self) -> SubReader {
-        self.create_sub_reader(Offset::zero(), End::None)
+    pub fn parse_block_in<T: BlockParsable>(
+        &self,
+        offset: Offset,
+        size: Size,
+    ) -> Result<T::Output> {
+        let mut parser = self.create_parser(offset, size)?;
+        T::parse(&mut parser)
     }
 
-    pub fn create_sub_reader(&self, offset: Offset, end: End) -> SubReader {
-        let region = self.region.cut_rel(offset, end);
-        SubReader::new_from_parts(&self.source, region)
+    pub(crate) fn parse_data_block<T: DataBlockParsable>(
+        &self,
+        sized_offset: SizedOffset,
+    ) -> Result<T::Output> {
+        let (intermediate, data_size) =
+            self.parse_in::<T::TailParser>(sized_offset.offset, sized_offset.size)?;
+        let data_reader = self.cut(sized_offset.offset - data_size, data_size);
+        T::finalize(intermediate, data_reader)
     }
 
-    pub fn create_sub_memory_reader(&self, offset: Offset, end: End) -> Result<Reader> {
-        let region = self.region.cut_rel(offset, end);
+    pub fn parse_at<T: SizedParsable>(&self, offset: Offset) -> Result<T::Output> {
+        self.parse_in::<T>(offset, Size::from(T::SIZE))
+    }
+
+    pub fn parse_in<T: Parsable>(&self, offset: Offset, size: Size) -> Result<T::Output> {
+        let mut parser = self.create_parser(offset, size)?;
+        T::parse(&mut parser)
+    }
+
+    pub fn get_byte_slice(&self, offset: Offset, size: Size) -> ByteSlice {
+        let region = self.region.cut_rel(offset, size);
+        ByteSlice::new_from_parts(&self.source, region)
+    }
+
+    pub fn get_slice(&self, offset: Offset, size: Size) -> Result<Cow<[u8]>> {
+        let region = self.region.cut_rel(offset, size);
+        self.source.get_slice(region)
+    }
+
+    pub fn create_parser(&self, offset: Offset, size: Size) -> Result<impl Parser + '_> {
+        let region = self.region.cut_rel(offset, size);
+        let slice = self.source.get_slice(region)?;
+        Ok(SliceParser::new(slice, self.region.begin() + offset))
+    }
+
+    pub fn create_stream(&self, offset: Offset, size: Size) -> Stream {
+        let region = self.region.cut_rel(offset, size);
+        Stream::new_from_parts(Arc::clone(&self.source), region, region.begin())
+    }
+
+    pub fn cut(&self, offset: Offset, size: Size) -> Reader {
+        let region = self.region.cut_rel(offset, size);
+        Self::new_from_parts(Arc::clone(&self.source), region)
+    }
+
+    pub fn create_sub_memory_reader(&self, offset: Offset, size: Size) -> Result<Reader> {
+        let region = self.region.cut_rel(offset, size);
         let (source, region) = Arc::clone(&self.source).into_memory_source(region)?;
         Ok(Reader {
             source: source.into_source(),
             region,
         })
-    }
-
-    pub fn into_memory_reader(&self, offset: Offset, end: End) -> Result<MemoryReader> {
-        let region = self.region.cut_rel(offset, end);
-        let (source, region) = Arc::clone(&self.source).into_memory_source(region)?;
-        Ok(MemoryReader::new_from_parts(source, region))
-    }
-
-    pub fn read_u8(&self, offset: Offset) -> Result<u8> {
-        self.source.read_u8(self.region.begin() + offset)
-    }
-    pub fn read_u16(&self, offset: Offset) -> Result<u16> {
-        self.source.read_u16(self.region.begin() + offset)
-    }
-    pub fn read_u32(&self, offset: Offset) -> Result<u32> {
-        self.source.read_u32(self.region.begin() + offset)
-    }
-    pub fn read_u64(&self, offset: Offset) -> Result<u64> {
-        self.source.read_u64(self.region.begin() + offset)
-    }
-    pub fn read_usized(&self, offset: Offset, size: ByteSize) -> Result<u64> {
-        self.source.read_usized(self.region.begin() + offset, size)
-    }
-
-    pub fn read_i8(&self, offset: Offset) -> Result<i8> {
-        self.source.read_i8(self.region.begin() + offset)
-    }
-    pub fn read_i16(&self, offset: Offset) -> Result<i16> {
-        self.source.read_i16(self.region.begin() + offset)
-    }
-    pub fn read_i32(&self, offset: Offset) -> Result<i32> {
-        self.source.read_i32(self.region.begin() + offset)
-    }
-    pub fn read_i64(&self, offset: Offset) -> Result<i64> {
-        self.source.read_i64(self.region.begin() + offset)
-    }
-    pub fn read_isized(&self, offset: Offset, size: ByteSize) -> Result<i64> {
-        self.source.read_isized(self.region.begin() + offset, size)
-    }
-}
-
-impl From<SubReader<'_>> for Reader {
-    fn from(sub: SubReader) -> Self {
-        sub.to_owned()
     }
 }
 
@@ -114,7 +111,8 @@ where
     T: Source + 'static,
 {
     fn from(source: T) -> Self {
-        Self::new(source, End::None)
+        let size = source.size();
+        Self::new(source, size)
     }
 }
 

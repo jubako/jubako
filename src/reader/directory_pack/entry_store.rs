@@ -1,5 +1,5 @@
 use super::layout::Layout;
-use crate::bases::*;
+use crate::{bases::*, reader::ByteSlice};
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -9,14 +9,14 @@ enum StoreKind {
     Full = 2,
 }
 
-impl Producable for StoreKind {
+impl Parsable for StoreKind {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        match flux.read_u8()? {
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        match parser.read_u8()? {
             0 => Ok(StoreKind::Plain),
             1 => Ok(StoreKind::Ref),
             2 => Ok(StoreKind::Full),
-            v => Err(format_error!(&format!("Invalid store kind ({v})"), flux)),
+            v => Err(format_error!(&format!("Invalid store kind ({v})"), parser)),
         }
     }
 }
@@ -28,17 +28,7 @@ pub enum EntryStore {
 }
 
 impl EntryStore {
-    pub fn new(reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let mut header_flux = reader.create_flux_for(pos_info);
-        Ok(match StoreKind::produce(&mut header_flux)? {
-            StoreKind::Plain => {
-                EntryStore::Plain(PlainStore::new(&mut header_flux, reader, pos_info)?)
-            }
-            _ => todo!(),
-        })
-    }
-
-    pub fn get_entry_reader(&self, idx: EntryIdx) -> SubReader {
+    pub fn get_entry_reader(&self, idx: EntryIdx) -> ByteSlice {
         match self {
             EntryStore::Plain(store) => store.get_entry_reader(idx),
             /*  todo!() */
@@ -50,6 +40,41 @@ impl EntryStore {
             EntryStore::Plain(store) => store.layout(),
             /*            _ => todo!()*/
         }
+    }
+}
+
+pub(crate) struct EntryStoreBuilder {}
+
+impl Parsable for EntryStoreBuilder {
+    type Output = (Layout, Size);
+    fn parse(parser: &mut impl Parser) -> Result<Self::Output>
+    where
+        Self::Output: Sized,
+    {
+        let kind = StoreKind::parse(parser)?;
+        match kind {
+            StoreKind::Plain => {
+                let layout = Layout::parse(parser)?;
+                let data_size = Size::parse(parser)?;
+                Ok((layout, data_size))
+            }
+            _ => todo!(),
+        }
+    }
+}
+
+impl BlockParsable for EntryStoreBuilder {}
+
+impl DataBlockParsable for EntryStore {
+    type Intermediate = Layout;
+    type TailParser = EntryStoreBuilder;
+    type Output = Self;
+
+    fn finalize(layout: Self::Intermediate, entry_reader: Reader) -> Result<Self::Output> {
+        Ok(EntryStore::Plain(PlainStore {
+            layout,
+            entry_reader,
+        }))
     }
 }
 
@@ -69,23 +94,10 @@ pub struct PlainStore {
 }
 
 impl PlainStore {
-    pub fn new(flux: &mut Flux, reader: &Reader, pos_info: SizedOffset) -> Result<Self> {
-        let layout = Layout::produce(flux)?;
-        let data_size = Size::produce(flux)?;
-        // [TODO] use a array_reader here
-        let entry_reader = reader
-            .create_sub_reader(pos_info.offset - data_size, End::Size(data_size))
-            .into();
-        Ok(Self {
-            layout,
-            entry_reader,
-        })
-    }
-
-    fn get_entry_reader(&self, idx: EntryIdx) -> SubReader {
-        self.entry_reader.create_sub_reader(
+    fn get_entry_reader(&self, idx: EntryIdx) -> ByteSlice {
+        self.entry_reader.get_byte_slice(
             Offset::from(self.layout.size.into_u64() * idx.into_u64()),
-            End::Size(self.layout.size),
+            self.layout.size,
         )
     }
 
@@ -112,15 +124,14 @@ impl serde::Serialize for PlainStore {
 #[cfg(feature = "explorable")]
 impl Explorable for PlainStore {
     fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
+        use std::io::Read;
         let index = item
             .parse::<u32>()
             .map_err(|e| Error::from(format!("{e}")))?;
         let entry_reader = self.get_entry_reader(EntryIdx::from(index));
-        Ok(Some(Box::new(
-            entry_reader
-                .create_flux_all()
-                .read_vec(entry_reader.size().into_usize())?,
-        )))
+        let mut data = vec![];
+        entry_reader.stream().read_to_end(&mut data)?;
+        Ok(Some(Box::new(data)))
     }
 }
 
@@ -161,7 +172,9 @@ mod tests {
         ];
         let size = Size::from(content.len());
         let reader = Reader::from(content);
-        let store = EntryStore::new(&reader, SizedOffset::new(size, Offset::zero())).unwrap();
+        let store = reader
+            .parse_data_block::<EntryStore>(SizedOffset::new(size, Offset::zero()))
+            .unwrap();
         let store = match store {
             EntryStore::Plain(s) => s,
         };
@@ -372,7 +385,9 @@ mod tests {
         ];
         let size = Size::from(content.len());
         let reader = Reader::from(content);
-        let store = EntryStore::new(&reader, SizedOffset::new(size, Offset::zero())).unwrap();
+        let store = reader
+            .parse_data_block::<EntryStore>(SizedOffset::new(size, Offset::zero()))
+            .unwrap();
         let store = match store {
             EntryStore::Plain(s) => s,
         };

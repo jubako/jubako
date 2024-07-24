@@ -1,6 +1,37 @@
 use crate::bases::*;
 use crate::common::{PackHeader, PackHeaderInfo, PackInfo, PackKind};
 
+pub struct PackOffsetsIter {
+    offset: Offset,
+    left: u16,
+}
+
+impl PackOffsetsIter {
+    fn new(check_info_pos: Offset, pack_count: PackCount) -> Self {
+        let offset = Offset::from(
+            check_info_pos.into_u64() - pack_count.into_u64() * (PackInfo::SIZE as u64/* + 4*/),
+        );
+        Self {
+            offset,
+            left: pack_count.into_u16(),
+        }
+    }
+}
+
+impl Iterator for PackOffsetsIter {
+    type Item = Offset;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.left != 0 {
+            let offset = self.offset;
+            self.offset += PackInfo::SIZE;
+            self.left -= 1;
+            Some(offset)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct ManifestPackHeader {
     pub pack_header: PackHeader,
@@ -24,29 +55,26 @@ impl ManifestPackHeader {
         }
     }
 
-    pub fn packs_offset(&self) -> Offset {
-        Offset::from(
-            self.pack_header.check_info_pos.into_u64()
-                - self.pack_count.into_u64() * PackInfo::SIZE as u64,
-        )
+    pub fn packs_offset(&self) -> PackOffsetsIter {
+        PackOffsetsIter::new(self.pack_header.check_info_pos, self.pack_count)
     }
 }
 
-impl SizedProducable for ManifestPackHeader {
+impl SizedParsable for ManifestPackHeader {
     const SIZE: usize =
         PackHeader::SIZE + Count::<u16>::SIZE + SizedOffset::SIZE + ManifestPackFreeData::SIZE;
 }
 
-impl Producable for ManifestPackHeader {
+impl Parsable for ManifestPackHeader {
     type Output = Self;
-    fn produce(flux: &mut Flux) -> Result<Self> {
-        let pack_header = PackHeader::produce(flux)?;
+    fn parse(parser: &mut impl Parser) -> Result<Self> {
+        let pack_header = PackHeader::parse(parser)?;
         if pack_header.magic != PackKind::Manifest {
             return Err(format_error!("Pack Magic is not ManifestPack"));
         }
-        let pack_count = Count::<u16>::produce(flux)?.into();
-        let value_store_posinfo = SizedOffset::produce(flux)?;
-        let free_data = ManifestPackFreeData::produce(flux)?;
+        let pack_count = Count::<u16>::parse(parser)?.into();
+        let value_store_posinfo = SizedOffset::parse(parser)?;
+        let free_data = ManifestPackFreeData::parse(parser)?;
         Ok(Self {
             pack_header,
             pack_count,
@@ -56,13 +84,15 @@ impl Producable for ManifestPackHeader {
     }
 }
 
-impl Writable for ManifestPackHeader {
-    fn write(&self, stream: &mut dyn OutStream) -> IoResult<usize> {
+impl BlockParsable for ManifestPackHeader {}
+
+impl Serializable for ManifestPackHeader {
+    fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let mut written = 0;
-        written += self.pack_header.write(stream)?;
-        written += self.pack_count.write(stream)?;
-        written += self.value_store_posinfo.write(stream)?;
-        written += self.free_data.write(stream)?;
+        written += self.pack_header.serialize(ser)?;
+        written += self.pack_count.serialize(ser)?;
+        written += self.value_store_posinfo.serialize(ser)?;
+        written += self.free_data.serialize(ser)?;
         Ok(written)
     }
 }
@@ -91,9 +121,11 @@ mod tests {
         ];
         content.extend_from_slice(&[0xff; 54]);
         let reader = Reader::from(content);
-        let mut flux = reader.create_flux_all();
+        let manifest_pack_header = reader
+            .parse_block_at::<ManifestPackHeader>(Offset::zero())
+            .unwrap();
         assert_eq!(
-            ManifestPackHeader::produce(&mut flux).unwrap(),
+            manifest_pack_header,
             ManifestPackHeader {
                 pack_header: PackHeader {
                     magic: PackKind::Manifest,
