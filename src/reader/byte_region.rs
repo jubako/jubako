@@ -53,7 +53,7 @@ impl ByteRegion {
     /// stored in memory but it may potentially be a `Cow::Owned` if it reference a file.
     pub fn get_slice(&self, offset: Offset, size: Size) -> Result<Cow<[u8]>> {
         let region = self.region.cut_rel(offset, size);
-        self.source.get_slice(region)
+        self.source.get_slice(region, BlockCheck::None)
     }
 }
 
@@ -73,14 +73,14 @@ impl RandomParser for ByteRegion {
             .region
             .cut_rel(offset, self.region.size() - offset.into());
         Ok(SliceParser::new(
-            self.source.get_slice(region)?,
+            self.source.get_slice(region, BlockCheck::None)?,
             self.region.begin() + offset,
         ))
     }
 
     fn read_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>> {
         let region = self.region.cut_rel(offset, Size::from(size));
-        self.source.get_slice(region)
+        self.source.get_slice(region, BlockCheck::None)
     }
 
     fn read_data(&self, offset: Offset, buf: &mut [u8]) -> Result<()> {

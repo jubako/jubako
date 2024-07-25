@@ -348,6 +348,13 @@ macro_rules! specific {
             }
         }
 
+        impl std::ops::Mul<super::Size> for $count_name {
+            type Output = super::Size;
+            fn mul(self, other: super::Size) -> Self::Output {
+                other * self.into_u64()
+            }
+        }
+
         impl std::ops::AddAssign<$base> for $count_name {
             fn add_assign(&mut self, rhs: $base) {
                 self.0 += rhs;

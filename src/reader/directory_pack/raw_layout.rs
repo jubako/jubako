@@ -368,7 +368,7 @@ mod tests {
     fn test_rawproperty(source: &[u8]) -> RawProperty {
         let mut content = Vec::new();
         content.extend_from_slice(source);
-        let reader = Reader::from(content);
+        let reader = CheckReader::from(content);
         reader
             .parse_in::<RawProperty>(Offset::zero(), reader.size())
             .unwrap()

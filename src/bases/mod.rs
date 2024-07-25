@@ -28,7 +28,7 @@ pub use write::*;
 /// ArrayReader is a wrapper a reader to access element stored as a array.
 /// (Consecutif block of data of the same size).
 pub struct ArrayReader<OutType, IdxType> {
-    reader: Reader,
+    reader: CheckReader,
     length: Count<IdxType>,
     elem_size: usize,
     produced_type: PhantomData<OutType>,
@@ -59,9 +59,10 @@ where
         length: Count<IdxType>,
     ) -> Result<Self> {
         let elem_size = Size::from(OutType::SIZE);
-        let sub_reader = reader.create_sub_memory_reader(at, elem_size * u64::from(length.0))?;
+        let array_size = elem_size * length.0.into();
+        let reader = reader.cut_check(at, array_size, BlockCheck::Crc32)?;
         Ok(Self {
-            reader: sub_reader,
+            reader,
             length,
             elem_size: elem_size.into_usize(),
             produced_type: PhantomData,

@@ -1,6 +1,6 @@
 use clap::Parser;
 use jbk::creator::OutStream;
-use jbk::reader::{ManifestPackHeader, PackLocatorTrait};
+use jbk::reader::{ManifestPackHeader, PackHeader, PackLocatorTrait, PackOffsetsIter};
 use jubako as jbk;
 use std::io::{Seek, SeekFrom};
 use std::path::PathBuf;
@@ -50,8 +50,10 @@ pub fn run(options: Options) -> jbk::Result<()> {
         return Ok(());
     };
     let manifest_pack_reader = manifest_pack_reader.unwrap();
-    let header = manifest_pack_reader.parse_block_at::<ManifestPackHeader>(jbk::Offset::zero())?;
-    let pack_offsets = header.packs_offset();
+    let pack_header = manifest_pack_reader.parse_block_at::<PackHeader>(jbk::Offset::zero())?;
+    let header =
+        manifest_pack_reader.parse_block_at::<ManifestPackHeader>(jbk::Offset::from(64u64))?;
+    let pack_offsets = PackOffsetsIter::new(pack_header.check_info_pos, header.pack_count);
     for pack_offset in pack_offsets {
         let pack_info =
             manifest_pack_reader.parse_block_at::<jbk::reader::PackInfo>(pack_offset)?;

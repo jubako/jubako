@@ -1,6 +1,9 @@
-====
-Pack
-====
+===========
+ContentPack
+===========
+
+As any other pack, ContentPack must start by a PackHeader and end with a Pack tail.
+Directly following the packheader is the contentpackheader.
 
 Content Pack header
 ===================
@@ -14,29 +17,34 @@ entryCount     u32        16     Number of entry in the pack (max of 2^32 entrie
 clusterCount   u32        20     Number of cluster in the pack (max of 2^20)
 _reserved      [u8;12]    24     Reserved, must be 0
 freeData       [u8;24]    36
-_reserved      [u8; 4]    60     Must be 0
 ============== ========== ====== ===========
 
-Full Size : 64 bytes
+Full Size: 60 bytes
+ContentPackHeader is a 60 bytes block.
 
-ClusterPtrPos array
-===================
+ClusterPtr array pos
+====================
 
-A array of SizedOffset. Each entry is a offset to the a cluster **tail**.
+The offset of an array of SizedOffset.
+Each entry in the array is a offset (ptr) to the a cluster **tail**.
 Offsets may not be writen sequentially. Offsets are relative to the start of the pack.
 
-EntryPtrPos array
-=================
+ClusterPtr array is a ``<clusterCount>*8`` bytes block.
 
-An array of EntryInfo
+EntryInfo array pos
+===================
+
+The offset of an array of EntryInfo.
+
+EntryInfo array is a ``<entryCount>*4`` bytes block.
 
 Cluster
 =======
 
 A cluster is a container of content. It contains plain data.
-There is no information about the name or anything else about a file.
+There is no metadata (as filename..) about the content itself.
 
-A cluster consisted of the input (potentially compressed) data **followed** by a tail.
+A cluster is composed of the input (potentially compressed) data **followed** by a tail.
 
 ============= ========= =================== ===========
 Field Name    Type      Offset              Description
@@ -44,7 +52,7 @@ Field Name    Type      Offset              Description
 type          u8        0                   | The highest 4 bits are reserved.
                                               Must be equal to 0.
                                             | The lowest 4 bits are the cluster
-                                              compression :
+                                              compression:
 
                                             - 0: nocompression
                                             - 1: lz4
@@ -55,8 +63,8 @@ blobCount     u12       1                   The number of blob in the cluster
 _paddingbit   u1                            Reserved
 offsetSize    u3                            | The size (in bytes) of the offsets.
                                             | Define uN (N == 8*(offsetSize+1))
-RawDataSize   SizeN     3                   The size of the raw (input) (potentially compressed) data.
-DataSize      SizeN     3+uN                The size of the data (uncompressed compressed)
+RawDataSize   uN        3                   The size of the raw (input) (potentially compressed) data.
+DataSize      uN        3+uN                The size of the data (uncompressed compressed)
                                             cluster (including this header)
 blob1 offset  uN        3+uN*2              Start of second (1) blob, end of the first
                                             blob (0)
@@ -72,7 +80,12 @@ blob1..blobN represent a array of dimension blobCount-1
 | blobN (0 < N < blobCount) offset is array[N-1]. Its size is (array[N]-array[N-1])
 | blobN (N==blobCount) offset is array[N-1]. It size is (dataSize-array[N-1])
 
-The localization of the cluster data is `offset of the tail - RawDataSize`
+The localization of the cluster data is `offset of the tail - RawDataSize - 4 (RawData CRC)`
+
+ClusterTail is a block.
+
+RawData (cluster data) is a block.
+
 
 Entry info
 ==========

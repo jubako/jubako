@@ -123,18 +123,22 @@ where
     Entry: FullEntryTrait<PN, VN>,
 {
     fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
+        // [TODO] Handle per entry CRC32
+        let mut serializer = Serializer::new(BlockCheck::Crc32);
         for entry in &self.entries {
-            let mut serializer = Serializer::new();
             self.layout.serialize_entry(entry, &mut serializer)?;
-            stream.write_serializer(serializer)?;
         }
+        stream.write_serializer(serializer)?;
         Ok(())
     }
 
     fn serialize_tail(&mut self, ser: &mut Serializer) -> Result<()> {
         ser.write_u8(0x00)?; // kind
+        let entry_count = EntryCount::from(self.entries.len() as u32);
+        entry_count.serialize(ser)?;
+        // [TODO] handle per entry CRC32
+        ser.write_u8(0x00)?; // flag
         self.layout.serialize(ser)?;
-        ser.write_u64((self.entries.len() * self.layout.entry_size as usize) as u64)?;
         Ok(())
     }
 }

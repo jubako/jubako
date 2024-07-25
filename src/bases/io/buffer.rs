@@ -29,18 +29,25 @@ where
         Ok(())
     }
 
-    fn get_slice(&self, region: Region) -> Result<Cow<[u8]>> {
+    fn get_slice(&self, region: Region, block_check: BlockCheck) -> Result<Cow<[u8]>> {
         debug_assert!(region.end().into_usize() <= self.as_ref().len());
-        Ok(Cow::Borrowed(
-            &self.as_ref()[region.begin().into_usize()..region.end().into_usize()],
-        ))
+        if let BlockCheck::Crc32 = block_check {
+            let full_slice = &self.as_ref()[region.begin().into_usize()
+                ..region.end().into_usize() + BlockCheck::Crc32.size().into_usize()];
+            assert_slice_crc(full_slice)?;
+        }
+        let slice = &self.as_ref()[region.begin().into_usize()..region.end().into_usize()];
+        Ok(Cow::Borrowed(slice))
     }
 
     fn into_memory_source(
         self: Arc<Self>,
         region: Region,
+        block_check: BlockCheck,
     ) -> Result<(Arc<dyn MemorySource>, Region)> {
         debug_assert!(region.end().into_usize() <= self.as_ref().as_ref().len());
+        // THis will check the slice for us
+        <Self as Source>::get_slice(&self, region, block_check)?;
         Ok((Arc::clone(&(self as Arc<dyn MemorySource>)), region))
     }
 

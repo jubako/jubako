@@ -102,14 +102,22 @@ impl Parsable for ValueStoreBuilder {
 impl BlockParsable for ValueStoreBuilder {}
 
 impl DataBlockParsable for ValueStore {
-    type Intermediate = ValueStoreBuilder;
     type TailParser = ValueStoreBuilder;
     type Output = Self;
 
-    fn finalize(intermediate: Self::Intermediate, reader: Reader) -> Result<Self::Output> {
+    fn finalize(
+        intermediate: (ValueStoreBuilder, Size),
+        header_offset: Offset,
+        reader: &Reader,
+    ) -> Result<Self::Output> {
+        let (store_builder, data_size) = intermediate;
+        let reader = reader.cut_check(
+            header_offset - data_size - BlockCheck::Crc32.size(),
+            data_size,
+            BlockCheck::Crc32,
+        )?;
         // We want to be sure that we load all the ValueStore data in memory first.
-        let reader = reader.create_sub_memory_reader(Offset::zero(), reader.size())?;
-        Ok(match intermediate {
+        Ok(match store_builder {
             ValueStoreBuilder::Plain => Self::Plain(PlainValueStore { reader }),
             ValueStoreBuilder::Indexed(value_offsets) => Self::Indexed(IndexedValueStore {
                 value_offsets,
@@ -121,7 +129,7 @@ impl DataBlockParsable for ValueStore {
 
 #[derive(Debug)]
 pub struct PlainValueStore {
-    reader: Reader,
+    reader: CheckReader,
 }
 
 impl PlainValueStore {
@@ -182,7 +190,7 @@ impl Explorable for PlainValueStore {
 #[derive(Debug)]
 pub struct IndexedValueStore {
     value_offsets: Vec<Offset>,
-    reader: Reader,
+    reader: CheckReader,
 }
 
 impl IndexedValueStore {
@@ -250,7 +258,7 @@ mod tests {
 
     #[test]
     fn test_valuestorekind() {
-        let reader = Reader::from([0x00, 0x01, 0x02]);
+        let reader = CheckReader::from([0x00, 0x01, 0x02]);
         let mut parser = reader.create_parser(Offset::zero(), reader.size()).unwrap();
         assert_eq!(
             ValueStoreKind::parse(&mut parser).unwrap(),
@@ -272,12 +280,14 @@ mod tests {
                 0x11, 0x12, 0x13, 0x14, 0x15, // Data of entry 0
                 0x21, 0x22, 0x23, // Data of entry 1
                 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of entry 2
+                0x0D, 0x0D, 0x73, 0xA0, // CRC
                 0x00, // kind
                 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // data_size
+                0xE4, 0x65, 0xB6, 0xC7, // CRC
             ]
         );
         let value_store = reader
-            .parse_data_block::<ValueStore>(SizedOffset::new(Size::new(9), Offset::new(15)))
+            .parse_data_block::<ValueStore>(SizedOffset::new(Size::new(9), Offset::new(19)))
             .unwrap();
         match &value_store {
             ValueStore::Plain(plainvaluestore) => {
@@ -322,17 +332,18 @@ mod tests {
                 0x11, 0x12, 0x13, 0x14, 0x15, // Data of entry 0
                 0x21, 0x22, 0x23, // Data of entry 1
                 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of entry 2
+                0x0D, 0x0D, 0x73, 0xA0, // CRC
                 0x01, // kind
                 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value count
                 0x01, // offset_size
                 0x0f, // data_size
                 0x05, // Offset of entry 1
                 0x08, // Offset of entry 2
-                0x00, 0x00, 0x00, 0x00, // Dummy CRC
+                0x1E, 0x6E, 0xE7, 0xB7, // CRC
             ]
         );
         let value_store = reader
-            .parse_data_block::<ValueStore>(SizedOffset::new(Size::new(13), Offset::new(15)))
+            .parse_data_block::<ValueStore>(SizedOffset::new(Size::new(13), Offset::new(19)))
             .unwrap();
         match &value_store {
             ValueStore::Indexed(indexedvaluestore) => {

@@ -143,13 +143,14 @@ impl ClusterCompressor {
         outstream: &mut dyn OutStream,
     ) -> Result<SizedOffset> {
         self.progress.handle_cluster(cluster.index().into(), true);
+        let data_offset = outstream.tell();
         self.write_cluster_data(&mut cluster, outstream)?;
         let tail_offset = outstream.tell();
-        let mut serializer = Serializer::new();
+        let mut serializer = Serializer::new(BlockCheck::Crc32);
         serialize_cluster_tail(
             self.compression,
             &cluster,
-            tail_offset.into(),
+            tail_offset - data_offset,
             &mut serializer,
         )?;
         let tail_size = outstream.write_serializer(serializer)?.into();
@@ -229,7 +230,7 @@ where
         let written = self.write_cluster_data(cluster.data.split_off(0))?;
         assert_eq!(written, cluster.data_size().into_u64());
         let tail_offset = self.file.tell();
-        let mut serializer = Serializer::new();
+        let mut serializer = Serializer::new(BlockCheck::Crc32);
         serialize_cluster_tail(
             Compression::None,
             &cluster,

@@ -3,12 +3,19 @@ use std::cmp;
 use std::fmt::Debug;
 use std::io::Read;
 
-use super::PackOffsetsIter;
-
 #[derive(Clone, Copy)]
 pub enum CheckKind {
     None = 0,
     Blake3 = 1,
+}
+
+impl CheckKind {
+    pub(crate) fn block_size(self) -> Size {
+        match self {
+            Self::None => BlockCheck::Crc32.size() + 1,
+            Self::Blake3 => BlockCheck::Crc32.size() + 33,
+        }
+    }
 }
 
 impl Parsable for CheckKind {
@@ -102,7 +109,7 @@ impl CheckInfo {
 }
 
 // Pack info size is pack info + 4 bytes of crc32
-const PACK_INFO_SIZE: u64 = super::PackInfo::SIZE as u64; // + 4;
+const PACK_INFO_SIZE: u64 = super::PackInfo::BLOCK_SIZE as u64;
 
 // The first 38 bytes of the PackInfo must be checked.
 const PACK_INFO_TO_CHECK: u64 = 38;
@@ -115,7 +122,10 @@ pub struct ManifestCheckStream<'a, S: Read> {
 }
 
 impl<'a, S: Read> ManifestCheckStream<'a, S> {
-    pub fn new_from_offset_iter(source: &'a mut S, mut pack_offsets: PackOffsetsIter) -> Self {
+    pub fn new_from_offset_iter(
+        source: &'a mut S,
+        mut pack_offsets: impl Iterator<Item = Offset>,
+    ) -> Self {
         let (pack_offset, pack_count) = match pack_offsets.next() {
             Some(pack_offset) => {
                 let pack_count = pack_offsets.count() + 1;
@@ -143,7 +153,7 @@ impl<S: Read> Read for ManifestCheckStream<'_, S> {
     #[allow(clippy::unused_io_amount)]
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         // The check stream want to exclude the 218 bytes (PACK_INFO_SIZE-PACK_INFO_TO_CHECK)
-        // in all pack_info locating the pack.
+        // in all pack_info (location of the pack and CRC32).
         // So data we don't want to check are positionned between
         // pack_offset + k*(256+4) + 38  and 128 + (k+1)*(256+4)
         // for k < pack_count

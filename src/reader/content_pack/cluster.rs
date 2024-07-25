@@ -119,20 +119,25 @@ pub(crate) struct ClusterBuilder {
 }
 
 impl DataBlockParsable for Cluster {
-    type Intermediate = ClusterBuilder;
     type TailParser = ClusterBuilder;
     type Output = Self;
 
-    fn finalize(intermediate: Self::Intermediate, reader: Reader) -> Result<Self::Output> {
-        let reader = if intermediate.compression == CompressionType::None {
+    fn finalize(
+        intermediate: (ClusterBuilder, Size),
+        header_offset: Offset,
+        reader: &Reader,
+    ) -> Result<Self::Output> {
+        let (cluster_builder, data_size) = intermediate;
+        let reader = reader.cut(header_offset - data_size, data_size);
+        let reader = if cluster_builder.compression == CompressionType::None {
             ClusterReader::Plain(reader)
         } else {
             ClusterReader::Raw(reader)
         };
         Ok(Cluster {
-            blob_offsets: intermediate.blob_offsets,
-            data_size: intermediate.data_size,
-            compression: intermediate.compression,
+            blob_offsets: cluster_builder.blob_offsets,
+            data_size: cluster_builder.data_size,
+            compression: cluster_builder.compression,
             reader: RwLock::new(reader),
         })
     }
@@ -239,7 +244,7 @@ mod tests {
         let mut cluster_data = Vec::new();
         cluster_data.extend_from_slice(&data);
         #[rustfmt::skip]
-        cluster_data.extend_from_slice(&[
+        let cluster_header = [
             comp as u8,       // compression
             0x01,             // offset_size
             0x03, 0x00,       // blob_count
@@ -247,10 +252,15 @@ mod tests {
             0x0f,             // Data size
             0x05,             // Offset of blob 1
             0x08,             // Offset of blob 2
-        ]);
+        ];
+        cluster_data.extend_from_slice(&cluster_header);
+        let mut digest = CRC.digest();
+        digest.update(&cluster_header);
+        let checksum = digest.finalize().to_be_bytes();
+        cluster_data.extend_from_slice(&checksum);
         (
             SizedOffset::new(
-                Size::from(cluster_data.len() - data.len()),
+                Size::from(cluster_data.len() - data.len() - 4),
                 Offset::from(data.len()),
             ),
             cluster_data,
@@ -355,13 +365,15 @@ mod tests {
             return;
         }
         let (ptr_info, data) = cluster_info.unwrap();
-        let reader = Reader::from(data);
+        let reader = CheckReader::from(data);
         let header = reader
-            .parse_block_in::<ClusterHeader>(ptr_info.offset, ptr_info.size)
+            .parse_in::<ClusterHeader>(ptr_info.offset, ptr_info.size)
             .unwrap();
         assert_eq!(header.compression, comp);
         assert_eq!(header.offset_size, ByteSize::U1);
         assert_eq!(header.blob_count, 3.into());
+
+        let reader: Reader = reader.into();
         let cluster = reader.parse_data_block::<Cluster>(ptr_info).unwrap();
         assert_eq!(cluster.blob_count(), 3.into());
 

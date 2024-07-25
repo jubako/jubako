@@ -288,6 +288,7 @@ impl PlainValueStore {
 
 impl WritableTell for PlainValueStore {
     fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
+        let mut serializer = Serializer::new(BlockCheck::Crc32);
         let mut last_data_key: Option<usize> = None;
         for data_key in &self.0.sorted_indirect {
             if let Some(i) = last_data_key {
@@ -298,8 +299,9 @@ impl WritableTell for PlainValueStore {
                 }
             }
             last_data_key = Some(*data_key);
-            stream.write_all(&self.0.data[*data_key].0)?;
+            serializer.write_data(&self.0.data[*data_key].0)?;
         }
+        stream.write_serializer(serializer)?;
         Ok(())
     }
 
@@ -375,9 +377,11 @@ impl IndexedValueStore {
 
 impl WritableTell for IndexedValueStore {
     fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
+        let mut serializer = Serializer::new(BlockCheck::Crc32);
         for idx in &self.0.sorted_indirect {
-            stream.write_all(&self.0.data[*idx].0)?;
+            serializer.write_data(&self.0.data[*idx].0)?;
         }
+        stream.write_serializer(serializer)?;
         Ok(())
     }
 

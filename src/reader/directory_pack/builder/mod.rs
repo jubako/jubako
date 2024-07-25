@@ -176,7 +176,9 @@ mod tests {
             )
             .unwrap(),
             variant_part: None,
-            size: Size::new(6),
+            entry_count: EntryCount::from(2),
+            is_entry_checked: false,
+            entry_size: Size::new(6),
         };
         let entry_reader = Reader::from(vec![
             0x00, 0x00, 0x00, 0x01, 0x88, 0x99, 0x01, 0x00, 0x00, 0x02, 0x66, 0x77,
@@ -283,7 +285,9 @@ mod tests {
                     (String::from("Variant2"), 1),
                 ]),
             }),
-            size: Size::new(8),
+            entry_count: EntryCount::from(2),
+            is_entry_checked: false,
+            entry_size: Size::new(8),
         };
 
         let entry_reader = Reader::from(vec![

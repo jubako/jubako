@@ -25,7 +25,6 @@ impl Parsable for ContainerPackHeader {
         let pack_count = parser.read_u16()?.into();
         parser.skip(26)?;
         let free_data = PackFreeData::parse(parser)?;
-        parser.skip(4)?;
         Ok(ContainerPackHeader {
             pack_locators_pos,
             pack_count,
@@ -40,8 +39,7 @@ impl SizedParsable for ContainerPackHeader {
     const SIZE: usize = Offset::SIZE
          + 2 // packCount
          + 26 //padding
-         + PackFreeData::SIZE
-         + 4; //padding
+         + PackFreeData::SIZE;
 }
 
 impl Serializable for ContainerPackHeader {
@@ -51,7 +49,6 @@ impl Serializable for ContainerPackHeader {
         written += self.pack_count.serialize(ser)?;
         written += ser.write_data(&[0_u8; 26])?;
         written += self.free_data.serialize(ser)?;
-        written += ser.write_data(&[0_u8; 4])?;
         Ok(written)
     }
 }
@@ -68,7 +65,7 @@ mod tests {
         ];
         content.extend_from_slice(&[0; 26]); // padding
         content.extend_from_slice(&[0xFF; 24]); // free_data
-        content.extend_from_slice(&[0; 4]); // padding
+        content.extend_from_slice(&[0x9F, 0x8A, 0x12, 0x2A]); // CRC32
         let reader = Reader::from(content);
         let container_header = reader
             .parse_block_at::<ContainerPackHeader>(Offset::zero())

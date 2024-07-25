@@ -46,7 +46,7 @@ mod tests {
     fn test_pstring(source: &[u8]) -> String {
         let mut content = Vec::new();
         content.extend_from_slice(source);
-        let reader = Reader::from(content);
+        let reader = CheckReader::from(content);
         String::from_utf8(
             reader
                 .parse_in::<PString>(Offset::zero(), reader.size())

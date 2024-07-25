@@ -1,6 +1,9 @@
 use super::{private::WritableTell, PackData, StoreHandle, ValueStore};
 use crate::bases::*;
-use crate::common::{CheckInfo, ManifestCheckStream, ManifestPackHeader, PackHeaderInfo, PackInfo};
+use crate::common::{
+    CheckInfo, CheckKind, ManifestCheckStream, ManifestPackHeader, PackHeader, PackHeaderInfo,
+    PackInfo,
+};
 use std::io::SeekFrom;
 
 pub struct ManifestPackCreator {
@@ -26,7 +29,9 @@ impl ManifestPackCreator {
 
     pub fn finalize<O: InOutStream>(self, file: &mut O) -> Result<uuid::Uuid> {
         let origin_offset = file.stream_position()?;
-        file.seek(SeekFrom::Current(128))?;
+        file.seek(SeekFrom::Current(
+            PackHeader::BLOCK_SIZE as i64 + ManifestPackHeader::BLOCK_SIZE as i64,
+        ))?;
 
         let mut pack_infos = vec![];
         let mut free_data_ids = vec![];
@@ -62,15 +67,19 @@ impl ManifestPackCreator {
         }
 
         let check_offset = file.stream_position()? - origin_offset;
-        let pack_size: Size = (check_offset + 33 + 64).into();
+        let pack_size: Size = (check_offset
+            + CheckKind::Blake3.block_size().into_u64()
+            + PackHeader::BLOCK_SIZE as u64)
+            .into();
 
         file.seek(SeekFrom::Start(origin_offset))?;
-        let header = ManifestPackHeader::new(
+
+        let pack_header = PackHeader::new(
+            crate::PackKind::Manifest,
             PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset.into()),
-            self.free_data,
-            nb_packs.into(),
-            value_store_pos,
         );
+        file.ser_write(&pack_header)?;
+        let header = ManifestPackHeader::new(self.free_data, nb_packs.into(), value_store_pos);
         file.ser_write(&header)?;
         file.seek(SeekFrom::Start(origin_offset))?;
 
@@ -79,12 +88,12 @@ impl ManifestPackCreator {
         file.ser_write(&check_info)?;
 
         file.seek(SeekFrom::Start(origin_offset))?;
-        let mut tail_buffer = [0u8; 64];
+        let mut tail_buffer = [0u8; PackHeader::BLOCK_SIZE];
         file.read_exact(&mut tail_buffer)?;
         tail_buffer.reverse();
         file.seek(SeekFrom::End(0))?;
         file.write_all(&tail_buffer)?;
 
-        Ok(header.pack_header.uuid)
+        Ok(pack_header.uuid)
     }
 }

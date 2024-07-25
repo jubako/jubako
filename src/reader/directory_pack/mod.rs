@@ -11,7 +11,7 @@ mod value_store;
 
 use self::index::IndexHeader;
 use crate::bases::*;
-use crate::common::{CheckInfo, DirectoryPackHeader, Pack, PackKind};
+use crate::common::{CheckInfo, DirectoryPackHeader, Pack, PackHeader, PackKind};
 use std::sync::{Arc, RwLock};
 use uuid::Uuid;
 
@@ -66,6 +66,7 @@ impl EntryStorage {
 }
 
 pub struct DirectoryPack {
+    pack_header: PackHeader,
     header: DirectoryPackHeader,
     value_stores_ptrs: ArrayReader<SizedOffset, u8>,
     entry_stores_ptrs: ArrayReader<SizedOffset, u32>,
@@ -77,7 +78,13 @@ pub struct DirectoryPack {
 impl DirectoryPack {
     pub fn new(reader: Reader) -> Result<DirectoryPack> {
         let reader = reader.create_sub_memory_reader(Offset::zero(), reader.size())?;
-        let header = reader.parse_block_at::<DirectoryPackHeader>(Offset::zero())?;
+        let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero())?;
+        if pack_header.magic != PackKind::Directory {
+            return Err(format_error!("Pack Magic is not DirectoryPack"));
+        }
+
+        let header =
+            reader.parse_block_at::<DirectoryPackHeader>(Offset::from(PackHeader::BLOCK_SIZE))?;
         let value_stores_ptrs = ArrayReader::new_memory_from_reader(
             &reader,
             header.value_store_ptr_pos,
@@ -94,6 +101,7 @@ impl DirectoryPack {
             *header.index_count,
         )?;
         Ok(DirectoryPack {
+            pack_header,
             header,
             value_stores_ptrs,
             entry_stores_ptrs,
@@ -168,36 +176,35 @@ impl CachableSource<EntryStore> for DirectoryPack {
 
 impl Pack for DirectoryPack {
     fn kind(&self) -> PackKind {
-        self.header.pack_header.magic
+        self.pack_header.magic
     }
     fn app_vendor_id(&self) -> VendorId {
-        self.header.pack_header.app_vendor_id
+        self.pack_header.app_vendor_id
     }
     fn version(&self) -> (u8, u8) {
         (
-            self.header.pack_header.major_version,
-            self.header.pack_header.minor_version,
+            self.pack_header.major_version,
+            self.pack_header.minor_version,
         )
     }
     fn uuid(&self) -> Uuid {
-        self.header.pack_header.uuid
+        self.pack_header.uuid
     }
     fn size(&self) -> Size {
-        self.header.pack_header.file_size
+        self.pack_header.file_size
     }
     fn check(&self) -> Result<bool> {
         if self.check_info.read().unwrap().is_none() {
             let check_info = self.reader.parse_block_in::<CheckInfo>(
-                self.header.pack_header.check_info_pos,
-                self.header.pack_header.check_info_size(),
+                self.pack_header.check_info_pos,
+                self.pack_header.check_info_size(),
             )?;
             let mut s_check_info = self.check_info.write().unwrap();
             *s_check_info = Some(check_info);
         }
-        let mut check_stream = self.reader.create_stream(
-            Offset::zero(),
-            Size::from(self.header.pack_header.check_info_pos),
-        );
+        let mut check_stream = self
+            .reader
+            .create_stream(Offset::zero(), Size::from(self.pack_header.check_info_pos));
         self.check_info
             .read()
             .unwrap()
@@ -225,7 +232,7 @@ impl serde::Serialize for DirectoryPack {
                     let sized_offset = self.index_ptrs.index(*c).unwrap();
                     let index_header = self
                         .reader
-                        .parse_in::<IndexHeader>(sized_offset.offset, sized_offset.size)
+                        .parse_block_in::<IndexHeader>(sized_offset.offset, sized_offset.size)
                         .unwrap();
                     Index::new(index_header)
                 })
@@ -296,62 +303,6 @@ impl Explorable for DirectoryPack {
 mod tests {
     use super::raw_value::*;
     use super::*;
-    use crate::common::PackHeader;
-
-    #[test]
-    fn test_directorypackheader() {
-        let mut content = vec![
-            0x6a, 0x62, 0x6b, 0x64, // magic
-            0x00, 0x00, 0x00, 0x01, // app_vendor_id
-            0x00, // major_version
-            0x02, // minor_version
-            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
-            0x0e, 0x0f, // uuid
-            0x00, // flags
-            0x00, 0x00, 0x00, 0x00, 0x00, // padding
-            0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size
-            0xee, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // check_info_pos
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
-            0xdd, 0xee, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // index_ptr_pos
-            0x00, 0xee, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // entry_store_ptr_pos
-            0xaa, 0xee, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value_store_ptr_pos
-            0x50, 0x00, 0x00, 0x00, // index count
-            0x60, 0x00, 0x00, 0x00, // entry_store count
-            0x05, //value_store count
-        ];
-        content.extend_from_slice(&[0xff; 31]);
-        content.extend_from_slice(&[0x00, 4]); // Dummy CRC
-        let reader = Reader::from(content);
-        let directory_pack_header = reader
-            .parse_block_at::<DirectoryPackHeader>(Offset::zero())
-            .unwrap();
-        assert_eq!(
-            directory_pack_header,
-            DirectoryPackHeader {
-                pack_header: PackHeader {
-                    magic: PackKind::Directory,
-                    app_vendor_id: VendorId::from([00, 00, 00, 01]),
-                    major_version: 0x00_u8,
-                    minor_version: 0x02_u8,
-                    uuid: Uuid::from_bytes([
-                        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
-                        0x0c, 0x0d, 0x0e, 0x0f
-                    ]),
-                    flags: 0,
-                    file_size: Size::from(0xffff_u64),
-                    check_info_pos: Offset::from(0xffee_u64),
-                },
-                index_ptr_pos: Offset::from(0xeedd_u64),
-                entry_store_ptr_pos: Offset::from(0xee00_u64),
-                value_store_ptr_pos: Offset::from(0xeeaa_u64),
-                index_count: IndexCount::from(0x50_u32),
-                entry_store_count: EntryStoreCount::from(0x60_u32),
-                value_store_count: ValueStoreCount::from(0x05_u8),
-                free_data: [0xff; 24].into(),
-            }
-        );
-    }
 
     #[derive(Debug)]
     struct FakeArray {
@@ -397,6 +348,7 @@ mod tests {
 
     #[test]
     fn test_directorypack() {
+        // Pack header offset 0/0x00
         let mut content = vec![
             0x6a, 0x62, 0x6b, 0x64, // magic
             0x00, 0x00, 0x00, 0x01, // app_vendor_id
@@ -405,24 +357,35 @@ mod tests {
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
             0x0e, 0x0f, // uuid
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
-            0x69, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size
-            0x48, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // check_info_pos
+            0xAE, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size
+            0x49, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // check_info_pos
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
-            0x3C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // index_ptr_pos
-            0x12, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // entry_store_ptr_pos
+            0x00, 0x00, 0x00, 0x00, // reserved
+        ];
+        content.extend_from_slice(&[0x77, 0x41, 0x69, 0x29]); // CRC
+
+        // Directory pack header offset 64/0x40
+        content.extend_from_slice(&[
+            0x3D, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // index_ptr_pos
+            0x13, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // entry_store_ptr_pos
             0xA4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value_store_ptr_pos
             0x01, 0x00, 0x00, 0x00, // index count
             0x01, 0x00, 0x00, 0x00, // entry_store count
             0x01, //value_store count
-        ];
-        content.extend_from_slice(&[0xff; 31]); // free data
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
-                                               // Add one value store offset 132/0x84
+        ]);
+        content.extend_from_slice(&[0xff; 27]); // free data
+        content.extend_from_slice(&[0xD9, 0xA4, 0x04, 0x38]); // CRC
+
+        // Value Store data. Offset 128/0x80
         content.extend_from_slice(&[
             b'H', b'e', b'l', b'l', b'o', // value 0
             b'F', b'o', b'o', // value 1
             b'J', 0xc5, 0xab, b'b', b'a', b'k', b'o', // value 2
+        ]);
+        content.extend_from_slice(&[0x71, 0x51, 0xDF, 0x1D]); // CRC
+
+        // Value store header. Offset 128 + 15 + 4 = 147/0x93
+        content.extend_from_slice(&[
             0x01, // kind
             0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // value count
             0x01, // offset_size
@@ -430,15 +393,17 @@ mod tests {
             0x05, // Offset of entry 1
             0x08, // Offset of entry 2
         ]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
-                                               // Add value_stores_ptr (offset 132+15+13+4=164/0xA4)
+        content.extend_from_slice(&[0x1E, 0x6E, 0xE7, 0xB7]); // CRC
+
+        // Value store ptr. Offset 147 + 13 + 4 = 164/0xA4 (value_store_ptr_pos)
         content.extend_from_slice(&[
-            13, 0x00, //size (13+4)
-            0x93, 0x00, 0x00, 0x00, 0x00, 0x00, // Offset the tailler (132+15=147/0x93)
+            13, 0x00, //size
+            0x93, 0x00, 0x00, 0x00, 0x00, 0x00, // Offset the tailler (147/0x93)
         ]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
-                                               // Add a entry_store (offset 164+8+4=176/0xB0)
-                                               // One variant, with on Char1[0], a Char1[2]+Deported(1), a u24 and a content address
+        content.extend_from_slice(&[0xE0, 0x14, 0x59, 0xCA]); // CRC
+
+        // One variant, with on Char1[0], a Char1[2]+Deported(1), a u24 and a content address
+        // Entry store data. Offset 164+8+4=176/0xB0
         #[rustfmt::skip]
         content.extend_from_slice(&[
             0x05, 0x00, 0x05, b'A', b'B', 0x01, 0x13, 0x12, 0x11, 0x00, 0x00, 0x00, 0x00, // Entry 0
@@ -446,24 +411,33 @@ mod tests {
             0x03, 0x01, 0x09, b'A', b'B', 0x02, 0x33, 0x32, 0x31, 0x00, 0x01, 0x00, 0x00, // Entry 2
             0x07, 0x02, 0x05, b'A', b'B', 0x01, 0x43, 0x42, 0x41, 0x00, 0x02, 0x00, 0x00, // Entry 3
             0x05, 0x00, 0x05, 0x00, 0x00, 0x01, 0x53, 0x52, 0x51, 0x00, 0xaa, 0xaa, 0xaa, // Entry 4
+        ]);
+        content.extend_from_slice(&[0x4C, 0x67, 0x87, 0x9B]); // CRC
+
+        // Entry store header Offset 176 + (13*5) + 4 = 245/0xF5
+        #[rustfmt::skip]
+        content.extend_from_slice(&[
             0x00, // kind
-            0x0D, 0x00, // entry size
+            0x05, 0x00, 0x00, 0x00, // entry_count (5)
+            0x00, // flag
+            0x0D, 0x00, // entry size (13)
             0x00, // variant count
             0x04, // value count
             0b0101_0001, 0b001_00000, 0x00, 1, b'A', // Char1[0] + deported 1, idx 0x00
-            0b0101_0001, 0b001_00010, 0x00, 1, b'B',// Char1[2] + deported 1, idx 0x00
+            0b0101_0001, 0b001_00010, 0x00, 1, b'B', // Char1[2] + deported 1, idx 0x00
             0b0010_0010, 1, b'C', // u24
             0b0001_0010, 1, b'D', // content address
-            0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // data size
         ]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
-                                               // Add a entry_store_ptr (offset 176+65+29+4=274/0x112)
+        content.extend_from_slice(&[0x49, 0x82, 0x74, 0xD6]); // CRC
+
+        // Entry store array. Offset 245 + 26 + 4 = 275/0x113 (entry_store_ptr_pos)
         content.extend_from_slice(&[
-            29, 0x00, // size (29+4)
-            0xF1, 0x00, 0x00, 0x00, 0x00, 0x00, // offset of the tailler (176+65=241/0xF1)
+            26, 0x00, // size
+            0xF5, 0x00, 0x00, 0x00, 0x00, 0x00, // offset of the tailler (245)
         ]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
-                                               // Add one index (offset 274+8+4=286/0x11E)
+        content.extend_from_slice(&[0x03, 0x73, 0x94, 0x0B]); // CRC
+
+        // Index. Offset 275+8+4=287/0x11F)
         content.extend_from_slice(&[
             0x00, 0x00, 0x00, 0x00, // store_id
             0x04, 0x00, 0x00, 0x00, // entry_count (use only 4 from the 5 available)
@@ -472,18 +446,31 @@ mod tests {
             0x00, // index_property (use the first pstring a binary search property
             0x08, b'm', b'y', b' ', b'i', b'n', b'd', b'e', b'x', // Pstring "my index"
         ]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
-                                               // Add a index_ptr (offset 286+26+4=316/0x13C)
+        content.extend_from_slice(&[0x86, 0x5C, 0x21, 0xDF]); // CRC
+
+        // Add a index_ptr (offset 287+26+4=317/0x13D) (index_ptr_pos)
         content.extend_from_slice(&[
-            26, 0x00, //size (26+4)
-            0x1E, 0x01, 0x00, 0x00, 0x00, 0x00, // offset
+            26, 0x00, //size (26)
+            0x1F, 0x01, 0x00, 0x00, 0x00, 0x00, // offset
         ]);
-        content.extend_from_slice(&[0x00; 4]); // Dummy CRC
-                                               // end = 316+8+4=328/0x148
+        content.extend_from_slice(&[0x27, 0x31, 0x53, 0x6F]); // CRC
+
+        // Check Info. Offset 317 + 8 + 4 = 329/0x149 (check_info_pos)
         let hash = blake3::hash(&content);
-        content.push(0x01); // check info off: 328+1 = 329
-        content.extend(hash.as_bytes()); // end : 229+32 = 361/0x169
+        content.push(0x01); // check info
+        content.extend(hash.as_bytes());
+        content.extend_from_slice(&[0x72, 0x28, 0x30, 0x8F]); // CRC
+
+        // Footer offset 329 + 33 + 4 = 366/0x16E
+        let mut footer = [0; 64];
+        footer.copy_from_slice(&content[..64]);
+        footer.reverse();
+        content.extend_from_slice(&footer);
+
+        // File size 366 + 64 = 430/0x1AE (file_size)
+
         let directory_pack = Arc::new(DirectoryPack::new(content.into()).unwrap());
+        assert!(directory_pack.check().unwrap());
         let index = directory_pack.get_index(0.into()).unwrap();
         let value_storage = directory_pack.create_value_storage();
         let entry_storage = directory_pack.create_entry_storage();

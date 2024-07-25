@@ -1,7 +1,7 @@
 mod cluster;
 
 use crate::bases::*;
-use crate::common::{CheckInfo, ContentInfo, ContentPackHeader, Pack, PackKind};
+use crate::common::{CheckInfo, ContentInfo, ContentPackHeader, Pack, PackHeader, PackKind};
 use cluster::Cluster;
 use fxhash::FxBuildHasher;
 use lru::LruCache;
@@ -12,6 +12,7 @@ use uuid::Uuid;
 use super::ByteRegion;
 
 pub struct ContentPack {
+    pack_header: PackHeader,
     header: ContentPackHeader,
     content_infos: ArrayReader<ContentInfo, u32>,
     cluster_ptrs: ArrayReader<SizedOffset, u32>,
@@ -22,7 +23,13 @@ pub struct ContentPack {
 
 impl ContentPack {
     pub fn new(reader: Reader) -> Result<Self> {
-        let header = reader.parse_block_at::<ContentPackHeader>(Offset::zero())?;
+        let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero())?;
+        if pack_header.magic != PackKind::Content {
+            return Err(format_error!("Pack Magic is not ContentPack"));
+        }
+
+        let header =
+            reader.parse_block_at::<ContentPackHeader>(Offset::from(PackHeader::BLOCK_SIZE))?;
         let content_infos = ArrayReader::new_memory_from_reader(
             &reader,
             header.content_ptr_pos,
@@ -34,6 +41,7 @@ impl ContentPack {
             *header.cluster_count,
         )?;
         Ok(ContentPack {
+            pack_header,
             header,
             content_infos,
             cluster_ptrs,
@@ -126,35 +134,34 @@ impl Explorable for ContentPack {
 }
 impl Pack for ContentPack {
     fn kind(&self) -> PackKind {
-        self.header.pack_header.magic
+        self.pack_header.magic
     }
     fn app_vendor_id(&self) -> VendorId {
-        self.header.pack_header.app_vendor_id
+        self.pack_header.app_vendor_id
     }
     fn version(&self) -> (u8, u8) {
         (
-            self.header.pack_header.major_version,
-            self.header.pack_header.minor_version,
+            self.pack_header.major_version,
+            self.pack_header.minor_version,
         )
     }
     fn uuid(&self) -> Uuid {
-        self.header.pack_header.uuid
+        self.pack_header.uuid
     }
     fn size(&self) -> Size {
-        self.header.pack_header.file_size
+        self.pack_header.file_size
     }
     fn check(&self) -> Result<bool> {
         if self.check_info.get().is_none() {
             let _ = self.check_info.set(self.reader.parse_block_in::<CheckInfo>(
-                self.header.pack_header.check_info_pos,
-                self.header.pack_header.check_info_size(),
+                self.pack_header.check_info_pos,
+                self.pack_header.check_info_size(),
             )?);
         }
         let check_info = self.check_info.get().unwrap();
-        let mut check_stream = self.reader.create_stream(
-            Offset::zero(),
-            Size::from(self.header.pack_header.check_info_pos),
-        );
+        let mut check_stream = self
+            .reader
+            .create_stream(Offset::zero(), Size::from(self.pack_header.check_info_pos));
         check_info.check(&mut check_stream)
     }
 }
@@ -166,49 +173,59 @@ mod tests {
 
     #[test]
     fn test_contentpack() {
-        let mut content = vec![
-            0x6a, 0x62, 0x6b, 0x63, // magic off:0
-            0x00, 0x00, 0x00, 0x01, // app_vendor_id off:4
-            0x00, // major_version off:8
-            0x02, // minor_version off:9
+        let mut content = vec![];
+
+        // Pack header offset 0/0x00
+        content.extend_from_slice(&[
+            0x6a, 0x62, 0x6b, 0x63, // magic
+            0x00, 0x00, 0x00, 0x01, // app_vendor_id
+            0x00, // major_version
+            0x02, // minor_version
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
-            0x0e, 0x0f, // uuid off:10
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding off:26
-            0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size off:32
-            0xAB, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // check_info_pos off:40
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved off:48
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
-            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // entry_ptr_pos off:64
-            0x8C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // cluster_ptr_pos off:72
-            0x03, 0x00, 0x00, 0x00, // entry count off:80
-            0x01, 0x00, 0x00, 0x00, // cluster count off:84
-        ];
-        content.extend_from_slice(&[0xff; 40]); // free_data off:88
-
-        // Offset 128/0x80 (entry_ptr_pos)
-        content.extend_from_slice(&[
-            0x00, 0x00, 0x00, 0x00, // first entry info off:128
-            0x01, 0x00, 0x00, 0x00, // second entry info off: 132
-            0x02, 0x00, 0x00, 0x00, // third entry info off: 136
+            0x0e, 0x0f, // uuid
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
+            0x1C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size
+            0xB7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // check_info_pos
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, // reserved
         ]);
+        content.extend_from_slice(&[0xE8, 0x9E, 0x15, 0x60]); // CRC
 
-        // Offset 128 + 12 = 140/0x8C (cluste_ptr_pos)
+        // ContentPack header offset 64/0x40
         content.extend_from_slice(&[
-            0x08, 0x00, // first (and only) cluster size off:140
-            0xA3, 0x00, 0x00, 0x00, 0x00, 0x00, // first (and only) ptr pos. off:143
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // entry_ptr_pos
+            0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // cluster_ptr_pos
+            0x03, 0x00, 0x00, 0x00, // entry count
+            0x01, 0x00, 0x00, 0x00, // cluster count
         ]);
+        content.extend_from_slice(&[0xff; 36]); // free_data
+        content.extend_from_slice(&[0x93, 0xF9, 0x45, 0x68]); // CRC
 
-        // Offset 140 + 8 = 148/0x94 (cluster_data)
+        // Entry ptr array offset 128/0x80 (entry_ptr_pos)
         content.extend_from_slice(&[
-            // Cluster off:148
+            0x00, 0x00, 0x00, 0x00, // first entry info
+            0x01, 0x00, 0x00, 0x00, // second entry info
+            0x02, 0x00, 0x00, 0x00, // third entry info
+        ]);
+        content.extend_from_slice(&[0x84, 0xC1, 0x1C, 0xD2]); // CRC
+
+        // Cluster ptr array offset 128 + 16 = 144/0x90 (cluste_ptr_pos)
+        content.extend_from_slice(&[
+            0x08, 0x00, // first (and only) cluster size
+            0xAB, 0x00, 0x00, 0x00, 0x00, 0x00, // first (and only) ptr pos.
+        ]);
+        content.extend_from_slice(&[0x35, 0x23, 0x26, 0x1E]); // CRC
+
+        // Cluster data offset 144 + 12 = 156/0x9C
+        content.extend_from_slice(&[
             0x11, 0x12, 0x13, 0x14, 0x15, // Data of blob 0
             0x21, 0x22, 0x23, // Data of blob 1
             0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Data of blob 2
         ]);
 
-        // Offset 148 + 15(0x0f) = 163/0xA3 (cluster_header)
+        // Cluster tail offset 156 + 15(0x0f) = 171/0xAB (cluster_header)
         content.extend_from_slice(&[
-            0x00, // compression off: 148+15 = 163
+            0x00, // compression
             0x01, // offset_size
             0x03, 0x00, // blob_count
             0x0f, // raw data size
@@ -216,21 +233,21 @@ mod tests {
             0x05, // Offset of blob 1
             0x08, // Offset of blob 2
         ]);
+        content.extend_from_slice(&[0x42, 0xCC, 0x02, 0x58]); // CRC
 
-        // Offset end 163 + 8 = 171/0xAB (check_info_pos)
+        // Check info offset 171 + 8 + 4 = 183/0xB7 (check_info_pos)
         let hash = blake3::hash(&content);
-        content.push(0x01); // check info off: 171
-        content.extend(hash.as_bytes()); // end : 171+32 = 203
+        content.push(0x01);
+        content.extend(hash.as_bytes());
+        content.extend_from_slice(&[0x78, 0x20, 0x61, 0xB7]); // CRC
 
-        // Offset 171 + 33 = 204/0xCC
-
-        // Add footer
+        // Footer offset 183 + 33 + 4 = 220/0xDC
         let mut footer = [0; 64];
         footer.copy_from_slice(&content[..64]);
         footer.reverse();
         content.extend_from_slice(&footer);
 
-        // FileSize 204 + 64 = 268/0x010C (file_size)
+        // FileSize 220 + 64 = 284/0x011C (file_size)
 
         let content_pack = ContentPack::new(content.into()).unwrap();
         assert_eq!(content_pack.get_content_count(), ContentCount::from(3));

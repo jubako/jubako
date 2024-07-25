@@ -19,11 +19,12 @@ packCount        u16         0      Number of packInfo slots.
 valueStoreOffset SizedOffset 2      The offset of a valuestore
 _reserved        [u8;26]     10     Reserved, must be 0;
 freeData         [u8;24]     36     Free data, application specific to extend the header
-_reserved        [u8; 4]     60     Reserved, must be 0;
 ================ =========== ====== ===========
 
-The size of of this header, is 64 bytes. Associated to the common pack header, the total header size is 128 bytes.
+The size of of this header, is 60 bytes.
+Associated to the common pack header, the total header size is 128 bytes.
 FreeData is a 24 bytes free space to extend the header with application specific information.
+Manifest header is a 60 bytes block.
 
 ValueStore
 ==========
@@ -55,10 +56,11 @@ packKind         u8          34     | The kind of the pack.
                                     | b'd' for directory pack
 packGroup        u8          35     Reserved
 freeDataId       u16         36     A id in the value store. Application specific.
-packLocation     [u8,218]    38     A string locating the pack file
+packLocation     [u8,214]    38     A string locating the pack file
 ================ =========== ====== ===========
 
-Full Size : 256 bytes.
+Full Size : 252 bytes.
+A pack info is a 252 bytes block.
 
 The packLocation is a URL locating the pack file. For now, two kind of value are possible:
 - An empty value : The pack is contained in the current Container pack (only valid if the manifest pack is itself in a container pack)
@@ -86,3 +88,16 @@ It is to the application to handle correctly the alternatives.
 
 The checkInfo tail of each packs must be copied in the manifest pack.
 (If the corresponding pack are not including in the manifest pack)
+
+Manifest checksum
+=================
+
+Some ``packLocation`` of each ``PackInfo`` is considerered as mutable.
+Implementation must be able to rewrite it without invalidating the pack.
+
+To do so, we have to exclude those bytes when computing the checksum:
+
+- Computation of CRC of ``PackInfo`` block doesn't change. When a implementation
+  changes ``packLocation``, it MUST recompute the CRC.
+- Global checksum (stored in ``packCheckInfo``) is computed as if ``packLocation``
+  and CRC bytes were equal to zero. (ie: ``packLocation`` and ``packInfo``'s CRC are masked with ``0x00``)

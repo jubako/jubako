@@ -18,10 +18,10 @@ packsPos      Offset   0      A offset to a array of PackLocator
 packCount     u16      8      The number of pack contained in the container.
 _reserved     [u8;26]  10     MUST be 0.
 freeData      [u8;24]  36
-_reserved     [u8; 4]  4      MUST be 0.
 ============= ======== ====== ===========
 
-The size of of this header, is 64 bytes
+The size of of this header, is 60 bytes.
+ContainerHeader is a 60 bytes block.
 
 This mainly reuse the same structure than Pack header.
 Readers may want to always parse the first 64 bytes of a pack as a PackHeader to gather basic
@@ -45,6 +45,8 @@ packSize         Size      16     The size of the pack.
                                   Must be equal to the packSize in the packheader of the pointed pack
 packOffset       Offset    24     | The offset (starting from the beginning of
                                     the container file) where to find the pack.
+_reserved        [u8,4]    32     MUST be 0.
 ================ ========= ====== ===========
 
-Full Size : 24 bytes.
+Full Size : 36 bytes.
+Each PackLocator is a 36 bytes block.

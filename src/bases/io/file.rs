@@ -64,23 +64,32 @@ impl Source for FileSource {
         }
     }
 
-    fn get_slice(&self, region: Region) -> Result<Cow<[u8]>> {
-        let mut buf = vec![0; region.size().into_usize()];
+    fn get_slice(&self, region: Region, block_check: BlockCheck) -> Result<Cow<[u8]>> {
+        let mut buf = vec![0; region.size().into_usize() + block_check.size().into_usize()];
         self.read_exact(region.begin(), &mut buf)?;
+        if let BlockCheck::Crc32 = block_check {
+            assert_slice_crc(&buf)?;
+        }
+        buf.truncate(region.size().into_usize());
         Ok(Cow::Owned(buf))
     }
 
     fn into_memory_source(
         self: Arc<Self>,
         region: Region,
+        block_check: BlockCheck,
     ) -> Result<(Arc<dyn MemorySource>, Region)> {
-        if region.size().into_u64() < 4 * 1024 {
+        let full_size = region.size() + block_check.size();
+        if full_size.into_u64() < 4 * 1024 {
             let mut f = self.lock().unwrap();
-            let mut buf = Vec::with_capacity(region.size().into_usize());
+            let mut buf = Vec::with_capacity(full_size.into_usize());
             f.seek(SeekFrom::Start(region.begin().into_u64()))?;
             f.by_ref()
-                .take(region.size().into_u64())
+                .take(full_size.into_u64())
                 .read_to_end(&mut buf)?;
+            if let BlockCheck::Crc32 = block_check {
+                assert_slice_crc(&buf)?;
+            }
             Ok((
                 Arc::new(buf),
                 Region::new_from_size(Offset::zero(), region.size()),
@@ -89,13 +98,17 @@ impl Source for FileSource {
             let mut mmap_options = MmapOptions::new();
             mmap_options
                 .offset(region.begin().into_u64())
-                .len(region.size().into_usize())
+                .len(full_size.into_usize())
                 .populate();
             let mmap = unsafe { mmap_options.map(self.source.lock().unwrap().get_ref())? };
             #[cfg(target_os = "linux")]
             mmap.advise(Advice::populate_read())?;
             #[cfg(unix)]
             mmap.advise(Advice::will_need())?;
+            if let BlockCheck::Crc32 = block_check {
+                assert_slice_crc(&mmap)?;
+            }
+
             Ok((
                 Arc::new(mmap),
                 Region::new_from_size(Offset::zero(), region.size()),

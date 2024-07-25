@@ -183,7 +183,10 @@ impl Source for SeekableDecoder {
         Ok(())
     }
 
-    fn get_slice(&self, region: Region) -> Result<Cow<[u8]>> {
+    fn get_slice(&self, region: Region, block_check: BlockCheck) -> Result<Cow<[u8]>> {
+        if let BlockCheck::Crc32 = block_check {
+            unreachable!()
+        }
         if !region.end().is_valid(self.size()) {
             return Err(format!("Out of slice. {} > {}", region.end(), self.size()).into());
         }
@@ -196,8 +199,12 @@ impl Source for SeekableDecoder {
     fn into_memory_source(
         self: Arc<Self>,
         region: Region,
+        block_check: BlockCheck,
     ) -> Result<(Arc<dyn MemorySource>, Region)> {
         debug_assert!(region.end().is_valid(self.size()));
+        if let BlockCheck::Crc32 = block_check {
+            unreachable!()
+        }
         self.decode_to(region.end());
         Ok((self, region))
     }
