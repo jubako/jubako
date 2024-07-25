@@ -301,7 +301,7 @@ test_suite! {
         file.write_all(&[
             0x6a, 0x62, 0x6b, 0x63,
             0x00, 0x00, 0x00, 0x01,
-            0x00, 0x00,
+            0x00, 0x02,
         ])?;
         let uuid = Uuid::new_v4();
         file.write_all(uuid.as_bytes())?;
@@ -370,7 +370,7 @@ test_suite! {
         file.write_all(&[
             0x6a, 0x62, 0x6b, 0x64,
             0x00, 0x00, 0x00, 0x01,
-            0x00, 0x00,
+            0x00, 0x02,
         ])?;
         let uuid = Uuid::new_v4();
         file.write_all(uuid.as_bytes())?;
@@ -473,7 +473,7 @@ test_suite! {
         file.write_all(&[
             0x6a, 0x62, 0x6b, 0x6d,
             0x00, 0x00, 0x00, 0x01,
-            0x00, 0x00,
+            0x00, 0x02,
         ])?;
         file.write_all(uuid.as_bytes())?;
         file.write_all(&[0x00;6])?; // padding

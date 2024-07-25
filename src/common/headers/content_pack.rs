@@ -95,7 +95,7 @@ mod tests {
         let mut content = vec![
             0x6a, 0x62, 0x6b, 0x63, // magic
             0x00, 0x00, 0x00, 0x01, // app_vendor_id
-            0x01, // major_version
+            0x00, // major_version
             0x02, // minor_version
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
             0x0e, 0x0f, // uuid
@@ -123,7 +123,7 @@ mod tests {
                 pack_header: PackHeader {
                     magic: PackKind::Content,
                     app_vendor_id: VendorId::from([00, 00, 00, 01]),
-                    major_version: 0x01_u8,
+                    major_version: 0x00_u8,
                     minor_version: 0x02_u8,
                     uuid: Uuid::from_bytes([
                         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,

@@ -206,7 +206,7 @@ mod tests {
             content.extend_from_slice(&[
                 b'j', b'b', b'k', b'm', // magic
                 0x00, 0x00, 0x00, 0x01, // app_vendor_id
-                0x01, // major_version
+                0x00, // major_version
                 0x02, // minor_version
                 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
                 0x0e, 0x0f, // uuid
@@ -298,7 +298,7 @@ mod tests {
         let main_pack = ManifestPack::new(reader).unwrap();
         assert_eq!(main_pack.kind(), PackKind::Manifest);
         assert_eq!(main_pack.app_vendor_id(), VendorId::from([00, 00, 00, 01]));
-        assert_eq!(main_pack.version(), (1, 2));
+        assert_eq!(main_pack.version(), (0, 2));
         assert_eq!(
             main_pack.uuid(),
             Uuid::from_bytes([
