@@ -1,6 +1,6 @@
 use super::{ContentPack, DirectoryPack, ManifestPack, PackLocatorTrait};
 use crate::bases::*;
-use crate::common::{ContainerPackHeader, FullPackKind, Pack, PackKind, PackLocator};
+use crate::common::{ContainerPackHeader, Pack, PackHeader, PackKind, PackLocator};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -9,22 +9,21 @@ pub struct ContainerPack {
     packs: HashMap<Uuid, Reader>,
 }
 
-fn packs_offset(header: &ContainerPackHeader) -> Offset {
-    (header.file_size
-        - Size::new(ContainerPackHeader::SIZE as u64)
-        - Size::new(header.pack_count.into_u64() * (PackLocator::SIZE as u64)))
-    .into()
-}
-
 impl ContainerPack {
     pub fn new(reader: Reader) -> Result<Self> {
-        let header = reader.parse_at::<ContainerPackHeader>(Offset::zero())?;
-        let mut pack_offset = packs_offset(&header);
+        let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero())?;
+        if pack_header.magic != PackKind::Container {
+            return Err(format_error!("Pack Magic is not Container Pack"));
+        }
+
+        let header =
+            reader.parse_block_at::<ContainerPackHeader>(Offset::from(PackHeader::BLOCK_SIZE))?;
+        let mut pack_offset = header.pack_locators_pos;
         let mut packs_uuid = Vec::with_capacity(header.pack_count.into_usize());
         let mut packs = HashMap::with_capacity(header.pack_count.into_usize());
         for _idx in header.pack_count {
-            let pack_locator = reader.parse_at::<PackLocator>(pack_offset)?;
-            pack_offset += PackLocator::SIZE;
+            let pack_locator = reader.parse_block_at::<PackLocator>(pack_offset)?;
+            pack_offset += PackLocator::BLOCK_SIZE;
             let pack_reader = reader.cut(pack_locator.pack_pos, pack_locator.pack_size);
             packs.insert(pack_locator.uuid, pack_reader);
             packs_uuid.push(pack_locator.uuid);
@@ -62,8 +61,8 @@ impl ContainerPack {
 
     pub fn get_manifest_pack_reader(&self) -> Result<Option<Reader>> {
         for reader in self.packs.values() {
-            let pack_kind = reader.parse_at::<FullPackKind>(Offset::zero())?;
-            if let PackKind::Manifest = pack_kind {
+            let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero())?;
+            if let PackKind::Manifest = pack_header.magic {
                 return Ok(Some(reader.clone()));
             }
         }
@@ -72,8 +71,8 @@ impl ContainerPack {
 
     pub fn check(&self) -> Result<bool> {
         for reader in self.packs.values() {
-            let pack_kind = reader.parse_at::<FullPackKind>(Offset::zero())?;
-            let ok = match pack_kind {
+            let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero())?;
+            let ok = match pack_header.magic {
                 PackKind::Manifest => ManifestPack::new(reader.clone())?.check()?,
                 PackKind::Directory => DirectoryPack::new(reader.clone())?.check()?,
                 PackKind::Content => ContentPack::new(reader.clone())?.check()?,
@@ -99,11 +98,10 @@ impl serde::Serialize for ContainerPack {
     where
         S: serde::Serializer,
     {
-        use crate::common::PackHeader;
         use serde::ser::SerializeMap;
         let mut container = serializer.serialize_map(Some(self.packs.len()))?;
         for (uuid, reader) in self.packs.iter() {
-            let pack_header = reader.parse_at::<PackHeader>(Offset::zero()).unwrap();
+            let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero()).unwrap();
             container.serialize_entry(&uuid, &pack_header)?;
         }
         container.end()
@@ -128,7 +126,7 @@ impl Explorable for ContainerPack {
         };
 
         Ok(Some(
-            match reader.parse_at::<FullPackKind>(Offset::zero())? {
+            match reader.parse_block_at::<PackHeader>(Offset::zero())?.magic {
                 PackKind::Manifest => Box::new(ManifestPack::new(reader.clone())?),
                 PackKind::Directory => Box::new(DirectoryPack::new(reader.clone())?),
                 PackKind::Content => Box::new(ContentPack::new(reader.clone())?),

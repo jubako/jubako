@@ -84,7 +84,8 @@ impl BasicCreator {
         // But let's put all in a container. It is simpler and it can simplify things if
         // user want to concat packs later.
         let tmp_content_pack =
-            ContainerPackCreator::from_file(atomic_content_pack_file)?.into_file()?;
+            ContainerPackCreator::from_file(atomic_content_pack_file, Default::default())?
+                .into_file()?;
 
         let content_pack = ContentPackCreator::new_from_output_with_progress(
             tmp_content_pack,
@@ -136,8 +137,10 @@ impl BasicCreator {
                         // We may have only one (content) pack in the container so container may not be necessary.
                         // But let's put all in a container. It is simpler and it can simplify things if
                         // user want to concat packs later.
-                        let tmp_container_pack =
-                            ContainerPackCreator::from_file(atomic_container_pack)?;
+                        let tmp_container_pack = ContainerPackCreator::from_file(
+                            atomic_container_pack,
+                            Default::default(),
+                        )?;
                         Some(tmp_container_pack)
                     } else {
                         None

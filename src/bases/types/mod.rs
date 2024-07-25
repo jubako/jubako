@@ -21,10 +21,7 @@ pub use byte_size::ByteSize;
 pub use count::Count;
 pub use delayed::{Bound, Late, SyncType, Vow, Word};
 pub use error::{Error, ErrorKind, FormatError, Result};
-pub use free_data::{
-    ContentPackFreeData, DirectoryPackFreeData, IndexFreeData, ManifestPackFreeData,
-    PackInfoFreeData,
-};
+pub use free_data::{IndexFreeData, PackFreeData};
 pub use id::Id;
 pub use idx::{Idx, IndexTrait};
 pub use mayref::MayRef;

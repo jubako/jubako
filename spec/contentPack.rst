@@ -5,15 +5,17 @@ Pack
 Content Pack header
 ===================
 
-============= ======= ====== ===========
-Field Name    Type    Offset Description
-============= ======= ====== ===========
-entryPtrPos   Offset  0      A Offset to a array of entryInfo.
-clusterPtrPos Offset  8      A Offset to a array of cluster SizedOffset.
-entryCount    u32     16     Number of entry in the pack (max of 2^32 entries per pack)
-clusterCount  u32     20     Number of cluster in the pack (max of 2^20)
-freeData      [u8,40] 24
-============= ======= ====== ===========
+============== ========== ====== ===========
+Field Name     Type       Offset Description
+============== ========== ====== ===========
+entryInfo pos  Offset     0      A Offset to a array of entryInfo.
+clusterPtr pos Offset     8      A Offset to a array of cluster SizedOffset.
+entryCount     u32        16     Number of entry in the pack (max of 2^32 entries per pack)
+clusterCount   u32        20     Number of cluster in the pack (max of 2^20)
+_reserved      [u8;12]    24     Reserved, must be 0
+freeData       [u8;24]    36
+_reserved      [u8; 4]    60     Must be 0
+============== ========== ====== ===========
 
 Full Size : 64 bytes
 

@@ -12,13 +12,13 @@ pub struct DirectoryPackHeader {
     pub index_count: IndexCount,
     pub entry_store_count: EntryStoreCount,
     pub value_store_count: ValueStoreCount,
-    pub free_data: DirectoryPackFreeData,
+    pub free_data: PackFreeData,
 }
 
 impl DirectoryPackHeader {
     pub fn new(
         pack_info: PackHeaderInfo,
-        free_data: DirectoryPackFreeData,
+        free_data: PackFreeData,
         indexes: (IndexCount, Offset),
         value_stores: (ValueStoreCount, Offset),
         entry_stores: (EntryStoreCount, Offset),
@@ -53,7 +53,9 @@ impl Parsable for DirectoryPackHeader {
         let index_count = Count::<u32>::parse(parser)?.into();
         let entry_store_count = Count::<u32>::parse(parser)?.into();
         let value_store_count = Count::<u8>::parse(parser)?.into();
-        let free_data = DirectoryPackFreeData::parse(parser)?;
+        parser.skip(3)?;
+        let free_data = PackFreeData::parse(parser)?;
+        parser.skip(4)?;
         Ok(DirectoryPackHeader {
             pack_header,
             entry_store_ptr_pos,
@@ -77,7 +79,9 @@ impl SizedParsable for DirectoryPackHeader {
         + Count::<u32>::SIZE
         + Count::<u32>::SIZE
         + Count::<u8>::SIZE
-        + DirectoryPackFreeData::SIZE;
+        + 3 // padding
+        + PackFreeData::SIZE
++ 4; // padding
 }
 
 impl Serializable for DirectoryPackHeader {
@@ -90,7 +94,9 @@ impl Serializable for DirectoryPackHeader {
         written += self.index_count.serialize(ser)?;
         written += self.entry_store_count.serialize(ser)?;
         written += self.value_store_count.serialize(ser)?;
+        written += ser.write_data(&[0; 3])?;
         written += self.free_data.serialize(ser)?;
+        written += ser.write_data(&[0; 4])?;
         Ok(written)
     }
 }
@@ -104,11 +110,12 @@ mod tests {
         let mut content = vec![
             0x6a, 0x62, 0x6b, 0x64, // magic
             0x01, 0x02, 0x03, 0x04, // app_vendor_id
-            0x01, // major_version
+            0x00, // major_version
             0x02, // minor_version
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
             0x0e, 0x0f, // uuid
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // padding
+            0x00, // flags
+            0x00, 0x00, 0x00, 0x00, 0x00, // padding
             0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // file_size
             0xee, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // check_info_pos
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // reserved
@@ -120,7 +127,9 @@ mod tests {
             0x60, 0x00, 0x00, 0x00, // entry_store count
             0x05, //value_store count
         ];
-        content.extend_from_slice(&[0xff; 31]);
+        content.extend_from_slice(&[0x00; 3]);
+        content.extend_from_slice(&[0xff; 24]);
+        content.extend_from_slice(&[0x00; 4]);
         let reader = Reader::from(content);
         let directory_pack_header = reader
             .parse_block_at::<DirectoryPackHeader>(Offset::zero())
@@ -131,12 +140,13 @@ mod tests {
                 pack_header: PackHeader {
                     magic: PackKind::Directory,
                     app_vendor_id: VendorId::from([01, 02, 03, 04]),
-                    major_version: 0x01_u8,
+                    major_version: 0x00_u8,
                     minor_version: 0x02_u8,
                     uuid: Uuid::from_bytes([
                         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
                         0x0c, 0x0d, 0x0e, 0x0f
                     ]),
+                    flags: 0,
                     file_size: Size::from(0xffff_u64),
                     check_info_pos: Offset::from(0xffee_u64),
                 },
@@ -146,7 +156,7 @@ mod tests {
                 index_count: IndexCount::from(0x50_u32),
                 entry_store_count: EntryStoreCount::from(0x60_u32),
                 value_store_count: ValueStoreCount::from(0x05_u8),
-                free_data: [0xff; 31].into(),
+                free_data: [0xff; 24].into(),
             }
         );
     }

@@ -1,11 +1,10 @@
 use crate as jbk;
-use crate::common::{FullPackKind, PackHeader};
 use jbk::bases::*;
 use jbk::reader::ContainerPack;
 use std::path::Path;
 
 pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
-    let mut container = jbk::creator::ContainerPackCreator::new(&outfile)?;
+    let mut container = jbk::creator::ContainerPackCreator::new(&outfile, Default::default())?;
 
     for infile in infiles {
         let in_container = open_pack(infile)?;
@@ -23,12 +22,9 @@ pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
 
 pub fn open_pack<P: AsRef<Path>>(path: P) -> jbk::Result<ContainerPack> {
     let reader = Reader::from(FileSource::open(&path)?);
-    let kind = reader.parse_at::<FullPackKind>(Offset::zero())?;
-    Ok(match kind {
+    let pack_header = reader.parse_block_at::<jbk::common::PackHeader>(Offset::zero())?;
+    Ok(match pack_header.magic {
         jbk::common::PackKind::Container => ContainerPack::new(reader)?,
-        _ => {
-            let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero())?;
-            ContainerPack::new_fake(reader, pack_header.uuid)
-        }
+        _ => ContainerPack::new_fake(reader, pack_header.uuid),
     })
 }

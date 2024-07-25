@@ -71,6 +71,10 @@ impl Serializable for CheckInfo {
 }
 
 impl CheckInfo {
+    pub fn new_none() -> Self {
+        Self { b3hash: None }
+    }
+
     pub fn new_blake3(source: &mut dyn Read) -> Result<Self> {
         let mut hasher = blake3::Hasher::new();
         hasher.update_reader(source)?;

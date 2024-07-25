@@ -52,7 +52,7 @@ pub struct PackData {
     pub pack_size: Size,
     pub pack_kind: PackKind,
     pub pack_id: PackId,
-    pub free_data: PackInfoFreeData,
+    pub free_data: Vec<u8>,
     pub check_info: CheckInfo,
 }
 

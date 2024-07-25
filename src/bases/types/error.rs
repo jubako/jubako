@@ -46,6 +46,7 @@ impl fmt::Display for FormatError {
 pub enum ErrorKind {
     Io(std::io::Error),
     Format(FormatError),
+    Version(u8, u8),
     NotAJbk,
     Arg,
     OtherError(Box<dyn std::error::Error + Send + Sync>),
@@ -75,6 +76,10 @@ impl Error {
 
     pub fn new_arg() -> Error {
         Error::new(ErrorKind::Arg)
+    }
+
+    pub fn version_error(major: u8, minor: u8) -> Error {
+        Error::new(ErrorKind::Version(major, minor))
     }
 }
 
@@ -132,6 +137,18 @@ impl fmt::Display for Error {
         match &self.error {
             ErrorKind::Io(e) => write!(f, "IO Error {e}"),
             ErrorKind::Format(e) => write!(f, "Jubako format error {e}"),
+            ErrorKind::Version(major, minor) => {
+                write!(f, "Jubako version error. Found ({major},{minor})\n")?;
+                write!(f, "Jubako specification is still unstable and compatibility is not guarenteed yet.\n")?;
+                write!(
+                    f,
+                    "Open this container with a older version of your tool.\n"
+                )?;
+                write!(
+                    f,
+                    "You may open a issue on `https://github.com/jubako/jubako` if you are lost."
+                )
+            }
             ErrorKind::NotAJbk => write!(f, "This is not a Jubako archive"),
             ErrorKind::Arg => write!(f, "Invalid argument"),
             ErrorKind::Other(e) => write!(f, "Unknown error : {e}"),

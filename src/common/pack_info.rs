@@ -6,7 +6,7 @@ use uuid::Uuid;
 pub struct PackInfo {
     pub uuid: Uuid,
     pub pack_size: Size,
-    pub check_info_pos: Offset,
+    pub check_info_pos: SizedOffset,
     pub pack_id: PackId,
     pub pack_kind: PackKind,
     pub pack_group: u8,
@@ -19,13 +19,13 @@ impl PackInfo {
         pack_data: crate::creator::PackData,
         pack_group: u8,
         free_data_id: ValueIdx,
-        offset: Offset,
+        check_info_pos: SizedOffset,
         pack_location: Vec<u8>,
     ) -> Self {
         Self {
             uuid: pack_data.uuid,
             pack_size: pack_data.pack_size,
-            check_info_pos: offset,
+            check_info_pos,
             pack_id: pack_data.pack_id,
             pack_kind: pack_data.pack_kind,
             pack_group,
@@ -54,7 +54,7 @@ impl SizedParsable for PackInfo {
     const SIZE: usize =
         Uuid::SIZE
         + Size::SIZE
-        + Offset::SIZE
+        + SizedOffset::SIZE
         + 2 // pack_id
         + PackKind::SIZE
         + 1 // pack_group
@@ -68,7 +68,7 @@ impl Parsable for PackInfo {
     fn parse(parser: &mut impl Parser) -> Result<Self> {
         let uuid = Uuid::parse(parser)?;
         let pack_size = Size::parse(parser)?;
-        let check_info_pos = Offset::parse(parser)?;
+        let check_info_pos = SizedOffset::parse(parser)?;
         let pack_id = parser.read_u16()?.into();
         let pack_kind = PackKind::parse(parser)?;
         let pack_group = parser.read_u8()?;

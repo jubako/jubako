@@ -5,13 +5,13 @@ use std::io::SeekFrom;
 
 pub struct ManifestPackCreator {
     app_vendor_id: VendorId,
-    free_data: ManifestPackFreeData,
+    free_data: PackFreeData,
     packs: Vec<(PackData, Vec<u8>)>,
     value_store: StoreHandle,
 }
 
 impl ManifestPackCreator {
-    pub fn new(app_vendor_id: VendorId, free_data: ManifestPackFreeData) -> Self {
+    pub fn new(app_vendor_id: VendorId, free_data: PackFreeData) -> Self {
         ManifestPackCreator {
             app_vendor_id,
             free_data,
@@ -41,13 +41,14 @@ impl ManifestPackCreator {
         self.value_store.finalize(0.into());
 
         for ((pack_data, locator), free_data_id) in self.packs.into_iter().zip(free_data_ids) {
-            let current_pos = file.stream_position()? - origin_offset;
+            let check_info_pos = file.stream_position()? - origin_offset;
             file.ser_write(&pack_data.check_info)?;
+            let check_info_size = file.stream_position()? - origin_offset - check_info_pos;
             pack_infos.push(PackInfo::new(
                 pack_data,
                 0,
                 free_data_id.get(),
-                current_pos.into(),
+                SizedOffset::new(check_info_size.into(), check_info_pos.into()),
                 locator,
             ));
         }

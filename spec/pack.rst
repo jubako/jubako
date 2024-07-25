@@ -18,8 +18,9 @@ magic         u32     0      The magic number to detect the type of the file
 appVendorId   u32     4      Specific magic number to identify specific usage
 majorVersion  u8      8      The major version of the pack = 0
 minorVersion  u8      9      The minor version of the pack = 1
-id            [u8,16] 10     uuid of the pack
-_padding      [u8, 6] 26     MUST be 0.
+id            [u8;16] 10     uuid of the pack
+flags         u8      26     Some flags (must be 0)
+_reserved     [u8; 5] 27     MUST be 0.
 packSize      Size    32     Size of the pack
 checkInfoPos  Offset  40     The checksum position (always at end of the pack)
 _reserved     [u8,16] 48     MUST be 0.
