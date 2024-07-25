@@ -1,7 +1,8 @@
 use super::builder::{AnyBuilder, BuilderTrait};
 use super::range::CompareTrait;
-use super::{EntryTrait, Value};
+use super::EntryTrait;
 use crate::bases::*;
+use crate::common::Value;
 use std::cmp::Ordering;
 
 pub struct PropertyCompare<'builder> {
@@ -12,7 +13,7 @@ pub struct PropertyCompare<'builder> {
 }
 
 impl<'builder> PropertyCompare<'builder> {
-    pub fn new(
+    pub(crate) fn new(
         builder: &'builder AnyBuilder,
         property_names: Vec<String>,
         values: Vec<Value>,

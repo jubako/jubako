@@ -96,7 +96,7 @@ impl Container {
             ManifestPack::new(reader.create_sub_memory_reader(Offset::zero(), reader.size())?)?;
 
         let locators: Vec<Arc<dyn PackLocatorTrait>> = vec![container_pack, locator];
-        let locator = Arc::new(ChainedLocator(locators));
+        let locator = Arc::new(ChainedLocator::new(locators));
 
         let pack_info = manifest_pack.get_directory_pack_info();
         let directory_pack = Arc::new(DirectoryPack::new(

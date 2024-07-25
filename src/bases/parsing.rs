@@ -2,7 +2,7 @@ use std::{borrow::Cow, u32};
 
 use zerocopy::{ByteOrder, LE};
 
-use crate::{Offset, Result};
+use super::{Offset, Result};
 
 use super::ByteSize;
 
@@ -137,7 +137,7 @@ pub struct SliceParser<'a> {
 }
 
 impl<'a> SliceParser<'a> {
-    pub fn new(slice: Cow<'a, [u8]>, global_offset: Offset) -> Self {
+    pub(crate) fn new(slice: Cow<'a, [u8]>, global_offset: Offset) -> Self {
         Self {
             slice,
             global_offset,
@@ -206,7 +206,7 @@ pub trait Parsable {
         Self::Output: Sized;
 }
 
-pub trait SizedParsable: Parsable {
+pub(crate) trait SizedParsable: Parsable {
     const SIZE: usize;
 }
 
@@ -260,7 +260,7 @@ impl SizedParsable for u64 {
     const SIZE: usize = 8;
 }
 
-pub trait RandomParsable {
+pub(crate) trait RandomParsable {
     type Output;
     fn rparse(parser: &impl RandomParser, offset: Offset) -> Result<Self::Output>
     where

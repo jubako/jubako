@@ -15,9 +15,8 @@ pub use entry_store::EntryStore;
 use std::cmp;
 use std::collections::HashMap;
 pub use value::{Array, ArrayS, Value};
-pub use value_store::{
-    IndexedValueStore, PlainValueStore, StoreHandle, ValueHandle, ValueStore, ValueStoreKind,
-};
+pub(crate) use value_store::ValueStoreKind;
+pub use value_store::{StoreHandle, ValueHandle, ValueStore};
 
 pub trait PropertyName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send + 'static {}
 impl PropertyName for &'static str {}
@@ -63,7 +62,7 @@ pub struct BasicEntry<PN, VN> {
 }
 sa::assert_eq_size!(BasicEntry<u8, u8>, [u8; 48]);
 
-pub struct ValueTransformer<'a, PN: PropertyName> {
+pub(crate) struct ValueTransformer<'a, PN: PropertyName> {
     keys: Box<dyn Iterator<Item = &'a schema::Property<PN>> + 'a>,
     values: HashMap<PN, common::Value>,
 }
@@ -231,7 +230,7 @@ impl<PN: PropertyName, VN: VariantName> BasicEntry<PN, VN> {
         Self::new_idx(variant_name, values, Default::default())
     }
 
-    pub fn new_idx(
+    pub(crate) fn new_idx(
         variant_name: Option<VN>,
         values: HashMap<PN, Value>,
         idx: Vow<EntryIdx>,

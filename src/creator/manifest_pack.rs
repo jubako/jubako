@@ -2,7 +2,7 @@ use super::{private::WritableTell, PackData, StoreHandle, ValueStore};
 use crate::bases::*;
 use crate::common::{
     CheckInfo, CheckKind, ManifestCheckStream, ManifestPackHeader, PackHeader, PackHeaderInfo,
-    PackInfo,
+    PackInfo, PackKind,
 };
 use std::io::SeekFrom;
 
@@ -75,7 +75,7 @@ impl ManifestPackCreator {
         file.seek(SeekFrom::Start(origin_offset))?;
 
         let pack_header = PackHeader::new(
-            crate::PackKind::Manifest,
+            PackKind::Manifest,
             PackHeaderInfo::new(self.app_vendor_id, pack_size, check_offset.into()),
         );
         file.ser_write(&pack_header)?;

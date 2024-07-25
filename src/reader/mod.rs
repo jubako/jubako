@@ -16,21 +16,17 @@ pub use content_pack::ContentPack;
 pub use directory_pack::{builder, layout};
 pub use missing::MayMissPack;
 pub type EntryStore = std::sync::Arc<directory_pack::EntryStore>;
-pub use crate::common::{ManifestPackHeader, PackHeader, PackInfo};
+pub(crate) use crate::common::ManifestPackHeader;
+pub use crate::common::{ContentAddress, PackInfo};
 pub use byte_region::ByteRegion;
 pub use byte_slice::ByteSlice;
 pub use directory_pack::{
-    Array, CompareTrait, ContentAddress, DirectoryPack, EntryTrait, Index, LazyEntry as Entry,
-    PropertyCompare, RangeTrait as Range, RawValue, Value, ValueStorage,
+    CompareTrait, DirectoryPack, EntryTrait, Index, RangeTrait as Range, RawValue, ValueStorage,
 };
 pub use layout::VariantPart;
 pub use locator::{ChainedLocator, FsLocator, PackLocatorTrait};
 pub use manifest_pack::{ManifestPack, PackOffsetsIter};
 pub use stream::Stream;
-
-pub mod testing {
-    pub use super::directory_pack::Extend;
-}
 
 #[cfg(feature = "explorable")]
 pub use crate::bases::Explorable;

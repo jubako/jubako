@@ -32,7 +32,13 @@ impl PackLocatorTrait for FsLocator {
     }
 }
 
-pub struct ChainedLocator(pub Vec<Arc<dyn PackLocatorTrait>>);
+pub struct ChainedLocator(Vec<Arc<dyn PackLocatorTrait>>);
+
+impl ChainedLocator {
+    pub fn new(locators: Vec<Arc<dyn PackLocatorTrait>>) -> Self {
+        Self(locators)
+    }
+}
 
 impl PackLocatorTrait for ChainedLocator {
     fn locate(&self, uuid: Uuid, path: &[u8]) -> Result<Option<Reader>> {

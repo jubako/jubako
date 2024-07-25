@@ -4,7 +4,7 @@ use std::io::Seek;
 use std::ops::{Deref, DerefMut};
 
 #[derive(Debug)]
-pub struct Skip<R> {
+pub(crate) struct Skip<R> {
     inner: R,
     skip: u64,
 }

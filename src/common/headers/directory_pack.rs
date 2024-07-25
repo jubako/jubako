@@ -2,7 +2,7 @@ use crate::bases::*;
 use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct DirectoryPackHeader {
+pub(crate) struct DirectoryPackHeader {
     pub index_ptr_pos: Offset,
     pub entry_store_ptr_pos: Offset,
     pub value_store_ptr_pos: Offset,

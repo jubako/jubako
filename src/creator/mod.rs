@@ -4,8 +4,10 @@ mod content_pack;
 mod directory_pack;
 mod manifest_pack;
 
+pub use crate::bases::FileSource;
+use crate::bases::InOutStream;
+pub(crate) use crate::bases::OutStream;
 use crate::bases::*;
-pub use crate::bases::{FileSource, InOutStream, OutStream, Reader};
 use crate::common::{CheckInfo, CompressionType, PackKind};
 pub use basic_creator::{BasicCreator, ConcatMode, EntryStoreTrait};
 pub use container_pack::{ContainerPackCreator, InContainerFile};
@@ -14,18 +16,12 @@ pub use content_pack::{
 };
 pub use directory_pack::{
     schema, Array, ArrayS, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait,
-    FullEntryTrait, IndexedValueStore, PlainValueStore, PropertyName, StoreHandle, Value,
-    ValueHandle, ValueStore, ValueTransformer, VariantName,
+    FullEntryTrait, PropertyName, StoreHandle, Value, ValueHandle, ValueStore, VariantName,
 };
 pub use manifest_pack::ManifestPackCreator;
 use std::fs::OpenOptions;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::PathBuf;
-
-pub enum Embedded {
-    Yes,
-    No(PathBuf),
-}
 
 use bstr::ByteVec;
 
@@ -45,6 +41,11 @@ mod private {
     }
 
     pub trait Sealed {}
+
+    pub enum MaybeFileReader {
+        Yes(std::io::Take<std::fs::File>),
+        No(Box<dyn Read + Send>),
+    }
 }
 
 pub struct PackData {
@@ -56,10 +57,7 @@ pub struct PackData {
     pub check_info: CheckInfo,
 }
 
-pub enum MaybeFileReader {
-    Yes(std::io::Take<std::fs::File>),
-    No(Box<dyn Read + Send>),
-}
+pub(crate) use private::MaybeFileReader;
 
 pub trait InputReader: Read + Seek + Send + 'static {
     fn size(&self) -> Size;
@@ -76,7 +74,7 @@ impl<T: AsRef<[u8]> + Send + 'static> InputReader for std::io::Cursor<T> {
 }
 
 pub struct InputFile {
-    pub(crate) source: std::fs::File,
+    source: std::fs::File,
     position: u64,
     origin: u64,
     len: u64,

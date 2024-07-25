@@ -4,14 +4,14 @@ use crate::bases::*;
 use crate::creator::directory_pack::EntryTrait;
 
 #[derive(Debug)]
-pub struct Entry {
-    pub common: Properties,
-    pub variants: Vec<Properties>,
+struct Entry {
+    common: Properties,
+    variants: Vec<Properties>,
     entry_size: u16,
 }
 
 impl Entry {
-    pub fn new(common: CommonProperties, variants: Vec<VariantProperties>) -> Self {
+    fn new(common: CommonProperties, variants: Vec<VariantProperties>) -> Self {
         Self {
             common,
             variants: variants.into_iter().map(Properties::from).collect(),
@@ -19,7 +19,7 @@ impl Entry {
         }
     }
 
-    pub fn finalize(&mut self) {
+    fn finalize(&mut self) {
         self.entry_size = self.common.entry_size();
         if !self.variants.is_empty() {
             let max_variant_size = self.variants.iter().map(|v| v.entry_size()).max().unwrap();
@@ -30,7 +30,7 @@ impl Entry {
         }
     }
 
-    pub fn write_entry(&self, entry: &dyn EntryTrait, stream: &mut dyn OutStream) -> Result<usize> {
+    fn write_entry(&self, entry: &dyn EntryTrait, stream: &mut dyn OutStream) -> Result<usize> {
         assert!(self.variants.is_empty() == entry.variant_id().is_none());
         let written = if self.variants.is_empty() {
             Properties::write_entry(self.common.iter(), entry, stream)?
@@ -45,7 +45,7 @@ impl Entry {
         Ok(written)
     }
 
-    pub fn entry_size(&self) -> u16 {
+    fn entry_size(&self) -> u16 {
         self.entry_size
     }
 

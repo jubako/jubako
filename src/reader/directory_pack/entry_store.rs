@@ -100,8 +100,8 @@ impl Explorable for EntryStore {
 
 #[derive(Debug)]
 pub struct PlainStore {
-    pub layout: Layout,
-    pub entry_reader: Reader,
+    pub(crate) layout: Layout,
+    pub(crate) entry_reader: Reader,
 }
 
 impl PlainStore {
@@ -112,7 +112,7 @@ impl PlainStore {
         )
     }
 
-    pub fn layout(&self) -> &Layout {
+    pub(crate) fn layout(&self) -> &Layout {
         &self.layout
     }
 }
@@ -149,7 +149,8 @@ impl Explorable for PlainStore {
 mod tests {
     use super::*;
     use crate::reader::{
-        directory_pack::layout::{DeportedInfo, Property, PropertyKind},
+        directory_pack::layout::{Property, PropertyKind},
+        directory_pack::raw_layout::DeportedInfo,
         layout::VariantPart,
     };
     use std::collections::HashMap;

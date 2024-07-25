@@ -6,9 +6,14 @@ use std::fmt;
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Default, Hash)]
 #[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
 #[repr(transparent)]
-pub struct Id<T>(pub T);
+pub struct Id<T>(T);
 
 impl<T> Id<T> {
+    #[inline]
+    pub(crate) fn new(v: T) -> Self {
+        Self(v)
+    }
+    #[inline]
     pub(crate) fn into_base(self) -> T {
         self.0
     }

@@ -2,7 +2,7 @@ use crate::bases::*;
 use uuid::Uuid;
 
 #[derive(PartialEq, Eq, Debug)]
-pub struct PackLocator {
+pub(crate) struct PackLocator {
     pub uuid: Uuid,
     pub pack_size: Size,
     pub pack_pos: Offset,

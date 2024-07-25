@@ -47,9 +47,9 @@ impl BlockCheck {
     }
 }
 
-pub trait BlockParsable: Parsable {}
+pub(crate) trait BlockParsable: Parsable {}
 
-pub trait SizedBlockParsable: BlockParsable + SizedParsable {
+pub(crate) trait SizedBlockParsable: BlockParsable + SizedParsable {
     const BLOCK_SIZE: usize;
 }
 

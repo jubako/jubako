@@ -6,7 +6,7 @@ use crate::creator::directory_pack::EntryTrait;
 use std::collections::HashMap;
 
 #[derive(Debug)]
-pub struct Entry<PN: PropertyName, VN: VariantName> {
+pub(crate) struct Entry<PN: PropertyName, VN: VariantName> {
     pub common: Properties<PN>,
     pub variants: Vec<Properties<PN>>,
     pub variants_map: HashMap<VN, VariantIdx>,

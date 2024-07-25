@@ -10,11 +10,11 @@ impl PString {
         written += ser.write_data(string)?;
         Ok(written)
     }
-    pub fn serialize_string(string: &[u8], ser: &mut Serializer) -> IoResult<usize> {
+    pub(crate) fn serialize_string(string: &[u8], ser: &mut Serializer) -> IoResult<usize> {
         Self::serialize_string_size(string, 255, ser)
     }
 
-    pub fn serialize_string_padded(
+    pub(crate) fn serialize_string_padded(
         string: &[u8],
         size: u8,
         ser: &mut Serializer,

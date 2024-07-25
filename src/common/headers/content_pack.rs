@@ -2,7 +2,7 @@ use crate::bases::*;
 use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ContentPackHeader {
+pub(crate) struct ContentPackHeader {
     pub content_ptr_pos: Offset,
     pub cluster_ptr_pos: Offset,
     pub content_count: ContentCount,

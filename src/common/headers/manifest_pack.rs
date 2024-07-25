@@ -1,7 +1,7 @@
 use crate::bases::*;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ManifestPackHeader {
+pub(crate) struct ManifestPackHeader {
     pub pack_count: PackCount,
     pub value_store_posinfo: SizedOffset,
     pub free_data: PackFreeData,

@@ -14,5 +14,5 @@ pub struct Options {
 }
 
 pub fn run(options: Options) -> jbk::Result<()> {
-    jbk::concat(&options.infiles, options.outfile)
+    jbk::tools::concat(&options.infiles, options.outfile)
 }

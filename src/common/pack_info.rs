@@ -15,7 +15,7 @@ pub struct PackInfo {
 }
 
 impl PackInfo {
-    pub fn new(
+    pub(crate) fn new(
         pack_data: crate::creator::PackData,
         pack_group: u8,
         free_data_id: ValueIdx,

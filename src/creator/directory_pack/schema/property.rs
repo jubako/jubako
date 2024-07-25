@@ -216,7 +216,7 @@ impl<PN: PropertyName> Property<PN> {
         }
     }
 
-    pub fn process<VN: VariantName>(&mut self, entry: &dyn EntryTrait<PN, VN>) {
+    pub(crate) fn process<VN: VariantName>(&mut self, entry: &dyn EntryTrait<PN, VN>) {
         match self {
             Self::UnsignedInt {
                 counter,
@@ -292,7 +292,7 @@ impl<PN: PropertyName> Property<PN> {
         }
     }
 
-    pub fn finalize(self) -> layout::Property<PN> {
+    pub(crate) fn finalize(self) -> layout::Property<PN> {
         match self {
             Self::UnsignedInt {
                 counter,

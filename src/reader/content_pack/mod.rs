@@ -71,13 +71,13 @@ impl ContentPack {
     }
 
     pub fn get_content(&self, index: ContentIdx) -> Result<ByteRegion> {
-        if !index.is_valid(self.header.content_count) {
+        if !index.is_valid(*self.header.content_count) {
             return Err(Error::new_arg());
         }
         let content_info = self.content_infos.index(*index)?;
         if !content_info
             .cluster_index
-            .is_valid(self.header.cluster_count)
+            .is_valid(*self.header.cluster_count)
         {
             return Err(format_error!(&format!(
                 "Cluster index ({}) is not valid in regard of cluster count ({})",

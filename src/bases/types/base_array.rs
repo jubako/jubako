@@ -8,7 +8,7 @@ use crate::bases::*;
 /// As the prefix cannot be longer than 31, BaseArray is wrapper around a 31 bytes length array.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "explorable", derive(serde::Serialize))]
-pub struct BaseArray {
+pub(crate) struct BaseArray {
     pub data: [u8; 31],
 }
 
@@ -26,6 +26,7 @@ impl BaseArray {
     /// # Panics
     ///
     /// The function panics if `data` length is higher than 31.
+    #[cfg(test)]
     pub fn new(data: &[u8]) -> Self {
         assert!(data.len() <= 31);
         let mut s = Self { data: [0; 31] };

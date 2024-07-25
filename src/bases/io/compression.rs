@@ -97,7 +97,7 @@ fn create_sync_vec(size: usize) -> (SyncVecWr, SyncVecRd) {
 // A intermediate object acting as source for ReaderWrapper and FluxWrapper.
 // It wrapper a Read object (a decoder) and decode in a internal buffer.
 // It allow implementation of Reader and Flux.
-pub struct SeekableDecoder {
+pub(crate) struct SeekableDecoder {
     buffer: SyncVecRd,
 }
 
@@ -233,11 +233,11 @@ impl MemorySource for SeekableDecoder {
 
 /*
 #[cfg(feature = "lz4")]
-pub type Lz4Source<T> = SeekableDecoder<lz4::Decoder<T>>;
+pub(crate) type Lz4Source<T> = SeekableDecoder<lz4::Decoder<T>>;
 
 #[cfg(feature = "lzma")]
-pub type LzmaSource<T> = SeekableDecoder<lzma::LzmaReader<T>>;
+pub(crate) type LzmaSource<T> = SeekableDecoder<lzma::LzmaReader<T>>;
 
 #[cfg(feature = "zstd")]
-pub type ZstdSource<'a, T> = SeekableDecoder<zstd::Decoder<'a, T>>;
+pub(crate) type ZstdSource<'a, T> = SeekableDecoder<zstd::Decoder<'a, T>>;
 */

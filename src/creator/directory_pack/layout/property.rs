@@ -3,7 +3,7 @@ use super::StoreHandle;
 use crate::bases::Serializable;
 use crate::bases::*;
 
-pub enum Property<PN: PropertyName> {
+pub(crate) enum Property<PN: PropertyName> {
     VariantId(String),
     Array {
         array_len_size: Option<ByteSize>,

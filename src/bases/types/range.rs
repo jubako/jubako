@@ -44,7 +44,7 @@ where
 
 pub type EntryRange = Range<EntryIdx>;
 
-pub type Region = Range<Offset>;
+pub(crate) type Region = Range<Offset>;
 
 impl Region {
     /// Relative cut.

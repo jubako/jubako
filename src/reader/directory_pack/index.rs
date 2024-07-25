@@ -8,7 +8,7 @@ use std::sync::Arc;
     derive(serde::Serialize),
     serde(rename = "Index")
 )]
-pub struct IndexHeader {
+pub(crate) struct IndexHeader {
     pub store_id: EntryStoreIdx,
     pub entry_count: EntryCount,
     pub entry_offset: EntryIdx,
@@ -47,7 +47,7 @@ pub struct Index {
 }
 
 impl Index {
-    pub fn new(header: IndexHeader) -> Self {
+    pub(crate) fn new(header: IndexHeader) -> Self {
         Self { header }
     }
 

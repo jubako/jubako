@@ -21,20 +21,24 @@ pub struct Reader {
 }
 
 impl Reader {
-    pub fn new<T: Source + 'static>(source: T, size: Size) -> Self {
+    pub(crate) fn new<T: Source + 'static>(source: T, size: Size) -> Self {
         Self::new_from_arc(Arc::new(source), size)
     }
 
-    pub fn new_from_parts(source: Arc<dyn Source>, region: Region) -> Self {
+    pub(crate) fn new_from_parts(source: Arc<dyn Source>, region: Region) -> Self {
         Self { source, region }
     }
 
-    pub fn new_from_arc(source: Arc<dyn Source>, size: Size) -> Self {
+    pub(crate) fn new_from_arc(source: Arc<dyn Source>, size: Size) -> Self {
         let region = Region::new_from_size(Offset::zero(), size);
         Self { source, region }
     }
 
-    pub fn size(&self) -> Size {
+    pub(crate) fn global_offset(&self) -> Offset {
+        self.region.begin()
+    }
+
+    pub(crate) fn size(&self) -> Size {
         self.region.size()
     }
 
@@ -51,7 +55,7 @@ impl Reader {
         self.parse_block_in::<T>(offset, Size::from(T::SIZE))
     }
 
-    pub fn parse_block_in<T: BlockParsable>(
+    pub(crate) fn parse_block_in<T: BlockParsable>(
         &self,
         offset: Offset,
         size: Size,
@@ -69,22 +73,22 @@ impl Reader {
         T::finalize(intermediate, sized_offset.offset, self)
     }
 
-    pub fn get_byte_slice(&self, offset: Offset, size: Size) -> ByteSlice {
+    pub(crate) fn get_byte_slice(&self, offset: Offset, size: Size) -> ByteSlice {
         let region = self.region.cut_rel(offset, size);
         ByteSlice::new_from_parts(&self.source, region)
     }
 
-    pub fn create_stream(&self, offset: Offset, size: Size) -> Stream {
+    pub(crate) fn create_stream(&self, offset: Offset, size: Size) -> Stream {
         let region = self.region.cut_rel(offset, size);
         Stream::new_from_parts(Arc::clone(&self.source), region, region.begin())
     }
 
-    pub fn cut(&self, offset: Offset, size: Size) -> Reader {
+    pub(crate) fn cut(&self, offset: Offset, size: Size) -> Reader {
         let region = self.region.cut_rel(offset, size);
         Self::new_from_parts(Arc::clone(&self.source), region)
     }
 
-    pub fn cut_check(
+    pub(crate) fn cut_check(
         &self,
         offset: Offset,
         size: Size,
@@ -95,7 +99,7 @@ impl Reader {
         Ok(CheckReader::new_from_parts(source.into_source(), region))
     }
 
-    pub fn create_sub_memory_reader(&self, offset: Offset, size: Size) -> Result<Reader> {
+    pub(crate) fn create_sub_memory_reader(&self, offset: Offset, size: Size) -> Result<Reader> {
         let region = self.region.cut_rel(offset, size);
         let (source, region) =
             Arc::clone(&self.source).into_memory_source(region, BlockCheck::None)?;
@@ -137,7 +141,7 @@ impl std::fmt::Display for Reader {
 /// A wrapper around a source. Allowing access only on a region of the source
 /// A `CheckReader` provides access to a checked region (ie: CRC32 is verified%)
 #[derive(Debug, Clone)]
-pub struct CheckReader {
+pub(crate) struct CheckReader {
     source: Arc<dyn Source>,
     region: Region,
 }
@@ -153,12 +157,9 @@ impl CheckReader {
         Ok(SliceParser::new(slice, self.region.begin() + offset))
     }
 
+    #[cfg(any(feature = "explorable", test))]
     pub fn size(&self) -> Size {
         self.region.size()
-    }
-
-    pub fn parse_at<T: super::SizedParsable>(&self, offset: Offset) -> Result<T::Output> {
-        self.parse_in::<T>(offset, Size::from(T::SIZE))
     }
 
     pub fn parse_in<T: Parsable>(&self, offset: Offset, size: Size) -> Result<T::Output> {
@@ -168,10 +169,6 @@ impl CheckReader {
     pub fn get_slice(&self, offset: Offset, size: Size) -> Result<Cow<[u8]>> {
         let region = self.region.cut_rel(offset, size);
         self.source.get_slice(region, BlockCheck::None)
-    }
-    pub fn get_byte_slice(&self, offset: Offset, size: Size) -> ByteSlice {
-        let region = self.region.cut_rel(offset, size);
-        ByteSlice::new_from_parts(&self.source, region)
     }
 }
 

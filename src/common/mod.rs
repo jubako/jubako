@@ -11,14 +11,15 @@ mod value;
 use uuid::Uuid;
 
 use crate::bases::*;
-pub use check::{CheckInfo, CheckKind, ManifestCheckStream};
+pub(crate) use check::CheckKind;
+pub(crate) use check::{CheckInfo, ManifestCheckStream};
 pub use compression_type::CompressionType;
 pub use content_address::ContentAddress;
 pub use content_info::ContentInfo;
-pub use headers::*;
+pub(crate) use headers::*;
 pub use pack_info::PackInfo;
 pub use pack_kind::PackKind;
-pub use pack_locator::PackLocator;
+pub(crate) use pack_locator::PackLocator;
 pub use value::Value;
 
 pub(crate) use pack_kind::FullPackKind;

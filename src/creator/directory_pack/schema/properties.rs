@@ -8,7 +8,7 @@ pub type CommonProperties<PN> = Properties<PN>;
 
 #[derive(Debug)]
 #[repr(transparent)]
-pub struct VariantProperties<PN: PropertyName>(pub Vec<Property<PN>>);
+pub struct VariantProperties<PN: PropertyName>(Vec<Property<PN>>);
 
 impl<PN: PropertyName> std::ops::Deref for Properties<PN> {
     type Target = [Property<PN>];
@@ -40,7 +40,7 @@ impl<PN: PropertyName> Properties<PN> {
         Self(keys)
     }
 
-    pub fn finalize(self, variant_name: Option<String>) -> layout::Properties<PN> {
+    pub(crate) fn finalize(self, variant_name: Option<String>) -> layout::Properties<PN> {
         let variant = variant_name.map(layout::Property::VariantId);
         variant
             .into_iter()

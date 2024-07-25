@@ -7,12 +7,12 @@ use crate::bases::*;
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub struct Property {
-    pub offset: Offset,
-    pub kind: PropertyKind,
+    pub(crate) offset: Offset,
+    pub(crate) kind: PropertyKind,
 }
 
 impl Property {
-    pub fn new(offset: usize, kind: PropertyKind) -> Self {
+    pub(crate) fn new(offset: usize, kind: PropertyKind) -> Self {
         Self {
             offset: Offset::from(offset),
             kind,

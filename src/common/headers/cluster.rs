@@ -2,7 +2,7 @@ use crate::bases::*;
 use crate::common::CompressionType;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ClusterHeader {
+pub(crate) struct ClusterHeader {
     pub compression: CompressionType,
     pub offset_size: ByteSize,
     pub blob_count: BlobCount,

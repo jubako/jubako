@@ -75,7 +75,7 @@ fn zstd_compress<'b>(
     Ok(encoder.finish()?)
 }
 
-pub struct ClusterCompressor {
+struct ClusterCompressor {
     compression: Compression,
     input: spmc::Receiver<ClusterCreator>,
     output: mpsc::Sender<WriteTask>,
@@ -142,7 +142,7 @@ impl ClusterCompressor {
         mut cluster: ClusterCreator,
         outstream: &mut dyn OutStream,
     ) -> Result<SizedOffset> {
-        self.progress.handle_cluster(cluster.index().into(), true);
+        self.progress.handle_cluster(cluster.index.into(), true);
         let data_offset = outstream.tell();
         self.write_cluster_data(&mut cluster, outstream)?;
         let tail_offset = outstream.tell();
@@ -165,7 +165,7 @@ impl ClusterCompressor {
             //[TODO] Avoid allocation. Reuse the data once it is written ?
             let mut data = Vec::<u8>::with_capacity(1024 * 1024);
             let mut cursor = std::io::Cursor::new(&mut data);
-            let cluster_idx = cluster.index();
+            let cluster_idx = cluster.index;
             let sized_offset = self.compress_cluster(cluster, &mut cursor)?;
             self.output
                 .send(WriteTask::Compressed(data, sized_offset, cluster_idx))
@@ -180,7 +180,7 @@ impl ClusterCompressor {
     }
 }
 
-pub enum WriteTask {
+enum WriteTask {
     Cluster(ClusterCreator),
     Compressed(Vec<u8>, SizedOffset, ClusterIdx),
 }
@@ -191,7 +191,7 @@ impl From<ClusterCreator> for WriteTask {
     }
 }
 
-pub struct ClusterWriter<O: OutStream> {
+struct ClusterWriter<O: OutStream> {
     cluster_addresses: Vec<Late<SizedOffset>>,
     file: BufWriter<O>,
     input: mpsc::Receiver<WriteTask>,
@@ -225,7 +225,7 @@ where
 
     fn write_cluster(&mut self, mut cluster: ClusterCreator) -> Result<SizedOffset> {
         self.progress
-            .handle_cluster(cluster.index().into_u32(), false);
+            .handle_cluster(cluster.index.into_u32(), false);
         let start_offset = self.file.tell();
         let written = self.write_cluster_data(cluster.data.split_off(0))?;
         assert_eq!(written, cluster.data_size().into_u64());
@@ -254,7 +254,7 @@ where
         while let Ok(task) = self.input.recv() {
             let (sized_offset, idx) = match task {
                 WriteTask::Cluster(cluster) => {
-                    let cluster_idx = cluster.index();
+                    let cluster_idx = cluster.index;
                     let sized_offset = self.write_cluster(cluster)?;
                     (sized_offset, cluster_idx)
                 }
@@ -278,7 +278,7 @@ where
     }
 }
 
-pub struct ClusterWriterProxy<O: OutStream> {
+pub(super) struct ClusterWriterProxy<O: OutStream> {
     worker_threads: Vec<JoinHandle<Result<()>>>,
     thread_handle: JoinHandle<Result<(O, Vec<Late<SizedOffset>>)>>,
     dispatch_tx: spmc::Sender<ClusterCreator>,

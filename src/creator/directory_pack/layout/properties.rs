@@ -7,7 +7,7 @@ use crate::creator::directory_pack::EntryTrait;
 
 #[derive(Debug)]
 #[repr(transparent)]
-pub struct Properties<PN: PropertyName>(Vec<Property<PN>>);
+pub(crate) struct Properties<PN: PropertyName>(Vec<Property<PN>>);
 
 impl<PN: PropertyName> std::ops::Deref for Properties<PN> {
     type Target = [Property<PN>];
@@ -29,10 +29,6 @@ impl<PN: PropertyName> FromIterator<Property<PN>> for Properties<PN> {
 }
 
 impl<PN: PropertyName> Properties<PN> {
-    pub fn new(keys: Vec<Property<PN>>) -> Self {
-        Self(keys)
-    }
-
     pub(crate) fn entry_size(&self) -> u16 {
         self.iter().map(|k| k.size()).sum::<u16>()
     }

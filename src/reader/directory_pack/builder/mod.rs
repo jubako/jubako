@@ -3,9 +3,11 @@ mod property;
 use super::entry_store::EntryStore;
 use super::layout::Properties as LProperties;
 use super::layout::VariantPart;
+use super::property_compare::PropertyCompare;
 use super::raw_value::RawValue;
-use super::{LazyEntry, PropertyCompare, Value};
+use super::LazyEntry;
 use crate::bases::*;
+use crate::common::Value;
 use crate::reader::directory_pack::private::ValueStorageTrait;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -23,14 +25,17 @@ pub struct AnyVariantBuilder {
 }
 
 impl AnyVariantBuilder {
-    pub fn contains(&self, name: &str) -> bool {
+    pub(super) fn contains(&self, name: &str) -> bool {
         self.properties.contains_key(name)
     }
-    pub fn create_value(&self, name: &str, parser: &impl RandomParser) -> Result<RawValue> {
+    pub(super) fn create_value(&self, name: &str, parser: &impl RandomParser) -> Result<RawValue> {
         self.properties[name].create(parser)
     }
 
-    pub fn new<ValueStorage>(properties: &LProperties, value_storage: &ValueStorage) -> Result<Self>
+    pub(super) fn new<ValueStorage>(
+        properties: &LProperties,
+        value_storage: &ValueStorage,
+    ) -> Result<Self>
     where
         ValueStorage: ValueStorageTrait,
     {
@@ -45,13 +50,9 @@ impl AnyVariantBuilder {
             properties: properties?,
         })
     }
-
-    pub fn count(&self) -> u8 {
-        self.properties.len() as u8
-    }
 }
 
-pub struct LazyEntryProperties {
+pub(crate) struct LazyEntryProperties {
     pub common: AnyVariantBuilder,
     pub variant_part: Option<(
         VariantIdProperty,
@@ -121,7 +122,8 @@ mod tests {
     use crate::common::ContentAddress;
     use crate::reader::directory_pack::entry_store::PlainStore;
     use crate::reader::directory_pack::raw_layout::{PropertyKind, RawProperty};
-    use crate::reader::directory_pack::{Array, EntryTrait};
+    use crate::reader::directory_pack::raw_value::Array;
+    use crate::reader::directory_pack::EntryTrait;
     use crate::reader::layout::{Layout, Properties};
     use crate::reader::RawValue;
 

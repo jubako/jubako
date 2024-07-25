@@ -29,7 +29,7 @@ macro_rules! to_u64 {
     ( $base: tt, $name: ty ) => {
         impl $name {
             pub fn into_u64(self) -> u64 {
-                self.0 .0 as u64
+                self.0.into_base() as u64
             }
         }
 
@@ -46,7 +46,7 @@ macro_rules! to_u32 {
     ( $base: tt, $name: ty ) => {
         impl $name {
             pub fn into_u32(self) -> u32 {
-                self.0 .0 as u32
+                self.0.into_base() as u32
             }
         }
 
@@ -64,7 +64,7 @@ macro_rules! to_u16 {
     ( $base: tt, $name: ty ) => {
         impl $name {
             pub fn into_u16(self) -> u16 {
-                self.0 .0 as u16
+                self.0.into_base() as u16
             }
         }
 
@@ -83,7 +83,7 @@ macro_rules! to_u8 {
     ( $base: tt, $name: ty ) => {
         impl $name {
             pub fn into_u8(self) -> u8 {
-                self.0 .0 as u8
+                self.0.into_base() as u8
             }
         }
 
@@ -100,20 +100,20 @@ macro_rules! to_usize {
         // We can convert a u64 to usize only if we are on 64bits
         #[cfg(target_pointer_width = "64")]
         pub fn into_usize(self) -> usize {
-            self.0 .0 as usize
+            self.0.into_base() as usize
         }
     };
     ( u32 ) => {
         // We can convert a u32 to usize only if we are on 32 or 64bits
         #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
         pub fn into_usize(self) -> usize {
-            self.0 .0 as usize
+            self.0.into_base() as usize
         }
     };
     ( $base: tt ) => {
         // We can convert a u8 and u16 to usize all the time
         pub fn into_usize(self) -> usize {
-            self.0 .0 as usize
+            self.0.into_base() as usize
         }
     };
 }
@@ -143,29 +143,29 @@ macro_rules! impl_add {
 
         impl std::ops::AddAssign<$count_name> for $idx_name {
             fn add_assign(&mut self, rhs: $count_name) {
-                self.0 += rhs.0 .0;
+                self.0 += rhs.0.into_base();
             }
         }
 
         impl std::ops::Sub<$base> for $idx_name {
             type Output = $idx_name;
             fn sub(self, other: $base) -> Self::Output {
-                $idx_name::from(self.0 .0 - other)
+                $idx_name::from(self.0.into_base() - other)
             }
         }
 
         impl std::ops::Sub for $idx_name {
             type Output = $count_name;
             fn sub(self, other: $idx_name) -> Self::Output {
-                $count_name::from(self.0 .0 - other.0 .0)
+                $count_name::from(self.0.into_base() - other.0.into_base())
             }
         }
-
+        /*
         impl $idx_name {
-            pub fn is_valid(&self, c: $count_name) -> bool {
+            fn is_valid(&self, c: $count_name) -> bool {
                 self.0.is_valid(*c)
             }
-        }
+        }*/
     };
 }
 
@@ -174,13 +174,13 @@ macro_rules! def_type {
         #[derive(PartialEq, Eq, Copy, Clone, Hash, Default)]
         #[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
         #[repr(transparent)]
-        pub struct $idx_name(pub Id<$base>);
+        pub struct $idx_name(Id<$base>);
     };
     ( Idx, $base:ty, $idx_name:ident, $count_name:ident ) => {
         #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Default)]
         #[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
         #[repr(transparent)]
-        pub struct $idx_name(pub Idx<$base>);
+        pub struct $idx_name(Idx<$base>);
     };
 }
 
@@ -219,13 +219,13 @@ macro_rules! specific {
 
         impl Next for $idx_name {
             fn next(self) -> Self {
-                (self.0 .0 + 1).into()
+                (self.0.into_base() + 1).into()
             }
         }
 
         impl From<$base> for $idx_name {
             fn from(idx: $base) -> Self {
-                Self($inner_idx::<$base>(idx))
+                Self($inner_idx::<$base>::new(idx))
             }
         }
 
@@ -238,7 +238,7 @@ macro_rules! specific {
         impl std::ops::Not for $idx_name {
             type Output = bool;
             fn not(self) -> Self::Output {
-                self.0 .0 == 0
+                self.0.into_base() == 0
             }
         }
 
@@ -263,7 +263,7 @@ macro_rules! specific {
                     "{}<{}> : {}",
                     stringify!($idx_name),
                     stringify!($base),
-                    self.0 .0
+                    self.0.into_base()
                 ))
             }
         }
@@ -297,7 +297,7 @@ macro_rules! specific {
         #[derive(PartialEq, Eq, Copy, Clone)]
         #[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
         #[repr(transparent)]
-        pub struct $count_name(pub Count<$base>);
+        pub struct $count_name(pub(self) Count<$base>);
 
         impl $count_name {
             to_usize!($base);
@@ -310,7 +310,7 @@ macro_rules! specific {
 
         impl From<$base> for $count_name {
             fn from(count: $base) -> Self {
-                Self(Count::<$base>(count))
+                Self(Count::<$base>::from(count))
             }
         }
 
@@ -323,14 +323,14 @@ macro_rules! specific {
         impl std::ops::Not for $count_name {
             type Output = bool;
             fn not(self) -> Self::Output {
-                self.0 .0 == 0
+                self.0.into_base() == 0
             }
         }
 
         impl std::ops::Div<$base> for $count_name {
             type Output = Self;
             fn div(self, div: $base) -> Self {
-                $count_name::from(self.0 .0 / div)
+                $count_name::from(self.0.into_base() / div)
             }
         }
 
@@ -367,7 +367,7 @@ macro_rules! specific {
             fn into_iter(self) -> Self::IntoIter {
                 IntoIter {
                     current: 0.into(),
-                    end: self.0 .0.into(),
+                    end: self.0.into_base().into(),
                 }
             }
         }
@@ -384,7 +384,7 @@ macro_rules! specific {
                     "{}<{}> : {}",
                     stringify!($count_name),
                     stringify!($base),
-                    self.0 .0
+                    self.0.into_base()
                 ))
             }
         }

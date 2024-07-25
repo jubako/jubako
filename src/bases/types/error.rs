@@ -15,7 +15,7 @@ pub struct FormatError {
 }
 
 impl FormatError {
-    pub fn new(what: &str, where_: Option<Offset>) -> Self {
+    pub(crate) fn new(what: &str, where_: Option<Offset>) -> Self {
         FormatError {
             what: what.into(),
             where_,
