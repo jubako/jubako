@@ -114,6 +114,7 @@ impl DataBlockParsable for ValueStore {
         let reader = reader.cut_check(
             header_offset - data_size - BlockCheck::Crc32.size(),
             data_size,
+            BlockCheck::Crc32,
         )?;
         // We want to be sure that we load all the ValueStore data in memory first.
         Ok(match store_builder {

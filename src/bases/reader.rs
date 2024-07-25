@@ -38,6 +38,15 @@ impl Reader {
         self.region.size()
     }
 
+    pub(crate) fn parse_block_unchecked_at<T: SizedBlockParsable>(
+        &self,
+        offset: Offset,
+    ) -> Result<T::Output> {
+        let size = Size::from(T::SIZE);
+        let check_reader = self.cut_check(offset, size, BlockCheck::None)?;
+        check_reader.parse_in::<T>(Offset::zero(), size)
+    }
+
     pub fn parse_block_at<T: SizedBlockParsable>(&self, offset: Offset) -> Result<T::Output> {
         self.parse_block_in::<T>(offset, Size::from(T::SIZE))
     }
@@ -47,7 +56,7 @@ impl Reader {
         offset: Offset,
         size: Size,
     ) -> Result<T::Output> {
-        let check_reader = self.cut_check(offset, size)?;
+        let check_reader = self.cut_check(offset, size, BlockCheck::Crc32)?;
         check_reader.parse_in::<T>(Offset::zero(), size)
     }
 
@@ -75,10 +84,14 @@ impl Reader {
         Self::new_from_parts(Arc::clone(&self.source), region)
     }
 
-    pub fn cut_check(&self, offset: Offset, size: Size) -> Result<CheckReader> {
+    pub fn cut_check(
+        &self,
+        offset: Offset,
+        size: Size,
+        block_check: BlockCheck,
+    ) -> Result<CheckReader> {
         let region = self.region.cut_rel(offset, size);
-        let (source, region) =
-            Arc::clone(&self.source).into_memory_source(region, BlockCheck::Crc32)?;
+        let (source, region) = Arc::clone(&self.source).into_memory_source(region, block_check)?;
         Ok(CheckReader::new_from_parts(source.into_source(), region))
     }
 

@@ -37,6 +37,8 @@ pub struct Container {
 /// - Pack may be located at end of the reader so we have to check for footer
 pub fn open_as_container_pack(reader: Reader) -> Result<ContainerPack> {
     // Check at beginning
+    // First try to check without Check as we want a nice message to the user if version has changed.
+    reader.parse_block_unchecked_at::<PackHeader>(Offset::zero())?;
     let (pack_header, offset) = match reader.parse_block_at::<PackHeader>(Offset::zero()) {
         Ok(pack_header) => (pack_header, Offset::zero()),
         Err(_) => {

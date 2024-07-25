@@ -60,7 +60,7 @@ where
     ) -> Result<Self> {
         let elem_size = Size::from(OutType::SIZE);
         let array_size = elem_size * length.0.into();
-        let reader = reader.cut_check(at, array_size)?;
+        let reader = reader.cut_check(at, array_size, BlockCheck::Crc32)?;
         Ok(Self {
             reader,
             length,

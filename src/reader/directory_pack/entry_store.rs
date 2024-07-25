@@ -78,6 +78,7 @@ impl DataBlockParsable for EntryStore {
                 .cut_check(
                     header_offset - data_size - BlockCheck::Crc32.size(),
                     data_size,
+                    BlockCheck::Crc32,
                 )?
                 .into()
         };
