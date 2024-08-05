@@ -60,7 +60,11 @@ pub struct BasicEntry<PN, VN> {
     values: Box<[Value]>,
     idx: Vow<EntryIdx>,
 }
+#[cfg(target_pointer_width = "64")]
 sa::assert_eq_size!(BasicEntry<u8, u8>, [u8; 48]);
+
+#[cfg(target_pointer_width = "32")]
+sa::assert_eq_size!(BasicEntry<u8, u8>, [u8; 24]);
 
 pub(crate) struct ValueTransformer<'a, PN: PropertyName> {
     keys: Box<dyn Iterator<Item = &'a schema::Property<PN>> + 'a>,
