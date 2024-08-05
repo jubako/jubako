@@ -411,14 +411,14 @@ specific! {u8,  PropertyIdx(Idx), PropertyCount, "Property"}
 specific! {u64,  ValueIdx(Idx), ValueCount, "Value"}
 specific! {u8, VariantIdx(Idx), VariantCount, "Variant"}
 
-#[cfg(target_pointer_width = "64")]
+// ValueStoreIdx is u8, so we can convert to usize
 impl From<ValueStoreIdx> for usize {
     fn from(v: ValueStoreIdx) -> usize {
         v.into_usize()
     }
 }
-
-#[cfg(target_pointer_width = "64")]
+// EntryStoreIdx is u32, so we can convert to usize
+#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
 impl From<EntryStoreIdx> for usize {
     fn from(v: EntryStoreIdx) -> usize {
         v.into_usize()
