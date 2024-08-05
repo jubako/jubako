@@ -1,5 +1,5 @@
 use crate::reader::ByteSlice;
-use crate::reader::Stream;
+use crate::reader::ByteStream;
 
 use super::types::*;
 use super::BlockCheck;
@@ -78,9 +78,9 @@ impl Reader {
         ByteSlice::new_from_parts(&self.source, region)
     }
 
-    pub(crate) fn create_stream(&self, offset: Offset, size: Size) -> Stream {
+    pub(crate) fn create_stream(&self, offset: Offset, size: Size) -> ByteStream {
         let region = self.region.cut_rel(offset, size);
-        Stream::new_from_parts(Arc::clone(&self.source), region, region.begin())
+        ByteStream::new_from_parts(Arc::clone(&self.source), region, region.begin())
     }
 
     pub(crate) fn cut(&self, offset: Offset, size: Size) -> Reader {

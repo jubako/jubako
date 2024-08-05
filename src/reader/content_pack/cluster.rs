@@ -1,6 +1,6 @@
 use crate::bases::*;
 use crate::common::{ClusterHeader, CompressionType};
-use crate::reader::{ByteRegion, Stream};
+use crate::reader::{ByteRegion, ByteStream};
 use std::sync::{Arc, RwLock};
 
 enum ClusterReader {
@@ -19,7 +19,7 @@ pub(super) struct Cluster {
 }
 
 #[cfg(feature = "lz4")]
-fn lz4_source(raw_stream: Stream, data_size: Size) -> Result<Arc<dyn Source>> {
+fn lz4_source(raw_stream: ByteStream, data_size: Size) -> Result<Arc<dyn Source>> {
     Ok(Arc::new(SeekableDecoder::new(
         lz4::Decoder::new(raw_stream)?,
         data_size,
@@ -27,14 +27,14 @@ fn lz4_source(raw_stream: Stream, data_size: Size) -> Result<Arc<dyn Source>> {
 }
 
 #[cfg(not(feature = "lz4"))]
-fn lz4_source(_raw_stream: Stream, _data_size: Size) -> Result<Arc<dyn Source>> {
+fn lz4_source(_raw_stream: ByteStream, _data_size: Size) -> Result<Arc<dyn Source>> {
     Err("Lz4 compression is not supported in this configuration."
         .to_string()
         .into())
 }
 
 #[cfg(feature = "lzma")]
-fn lzma_source(raw_stream: Stream, data_size: Size) -> Result<Arc<dyn Source>> {
+fn lzma_source(raw_stream: ByteStream, data_size: Size) -> Result<Arc<dyn Source>> {
     Ok(Arc::new(SeekableDecoder::new(
         xz2::read::XzDecoder::new_stream(
             raw_stream,
@@ -45,14 +45,14 @@ fn lzma_source(raw_stream: Stream, data_size: Size) -> Result<Arc<dyn Source>> {
 }
 
 #[cfg(not(feature = "lzma"))]
-fn lzma_source(_raw_stream: Stream, _data_size: Size) -> Result<Arc<dyn Source>> {
+fn lzma_source(_raw_stream: ByteStream, _data_size: Size) -> Result<Arc<dyn Source>> {
     Err("Lzma compression is not supported in this configuration."
         .to_string()
         .into())
 }
 
 #[cfg(feature = "zstd")]
-fn zstd_source(raw_stream: Stream, data_size: Size) -> Result<Arc<dyn Source>> {
+fn zstd_source(raw_stream: ByteStream, data_size: Size) -> Result<Arc<dyn Source>> {
     Ok(Arc::new(SeekableDecoder::new(
         zstd::Decoder::new(raw_stream)?,
         data_size,
@@ -60,7 +60,7 @@ fn zstd_source(raw_stream: Stream, data_size: Size) -> Result<Arc<dyn Source>> {
 }
 
 #[cfg(not(feature = "zstd"))]
-fn zstd_source(_raw_stream: Stream, _data_size: Size) -> Result<Arc<dyn Source>> {
+fn zstd_source(_raw_stream: BytenStream, _data_size: Size) -> Result<Arc<dyn Source>> {
     Err("zstd compression is not supported in this configuration."
         .to_string()
         .into())

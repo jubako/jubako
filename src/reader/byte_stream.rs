@@ -6,15 +6,15 @@ use super::ByteRegion;
 
 /// A `Read` struct on top of bytes contained in Jubako
 ///
-/// A `Stream` allow to read from a [ByteRegion].
+/// A `ByteStream` allow to read from a [ByteRegion].
 #[derive(Debug)]
-pub struct Stream {
+pub struct ByteStream {
     source: Arc<dyn Source>,
     region: Region,
     offset: Offset,
 }
 
-impl Stream {
+impl ByteStream {
     pub(crate) fn new_from_parts(source: Arc<dyn Source>, region: Region, offset: Offset) -> Self {
         Self {
             source,
@@ -24,7 +24,7 @@ impl Stream {
     }
 }
 
-impl Read for Stream {
+impl Read for ByteStream {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let max_len = std::cmp::min(buf.len(), (self.region.end() - self.offset).into_usize());
         let buf = &mut buf[..max_len];
@@ -38,7 +38,7 @@ impl Read for Stream {
     }
 }
 
-impl From<ByteRegion> for Stream {
+impl From<ByteRegion> for ByteStream {
     fn from(bregion: ByteRegion) -> Self {
         Self::new_from_parts(bregion.source, bregion.region, Offset::zero())
     }
