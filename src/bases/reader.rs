@@ -51,7 +51,10 @@ impl Reader {
         check_reader.parse_in::<T>(Offset::zero(), size)
     }
 
-    pub fn parse_block_at<T: SizedBlockParsable>(&self, offset: Offset) -> Result<T::Output> {
+    pub(crate) fn parse_block_at<T: SizedBlockParsable>(
+        &self,
+        offset: Offset,
+    ) -> Result<T::Output> {
         self.parse_block_in::<T>(offset, Size::from(T::SIZE))
     }
 
