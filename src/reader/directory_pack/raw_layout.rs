@@ -145,7 +145,7 @@ impl Parsable for RawProperty {
 
             PropType::Array => {
                 let default_value = (propdata & 0b1000) != 0;
-                let array_len_size = propdata & 0x07;
+                let array_len_size = propdata & 0b0011;
                 let array_len_size = if array_len_size != 0 {
                     Some(ByteSize::try_from(array_len_size as usize).unwrap())
                 } else {
@@ -339,7 +339,7 @@ mod tests {
     #[test_case(&[0b0101_0001, 0b000_00000, 1, b'a'] => RawProperty{size:1+0+0, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 0, deported_info: None, default: None}, name: Some(String::from("a")) })]
     #[test_case(&[0b0101_0001, 0b000_00001, 1, b'a'] => RawProperty{size:1+1+0, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 1, deported_info: None, default: None}, name: Some(String::from("a")) })]
     #[test_case(&[0b0101_0011, 0b000_00101, 1, b'a'] => RawProperty{size:3+5+0, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U3), fixed_array_len: 5, deported_info: None, default: None}, name: Some(String::from("a")) })]
-    #[test_case(&[0b0101_0111, 0b000_11111, 1, b'a'] => RawProperty{size:7+31+0, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U7), fixed_array_len: 31, deported_info: None, default: None}, name: Some(String::from("a")) })]
+    #[test_case(&[0b0101_0011, 0b000_11111, 1, b'a'] => RawProperty{size:3+31+0, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U3), fixed_array_len: 31, deported_info: None, default: None}, name: Some(String::from("a")) })]
     // Char[] without deported part and with default value:
     #[test_case(&[0b0101_1001, 0b000_00000, 0x00, 1, b'a'] => RawProperty{size:0, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 0, deported_info: None, default: Some((0, BaseArray::default(), None))}, name: Some(String::from("a")) })]
     #[test_case(&[0b0101_1001, 0b000_00001, 0x01, b'a', 1, b'a'] => RawProperty{size:0, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 1, deported_info: None, default: Some((1, BaseArray::new(b"a"), None))}, name: Some(String::from("a")) })]
@@ -352,7 +352,7 @@ mod tests {
     #[test_case(&[0b0101_0001, 0b001_00000, 0x0F, 1, b'a'] => RawProperty{size:1+0+1, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 0, deported_info: Some(DeportedInfo{ id_size: ByteSize::U1, value_store_idx: ValueStoreIdx::from(0x0F)}), default: None}, name: Some(String::from("a")) })]
     #[test_case(&[0b0101_0001, 0b010_00001, 0x0F, 1, b'a'] => RawProperty{size:1+1+2, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 1, deported_info: Some(DeportedInfo{ id_size: ByteSize::U2, value_store_idx: ValueStoreIdx::from(0x0F)}), default: None}, name: Some(String::from("a")) })]
     #[test_case(&[0b0101_0011, 0b100_00101, 0x0F, 1, b'a'] => RawProperty{size:3+5+4, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U3), fixed_array_len: 5, deported_info: Some(DeportedInfo{ id_size: ByteSize::U4, value_store_idx: ValueStoreIdx::from(0x0F)}), default: None}, name: Some(String::from("a")) })]
-    #[test_case(&[0b0101_0111, 0b100_11111, 0x0F, 1, b'a'] => RawProperty{size:7+31+4, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U7), fixed_array_len: 31, deported_info: Some(DeportedInfo{ id_size: ByteSize::U4, value_store_idx: ValueStoreIdx::from(0x0F)}), default: None}, name: Some(String::from("a")) })]
+    #[test_case(&[0b0101_0011, 0b100_11111, 0x0F, 1, b'a'] => RawProperty{size:3+31+4, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U3), fixed_array_len: 31, deported_info: Some(DeportedInfo{ id_size: ByteSize::U4, value_store_idx: ValueStoreIdx::from(0x0F)}), default: None}, name: Some(String::from("a")) })]
     // Char[] without deported part and with default value:
     #[test_case(&[0b0101_1001, 0b001_00000, 0x0F, 0x00, 0x50, 1, b'a']
       => RawProperty{size:0, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 0, deported_info: Some(DeportedInfo{ id_size: ByteSize::U1, value_store_idx: ValueStoreIdx::from(0x0F)}), default: Some((0, BaseArray::default(), Some(0x50)))}, name: Some(String::from("a")) })]
@@ -360,11 +360,11 @@ mod tests {
       => RawProperty{size:0, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 1, deported_info: Some(DeportedInfo{ id_size: ByteSize::U2, value_store_idx: ValueStoreIdx::from(0x0F)}), default: Some((16, BaseArray::new(b"a"), Some(0x50)))}, name: Some(String::from("a")) })]
     #[test_case(&[0b0101_1011, 0b100_00101, 0x0F, 0x04, 0x00, 0x00, b'a', b'b', b'c', b'd', b'\0', 0xfc, 0xfd, 0xfe, 0xff, 1, b'a']
       => RawProperty{size:0, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U3), fixed_array_len: 5, deported_info: Some(DeportedInfo{ id_size: ByteSize::U4, value_store_idx: ValueStoreIdx::from(0x0F)}), default: Some((4, BaseArray::new(b"abcd"), Some(0xfffefdfc)))}, name: Some(String::from("a")) })]
-    #[test_case(&[0b0101_1111, 0b100_11111, 0x0F,
-      0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
+    #[test_case(&[0b0101_1011, 0b100_11111, 0x0F,
+      0x03, 0x02, 0x01,
       b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h', b'i', b'j', b'k', b'l', b'm', b'n', b'o', b'p', b'q', b'r', b's', b't', b'u', b'v', b'w', b'x', b'y', b'z', 0x00, 0x00, 0x00, 0x00, 0x00,
       0xfc, 0xfd, 0xfe, 0xff, 1, b'a' ]
-       => RawProperty{size:0, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U7), fixed_array_len: 31, deported_info: Some(DeportedInfo{ id_size: ByteSize::U4, value_store_idx: ValueStoreIdx::from(0x0F)}), default: Some((0x01020304050607, BaseArray::new(b"abcdefghijklmnopqrstuvwxyz"), Some(0xfffefdfc)))}, name: Some(String::from("a")) })]
+       => RawProperty{size:0, kind:PropertyKind::Array{array_len_size: Some(ByteSize::U3), fixed_array_len: 31, deported_info: Some(DeportedInfo{ id_size: ByteSize::U4, value_store_idx: ValueStoreIdx::from(0x0F)}), default: Some((0x010203, BaseArray::new(b"abcdefghijklmnopqrstuvwxyz"), Some(0xfffefdfc)))}, name: Some(String::from("a")) })]
 
     fn test_rawproperty(source: &[u8]) -> RawProperty {
         let mut content = Vec::new();
