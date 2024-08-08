@@ -75,7 +75,8 @@ pub struct DirectoryPack {
 
 impl DirectoryPack {
     pub fn new(reader: Reader) -> Result<DirectoryPack> {
-        let reader = reader.create_sub_memory_reader(Offset::zero(), reader.size())?;
+        //[FIXME] Can we memory it all the time ?
+        //let reader = reader.create_sub_memory_reader(Offset::zero(), reader.size())?;
         let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero())?;
         if pack_header.magic != PackKind::Directory {
             return Err(format_error!("Pack Magic is not DirectoryPack"));
@@ -305,7 +306,7 @@ mod tests {
 
     #[derive(Debug)]
     struct FakeArray {
-        size: Option<Size>,
+        size: Option<ASize>,
         base: BaseArray,
         base_len: u8,
         extend: Option<ValueIdx>,
@@ -313,7 +314,7 @@ mod tests {
 
     impl FakeArray {
         fn new(
-            size: Option<Size>,
+            size: Option<ASize>,
             base: BaseArray,
             base_len: u8,
             extend: Option<ValueIdx>,
@@ -486,7 +487,7 @@ mod tests {
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
                     &FakeArray::new(
-                        Some(Size::new(7)),
+                        Some(ASize::new(7)),
                         BaseArray::default(),
                         0,
                         Some(ValueIdx::from(2))
@@ -504,7 +505,7 @@ mod tests {
             if let RawValue::Array(a) = &value1 {
                 assert_eq!(
                     &FakeArray::new(
-                        Some(Size::new(7)),
+                        Some(ASize::new(7)),
                         BaseArray::new(b"aB"),
                         2,
                         Some(ValueIdx::from(0))
@@ -531,7 +532,7 @@ mod tests {
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
                     &FakeArray::new(
-                        Some(Size::new(3)),
+                        Some(ASize::new(3)),
                         BaseArray::default(),
                         0,
                         Some(ValueIdx::from(1))
@@ -546,7 +547,7 @@ mod tests {
             if let RawValue::Array(a) = &value1 {
                 assert_eq!(
                     &FakeArray::new(
-                        Some(Size::new(9)),
+                        Some(ASize::new(9)),
                         BaseArray::new(b"AB"),
                         2,
                         Some(ValueIdx::from(2))
@@ -573,7 +574,7 @@ mod tests {
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
                     &FakeArray::new(
-                        Some(Size::new(7)),
+                        Some(ASize::new(7)),
                         BaseArray::default(),
                         0,
                         Some(ValueIdx::from(2))
@@ -588,7 +589,7 @@ mod tests {
             if let RawValue::Array(a) = &value1 {
                 assert_eq!(
                     &FakeArray::new(
-                        Some(Size::new(5)),
+                        Some(ASize::new(5)),
                         BaseArray::new(b"AB"),
                         2,
                         Some(ValueIdx::from(1))
@@ -615,7 +616,7 @@ mod tests {
             if let RawValue::Array(a) = &value0 {
                 assert_eq!(
                     &FakeArray::new(
-                        Some(Size::new(5)),
+                        Some(ASize::new(5)),
                         BaseArray::default(),
                         0,
                         Some(ValueIdx::from(0))
@@ -630,7 +631,7 @@ mod tests {
             if let RawValue::Array(a) = &value1 {
                 assert_eq!(
                     &FakeArray::new(
-                        Some(Size::new(5)),
+                        Some(ASize::new(5)),
                         BaseArray::default(),
                         2,
                         Some(ValueIdx::from(1))

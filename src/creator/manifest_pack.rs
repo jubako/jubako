@@ -30,7 +30,7 @@ impl ManifestPackCreator {
     pub fn finalize<O: InOutStream>(self, file: &mut O) -> Result<uuid::Uuid> {
         let origin_offset = file.stream_position()?;
         file.seek(SeekFrom::Current(
-            PackHeader::BLOCK_SIZE as i64 + ManifestPackHeader::BLOCK_SIZE as i64,
+            (PackHeader::BLOCK_SIZE + ManifestPackHeader::BLOCK_SIZE) as i64,
         ))?;
 
         let mut pack_infos = vec![];
@@ -49,6 +49,7 @@ impl ManifestPackCreator {
             let check_info_pos = file.stream_position()? - origin_offset;
             file.ser_write(&pack_data.check_info)?;
             let check_info_size = file.stream_position()? - origin_offset - check_info_pos;
+            let check_info_size: usize = check_info_size.try_into().unwrap();
             pack_infos.push(PackInfo::new(
                 pack_data,
                 0,

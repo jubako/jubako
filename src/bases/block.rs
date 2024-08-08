@@ -39,10 +39,10 @@ pub enum BlockCheck {
 }
 
 impl BlockCheck {
-    pub(crate) const fn size(&self) -> Size {
+    pub(crate) const fn size(&self) -> usize {
         match self {
-            Self::None => Size::zero(),
-            Self::Crc32 => Size::new(4),
+            Self::None => 0,
+            Self::Crc32 => 4,
         }
     }
 }
@@ -54,7 +54,7 @@ pub(crate) trait SizedBlockParsable: BlockParsable + SizedParsable {
 }
 
 impl<T: BlockParsable + SizedParsable> SizedBlockParsable for T {
-    const BLOCK_SIZE: usize = <T as SizedParsable>::SIZE + BlockCheck::Crc32.size().into_usize();
+    const BLOCK_SIZE: usize = <T as SizedParsable>::SIZE + BlockCheck::Crc32.size();
 }
 
 pub(crate) trait DataBlockParsable {

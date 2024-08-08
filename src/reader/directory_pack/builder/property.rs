@@ -71,7 +71,7 @@ impl IntProperty {
         match deported_default {
             DeportedDefault::Value(default) => {
                 let default_data =
-                    store.get_data(default.into(), Some(Size::from(size as u8 as usize)))?;
+                    store.get_data(default.into(), Some(ASize::from(size as u8 as usize)))?;
                 let default = LE::read_uint(default_data, size as u8 as usize);
                 Ok(IntProperty::new(offset, size, Some(default), None))
             }
@@ -123,7 +123,7 @@ impl PropertyBuilderTrait for IntProperty {
                         _ => parser.read_usized(self.offset, *key_size)?,
                     };
                     let value_data = value_store
-                        .get_data(key.into(), Some(Size::from(self.size as u8 as usize)))?;
+                        .get_data(key.into(), Some(ASize::from(self.size as u8 as usize)))?;
                     LE::read_uint(value_data, self.size as u8 as usize)
                 }
                 None => match self.size {
@@ -170,7 +170,7 @@ impl SignedProperty {
         match deported_default {
             DeportedDefault::Value(default) => {
                 let default_data =
-                    store.get_data(default.into(), Some(Size::from(size as u8 as usize)))?;
+                    store.get_data(default.into(), Some(ASize::from(size as u8 as usize)))?;
                 let default = LE::read_int(default_data, size as u8 as usize);
                 Ok(SignedProperty::new(offset, size, Some(default), None))
             }
@@ -224,7 +224,7 @@ impl PropertyBuilderTrait for SignedProperty {
                         _ => parser.read_usized(self.offset, *key_size)?,
                     };
                     let value_data = value_store
-                        .get_data(key.into(), Some(Size::from(self.size as u8 as usize)))?;
+                        .get_data(key.into(), Some(ASize::from(self.size as u8 as usize)))?;
                     LE::read_int(value_data, self.size as u8 as usize)
                 }
                 None => match self.size {
@@ -245,7 +245,7 @@ pub struct ArrayProperty {
     array_len_size: Option<ByteSize>,
     fixed_array_len: u8,
     deported_array_info: Option<(ByteSize, Arc<dyn ValueStoreTrait>)>,
-    default: Option<(u64, BaseArray, Option<u64>)>,
+    default: Option<(ASize, BaseArray, Option<u64>)>,
 }
 
 impl ArrayProperty {
@@ -254,7 +254,7 @@ impl ArrayProperty {
         array_len_size: Option<ByteSize>,
         fixed_array_len: u8,
         deported_array_info: Option<(ByteSize, Arc<dyn ValueStoreTrait>)>,
-        default: Option<(u64, BaseArray, Option<u64>)>,
+        default: Option<(ASize, BaseArray, Option<u64>)>,
     ) -> Self {
         Self {
             offset,
@@ -309,7 +309,7 @@ impl PropertyBuilderTrait for ArrayProperty {
     fn create(&self, parser: &impl RandomParser) -> Result<Self::Output> {
         let (array_size, base_array, deported_info) = match self.default {
             Some((array_size, base_array, value_id)) => (
-                Some(array_size.into()),
+                Some(array_size),
                 base_array,
                 self.deported_array_info
                     .as_ref()
@@ -319,7 +319,11 @@ impl PropertyBuilderTrait for ArrayProperty {
                 let mut seq_parser = parser.create_parser(self.offset)?;
                 let array_size = match self.array_len_size {
                     None => None,
-                    Some(size) => Some(seq_parser.read_usized(size)?.into()),
+                    Some(size) => {
+                        assert!(size as u8 <= 3);
+                        let array_size = seq_parser.read_usized(size)?;
+                        Some(ASize::new(array_size as usize))
+                    }
                 };
                 let base_array = BaseArray::parse(self.fixed_array_len, &mut seq_parser)?;
                 let deported_info = match &self.deported_array_info {
@@ -638,8 +642,8 @@ mod tests {
             }
         }
         impl ValueStoreTrait for ValueStore {
-            fn get_data(&self, idx: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
-                let idx = idx.into_usize();
+            fn get_data(&self, idx: ValueIdx, size: Option<ASize>) -> Result<&[u8]> {
+                let idx = idx.into_u64() as usize;
                 if idx < 100 {
                     let end = idx + size.unwrap().into_usize();
                     Ok(&self.data[idx..end])
@@ -906,7 +910,7 @@ mod tests {
 
     #[derive(Debug)]
     struct FakeArray {
-        size: Option<Size>,
+        size: Option<ASize>,
         base: BaseArray,
         base_len: u8,
         extend: Option<ValueIdx>,
@@ -914,7 +918,7 @@ mod tests {
 
     impl FakeArray {
         fn new(
-            size: Option<Size>,
+            size: Option<ASize>,
             base: BaseArray,
             base_len: u8,
             extend: Option<ValueIdx>,
@@ -952,19 +956,19 @@ mod tests {
         let byte_slice = reader.get_byte_slice(Offset::zero(), reader.size());
         let prop = ArrayProperty::new(Offset::new(0), Some(ByteSize::U1), 1, None, None);
         assert_eq!(
-            FakeArray::new(Some(Size::new(0xFE)), BaseArray::new(&[0xDC]), 1, None),
+            FakeArray::new(Some(ASize::new(0xFE)), BaseArray::new(&[0xDC]), 1, None),
             prop.create(&byte_slice).unwrap()
         );
         let prop = ArrayProperty::new(Offset::new(2), Some(ByteSize::U1), 1, None, None);
         assert_eq!(
-            FakeArray::new(Some(Size::new(0xBA)), BaseArray::new(&[0x98]), 1, None),
+            FakeArray::new(Some(ASize::new(0xBA)), BaseArray::new(&[0x98]), 1, None),
             prop.create(&byte_slice).unwrap(),
         );
 
         let prop = ArrayProperty::new(Offset::new(0), Some(ByteSize::U1), 2, None, None);
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xFE)),
+                Some(ASize::new(0xFE)),
                 BaseArray::new(&[0xDC, 0xBA]),
                 2,
                 None
@@ -974,7 +978,7 @@ mod tests {
         let prop = ArrayProperty::new(Offset::new(2), Some(ByteSize::U1), 2, None, None);
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xBA)),
+                Some(ASize::new(0xBA)),
                 BaseArray::new(&[0x98, 0x76]),
                 2,
                 None
@@ -985,7 +989,7 @@ mod tests {
         let prop = ArrayProperty::new(Offset::new(0), Some(ByteSize::U1), 3, None, None);
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xFE)),
+                Some(ASize::new(0xFE)),
                 BaseArray::new(&[0xDC, 0xBA, 0x98]),
                 3,
                 None
@@ -995,7 +999,7 @@ mod tests {
         let prop = ArrayProperty::new(Offset::new(2), Some(ByteSize::U1), 3, None, None);
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xBA)),
+                Some(ASize::new(0xBA)),
                 BaseArray::new(&[0x98, 0x76, 0x54]),
                 3,
                 None
@@ -1006,7 +1010,7 @@ mod tests {
         let prop = ArrayProperty::new(Offset::new(0), Some(ByteSize::U1), 8, None, None);
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xFE)),
+                Some(ASize::new(0xFE)),
                 BaseArray::new(&[0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]),
                 8,
                 None
@@ -1022,7 +1026,7 @@ mod tests {
         pub struct ValueStore {}
 
         impl ValueStoreTrait for ValueStore {
-            fn get_data(&self, _id: ValueIdx, _size: Option<Size>) -> Result<&[u8]> {
+            fn get_data(&self, _id: ValueIdx, _size: Option<ASize>) -> Result<&[u8]> {
                 unreachable!()
             }
         }
@@ -1042,7 +1046,7 @@ mod tests {
         );
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xFE)),
+                Some(ASize::new(0xFE)),
                 BaseArray::default(),
                 0,
                 Some(0xDC.into())
@@ -1059,7 +1063,7 @@ mod tests {
         );
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xBA)),
+                Some(ASize::new(0xBA)),
                 BaseArray::default(),
                 0,
                 Some(0x98.into())
@@ -1076,7 +1080,7 @@ mod tests {
         );
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xFE)),
+                Some(ASize::new(0xFE)),
                 BaseArray::default(),
                 0,
                 Some(0xBADC.into())
@@ -1092,7 +1096,7 @@ mod tests {
         );
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xBA)),
+                Some(ASize::new(0xBA)),
                 BaseArray::default(),
                 0,
                 Some(0x7698.into())
@@ -1109,7 +1113,7 @@ mod tests {
         );
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xFE)),
+                Some(ASize::new(0xFE)),
                 BaseArray::new(&[0xDC]),
                 1,
                 Some(0xBA.into())
@@ -1125,7 +1129,7 @@ mod tests {
         );
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xBA)),
+                Some(ASize::new(0xBA)),
                 BaseArray::new(&[0x98]),
                 1,
                 Some(0x76.into())
@@ -1142,7 +1146,7 @@ mod tests {
         );
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xFE)),
+                Some(ASize::new(0xFE)),
                 BaseArray::new(&[0xDC, 0xBA, 0x98]),
                 3,
                 Some(0x76.into())
@@ -1158,7 +1162,7 @@ mod tests {
         );
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xBA)),
+                Some(ASize::new(0xBA)),
                 BaseArray::new(&[0x98, 0x76, 0x54]),
                 3,
                 Some(0x32.into())
@@ -1175,7 +1179,7 @@ mod tests {
         );
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xFE)),
+                Some(ASize::new(0xFE)),
                 BaseArray::new(&[0xDC, 0xBA, 0x98]),
                 3,
                 Some(0x325476.into())
@@ -1191,7 +1195,7 @@ mod tests {
         );
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(0xBA)),
+                Some(ASize::new(0xBA)),
                 BaseArray::new(&[0x98, 0x76, 0x54]),
                 3,
                 Some(0xff1032.into())
@@ -1211,10 +1215,10 @@ mod tests {
             Some(ByteSize::U1),
             3,
             None,
-            Some((2, BaseArray::new(&[0x01, 0x02]), None)),
+            Some((2.into(), BaseArray::new(&[0x01, 0x02]), None)),
         );
         assert_eq!(
-            FakeArray::new(Some(Size::new(2)), BaseArray::new(&[0x01, 0x02]), 2, None),
+            FakeArray::new(Some(ASize::new(2)), BaseArray::new(&[0x01, 0x02]), 2, None),
             prop.create(&byte_slice).unwrap(),
         );
 
@@ -1223,11 +1227,11 @@ mod tests {
             Some(ByteSize::U3),
             3,
             Some((ByteSize::U2, Arc::clone(&value_store))),
-            Some((2000, BaseArray::new(&[0x01, 0x02]), Some(300))),
+            Some((2000.into(), BaseArray::new(&[0x01, 0x02]), Some(300))),
         );
         assert_eq!(
             FakeArray::new(
-                Some(Size::new(2000)),
+                Some(ASize::new(2000)),
                 BaseArray::new(&[0x01, 0x02, 0x00]),
                 3,
                 Some(300.into())

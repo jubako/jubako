@@ -45,13 +45,12 @@ impl PackHeader {
         }
     }
 
-    pub fn check_info_size(&self) -> Size {
-        Size::new(
-            self.file_size.into_u64()
-                - Self::BLOCK_SIZE as u64
-                - self.check_info_pos.into_u64()
-                - BlockCheck::Crc32.size().into_u64(),
-        )
+    pub fn check_info_size(&self) -> ASize {
+        let check_info_size = self.file_size.into_u64()
+            - Self::BLOCK_SIZE as u64
+            - self.check_info_pos.into_u64()
+            - BlockCheck::Crc32.size() as u64;
+        ASize::new(check_info_size as usize)
     }
 }
 

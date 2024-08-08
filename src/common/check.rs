@@ -10,11 +10,12 @@ pub(crate) enum CheckKind {
 }
 
 impl CheckKind {
-    pub(crate) fn block_size(self) -> Size {
+    pub(crate) fn block_size(self) -> ASize {
         match self {
             Self::None => BlockCheck::Crc32.size() + 1,
             Self::Blake3 => BlockCheck::Crc32.size() + 33,
         }
+        .into()
     }
 }
 

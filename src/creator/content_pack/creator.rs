@@ -129,7 +129,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         progress: Arc<dyn Progress>,
     ) -> Result<Self> {
         file.seek(SeekFrom::Start(
-            PackHeader::BLOCK_SIZE as u64 + ContentPackHeader::BLOCK_SIZE as u64,
+            (PackHeader::BLOCK_SIZE + ContentPackHeader::BLOCK_SIZE) as u64,
         ))?;
         let nb_threads = std::cmp::max(
             std::thread::available_parallelism()

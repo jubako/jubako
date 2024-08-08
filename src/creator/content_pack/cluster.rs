@@ -6,7 +6,7 @@ pub(super) struct ClusterCreator {
     compressed: bool,
     pub index: ClusterIdx,
     pub data: Vec<Box<dyn InputReader>>,
-    pub offsets: Vec<usize>,
+    pub offsets: Vec<u64>,
 }
 
 pub(crate) const CLUSTER_SIZE: Size = Size::new(1024 * 1024 * 4);
@@ -41,7 +41,7 @@ impl ClusterCreator {
         assert!(self.offsets.len() < MAX_BLOBS_PER_CLUSTER);
         let content_size = content.size();
         let idx = self.offsets.len() as u16;
-        let new_offset = self.offsets.last().unwrap_or(&0) + content_size.into_usize();
+        let new_offset = self.offsets.last().unwrap_or(&0) + content_size.into_u64();
         self.data.push(content);
         self.offsets.push(new_offset);
         Ok(ContentInfo::new(self.index, BlobIdx::from(idx)))

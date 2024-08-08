@@ -1,4 +1,4 @@
-use super::{EntryIdx, Offset, Size};
+use super::{ASize, EntryIdx, Offset, Size};
 use std::ops::{Add, Sub};
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -59,6 +59,59 @@ impl Region {
             self.end()
         );
         Self::new(begin, end)
+    }
+    #[inline]
+    pub(crate) fn cut_rel_asize(&self, offset: Offset, size: ASize) -> ARegion {
+        let begin = self.begin() + offset;
+        let end = begin + Size::from(size);
+        debug_assert!(
+            end <= self.end(),
+            "end({end:?}) <= self.end({:?})",
+            self.end()
+        );
+        ARegion::new(begin, end)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+#[repr(transparent)]
+pub(crate) struct ARegion(Region);
+
+impl ARegion {
+    pub fn new(begin: Offset, end: Offset) -> Self {
+        debug_assert!(end >= begin);
+        debug_assert!((end - begin).into_u64() < usize::MAX as u64);
+        Self(Region { begin, end })
+    }
+
+    pub fn new_from_size(begin: Offset, size: ASize) -> Self {
+        Self::new(begin, begin + size)
+    }
+
+    pub fn begin(&self) -> Offset {
+        self.0.begin
+    }
+
+    pub fn end(&self) -> Offset {
+        self.0.end
+    }
+
+    pub fn size(&self) -> ASize {
+        ASize::new(self.0.size().into_u64() as usize)
+    }
+}
+
+impl From<ARegion> for Region {
+    fn from(value: ARegion) -> Self {
+        value.0
+    }
+}
+
+impl TryFrom<Region> for ARegion {
+    type Error = std::num::TryFromIntError;
+    fn try_from(value: Region) -> Result<Self, Self::Error> {
+        let _size: ASize = value.size().try_into()?;
+        Ok(Self(value))
     }
 }
 

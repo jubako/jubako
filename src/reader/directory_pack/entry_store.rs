@@ -70,13 +70,14 @@ impl DataBlockParsable for EntryStore {
 
     fn finalize(layout: Layout, header_offset: Offset, reader: &Reader) -> Result<Self> {
         let entry_reader = if layout.is_entry_checked {
-            let data_size = layout.entry_count * (layout.entry_size + BlockCheck::Crc32.size());
+            let data_size =
+                layout.entry_count * (layout.entry_size + BlockCheck::Crc32.size()).into();
             reader.cut(header_offset - data_size, data_size)
         } else {
-            let data_size = layout.entry_count * layout.entry_size;
+            let data_size = layout.entry_count * layout.entry_size.into();
             reader
                 .cut_check(
-                    header_offset - data_size - BlockCheck::Crc32.size(),
+                    header_offset - data_size - ASize::from(BlockCheck::Crc32.size()),
                     data_size,
                     BlockCheck::Crc32,
                 )?
@@ -108,7 +109,7 @@ impl PlainStore {
     fn get_entry_reader(&self, idx: EntryIdx) -> ByteSlice {
         self.entry_reader.get_byte_slice(
             Offset::from(self.layout.entry_size.into_u64() * idx.into_u64()),
-            self.layout.entry_size,
+            self.layout.entry_size.into(),
         )
     }
 
@@ -184,7 +185,7 @@ mod tests {
             0b0001_1100, 0x01, 0x02, 3 , b'V', b'1', b'4', // content address, with default 0x0201 and 1 byte of data offset: 108
             0x1A, 0x01, 0x65, 0xB7, // crc
         ];
-        let size = Size::from(content.len() - 8);
+        let size = ASize::from(content.len() - 8);
         let reader = Reader::from(content);
         let store = reader
             .parse_data_block::<EntryStore>(SizedOffset::new(size, Offset::new(4)))
@@ -400,7 +401,7 @@ mod tests {
             0b0000_0000,  // padding (1)                                                                 offset: 28  => Variant size 29
             0x91, 0xFF, 0xB6, 0x2A, // crc
         ];
-        let size = Size::from(content.len() - 8);
+        let size = ASize::from(content.len() - 8);
         let reader = Reader::from(content);
         let store = reader
             .parse_data_block::<EntryStore>(SizedOffset::new(size, Offset::new(4)))

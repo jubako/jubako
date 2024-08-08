@@ -95,7 +95,7 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
     ) -> Result<crate::ContentAddress> {
         let mut hasher = blake3::Hasher::new();
         if reader.size() < cluster::CLUSTER_SIZE {
-            let mut buf = Vec::with_capacity(reader.size().into_usize());
+            let mut buf = Vec::with_capacity(reader.size().into_u64() as usize);
             reader.read_to_end(&mut buf)?;
             hasher.update(&buf);
             let hash = hasher.finalize();

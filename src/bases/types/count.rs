@@ -105,3 +105,15 @@ impl Serializable for Count<u64> {
         ser.write_u64(self.0)
     }
 }
+
+impl From<Count<u32>> for u64 {
+    fn from(value: Count<u32>) -> Self {
+        value.0 as u64
+    }
+}
+
+impl From<Count<u8>> for u64 {
+    fn from(value: Count<u8>) -> Self {
+        value.0 as u64
+    }
+}

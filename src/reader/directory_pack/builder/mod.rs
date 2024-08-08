@@ -137,7 +137,7 @@ mod tests {
         #[derive(Debug)]
         pub struct ValueStore;
         impl ValueStoreTrait for ValueStore {
-            fn get_data(&self, _id: ValueIdx, _size: Option<Size>) -> Result<&[u8]> {
+            fn get_data(&self, _id: ValueIdx, _size: Option<ASize>) -> Result<&[u8]> {
                 unreachable!();
             }
         }
@@ -180,7 +180,7 @@ mod tests {
             variant_part: None,
             entry_count: EntryCount::from(2),
             is_entry_checked: false,
-            entry_size: Size::new(6),
+            entry_size: ASize::new(6),
         };
         let entry_reader = Reader::from(vec![
             0x00, 0x00, 0x00, 0x01, 0x88, 0x99, 0x01, 0x00, 0x00, 0x02, 0x66, 0x77,
@@ -289,7 +289,7 @@ mod tests {
             }),
             entry_count: EntryCount::from(2),
             is_entry_checked: false,
-            entry_size: Size::new(8),
+            entry_size: ASize::new(8),
         };
 
         let entry_reader = Reader::from(vec![
@@ -316,7 +316,7 @@ mod tests {
             assert_eq!(
                 entry.get_value("V0").unwrap(),
                 RawValue::Array(Array::new(
-                    Some(Size::new(4)),
+                    Some(ASize::new(4)),
                     BaseArray::new(&[0xFF, 0xEE, 0xDD, 0xCC]),
                     4,
                     None

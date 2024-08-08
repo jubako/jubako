@@ -64,8 +64,8 @@ impl Source for FileSource {
         }
     }
 
-    fn get_slice(&self, region: Region, block_check: BlockCheck) -> Result<Cow<[u8]>> {
-        let mut buf = vec![0; region.size().into_usize() + block_check.size().into_usize()];
+    fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<[u8]>> {
+        let mut buf = vec![0; region.size().into_usize() + block_check.size()];
         self.read_exact(region.begin(), &mut buf)?;
         if let BlockCheck::Crc32 = block_check {
             assert_slice_crc(&buf)?;
@@ -76,9 +76,9 @@ impl Source for FileSource {
 
     fn into_memory_source(
         self: Arc<Self>,
-        region: Region,
+        region: ARegion,
         block_check: BlockCheck,
-    ) -> Result<(Arc<dyn MemorySource>, Region)> {
+    ) -> Result<(Arc<dyn MemorySource>, ARegion)> {
         let full_size = region.size() + block_check.size();
         if full_size.into_u64() < 4 * 1024 {
             let mut f = self.lock().unwrap();
@@ -92,7 +92,7 @@ impl Source for FileSource {
             }
             Ok((
                 Arc::new(buf),
-                Region::new_from_size(Offset::zero(), region.size()),
+                ARegion::new_from_size(Offset::zero(), region.size()),
             ))
         } else {
             let mut mmap_options = MmapOptions::new();
@@ -111,7 +111,7 @@ impl Source for FileSource {
 
             Ok((
                 Arc::new(mmap),
-                Region::new_from_size(Offset::zero(), region.size()),
+                ARegion::new_from_size(Offset::zero(), region.size()),
             ))
         }
     }

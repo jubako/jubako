@@ -24,7 +24,7 @@ impl Parsable for ValueStoreKind {
 }
 
 pub trait ValueStoreTrait: std::fmt::Debug + Send + Sync {
-    fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]>;
+    fn get_data(&self, id: ValueIdx, size: Option<ASize>) -> Result<&[u8]>;
 }
 
 #[derive(Debug)]
@@ -35,7 +35,7 @@ pub enum ValueStore {
 }
 
 impl ValueStoreTrait for ValueStore {
-    fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
+    fn get_data(&self, id: ValueIdx, size: Option<ASize>) -> Result<&[u8]> {
         match self {
             ValueStore::Plain(store) => store.get_data(id, size),
             ValueStore::Indexed(store) => store.get_data(id, size),
@@ -74,11 +74,21 @@ impl Parsable for ValueStoreBuilder {
                 let value_count: ValueCount = Count::<u64>::parse(parser)?.into();
                 let offset_size = ByteSize::parse(parser)?;
                 let data_size: Size = parser.read_usized(offset_size)?.into();
-                let value_count = value_count.into_usize();
+
+                #[cfg(target_pointer_width = "64")]
+                let value_count = value_count.into_u64() as usize;
+
+                // < instead of <= because of the +1 just after
+                #[cfg(target_pointer_width = "32")]
+                let value_count = if value_count.into_u64() < usize::MAX as u64 {
+                    value_count.into_u64() as usize
+                } else {
+                    unimplemented!()
+                };
+
                 // [FIXME] A lot of value means a lot of allocation.
                 // A wrong value here (or a carefully choosen one) may break our program.
                 let mut value_offsets: Vec<Offset> = Vec::with_capacity(value_count + 1);
-                // [TODO] Handle 32 and 16 bits
                 let uninit = value_offsets.spare_capacity_mut();
                 let mut first = true;
                 for elem in &mut uninit[0..value_count] {
@@ -112,7 +122,7 @@ impl DataBlockParsable for ValueStore {
     ) -> Result<Self::Output> {
         let (store_builder, data_size) = intermediate;
         let reader = reader.cut_check(
-            header_offset - data_size - BlockCheck::Crc32.size(),
+            header_offset - data_size - ASize::from(BlockCheck::Crc32.size()),
             data_size,
             BlockCheck::Crc32,
         )?;
@@ -133,7 +143,7 @@ pub struct PlainValueStore {
 }
 
 impl PlainValueStore {
-    pub(self) fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
+    pub(self) fn get_data(&self, id: ValueIdx, size: Option<ASize>) -> Result<&[u8]> {
         if let Some(size) = size {
             let offset = id.into_u64().into();
             if let Cow::Borrowed(s) = self.reader.get_slice(offset, size)? {
@@ -168,16 +178,16 @@ impl Explorable for PlainValueStore {
                 .parse::<u64>()
                 .map_err(|e| Error::from(format!("{e}")))?;
             let size = second
-                .parse::<u64>()
+                .parse::<usize>()
                 .map_err(|e| Error::from(format!("{e}")))?;
             if offset > self.reader.size().into_u64()
-                || (offset + size > self.reader.size().into_u64())
+                || (offset + size as u64 > self.reader.size().into_u64())
             {
                 return Ok(None);
             }
             Ok(Some(Box::new(
                 String::from_utf8_lossy(
-                    self.get_data(ValueIdx::from(offset), Some(Size::from(size)))?,
+                    self.get_data(ValueIdx::from(offset), Some(ASize::from(size)))?,
                 )
                 .into_owned(),
             )))
@@ -194,14 +204,23 @@ pub struct IndexedValueStore {
 }
 
 impl IndexedValueStore {
-    pub(self) fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
-        if id.into_usize() + 1 >= self.value_offsets.len() {
+    pub(self) fn get_data(&self, id: ValueIdx, size: Option<ASize>) -> Result<&[u8]> {
+        #[cfg(target_pointer_width = "32")]
+        if id.into_u64() > usize::MAX as u64 {
+            unimplemented!();
+        }
+        let id = id.into_u64() as usize;
+        if id + 1 >= self.value_offsets.len() {
             return Err(format_error!(&format!("{id} is not a valid id")));
         }
-        let start = self.value_offsets[id.into_usize()];
+        let start = self.value_offsets[id];
         let size = match size {
             Some(s) => s,
-            None => self.value_offsets[id.into_usize() + 1] - start,
+            None => {
+                let s = self.value_offsets[id + 1] - start;
+                assert!(s.into_u64() <= usize::MAX as u64);
+                ASize::new(s.into_u64() as usize)
+            }
         };
         if let Cow::Borrowed(s) = self.reader.get_slice(start, size)? {
             Ok(s)
@@ -231,9 +250,9 @@ impl Explorable for IndexedValueStore {
             let offset = first
                 .parse::<u64>()
                 .map_err(|e| Error::from(format!("{e}")))?;
-            let size = Some(Size::from(
+            let size = Some(ASize::from(
                 second
-                    .parse::<u64>()
+                    .parse::<usize>()
                     .map_err(|e| Error::from(format!("{e}")))?,
             ));
             (offset, size)
@@ -259,7 +278,7 @@ mod tests {
     #[test]
     fn test_valuestorekind() {
         let reader = CheckReader::from([0x00, 0x01, 0x02]);
-        let mut parser = reader.create_parser(Offset::zero(), reader.size()).unwrap();
+        let mut parser = reader.create_parser(Offset::zero(), 3.into()).unwrap();
         assert_eq!(
             ValueStoreKind::parse(&mut parser).unwrap(),
             ValueStoreKind::Plain
@@ -287,7 +306,7 @@ mod tests {
             ]
         );
         let value_store = reader
-            .parse_data_block::<ValueStore>(SizedOffset::new(Size::new(9), Offset::new(19)))
+            .parse_data_block::<ValueStore>(SizedOffset::new(ASize::new(9), Offset::new(19)))
             .unwrap();
         match &value_store {
             ValueStore::Plain(plainvaluestore) => {
@@ -295,7 +314,7 @@ mod tests {
                 assert_eq!(
                     plainvaluestore
                         .reader
-                        .get_slice(Offset::zero(), Size::new(8))
+                        .get_slice(Offset::zero(), ASize::new(8))
                         .unwrap()
                         .as_ref(),
                     &[0x11, 0x12, 0x13, 0x14, 0x15, 0x21, 0x22, 0x23]
@@ -303,7 +322,7 @@ mod tests {
                 assert_eq!(
                     plainvaluestore
                         .reader
-                        .get_slice(Offset::new(7), Size::new(5))
+                        .get_slice(Offset::new(7), ASize::new(5))
                         .unwrap()
                         .as_ref(),
                     &[0x23, 0x31, 0x32, 0x33, 0x34]
@@ -313,15 +332,15 @@ mod tests {
         }
 
         assert_eq!(
-            value_store.get_data(0.into(), Some(Size::new(5))).unwrap(),
+            value_store.get_data(0.into(), Some(5.into())).unwrap(),
             vec![0x11, 0x12, 0x13, 0x14, 0x15]
         );
         assert_eq!(
-            value_store.get_data(5.into(), Some(Size::new(3))).unwrap(),
+            value_store.get_data(5.into(), Some(3.into())).unwrap(),
             vec![0x21, 0x22, 0x23]
         );
         assert_eq!(
-            value_store.get_data(8.into(), Some(Size::new(7))).unwrap(),
+            value_store.get_data(8.into(), Some(7.into())).unwrap(),
             vec![0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]
         );
     }
@@ -345,7 +364,7 @@ mod tests {
             ]
         );
         let value_store = reader
-            .parse_data_block::<ValueStore>(SizedOffset::new(Size::new(13), Offset::new(19)))
+            .parse_data_block::<ValueStore>(SizedOffset::new(ASize::new(13), Offset::new(19)))
             .unwrap();
         match &value_store {
             ValueStore::Indexed(indexedvaluestore) => {
@@ -357,7 +376,7 @@ mod tests {
                 assert_eq!(
                     indexedvaluestore
                         .reader
-                        .get_slice(Offset::zero(), Size::new(8))
+                        .get_slice(Offset::zero(), ASize::new(8))
                         .unwrap()
                         .as_ref(),
                     &[0x11, 0x12, 0x13, 0x14, 0x15, 0x21, 0x22, 0x23]
@@ -365,7 +384,7 @@ mod tests {
                 assert_eq!(
                     indexedvaluestore
                         .reader
-                        .get_slice(Offset::new(8), Size::from(ByteSize::U7 as usize))
+                        .get_slice(Offset::new(8), ASize::from(ByteSize::U7 as usize))
                         .unwrap()
                         .as_ref(),
                     &[0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]
@@ -388,15 +407,15 @@ mod tests {
         );
 
         assert_eq!(
-            value_store.get_data(0.into(), Some(Size::new(5))).unwrap(),
+            value_store.get_data(0.into(), Some(5.into())).unwrap(),
             vec![0x11, 0x12, 0x13, 0x14, 0x15]
         );
         assert_eq!(
-            value_store.get_data(1.into(), Some(Size::new(3))).unwrap(),
+            value_store.get_data(1.into(), Some(3.into())).unwrap(),
             vec![0x21, 0x22, 0x23]
         );
         assert_eq!(
-            value_store.get_data(2.into(), Some(Size::new(7))).unwrap(),
+            value_store.get_data(2.into(), Some(7.into())).unwrap(),
             vec![0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]
         );
     }

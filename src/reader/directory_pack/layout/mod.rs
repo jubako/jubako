@@ -27,7 +27,7 @@ pub struct Layout {
     pub(crate) is_entry_checked: bool,
     pub common: Properties,
     pub variant_part: Option<VariantPart>,
-    pub entry_size: Size,
+    pub(crate) entry_size: ASize,
 }
 
 impl Parsable for Layout {
@@ -123,7 +123,7 @@ impl Parsable for Layout {
             is_entry_checked,
             common: common_properties,
             variant_part,
-            entry_size: Size::from(entry_size),
+            entry_size: entry_size.into(),
         })
     }
 }

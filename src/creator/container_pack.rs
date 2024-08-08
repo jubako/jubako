@@ -27,7 +27,7 @@ impl ContainerPackCreator<NamedFile> {
 impl<F: PackRecipient> ContainerPackCreator<F> {
     pub fn from_file(mut file: Box<F>, free_data: PackFreeData) -> Result<Self> {
         file.seek(SeekFrom::Start(
-            PackHeader::BLOCK_SIZE as u64 + ContainerPackHeader::BLOCK_SIZE as u64,
+            (PackHeader::BLOCK_SIZE + ContainerPackHeader::BLOCK_SIZE) as u64,
         ))?;
         Ok(ContainerPackCreator {
             packs: vec![],

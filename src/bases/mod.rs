@@ -35,41 +35,27 @@ pub(crate) use std::io::Result as IoResult;
 pub(crate) struct ArrayReader<OutType, IdxType> {
     reader: CheckReader,
     length: Count<IdxType>,
-    elem_size: usize,
+    elem_size: ASize,
     produced_type: PhantomData<OutType>,
 }
 
 impl<OutType, IdxType> ArrayReader<OutType, IdxType>
 where
     OutType: SizedParsable,
-    u64: std::convert::From<IdxType>,
+    u64: std::convert::From<Count<IdxType>>,
     IdxType: Copy,
 {
-    /*
-    pub fn new_from_reader(reader: &dyn Reader, at: Offset, length: Count<IdxType>) -> Self {
-        let elem_size = OutType::Size::to_u64();
-        let sub_reader =
-            reader.create_sub_reader(at, End::Size(Size(elem_size * u64::from(length.0))));
-        Self {
-            reader: sub_reader,
-            length,
-            elem_size: elem_size as usize,
-            produced_type: PhantomData,
-        }
-    }*/
-
     pub fn new_memory_from_reader(
         reader: &Reader,
         at: Offset,
         length: Count<IdxType>,
     ) -> Result<Self> {
-        let elem_size = Size::from(OutType::SIZE);
-        let array_size = elem_size * length.into_base().into();
+        let array_size = Size::new(OutType::SIZE as u64 * u64::from(length));
         let reader = reader.cut_check(at, array_size, BlockCheck::Crc32)?;
         Ok(Self {
             reader,
             length,
-            elem_size: elem_size.into_usize(),
+            elem_size: OutType::SIZE.into(),
             produced_type: PhantomData,
         })
     }
@@ -88,9 +74,9 @@ where
             idx,
             self.length
         );
-        let offset = u64::from(idx.into_base()) * self.elem_size as u64;
+        let offset = u64::from(idx.into_base()) * self.elem_size.into_u64();
         self.reader
-            .parse_in::<OutType>(Offset::from(offset), Size::from(self.elem_size))
+            .parse_in::<OutType>(Offset::from(offset), self.elem_size)
     }
 }
 

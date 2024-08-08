@@ -49,7 +49,7 @@ mod tests {
         let reader = CheckReader::from(content);
         String::from_utf8(
             reader
-                .parse_in::<PString>(Offset::zero(), reader.size())
+                .parse_in::<PString>(Offset::zero(), reader.size().try_into().unwrap())
                 .unwrap(),
         )
         .unwrap()

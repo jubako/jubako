@@ -49,6 +49,12 @@ impl Serializable for Size {
     }
 }
 
+impl From<ASize> for Size {
+    fn from(v: ASize) -> Size {
+        v.into_u64().into()
+    }
+}
+
 impl From<Offset> for Size {
     fn from(v: Offset) -> Size {
         v.into_u64().into()

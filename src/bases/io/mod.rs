@@ -3,7 +3,7 @@ mod compression;
 mod file;
 
 use crate::bases::types::*;
-use crate::bases::Region;
+use crate::bases::{ARegion, Range};
 pub(crate) use compression::*;
 pub use file::FileSource;
 use std::borrow::Cow;
@@ -16,26 +16,26 @@ pub(crate) trait Source: Sync + Send {
     fn size(&self) -> Size;
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()>;
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize>;
-    fn get_slice(&self, region: Region, block_check: BlockCheck) -> Result<Cow<[u8]>>;
+    fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<[u8]>>;
 
     fn into_memory_source(
         self: Arc<Self>,
-        region: Region,
+        region: ARegion,
         block_check: BlockCheck,
-    ) -> Result<(Arc<dyn MemorySource>, Region)>;
+    ) -> Result<(Arc<dyn MemorySource>, ARegion)>;
 
     fn display(&self) -> String;
 }
 
 pub(crate) trait MemorySource: Source {
-    fn get_slice(&self, region: Region) -> Result<&[u8]>;
+    fn get_slice(&self, region: Range<usize>) -> Result<&[u8]>;
 
     /// Get a slice from the MemorySource
     ///
     /// # Safety
     ///
     /// `region` must point to a valid range in the memory source.
-    unsafe fn get_slice_unchecked(&self, region: Region) -> Result<&[u8]>;
+    unsafe fn get_slice_unchecked(&self, range: Range<usize>) -> Result<&[u8]>;
     fn into_source(self: Arc<Self>) -> Arc<dyn Source>;
 }
 
@@ -84,7 +84,7 @@ mod tests {
             compressed_content.into_inner()
         };
         let decoder = lz4::Decoder::new(Cursor::new(compressed_content)).unwrap();
-        Some(SeekableDecoder::new(decoder, Size::from(data.len())).into())
+        Some(SeekableDecoder::new(decoder, ASize::from(data.len())).into())
     }
 
     #[cfg(not(feature = "lz4"))]
@@ -111,7 +111,7 @@ mod tests {
             Cursor::new(compressed_content),
             xz2::stream::Stream::new_lzma_decoder(128 * 1024 * 1024).unwrap(),
         );
-        Some(SeekableDecoder::new(decoder, Size::from(data.len())).into())
+        Some(SeekableDecoder::new(decoder, ASize::from(data.len())).into())
     }
 
     #[cfg(not(feature = "lzma"))]
@@ -129,7 +129,7 @@ mod tests {
             encoder.finish().unwrap().into_inner()
         };
         let decoder = zstd::Decoder::new(Cursor::new(compressed_content)).unwrap();
-        Some(SeekableDecoder::new(decoder, Size::from(data.len())).into())
+        Some(SeekableDecoder::new(decoder, data.len().into()).into())
     }
 
     #[cfg(not(feature = "zstd"))]
@@ -150,25 +150,23 @@ mod tests {
             return;
         }
         let reader = reader.unwrap();
-        let mut parser = reader.create_parser(Offset::zero(), Size::new(9)).unwrap();
+        let mut parser = reader.create_parser(Offset::zero(), 9.into()).unwrap();
         assert_eq!(parser.read_u8().unwrap(), 0x00_u8);
         assert_eq!(parser.tell(), Offset::new(1));
         assert_eq!(parser.read_u8().unwrap(), 0x01_u8);
         assert_eq!(parser.tell(), Offset::new(2));
         assert_eq!(parser.read_u16().unwrap(), 0x0302_u16);
         assert_eq!(parser.tell(), Offset::new(4));
-        parser = reader.create_parser(Offset::zero(), Size::new(9)).unwrap();
+        parser = reader.create_parser(Offset::zero(), 9.into()).unwrap();
         assert_eq!(parser.read_u32().unwrap(), 0x03020100_u32);
         assert_eq!(parser.read_u32().unwrap(), 0x07060504_u32);
         assert_eq!(parser.tell(), Offset::new(8));
         assert!(parser.read_u64().is_err());
-        parser = reader.create_parser(Offset::zero(), Size::new(9)).unwrap();
+        parser = reader.create_parser(Offset::zero(), 9.into()).unwrap();
         assert_eq!(parser.read_u64().unwrap(), 0x0706050403020100_u64);
         assert_eq!(parser.tell(), Offset::new(8));
 
-        let mut parser1 = reader
-            .create_parser(Offset::from(1_u64), Size::new(8))
-            .unwrap();
+        let mut parser1 = reader.create_parser(Offset::from(1_u64), 8.into()).unwrap();
         assert_eq!(parser1.tell(), Offset::zero());
         assert_eq!(parser1.read_u8().unwrap(), 0x01_u8);
         assert_eq!(parser1.tell(), Offset::new(1));
@@ -177,12 +175,12 @@ mod tests {
         assert_eq!(parser1.read_u32().unwrap(), 0x07060504_u32);
         assert_eq!(parser1.tell(), Offset::new(7));
         assert!(parser1.read_u64().is_err());
-        parser1 = reader.create_parser(Offset::new(1), Size::new(8)).unwrap();
+        parser1 = reader.create_parser(Offset::new(1), 8.into()).unwrap();
         assert_eq!(parser1.read_u64().unwrap(), 0x0807060504030201_u64);
         assert_eq!(parser1.tell(), Offset::new(8));
 
-        parser = reader.create_parser(Offset::zero(), Size::new(9)).unwrap();
-        parser1 = reader.create_parser(Offset::new(1), Size::new(8)).unwrap();
+        parser = reader.create_parser(Offset::zero(), 9.into()).unwrap();
+        parser1 = reader.create_parser(Offset::new(1), 8.into()).unwrap();
         parser.skip(1).unwrap();
         assert_eq!(parser.read_u8().unwrap(), parser1.read_u8().unwrap());
         assert_eq!(parser.read_u16().unwrap(), parser1.read_u16().unwrap());

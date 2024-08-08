@@ -51,8 +51,8 @@ impl ByteRegion {
     ///
     /// Most of the time, it will return a `Cow::Borrowed` as ByteRegion actually reference data
     /// stored in memory but it may potentially be a `Cow::Owned` if it reference a file.
-    pub fn get_slice(&self, offset: Offset, size: Size) -> Result<Cow<[u8]>> {
-        let region = self.region.cut_rel(offset, size);
+    pub fn get_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>> {
+        let region = self.region.cut_rel_asize(offset, ASize::new(size));
         self.source.get_slice(region, BlockCheck::None)
     }
 }
@@ -69,9 +69,9 @@ impl From<ByteSlice<'_>> for ByteRegion {
 impl RandomParser for ByteRegion {
     type Parser<'s> = SliceParser<'s>;
     fn create_parser(&self, offset: Offset) -> Result<Self::Parser<'_>> {
-        let region = self
-            .region
-            .cut_rel(offset, self.region.size() - offset.into());
+        let size = self.region.size() - offset.into();
+        let size = std::cmp::min(0xFFFF_u64, size.into_u64()) as usize;
+        let region = self.region.cut_rel_asize(offset, size.into());
         Ok(SliceParser::new(
             self.source.get_slice(region, BlockCheck::None)?,
             self.region.begin() + offset,
@@ -79,7 +79,7 @@ impl RandomParser for ByteRegion {
     }
 
     fn read_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>> {
-        let region = self.region.cut_rel(offset, Size::from(size));
+        let region = self.region.cut_rel_asize(offset, ASize::from(size));
         self.source.get_slice(region, BlockCheck::None)
     }
 
@@ -94,19 +94,31 @@ impl serde::Serialize for ByteRegion {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_bytes(&self.get_slice(Offset::zero(), self.size()).unwrap())
+        let size = self.size();
+        if size.into_u64() < 0xFFFF {
+            serializer.serialize_bytes(
+                &self
+                    .get_slice(Offset::zero(), self.size().into_u64() as usize)
+                    .unwrap(),
+            )
+        } else {
+            serializer.serialize_str(&format!(
+                "ByteRegion of size {size} to big to be serialized"
+            ))
+        }
     }
 }
 
 #[cfg(feature = "explorable")]
 impl Explorable for ByteRegion {
     fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
-        Ok(Some(if item == "#" {
-            Box::new(
-                String::from_utf8_lossy(&self.get_slice(Offset::zero(), self.size())?).into_owned(),
-            )
-        } else {
+        if item != "#" {
             unreachable!()
-        }))
+        }
+        let size = std::cmp::min(self.size().into_u64(), 0xFFFF) as usize;
+
+        Ok(Some(Box::new(
+            String::from_utf8_lossy(&self.get_slice(Offset::zero(), size)?).into_owned(),
+        )))
     }
 }

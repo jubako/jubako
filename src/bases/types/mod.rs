@@ -1,5 +1,6 @@
 #[macro_use]
 mod error;
+mod asize;
 mod base_array;
 mod byte_size;
 mod count;
@@ -16,6 +17,7 @@ mod sized_offset;
 mod specific_types;
 mod vendor_id;
 
+pub(crate) use asize::ASize;
 pub(crate) use base_array::BaseArray;
 pub(crate) use byte_size::ByteSize;
 pub(crate) use count::Count;
@@ -29,7 +31,7 @@ pub use mayref::MayRef;
 pub use offset::Offset;
 pub(crate) use pstring::PString;
 pub use range::EntryRange;
-pub(crate) use range::Region;
+pub(crate) use range::{ARegion, Range, Region};
 pub use size::Size;
 pub(crate) use sized_offset::SizedOffset;
 pub use specific_types::*;

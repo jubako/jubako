@@ -3,12 +3,12 @@ use crate::bases::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub struct SizedOffset {
-    pub size: Size,
-    pub offset: Offset,
+    pub(crate) size: ASize,
+    pub(crate) offset: Offset,
 }
 
 impl SizedOffset {
-    pub fn new(size: Size, offset: Offset) -> Self {
+    pub(crate) fn new(size: ASize, offset: Offset) -> Self {
         debug_assert!(size.into_u64() <= 0xFF_FF_u64);
         debug_assert!(offset.into_u64() <= 0xFF_FF_FF_FF_FF_FF_u64);
         Self { size, offset }
@@ -27,7 +27,7 @@ impl Parsable for SizedOffset {
     type Output = Self;
     fn parse(parser: &mut impl Parser) -> Result<Self> {
         let data = parser.read_u64()?;
-        let size = Size::from(data & 0xFF_FF_u64);
+        let size = ASize::from((data & 0xFF_FF_u64) as usize);
         let offset = Offset::from(data >> 16);
         Ok(Self::new(size, offset))
     }

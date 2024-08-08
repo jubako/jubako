@@ -144,7 +144,7 @@ mod tests {
         #[derive(Debug)]
         struct ValueStore {}
         impl ValueStoreTrait for ValueStore {
-            fn get_data(&self, _id: ValueIdx, _size: Option<Size>) -> Result<&[u8]> {
+            fn get_data(&self, _id: ValueIdx, _size: Option<ASize>) -> Result<&[u8]> {
                 unreachable!()
             }
         }

@@ -371,7 +371,7 @@ mod tests {
                 pack_group: 240,
                 free_data_id: ValueIdx::from(1).into(),
                 pack_size: Size::new(0xffff),
-                check_info_pos: SizedOffset::new(Size::new(0x01), Offset::new(0xff)),
+                check_info_pos: SizedOffset::new(0x01.into(), Offset::new(0xff)),
                 pack_location: vec![],
             }
         );
@@ -387,7 +387,7 @@ mod tests {
                 pack_group: 0,
                 free_data_id: ValueIdx::from(0).into(),
                 pack_size: Size::new(0xffffff),
-                check_info_pos: SizedOffset::new(Size::new(0x21), Offset::new(0xff00ff)),
+                check_info_pos: SizedOffset::new(0x21.into(), Offset::new(0xff00ff)),
                 pack_location: vec![],
             }
         );
@@ -404,7 +404,7 @@ mod tests {
                 free_data_id: ValueIdx::from(0).into(),
 
                 pack_size: Size::new(0xffffff),
-                check_info_pos: SizedOffset::new(Size::new(0x01), Offset::new(0xffffff)),
+                check_info_pos: SizedOffset::new(0x01.into(), Offset::new(0xffffff)),
                 pack_location: vec![b'p', b'a', b'c', b'k', b'p', b'a', b't', b'h'],
             }
         );
