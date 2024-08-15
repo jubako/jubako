@@ -64,6 +64,7 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
         }
     }
 
+    #[inline]
     pub fn into_inner(self) -> Wrapped {
         self.content_pack
     }

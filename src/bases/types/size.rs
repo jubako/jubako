@@ -18,11 +18,13 @@ impl Size {
     pub const fn zero() -> Self {
         Self(0)
     }
+    #[inline]
     pub const fn into_u64(self) -> u64 {
         self.0
     }
 
     #[cfg(target_pointer_width = "64")]
+    #[inline]
     pub const fn into_usize(self) -> usize {
         self.0 as usize
     }

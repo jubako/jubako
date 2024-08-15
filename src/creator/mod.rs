@@ -251,6 +251,7 @@ impl NamedFile {
         }))
     }
 
+    #[inline]
     pub fn into_inner(self) -> std::fs::File {
         self.file
     }
