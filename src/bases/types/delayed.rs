@@ -22,18 +22,18 @@ impl<T: Copy> Late<T> {
     }
 }
 
-trait MyCell<T> {
-    fn get(&self) -> T;
-}
+//trait MyCell<T> {
+//    fn get(&self) -> T;
+//}
 
-impl<T, U> MyCell<T> for Cell<U>
-where
-    U: Copy + Into<T>,
-{
-    fn get(&self) -> T {
-        Cell::get(self).into()
-    }
-}
+//impl<T, U> MyCell<T> for Cell<U>
+//where
+//    U: Copy + Into<T>,
+//{
+//    fn get(&self) -> T {
+//        Cell::get(self).into()
+//    }
+//}
 
 // S : data Source (what is the real value stored in the Vow)
 // V: data View (how the data is viewed (get) by the bound)
