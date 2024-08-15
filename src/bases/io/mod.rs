@@ -3,7 +3,7 @@ mod compression;
 mod file;
 
 use crate::bases::types::*;
-use crate::bases::{ARegion, Range};
+use crate::bases::{ARegion, Region};
 pub(crate) use compression::*;
 pub use file::FileSource;
 use std::borrow::Cow;
@@ -18,36 +18,19 @@ pub(crate) trait Source: Sync + Send {
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize>;
     fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<[u8]>>;
 
-    fn into_memory_source(
+    fn cut(
         self: Arc<Self>,
-        region: ARegion,
+        region: Region,
         block_check: BlockCheck,
-    ) -> Result<(Arc<dyn MemorySource>, ARegion)>;
+        in_memory: bool,
+    ) -> Result<(Arc<dyn Source>, Region)>;
 
     fn display(&self) -> String;
-}
-
-pub(crate) trait MemorySource: Source {
-    fn get_slice(&self, region: Range<usize>) -> Result<&[u8]>;
-
-    /// Get a slice from the MemorySource
-    ///
-    /// # Safety
-    ///
-    /// `region` must point to a valid range in the memory source.
-    unsafe fn get_slice_unchecked(&self, range: Range<usize>) -> Result<&[u8]>;
-    fn into_source(self: Arc<Self>) -> Arc<dyn Source>;
 }
 
 impl fmt::Debug for dyn Source {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("Source{{Size:{}}}", self.size()))
-    }
-}
-
-impl fmt::Debug for dyn MemorySource {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("MemorySource{{Size:{}}}", self.size()))
     }
 }
 

@@ -74,7 +74,7 @@ impl Cluster {
         };
 
         let raw_stream = if let ClusterReader::Raw(r) = &*cluster_reader {
-            r.create_stream(Offset::zero(), r.size())
+            r.create_stream(Offset::zero(), r.size(), false)?
         } else {
             unreachable!()
         };
@@ -131,7 +131,7 @@ impl DataBlockParsable for Cluster {
         reader: &Reader,
     ) -> Result<Self::Output> {
         let (cluster_builder, raw_data_size) = intermediate;
-        let reader = reader.cut(header_offset - raw_data_size, raw_data_size);
+        let reader = reader.cut(header_offset - raw_data_size, raw_data_size, false)?;
         let reader = if cluster_builder.compression == CompressionType::None {
             assert_eq!(cluster_builder.data_size, raw_data_size);
             ClusterReader::Plain(reader)

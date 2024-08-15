@@ -205,9 +205,11 @@ impl Pack for ManifestPack {
     }
     fn check(&self) -> Result<bool> {
         let check_info = self.get_check_info()?;
-        let mut check_stream = self
-            .reader
-            .create_stream(Offset::zero(), Size::from(self.pack_header.check_info_pos));
+        let mut check_stream = self.reader.create_stream(
+            Offset::zero(),
+            Size::from(self.pack_header.check_info_pos),
+            false,
+        )?;
         let mut check_stream =
             ManifestCheckStream::new_from_offset_iter(&mut check_stream, self.packs_offset());
         check_info.check(&mut check_stream)

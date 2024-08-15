@@ -75,8 +75,7 @@ pub struct DirectoryPack {
 
 impl DirectoryPack {
     pub fn new(reader: Reader) -> Result<DirectoryPack> {
-        //[FIXME] Can we memory it all the time ?
-        //let reader = reader.create_sub_memory_reader(Offset::zero(), reader.size())?;
+        let reader = reader.cut(Offset::zero(), reader.size(), true)?;
         let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero())?;
         if pack_header.magic != PackKind::Directory {
             return Err(format_error!("Pack Magic is not DirectoryPack"));
@@ -201,9 +200,11 @@ impl Pack for DirectoryPack {
             let mut s_check_info = self.check_info.write().unwrap();
             *s_check_info = Some(check_info);
         }
-        let mut check_stream = self
-            .reader
-            .create_stream(Offset::zero(), Size::from(self.pack_header.check_info_pos));
+        let mut check_stream = self.reader.create_stream(
+            Offset::zero(),
+            Size::from(self.pack_header.check_info_pos),
+            false,
+        )?;
         self.check_info
             .read()
             .unwrap()

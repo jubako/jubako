@@ -41,34 +41,18 @@ where
         Ok(Cow::Borrowed(slice))
     }
 
-    fn into_memory_source(
+    fn cut(
         self: Arc<Self>,
-        region: ARegion,
+        region: Region,
         block_check: BlockCheck,
-    ) -> Result<(Arc<dyn MemorySource>, ARegion)> {
+        _in_memory: bool,
+    ) -> Result<(Arc<dyn Source>, Region)> {
         // THis will check the slice for us
-        <Self as Source>::get_slice(&self, region, block_check)?;
-        Ok((Arc::clone(&(self as Arc<dyn MemorySource>)), region))
+        self.get_slice(region.try_into().unwrap(), block_check)?;
+        Ok((self, region))
     }
 
     fn display(&self) -> String {
         format!("{:?}", self)
-    }
-}
-
-impl<T> MemorySource for T
-where
-    T: AsRef<[u8]> + 'static + Sync + Send + std::fmt::Debug,
-{
-    fn get_slice(&self, region: Range<usize>) -> Result<&[u8]> {
-        debug_assert!(region.end() <= self.as_ref().len());
-        Ok(&self.as_ref()[region.begin()..region.end()])
-    }
-    unsafe fn get_slice_unchecked(&self, region: Range<usize>) -> Result<&[u8]> {
-        debug_assert!(region.end() <= self.as_ref().len());
-        Ok(&self.as_ref()[region.begin()..region.end()])
-    }
-    fn into_source(self: Arc<Self>) -> Arc<dyn Source> {
-        self
     }
 }

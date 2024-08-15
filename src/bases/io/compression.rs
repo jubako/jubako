@@ -198,38 +198,21 @@ impl Source for SeekableDecoder {
         ))
     }
 
-    fn into_memory_source(
+    fn cut(
         self: Arc<Self>,
-        region: ARegion,
+        region: Region,
         block_check: BlockCheck,
-    ) -> Result<(Arc<dyn MemorySource>, ARegion)> {
+        _in_memory: bool,
+    ) -> Result<(Arc<dyn Source>, Region)> {
         debug_assert!(region.end().is_valid(self.size()));
         if let BlockCheck::Crc32 = block_check {
             unreachable!()
         }
-        self.decode_to(region.end().force_into_usize());
         Ok((self, region))
     }
 
     fn display(&self) -> String {
         "SeekableDecoderStream".into()
-    }
-}
-
-impl MemorySource for SeekableDecoder {
-    fn get_slice(&self, region: Range<usize>) -> Result<&[u8]> {
-        debug_assert!(region.end() <= self.buffer.total_size());
-        self.decode_to(region.end());
-        Ok(&self.decoded_slice()[region.begin()..region.end()])
-    }
-
-    unsafe fn get_slice_unchecked(&self, region: Range<usize>) -> Result<&[u8]> {
-        debug_assert!(region.end() <= self.buffer.total_size());
-        Ok(&self.decoded_slice()[region.begin()..region.end()])
-    }
-
-    fn into_source(self: Arc<Self>) -> Arc<dyn Source> {
-        self
     }
 }
 

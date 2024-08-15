@@ -31,7 +31,7 @@ pub use mayref::MayRef;
 pub use offset::Offset;
 pub(crate) use pstring::PString;
 pub use range::EntryRange;
-pub(crate) use range::{ARegion, Range, Region};
+pub(crate) use range::{ARegion, Region};
 pub use size::Size;
 pub(crate) use sized_offset::SizedOffset;
 pub use specific_types::*;

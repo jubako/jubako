@@ -45,7 +45,7 @@ pub fn open_as_container_pack(reader: Reader) -> Result<ContainerPack> {
             //Check at end
             let mut buffer_reader = [0u8; 64];
             reader
-                .create_stream((reader.size() - Size::new(64)).into(), Size::new(64))
+                .create_stream((reader.size() - Size::new(64)).into(), Size::new(64), false)?
                 .read_exact(&mut buffer_reader)?;
             buffer_reader.reverse();
             let end_reader: Reader = buffer_reader.into();
@@ -56,9 +56,11 @@ pub fn open_as_container_pack(reader: Reader) -> Result<ContainerPack> {
     };
 
     match pack_header.magic {
-        PackKind::Container => ContainerPack::new(reader.cut(offset, pack_header.file_size)),
+        PackKind::Container => {
+            ContainerPack::new(reader.cut(offset, pack_header.file_size, false)?)
+        }
         _ => Ok(ContainerPack::new_fake(
-            reader.cut(offset, pack_header.file_size),
+            reader.cut(offset, pack_header.file_size, false)?,
             pack_header.uuid,
         )),
     }
@@ -92,10 +94,9 @@ impl Container {
         }
         let reader = reader.unwrap();
 
-        let manifest_reader_size = ASize::try_from(reader.size()).unwrap();
-        let manifest_pack = ManifestPack::new(
-            reader.create_sub_memory_reader(Offset::zero(), manifest_reader_size)?,
-        )?;
+        let manifest_reader_size = reader.size();
+        let manifest_pack =
+            ManifestPack::new(reader.cut(Offset::zero(), manifest_reader_size, true)?)?;
 
         let locators: Vec<Arc<dyn PackLocatorTrait>> = vec![container_pack, locator];
         let locator = Arc::new(ChainedLocator::new(locators));

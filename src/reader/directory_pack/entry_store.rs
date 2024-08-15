@@ -72,7 +72,7 @@ impl DataBlockParsable for EntryStore {
         let entry_reader = if layout.is_entry_checked {
             let data_size =
                 layout.entry_count * (layout.entry_size + BlockCheck::Crc32.size()).into();
-            reader.cut(header_offset - data_size, data_size)
+            reader.cut(header_offset - data_size, data_size, false)?
         } else {
             let data_size = layout.entry_count * layout.entry_size.into();
             reader

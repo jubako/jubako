@@ -80,14 +80,32 @@ impl Reader {
         ByteSlice::new_from_parts(&self.source, region)
     }
 
-    pub(crate) fn create_stream(&self, offset: Offset, size: Size) -> ByteStream {
-        let region = self.region.cut_rel(offset, size);
-        ByteStream::new_from_parts(Arc::clone(&self.source), region, region.begin())
+    pub(crate) fn create_stream(
+        &self,
+        offset: Offset,
+        size: Size,
+        in_memory: bool,
+    ) -> Result<ByteStream> {
+        let (source, region) = self.cut_source(offset, size, BlockCheck::None, in_memory)?;
+        Ok(ByteStream::new_from_parts(source, region, region.begin()))
     }
 
-    pub(crate) fn cut(&self, offset: Offset, size: Size) -> Reader {
+    #[inline]
+    fn cut_source(
+        &self,
+        offset: Offset,
+        size: Size,
+        block_check: BlockCheck,
+        in_memory: bool,
+    ) -> Result<(Arc<dyn Source>, Region)> {
         let region = self.region.cut_rel(offset, size);
-        Self::new_from_parts(Arc::clone(&self.source), region)
+        Arc::clone(&self.source).cut(region, block_check, in_memory)
+    }
+
+    #[inline]
+    pub(crate) fn cut(&self, offset: Offset, size: Size, in_memory: bool) -> Result<Reader> {
+        let (source, region) = self.cut_source(offset, size, BlockCheck::None, in_memory)?;
+        Ok(Self::new_from_parts(source, region))
     }
 
     pub(crate) fn cut_check(
@@ -96,25 +114,8 @@ impl Reader {
         size: Size,
         block_check: BlockCheck,
     ) -> Result<CheckReader> {
-        let region = self.region.cut_rel(offset, size);
-        let (source, region) = if region.size().into_u64() <= usize::MAX as u64 {
-            let (source, region) = Arc::clone(&self.source)
-                .into_memory_source(region.try_into().unwrap(), block_check)?;
-            (source.into_source(), region.into())
-        } else {
-            (Arc::clone(&self.source), region)
-        };
+        let (source, region) = self.cut_source(offset, size, block_check, true)?;
         Ok(CheckReader::new_from_parts(source, region))
-    }
-
-    pub(crate) fn create_sub_memory_reader(&self, offset: Offset, size: ASize) -> Result<Reader> {
-        let region = self.region.cut_rel_asize(offset, size);
-        let (source, region) =
-            Arc::clone(&self.source).into_memory_source(region, BlockCheck::None)?;
-        Ok(Reader {
-            source: source.into_source(),
-            region: region.into(),
-        })
     }
 }
 
