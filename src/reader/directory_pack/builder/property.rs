@@ -219,12 +219,9 @@ impl PropertyBuilderTrait for SignedProperty {
                     let key = match key_size {
                         ByteSize::U1 => parser.read_u8(self.offset)? as u64,
                         ByteSize::U2 => parser.read_u16(self.offset)? as u64,
-                        ByteSize::U3 | ByteSize::U4 => {
-                            parser.read_usized(self.offset, self.size)?
-                        }
-                        ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
-                            parser.read_usized(self.offset, self.size)?
-                        }
+                        ByteSize::U4 => parser.read_u32(self.offset)? as u64,
+                        ByteSize::U8 => parser.read_u64(self.offset)?,
+                        _ => parser.read_usized(self.offset, *key_size)?,
                     };
                     let value_data = value_store
                         .get_data(key.into(), Some(Size::from(self.size as u8 as usize)))?;
@@ -233,10 +230,9 @@ impl PropertyBuilderTrait for SignedProperty {
                 None => match self.size {
                     ByteSize::U1 => parser.read_i8(self.offset)? as i64,
                     ByteSize::U2 => parser.read_i16(self.offset)? as i64,
-                    ByteSize::U3 | ByteSize::U4 => parser.read_isized(self.offset, self.size)?,
-                    ByteSize::U5 | ByteSize::U6 | ByteSize::U7 | ByteSize::U8 => {
-                        parser.read_isized(self.offset, self.size)?
-                    }
+                    ByteSize::U4 => parser.read_i32(self.offset)? as i64,
+                    ByteSize::U8 => parser.read_i64(self.offset)?,
+                    _ => parser.read_isized(self.offset, self.size)?,
                 },
             },
         })
