@@ -4,12 +4,6 @@ use crate::common::ContentAddress;
 use static_assertions as sa;
 use std::cmp;
 
-trait PropertyName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send + 'static {}
-impl PropertyName for &'static str {}
-
-trait VariantName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send {}
-impl VariantName for &str {}
-
 #[derive(Debug, PartialEq)]
 pub struct Array {
     pub size: usize,
