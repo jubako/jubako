@@ -11,7 +11,7 @@ pub use crate::bases::{
     Bound, ContentIdx, EntryCount, EntryIdx, EntryRange, Error, ErrorKind, FileSource, MayRef,
     Offset, PackId, PropertyCount, PropertyIdx, Reader, Result, Size, VariantIdx, VendorId, Vow,
 };
-pub use crate::common::{CompressionType, ContentAddress, Value};
+pub use crate::common::{CompressionType, ContentAddress, Pack, Value};
 //use crate::reader::directory_pack::layout;
 
 #[cfg(doctest)]
