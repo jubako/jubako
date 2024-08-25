@@ -1,4 +1,5 @@
 #![cfg_attr(feature = "nightly", feature(error_generic_member_access))]
+#![cfg_attr(feature = "nightly", feature(seek_stream_len))]
 
 #[macro_use]
 mod bases;

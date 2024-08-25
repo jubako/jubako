@@ -125,7 +125,7 @@ impl Seek for InputFile {
         Ok(())
     }
 
-    #[cfg(feature = "seek_stream_len")]
+    #[cfg(feature = "nightly")]
     fn stream_len(&mut self) -> std::io::Result<()> {
         Ok(self.len)
     }
