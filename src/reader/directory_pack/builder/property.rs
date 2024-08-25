@@ -6,7 +6,6 @@ use crate::reader::directory_pack::raw_layout::{DeportedDefault, DeportedInfo, P
 use crate::reader::directory_pack::raw_value::{Array, Extend, RawValue};
 use crate::reader::directory_pack::ValueStoreTrait;
 use std::sync::Arc;
-use zerocopy::byteorder::{ByteOrder, LittleEndian as LE};
 
 // The properties here are pretty close from the layout::Property.
 // The main difference is that layout::Property is not typed:
@@ -72,7 +71,10 @@ impl IntProperty {
             DeportedDefault::Value(default) => {
                 let default_data =
                     store.get_data(default.into(), Some(ASize::from(size as u8 as usize)))?;
-                let default = LE::read_uint(default_data, size as u8 as usize);
+                let mut data_parser =
+                    SliceParser::new(std::borrow::Cow::Borrowed(default_data), Offset::zero());
+
+                let default = data_parser.read_usized(size).unwrap();
                 Ok(IntProperty::new(offset, size, Some(default), None))
             }
             DeportedDefault::KeySize(key_size) => Ok(IntProperty::new(
@@ -124,7 +126,11 @@ impl PropertyBuilderTrait for IntProperty {
                     };
                     let value_data = value_store
                         .get_data(key.into(), Some(ASize::from(self.size as u8 as usize)))?;
-                    LE::read_uint(value_data, self.size as u8 as usize)
+                    let mut data_parser = SliceParser::new(
+                        std::borrow::Cow::Borrowed(value_data),
+                        parser.global_offset() + self.offset,
+                    );
+                    data_parser.read_usized(self.size).unwrap()
                 }
                 None => match self.size {
                     ByteSize::U1 => parser.read_u8(self.offset)? as u64,
@@ -171,7 +177,10 @@ impl SignedProperty {
             DeportedDefault::Value(default) => {
                 let default_data =
                     store.get_data(default.into(), Some(ASize::from(size as u8 as usize)))?;
-                let default = LE::read_int(default_data, size as u8 as usize);
+                let mut data_parser =
+                    SliceParser::new(std::borrow::Cow::Borrowed(default_data), Offset::zero());
+
+                let default = data_parser.read_isized(size).unwrap();
                 Ok(SignedProperty::new(offset, size, Some(default), None))
             }
             DeportedDefault::KeySize(key_size) => Ok(SignedProperty::new(
@@ -225,7 +234,11 @@ impl PropertyBuilderTrait for SignedProperty {
                     };
                     let value_data = value_store
                         .get_data(key.into(), Some(ASize::from(self.size as u8 as usize)))?;
-                    LE::read_int(value_data, self.size as u8 as usize)
+                    let mut data_parser = SliceParser::new(
+                        std::borrow::Cow::Borrowed(value_data),
+                        parser.global_offset() + self.offset,
+                    );
+                    data_parser.read_isized(self.size).unwrap()
                 }
                 None => match self.size {
                     ByteSize::U1 => parser.read_i8(self.offset)? as i64,

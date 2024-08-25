@@ -64,6 +64,10 @@ impl<'s> RandomParser for ByteSlice<'s> {
         ))
     }
 
+    fn global_offset(&self) -> Offset {
+        self.region.begin()
+    }
+
     fn read_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>> {
         let region = self.region.cut_rel_asize(offset, ASize::from(size));
         self.source.get_slice(region, BlockCheck::None)
