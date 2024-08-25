@@ -70,13 +70,14 @@ impl DataBlockParsable for EntryStore {
 
     fn finalize(layout: Layout, header_offset: Offset, reader: &Reader) -> Result<Self> {
         let entry_reader = if layout.is_entry_checked {
-            let data_size = layout.entry_count * (layout.entry_size + BlockCheck::Crc32.size());
-            reader.cut(header_offset - data_size, data_size)
+            let data_size =
+                layout.entry_count * (layout.entry_size + BlockCheck::Crc32.size()).into();
+            reader.cut(header_offset - data_size, data_size, false)?
         } else {
-            let data_size = layout.entry_count * layout.entry_size;
+            let data_size = layout.entry_count * layout.entry_size.into();
             reader
                 .cut_check(
-                    header_offset - data_size - BlockCheck::Crc32.size(),
+                    header_offset - data_size - ASize::from(BlockCheck::Crc32.size()),
                     data_size,
                     BlockCheck::Crc32,
                 )?
@@ -108,7 +109,7 @@ impl PlainStore {
     fn get_entry_reader(&self, idx: EntryIdx) -> ByteSlice {
         self.entry_reader.get_byte_slice(
             Offset::from(self.layout.entry_size.into_u64() * idx.into_u64()),
-            self.layout.entry_size,
+            self.layout.entry_size.into(),
         )
     }
 
@@ -184,7 +185,7 @@ mod tests {
             0b0001_1100, 0x01, 0x02, 3 , b'V', b'1', b'4', // content address, with default 0x0201 and 1 byte of data offset: 108
             0x1A, 0x01, 0x65, 0xB7, // crc
         ];
-        let size = Size::from(content.len() - 8);
+        let size = ASize::from(content.len() - 8);
         let reader = Reader::from(content);
         let store = reader
             .parse_data_block::<EntryStore>(SizedOffset::new(size, Offset::new(4)))
@@ -384,23 +385,23 @@ mod tests {
             0x00, // kind
             0x00, 0x00, 0x00, 0x00, // entry_count (0),
             0x00, //flag
-            0x1F, 0x00,  //entry_size (32)
+            0x1D, 0x00,  //entry_size (29)
             0x02,        // variant count
             0x0B,        // property count (9)
             0b0000_0110, // padding (7)       offset: 0
-            0b0101_0100, 0b001_00001, 0x0F, 2, b'C', b'0', // char4[1] + deported(1) 0x0F                offset: 7
-            0b1000_0000, 3, b'V', b'A', b'0', // Variant id size:1                                       offset: 13
-            0b0101_0100, 0b101_00001, 0x0F, 2, b'V', b'0',  // char4[1] + deported(5), idx 0x0F size: 10 offset: 14
-            0b0001_0010, 2, b'V', b'1', // content address size : 1+ 3                                   offset: 24
-            0b0010_0010, 2, b'V', b'2', // u24 size: 3                                                   offset: 28  => Variant size 31
-            0b1000_0000, 3, b'V', b'A', b'1', // Variant id size: 1                                      offset: 13  // new variant
-            0b0101_0011, 0b000_00110, 2, b'V', b'0', // char3[6] size: 9                                 offset: 14
-            0b0001_0101, 2, b'V', b'1',  // content address size: 2 + 2                                  offset: 23
-            0b0010_0010, 2, b'V', b'2',  // u24 size: 3                                                  offset: 27
-            0b0000_0000,  // padding (1)                                                                 offset: 30  => Variant size 31
-            0x10, 0xBC, 0x0F, 0xB7, // crc
+            0b0101_0011, 0b001_00001, 0x0F, 2, b'C', b'0', // char3[1] + deported(1) 0x0F                offset: 7
+            0b1000_0000, 3, b'V', b'A', b'0', // Variant id size:1                                       offset: 12
+            0b0101_0011, 0b101_00001, 0x0F, 2, b'V', b'0',  // char3[1] + deported(5), idx 0x0F size: 10 offset: 13
+            0b0001_0010, 2, b'V', b'1', // content address size : 1+ 3                                   offset: 22
+            0b0010_0010, 2, b'V', b'2', // u24 size: 3                                                   offset: 26  => Variant size 29
+            0b1000_0000, 3, b'V', b'A', b'1', // Variant id size: 1                                      offset: 12  // new variant
+            0b0101_0011, 0b000_00101, 2, b'V', b'0', // char3[6] size: 9                                 offset: 13
+            0b0001_0101, 2, b'V', b'1',  // content address size: 2 + 2                                  offset: 21
+            0b0010_0010, 2, b'V', b'2',  // u24 size: 3                                                  offset: 25
+            0b0000_0000,  // padding (1)                                                                 offset: 28  => Variant size 29
+            0x91, 0xFF, 0xB6, 0x2A, // crc
         ];
-        let size = Size::from(content.len() - 8);
+        let size = ASize::from(content.len() - 8);
         let reader = Reader::from(content);
         let store = reader
             .parse_data_block::<EntryStore>(SizedOffset::new(size, Offset::new(4)))
@@ -414,7 +415,7 @@ mod tests {
             Property::new(
                 7,
                 PropertyKind::Array {
-                    array_len_size: Some(ByteSize::U4),
+                    array_len_size: Some(ByteSize::U3),
                     fixed_array_len: 1,
                     deported_info: Some(DeportedInfo {
                         id_size: ByteSize::U1,
@@ -431,7 +432,7 @@ mod tests {
             variants,
             names,
         } = store.layout.variant_part.unwrap();
-        assert_eq!(variant_id_offset, Offset::new(13));
+        assert_eq!(variant_id_offset, Offset::new(12));
         assert_eq!(variants.len(), 2);
         assert_eq!(
             names,
@@ -442,9 +443,9 @@ mod tests {
             (
                 "V0".to_string(),
                 Property::new(
-                    14,
+                    13,
                     PropertyKind::Array {
-                        array_len_size: Some(ByteSize::U4),
+                        array_len_size: Some(ByteSize::U3),
                         fixed_array_len: 1,
                         deported_info: Some(DeportedInfo {
                             id_size: ByteSize::U5,
@@ -457,7 +458,7 @@ mod tests {
             (
                 "V1".to_string(),
                 Property::new(
-                    24,
+                    22,
                     PropertyKind::ContentAddress {
                         pack_id_size: ByteSize::U1,
                         content_id_size: ByteSize::U3,
@@ -468,7 +469,7 @@ mod tests {
             (
                 "V2".to_string(),
                 Property::new(
-                    28,
+                    26,
                     PropertyKind::UnsignedInt {
                         int_size: ByteSize::U3,
                         default: None,
@@ -482,10 +483,10 @@ mod tests {
             (
                 "V0".to_string(),
                 Property::new(
-                    14,
+                    13,
                     PropertyKind::Array {
                         array_len_size: Some(ByteSize::U3),
-                        fixed_array_len: 6,
+                        fixed_array_len: 5,
                         deported_info: None,
                         default: None,
                     },
@@ -494,7 +495,7 @@ mod tests {
             (
                 "V1".to_string(),
                 Property::new(
-                    23,
+                    21,
                     PropertyKind::ContentAddress {
                         pack_id_size: ByteSize::U2,
                         content_id_size: ByteSize::U2,
@@ -505,7 +506,7 @@ mod tests {
             (
                 "V2".to_string(),
                 Property::new(
-                    27,
+                    25,
                     PropertyKind::UnsignedInt {
                         int_size: ByteSize::U3,
                         default: None,

@@ -16,7 +16,7 @@ pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
         for (uuid, reader) in in_container.iter() {
             container.add_pack(
                 *uuid,
-                &mut reader.create_stream(Offset::zero(), reader.size()),
+                &mut reader.create_stream(Offset::zero(), reader.size(), false)?,
             )?;
         }
     }

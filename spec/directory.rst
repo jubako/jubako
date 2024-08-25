@@ -363,8 +363,8 @@ Byte array can be stored (embedded) in the entry or deported in another store.
 As entries in an index must always have the same size, an embedded array must always be the same size.
 If the key needs variable array size, the array must be deported.
 
-The keyInfo is ``0bDSSS``.
-- ``SSS``  defined the size of the integer in the entry to indicate store the actual size of the char[].
+The keyInfo is ``0bD0SS``.
+- ``SS``  defined the size of the integer in the entry to indicate store the actual size of the char[].
 - ``D`` tell is a default value is provided.
 
 The actual data of the byte array can be stored in two way:
@@ -385,17 +385,17 @@ If we use a variable_array (``KKK`` != ``000``), another complement byte follow 
 
 The data in the entry is composed:
 
-- ``SSS`` bytes telling the size of the char[].
+- ``SS`` bytes telling the size of the char[].
 - ``ZZZZZ`` bytes being the first part of the data. May be padded with 0 if size of char[] < ``ZZZZZ``.
-- ``KKK`` byte being the key_id of the variable array (if ``KKK`` != ``000``)
+- ``KKK`` bytes being the key_id of the variable array (if ``KKK`` != ``000``)
 
-If ``D`` is 1, the key info is followed by ``SSS + ZZZZZ + KKK`` bytes which are the value of the char[] as
+If ``D`` is 1, the key info is followed by ``SS + ZZZZZ + KKK`` bytes which are the value of the char[] as
 describe above.
 The entry doesn't contain the char[] and reader must use the default value as value for the property.
 
 Unsized char[]
 
-``SSS`` can be zero ``000``. In this case the char[] is unsized. It make sens only in case of :
+``SS`` can be zero ``00``. In this case the char[] is unsized. It make sens only in case of :
 
 - ``KKK`` is zero. In this case, the size of the char[] is always ``ZZZZZ``.
 - The used value store is a indexed value store. In this case, the size of the data is computed as

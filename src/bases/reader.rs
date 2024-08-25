@@ -46,24 +46,23 @@ impl Reader {
         &self,
         offset: Offset,
     ) -> Result<T::Output> {
-        let size = Size::from(T::SIZE);
-        let check_reader = self.cut_check(offset, size, BlockCheck::None)?;
-        check_reader.parse_in::<T>(Offset::zero(), size)
+        let check_reader = self.cut_check(offset, T::SIZE.into(), BlockCheck::None)?;
+        check_reader.parse_in::<T>(Offset::zero(), T::SIZE.into())
     }
 
     pub(crate) fn parse_block_at<T: SizedBlockParsable>(
         &self,
         offset: Offset,
     ) -> Result<T::Output> {
-        self.parse_block_in::<T>(offset, Size::from(T::SIZE))
+        self.parse_block_in::<T>(offset, T::SIZE.into())
     }
 
     pub(crate) fn parse_block_in<T: BlockParsable>(
         &self,
         offset: Offset,
-        size: Size,
+        size: ASize,
     ) -> Result<T::Output> {
-        let check_reader = self.cut_check(offset, size, BlockCheck::Crc32)?;
+        let check_reader = self.cut_check(offset, size.into(), BlockCheck::Crc32)?;
         check_reader.parse_in::<T>(Offset::zero(), size)
     }
 
@@ -81,14 +80,32 @@ impl Reader {
         ByteSlice::new_from_parts(&self.source, region)
     }
 
-    pub(crate) fn create_stream(&self, offset: Offset, size: Size) -> ByteStream {
-        let region = self.region.cut_rel(offset, size);
-        ByteStream::new_from_parts(Arc::clone(&self.source), region, region.begin())
+    pub(crate) fn create_stream(
+        &self,
+        offset: Offset,
+        size: Size,
+        in_memory: bool,
+    ) -> Result<ByteStream> {
+        let (source, region) = self.cut_source(offset, size, BlockCheck::None, in_memory)?;
+        Ok(ByteStream::new_from_parts(source, region, region.begin()))
     }
 
-    pub(crate) fn cut(&self, offset: Offset, size: Size) -> Reader {
+    #[inline]
+    fn cut_source(
+        &self,
+        offset: Offset,
+        size: Size,
+        block_check: BlockCheck,
+        in_memory: bool,
+    ) -> Result<(Arc<dyn Source>, Region)> {
         let region = self.region.cut_rel(offset, size);
-        Self::new_from_parts(Arc::clone(&self.source), region)
+        Arc::clone(&self.source).cut(region, block_check, in_memory)
+    }
+
+    #[inline]
+    pub(crate) fn cut(&self, offset: Offset, size: Size, in_memory: bool) -> Result<Reader> {
+        let (source, region) = self.cut_source(offset, size, BlockCheck::None, in_memory)?;
+        Ok(Self::new_from_parts(source, region))
     }
 
     pub(crate) fn cut_check(
@@ -97,25 +114,14 @@ impl Reader {
         size: Size,
         block_check: BlockCheck,
     ) -> Result<CheckReader> {
-        let region = self.region.cut_rel(offset, size);
-        let (source, region) = Arc::clone(&self.source).into_memory_source(region, block_check)?;
-        Ok(CheckReader::new_from_parts(source.into_source(), region))
-    }
-
-    pub(crate) fn create_sub_memory_reader(&self, offset: Offset, size: Size) -> Result<Reader> {
-        let region = self.region.cut_rel(offset, size);
-        let (source, region) =
-            Arc::clone(&self.source).into_memory_source(region, BlockCheck::None)?;
-        Ok(Reader {
-            source: source.into_source(),
-            region,
-        })
+        let (source, region) = self.cut_source(offset, size, block_check, true)?;
+        Ok(CheckReader::new_from_parts(source, region))
     }
 }
 
 impl From<CheckReader> for Reader {
-    fn from(breader: CheckReader) -> Self {
-        Self::new_from_parts(breader.source, breader.region)
+    fn from(creader: CheckReader) -> Self {
+        Self::new_from_parts(creader.source, creader.region)
     }
 }
 
@@ -154,8 +160,8 @@ impl CheckReader {
         Self { source, region }
     }
 
-    pub(crate) fn create_parser(&self, offset: Offset, size: Size) -> Result<impl Parser + '_> {
-        let region = self.region.cut_rel(offset, size);
+    pub(crate) fn create_parser(&self, offset: Offset, size: ASize) -> Result<impl Parser + '_> {
+        let region = self.region.cut_rel_asize(offset, size);
         let slice = self.source.get_slice(region, BlockCheck::None)?;
         Ok(SliceParser::new(slice, self.region.begin() + offset))
     }
@@ -165,12 +171,12 @@ impl CheckReader {
         self.region.size()
     }
 
-    pub fn parse_in<T: Parsable>(&self, offset: Offset, size: Size) -> Result<T::Output> {
+    pub fn parse_in<T: Parsable>(&self, offset: Offset, size: ASize) -> Result<T::Output> {
         let mut parser = self.create_parser(offset, size)?;
         T::parse(&mut parser)
     }
-    pub fn get_slice(&self, offset: Offset, size: Size) -> Result<Cow<[u8]>> {
-        let region = self.region.cut_rel(offset, size);
+    pub fn get_slice(&self, offset: Offset, size: ASize) -> Result<Cow<[u8]>> {
+        let region = self.region.cut_rel_asize(offset, size);
         self.source.get_slice(region, BlockCheck::None)
     }
 }

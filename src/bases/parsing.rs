@@ -10,6 +10,7 @@ use super::ByteSize;
 pub trait Parser {
     fn read_slice(&mut self, size: usize) -> Result<Cow<[u8]>>;
     fn read_data(&mut self, buf: &mut [u8]) -> Result<()>;
+    #[cfg(test)]
     fn tell(&self) -> Offset;
     fn global_offset(&self) -> Offset;
     fn skip(&mut self, size: usize) -> Result<()>;
@@ -40,26 +41,6 @@ pub trait Parser {
         Ok(LE::read_uint(&slice, size))
     }
 
-    fn read_i8(&mut self) -> Result<i8> {
-        let slice = self.read_slice(1)?;
-        Ok(slice[0] as i8)
-    }
-
-    fn read_i16(&mut self) -> Result<i16> {
-        let slice = self.read_slice(2)?;
-        Ok(LE::read_i16(&slice))
-    }
-
-    fn read_i32(&mut self) -> Result<i32> {
-        let slice = self.read_slice(4)?;
-        Ok(LE::read_i32(&slice))
-    }
-
-    fn read_i64(&mut self) -> Result<i64> {
-        let slice = self.read_slice(8)?;
-        Ok(LE::read_i64(&slice))
-    }
-
     fn read_isized(&mut self, size: ByteSize) -> Result<i64> {
         let size = size as usize;
         let slice = self.read_slice(size)?;
@@ -77,6 +58,7 @@ pub trait RandomParser {
     fn read_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>>;
     fn read_data(&self, offset: Offset, buf: &mut [u8]) -> Result<()>;
 
+    fn global_offset(&self) -> Offset;
     fn read_u8(&self, offset: Offset) -> Result<u8> {
         let slice = self.read_slice(offset, 1)?;
         Ok(slice[0])
@@ -189,6 +171,7 @@ impl<'a> Parser for SliceParser<'a> {
         Ok(())
     }
 
+    #[cfg(test)]
     fn tell(&self) -> Offset {
         self.offset.into()
     }

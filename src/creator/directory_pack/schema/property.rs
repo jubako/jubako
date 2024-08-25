@@ -271,15 +271,19 @@ impl<PN: PropertyName> Property<PN> {
                 fixed_array_len: _,
                 store_handle: _,
                 name,
-            } => match entry.value(name).as_ref() {
-                Value::Array(a) => max_array_size.process(a.size),
-                Value::Array0(a) => max_array_size.process(a.size),
-                Value::Array1(a) => max_array_size.process(a.size),
-                Value::Array2(a) => max_array_size.process(a.size),
-                _ => {
-                    panic!("Value type doesn't correspond to property");
-                }
-            },
+            } => {
+                let array_size = match entry.value(name).as_ref() {
+                    Value::Array(a) => a.size,
+                    Value::Array0(a) => a.size,
+                    Value::Array1(a) => a.size,
+                    Value::Array2(a) => a.size,
+                    _ => {
+                        panic!("Value type doesn't correspond to property");
+                    }
+                };
+                assert!(array_size <= 0x00FFFFFF_usize);
+                max_array_size.process(array_size);
+            }
             Self::IndirectArray {
                 store_handle: _,
                 name: _,

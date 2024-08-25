@@ -42,6 +42,18 @@ impl Deref for FileSource {
     }
 }
 
+#[cfg(target_pointer_width = "64")]
+#[inline]
+const fn move_to_memory(_region: Region) -> bool {
+    true
+}
+
+#[cfg(target_pointer_width = "32")]
+#[inline]
+fn move_to_memory(region: Region) -> bool {
+    region.size() <= Size::new(0xFFFF)
+}
+
 impl Source for FileSource {
     fn size(&self) -> Size {
         (self.len).into()
@@ -64,8 +76,8 @@ impl Source for FileSource {
         }
     }
 
-    fn get_slice(&self, region: Region, block_check: BlockCheck) -> Result<Cow<[u8]>> {
-        let mut buf = vec![0; region.size().into_usize() + block_check.size().into_usize()];
+    fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<[u8]>> {
+        let mut buf = vec![0; region.size().into_usize() + block_check.size()];
         self.read_exact(region.begin(), &mut buf)?;
         if let BlockCheck::Crc32 = block_check {
             assert_slice_crc(&buf)?;
@@ -74,12 +86,21 @@ impl Source for FileSource {
         Ok(Cow::Owned(buf))
     }
 
-    fn into_memory_source(
+    fn cut(
         self: Arc<Self>,
         region: Region,
         block_check: BlockCheck,
-    ) -> Result<(Arc<dyn MemorySource>, Region)> {
-        let full_size = region.size() + block_check.size();
+        in_memory: bool,
+    ) -> Result<(Arc<dyn Source>, Region)> {
+        if !move_to_memory(region) || !in_memory {
+            if let BlockCheck::Crc32 = block_check {
+                unimplemented!("Block of not memory block is not implemented");
+            }
+            return Ok((self, region));
+        }
+
+        // We know from previous test that region.size() is addressable.
+        let full_size = ASize::new(region.size().into_u64() as usize + block_check.size());
         if full_size.into_u64() < 4 * 1024 {
             let mut f = self.lock().unwrap();
             let mut buf = Vec::with_capacity(full_size.into_usize());

@@ -46,8 +46,8 @@ impl<'s> ByteSlice<'s> {
     ///
     /// Most of the time, it will return a `Cow::Borrowed` as ByteSlice actually reference data
     /// stored in memory but it may potentially be a `Cow::Owned` if it reference a file.
-    pub fn get_slice(&self, offset: Offset, size: Size) -> Result<Cow<[u8]>> {
-        let region = self.region.cut_rel(offset, size);
+    pub fn get_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>> {
+        let region = self.region.cut_rel_asize(offset, ASize::new(size));
         self.source.get_slice(region, BlockCheck::None)
     }
 }
@@ -55,17 +55,21 @@ impl<'s> ByteSlice<'s> {
 impl<'s> RandomParser for ByteSlice<'s> {
     type Parser<'p> = SliceParser<'p> where 's: 'p;
     fn create_parser(&self, offset: Offset) -> Result<Self::Parser<'_>> {
-        let region = self
-            .region
-            .cut_rel(offset, self.region.size() - offset.into());
+        let size = self.region.size() - offset.into();
+        let size = std::cmp::min(0xFFFF_u64, size.into_u64()) as usize;
+        let region = self.region.cut_rel_asize(offset, size.into());
         Ok(SliceParser::new(
             self.source.get_slice(region, BlockCheck::None)?,
             self.region.begin() + offset,
         ))
     }
 
+    fn global_offset(&self) -> Offset {
+        self.region.begin()
+    }
+
     fn read_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>> {
-        let region = self.region.cut_rel(offset, Size::from(size));
+        let region = self.region.cut_rel_asize(offset, ASize::from(size));
         self.source.get_slice(region, BlockCheck::None)
     }
 

@@ -54,7 +54,7 @@ mod tests {
             0x02, 0x00, // blob_count
         ]);
         let cluster_header = reader
-            .parse_in::<ClusterHeader>(Offset::zero(), Size::new(4))
+            .parse_in::<ClusterHeader>(Offset::zero(), 4.into())
             .unwrap();
         assert_eq!(
             cluster_header,

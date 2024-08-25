@@ -98,7 +98,7 @@ fn serialize_cluster_tail(
     ser.write_usized(raw_data_size.into_u64(), offset_size)?; // raw data size
     ser.write_usized(cluster.data_size().into_u64(), offset_size)?; // datasize
     for offset in &cluster.offsets[..cluster.offsets.len() - 1] {
-        ser.write_usized(*offset as u64, offset_size)?;
+        ser.write_usized(*offset, offset_size)?;
     }
     Ok(())
 }

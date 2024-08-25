@@ -78,7 +78,7 @@ mod tests {
             manifest_pack_header,
             ManifestPackHeader {
                 pack_count: PackCount::from(2),
-                value_store_posinfo: SizedOffset::new(Size::zero(), Offset::zero()),
+                value_store_posinfo: SizedOffset::new(0.into(), Offset::zero()),
                 free_data: [0xff; 24].into(),
             }
         );

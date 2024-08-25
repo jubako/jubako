@@ -26,7 +26,7 @@ impl Eq for Extend {}
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Array {
-    pub size: Option<Size>,
+    pub(crate) size: Option<ASize>,
     pub(crate) base: BaseArray,
     pub(crate) base_len: u8,
     pub(crate) extend: Option<Extend>,
@@ -34,7 +34,7 @@ pub struct Array {
 
 impl Array {
     pub(crate) fn new(
-        size: Option<Size>,
+        size: Option<ASize>,
         base: BaseArray,
         mut base_len: u8,
         extend: Option<Extend>,
@@ -56,7 +56,7 @@ impl Array {
     pub fn resolve_to_vec(&self, vec: &mut Vec<u8>) -> Result<()> {
         let our_iter = ArrayIter::new(self)?;
         if let Some(s) = self.size {
-            vec.reserve(s.into_usize());
+            vec.reserve(s.into_u64() as usize);
         } else {
             vec.reserve(self.base_len as usize);
         }
@@ -86,6 +86,10 @@ impl Array {
             None => cmp::Ordering::Equal,
             Some(_) => cmp::Ordering::Less,
         }))
+    }
+
+    pub fn size(&self) -> Option<usize> {
+        self.size.map(|v| v.into_usize())
     }
 }
 
@@ -130,7 +134,7 @@ impl<'a> ArrayIter<'a> {
                 Some(extend) => {
                     let data = extend
                         .store
-                        .get_data(extend.value_id, known_size.map(Size::from))?;
+                        .get_data(extend.value_id, known_size.map(ASize::new))?;
                     if data.is_empty() {
                         Ok(ArrayIterMode::End)
                     } else {
@@ -303,9 +307,10 @@ mod tests {
             #[derive(Debug)]
             pub struct ValueStore {}
             impl ValueStoreTrait for ValueStore {
-                fn get_data(&self, id: ValueIdx, size: Option<Size>) -> Result<&[u8]> {
+                fn get_data(&self, id: ValueIdx, size: Option<ASize>) -> Result<&[u8]> {
+                    let id = id.into_u64() as usize;
                     assert!(size.is_some());
-                    Ok(&b"HelloWorldJubakoisawsome"[id.into_usize()..id.into_usize()+size.unwrap().into_usize()])
+                    Ok(&b"HelloWorldJubakoisawsome"[id..id+size.unwrap().into_usize()])
                 }
             }
         }
@@ -322,7 +327,7 @@ mod tests {
                     (RawValue::I32(5),   Value::Signed(5)),
                     (RawValue::I64(5),   Value::Signed(5)),
                     (RawValue::Array(Array{
-                       size: Some(Size::new(10)),
+                       size: Some(ASize::new(10)),
                        base: BaseArray::new(b"Bye "),
                        base_len: 4,
                        extend:Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)})
@@ -398,7 +403,7 @@ mod tests {
 
         test test_resolver_compare() {
             let raw_value = Array {
-                size: Some(Size::new(12)),
+                size: Some(12.into()),
                 base: BaseArray::new(b"Hello "),
                 base_len: 6,
                 extend: Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)})

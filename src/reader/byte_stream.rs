@@ -26,7 +26,10 @@ impl ByteStream {
 
 impl Read for ByteStream {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let max_len = std::cmp::min(buf.len(), (self.region.end() - self.offset).into_usize());
+        let max_len = std::cmp::min(
+            buf.len() as u64,
+            (self.region.end() - self.offset).into_u64(),
+        ) as usize;
         let buf = &mut buf[..max_len];
         match self.source.read(self.offset, buf) {
             Ok(s) => {

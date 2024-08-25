@@ -19,7 +19,7 @@ pub(super) struct Cluster {
 }
 
 #[cfg(feature = "lz4")]
-fn lz4_source(raw_stream: ByteStream, data_size: Size) -> Result<Arc<dyn Source>> {
+fn lz4_source(raw_stream: ByteStream, data_size: ASize) -> Result<Arc<dyn Source>> {
     Ok(Arc::new(SeekableDecoder::new(
         lz4::Decoder::new(raw_stream)?,
         data_size,
@@ -27,14 +27,14 @@ fn lz4_source(raw_stream: ByteStream, data_size: Size) -> Result<Arc<dyn Source>
 }
 
 #[cfg(not(feature = "lz4"))]
-fn lz4_source(_raw_stream: ByteStream, _data_size: Size) -> Result<Arc<dyn Source>> {
+fn lz4_source(_raw_stream: ByteStream, _data_size: ASize) -> Result<Arc<dyn Source>> {
     Err("Lz4 compression is not supported in this configuration."
         .to_string()
         .into())
 }
 
 #[cfg(feature = "lzma")]
-fn lzma_source(raw_stream: ByteStream, data_size: Size) -> Result<Arc<dyn Source>> {
+fn lzma_source(raw_stream: ByteStream, data_size: ASize) -> Result<Arc<dyn Source>> {
     Ok(Arc::new(SeekableDecoder::new(
         xz2::read::XzDecoder::new_stream(
             raw_stream,
@@ -45,14 +45,14 @@ fn lzma_source(raw_stream: ByteStream, data_size: Size) -> Result<Arc<dyn Source
 }
 
 #[cfg(not(feature = "lzma"))]
-fn lzma_source(_raw_stream: ByteStream, _data_size: Size) -> Result<Arc<dyn Source>> {
+fn lzma_source(_raw_stream: ByteStream, _data_size: ASize) -> Result<Arc<dyn Source>> {
     Err("Lzma compression is not supported in this configuration."
         .to_string()
         .into())
 }
 
 #[cfg(feature = "zstd")]
-fn zstd_source(raw_stream: ByteStream, data_size: Size) -> Result<Arc<dyn Source>> {
+fn zstd_source(raw_stream: ByteStream, data_size: ASize) -> Result<Arc<dyn Source>> {
     Ok(Arc::new(SeekableDecoder::new(
         zstd::Decoder::new(raw_stream)?,
         data_size,
@@ -60,7 +60,7 @@ fn zstd_source(raw_stream: ByteStream, data_size: Size) -> Result<Arc<dyn Source
 }
 
 #[cfg(not(feature = "zstd"))]
-fn zstd_source(_raw_stream: BytenStream, _data_size: Size) -> Result<Arc<dyn Source>> {
+fn zstd_source(_raw_stream: BytenStream, _data_size: ASize) -> Result<Arc<dyn Source>> {
     Err("zstd compression is not supported in this configuration."
         .to_string()
         .into())
@@ -74,20 +74,23 @@ impl Cluster {
         };
 
         let raw_stream = if let ClusterReader::Raw(r) = &*cluster_reader {
-            r.create_stream(Offset::zero(), r.size())
+            r.create_stream(Offset::zero(), r.size(), false)?
         } else {
             unreachable!()
         };
         let decompress_reader = match self.compression {
-            CompressionType::Lz4 => {
-                Reader::new_from_arc(lz4_source(raw_stream, self.data_size)?, self.data_size)
-            }
-            CompressionType::Lzma => {
-                Reader::new_from_arc(lzma_source(raw_stream, self.data_size)?, self.data_size)
-            }
-            CompressionType::Zstd => {
-                Reader::new_from_arc(zstd_source(raw_stream, self.data_size)?, self.data_size)
-            }
+            CompressionType::Lz4 => Reader::new_from_arc(
+                lz4_source(raw_stream, (self.data_size.into_u64() as usize).into())?,
+                self.data_size,
+            ),
+            CompressionType::Lzma => Reader::new_from_arc(
+                lzma_source(raw_stream, (self.data_size.into_u64() as usize).into())?,
+                self.data_size,
+            ),
+            CompressionType::Zstd => Reader::new_from_arc(
+                zstd_source(raw_stream, (self.data_size.into_u64() as usize).into())?,
+                self.data_size,
+            ),
             CompressionType::None => unreachable!(),
         };
         *cluster_reader = ClusterReader::Plain(decompress_reader);
@@ -127,11 +130,13 @@ impl DataBlockParsable for Cluster {
         header_offset: Offset,
         reader: &Reader,
     ) -> Result<Self::Output> {
-        let (cluster_builder, data_size) = intermediate;
-        let reader = reader.cut(header_offset - data_size, data_size);
+        let (cluster_builder, raw_data_size) = intermediate;
+        let reader = reader.cut(header_offset - raw_data_size, raw_data_size, false)?;
         let reader = if cluster_builder.compression == CompressionType::None {
+            assert_eq!(cluster_builder.data_size, raw_data_size);
             ClusterReader::Plain(reader)
         } else {
+            assert!(raw_data_size.into_u64() <= usize::MAX as u64);
             ClusterReader::Raw(reader)
         };
         Ok(Cluster {
@@ -260,7 +265,7 @@ mod tests {
         cluster_data.extend_from_slice(&checksum);
         (
             SizedOffset::new(
-                Size::from(cluster_data.len() - data.len() - 4),
+                ASize::from(cluster_data.len() - data.len() - 4),
                 Offset::from(data.len()),
             ),
             cluster_data,

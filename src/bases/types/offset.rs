@@ -27,6 +27,13 @@ impl Offset {
         self.0 as usize
     }
 
+    #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
+    #[inline]
+    pub fn force_into_usize(self) -> usize {
+        assert!(self.0 <= usize::MAX as u64);
+        self.0 as usize
+    }
+
     #[inline]
     pub fn is_zero(self) -> bool {
         self.0 == 0
@@ -65,6 +72,12 @@ impl From<Size> for Offset {
     }
 }
 
+impl From<ASize> for Offset {
+    fn from(v: ASize) -> Offset {
+        v.into_u64().into()
+    }
+}
+
 impl From<u64> for Offset {
     fn from(v: u64) -> Offset {
         Offset(v)
@@ -91,6 +104,13 @@ impl Add<Size> for Offset {
     }
 }
 
+impl Add<ASize> for Offset {
+    type Output = Self;
+    fn add(self, other: ASize) -> Offset {
+        Offset(self.0 + other.into_u64())
+    }
+}
+
 impl Add for Offset {
     type Output = Self;
     fn add(self, other: Offset) -> Offset {
@@ -106,6 +126,12 @@ impl AddAssign<usize> for Offset {
 
 impl AddAssign<Size> for Offset {
     fn add_assign(&mut self, other: Size) {
+        self.0 += other.into_u64();
+    }
+}
+
+impl AddAssign<ASize> for Offset {
+    fn add_assign(&mut self, other: ASize) {
         self.0 += other.into_u64();
     }
 }
@@ -126,6 +152,13 @@ impl Sub for Offset {
 impl Sub<Size> for Offset {
     type Output = Offset;
     fn sub(self, other: Size) -> Offset {
+        Offset::from(self.0 - other.into_u64())
+    }
+}
+
+impl Sub<ASize> for Offset {
+    type Output = Offset;
+    fn sub(self, other: ASize) -> Offset {
         Offset::from(self.0 - other.into_u64())
     }
 }

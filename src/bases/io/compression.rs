@@ -127,7 +127,7 @@ fn decode_to_end<T: Read + Send>(
 }
 
 impl SeekableDecoder {
-    pub fn new<T: Read + Send + 'static>(decoder: T, size: Size) -> Self {
+    pub fn new<T: Read + Send + 'static>(decoder: T, size: ASize) -> Self {
         let (write_hand, read_hand) = create_sync_vec(size.into_usize());
 
         DECOMPRESSION_POOL
@@ -145,8 +145,7 @@ impl SeekableDecoder {
     }
 
     #[inline]
-    pub fn decode_to(&self, end: Offset) {
-        let end = end.into_usize();
+    pub fn decode_to(&self, end: usize) {
         self.buffer.wait_while(|d: &mut usize| *d < end);
     }
 
@@ -161,73 +160,59 @@ impl Source for SeekableDecoder {
         self.buffer.total_size().into()
     }
     fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize> {
-        let end = std::cmp::min(offset.into_usize() + buf.len(), self.buffer.total_size());
-        self.decode_to(end.into());
-        let mut slice = &self.decoded_slice()[offset.into_usize()..];
+        let end = std::cmp::min(
+            offset.force_into_usize() + buf.len(),
+            self.buffer.total_size(),
+        );
+        self.decode_to(end);
+        let mut slice = &self.decoded_slice()[offset.force_into_usize()..];
         match Read::read(&mut slice, buf) {
             Err(e) => Err(e.into()),
             Ok(v) => Ok(v),
         }
     }
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()> {
-        let end = offset + buf.len();
-        let o = offset.into_usize();
-        let e = end.into_usize();
-        if e > self.buffer.total_size() {
+        let o = offset.force_into_usize();
+        let end = o + buf.len();
+        if end > self.buffer.total_size() {
             return Err(String::from("Out of slice").into());
         }
         self.decode_to(end);
         let slice = self.decoded_slice();
-        assert!(e <= slice.len());
-        buf.copy_from_slice(&self.decoded_slice()[o..e]);
+        assert!(end <= slice.len());
+        buf.copy_from_slice(&self.decoded_slice()[o..end]);
         Ok(())
     }
 
-    fn get_slice(&self, region: Region, block_check: BlockCheck) -> Result<Cow<[u8]>> {
+    fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<[u8]>> {
         if let BlockCheck::Crc32 = block_check {
             unreachable!()
         }
         if !region.end().is_valid(self.size()) {
             return Err(format!("Out of slice. {} > {}", region.end(), self.size()).into());
         }
-        self.decode_to(region.end());
+        self.decode_to(region.end().force_into_usize());
         Ok(Cow::Borrowed(
-            &self.decoded_slice()[region.begin().into_usize()..region.end().into_usize()],
+            &self.decoded_slice()
+                [region.begin().force_into_usize()..region.end().force_into_usize()],
         ))
     }
 
-    fn into_memory_source(
+    fn cut(
         self: Arc<Self>,
         region: Region,
         block_check: BlockCheck,
-    ) -> Result<(Arc<dyn MemorySource>, Region)> {
+        _in_memory: bool,
+    ) -> Result<(Arc<dyn Source>, Region)> {
         debug_assert!(region.end().is_valid(self.size()));
         if let BlockCheck::Crc32 = block_check {
             unreachable!()
         }
-        self.decode_to(region.end());
         Ok((self, region))
     }
 
     fn display(&self) -> String {
         "SeekableDecoderStream".into()
-    }
-}
-
-impl MemorySource for SeekableDecoder {
-    fn get_slice(&self, region: Region) -> Result<&[u8]> {
-        debug_assert!(region.end().is_valid(self.size()));
-        self.decode_to(region.end());
-        Ok(&self.decoded_slice()[region.begin().into_usize()..region.end().into_usize()])
-    }
-
-    unsafe fn get_slice_unchecked(&self, region: Region) -> Result<&[u8]> {
-        debug_assert!(region.end().is_valid(self.size()));
-        Ok(&self.decoded_slice()[region.begin().into_usize()..region.end().into_usize()])
-    }
-
-    fn into_source(self: Arc<Self>) -> Arc<dyn Source> {
-        self
     }
 }
 

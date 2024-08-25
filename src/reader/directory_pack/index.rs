@@ -103,7 +103,7 @@ mod tests {
         ];
         let reader = Reader::from(content);
         let header = reader
-            .parse_block_in::<IndexHeader>(Offset::zero(), Size::new(23))
+            .parse_block_in::<IndexHeader>(Offset::zero(), 23.into())
             .unwrap();
         assert_eq!(
             header,
