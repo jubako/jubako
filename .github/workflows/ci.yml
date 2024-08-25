@@ -76,6 +76,18 @@ jobs:
             target/debug/jbk.exe
           compression-level: 0
 
+  compilation_32bits:
+    name: Test 32 bits compilation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install cross
+        run: cargo install cross
+
+      - name: Test code
+        run: cross test --verbose --target=i686-unknown-linux-gnu
 
   check_publication:
     name: Check we can publish
