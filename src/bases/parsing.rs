@@ -1,4 +1,4 @@
-use std::{borrow::Cow, u32};
+use std::borrow::Cow;
 
 use zerocopy::{ByteOrder, LE};
 

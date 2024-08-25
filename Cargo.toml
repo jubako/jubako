@@ -17,6 +17,7 @@ zstd = ["dep:zstd"]
 explorable = ["dep:serde", "dep:erased-serde", "uuid/serde"]
 build_bin = ["explorable", "dep:serde_json", "dep:serde_yaml", "dep:ron"]
 all = ["lz4", "lzma", "zstd", "build_bin"]
+nightly = []
 
 [dependencies]
 uuid = { version = "1.4.1", features = ["v4"] }

@@ -11,27 +11,33 @@ use std::ops::{Add, AddAssign, Sub};
 pub struct Offset(u64);
 
 impl Offset {
+    #[inline]
     pub fn is_valid(self, s: Size) -> bool {
         self.0 <= s.into_u64()
     }
 
+    #[inline]
     pub fn into_u64(self) -> u64 {
         self.0
     }
 
     #[cfg(target_pointer_width = "64")]
+    #[inline]
     pub fn into_usize(self) -> usize {
         self.0 as usize
     }
 
+    #[inline]
     pub fn is_zero(self) -> bool {
         self.0 == 0
     }
 
+    #[inline]
     pub const fn zero() -> Self {
         Self(0)
     }
 
+    #[inline]
     pub const fn new(s: u64) -> Self {
         Self(s)
     }

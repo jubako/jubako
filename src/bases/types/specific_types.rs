@@ -28,6 +28,7 @@ where
 macro_rules! to_u64 {
     ( $base: tt, $name: ty ) => {
         impl $name {
+            #[inline]
             pub fn into_u64(self) -> u64 {
                 self.0.into_base() as u64
             }
@@ -45,6 +46,7 @@ macro_rules! to_u32 {
     ( u64, $name: ty ) => {};
     ( $base: tt, $name: ty ) => {
         impl $name {
+            #[inline]
             pub fn into_u32(self) -> u32 {
                 self.0.into_base() as u32
             }
@@ -63,6 +65,7 @@ macro_rules! to_u16 {
     ( u32, $name: ty ) => {};
     ( $base: tt, $name: ty ) => {
         impl $name {
+            #[inline]
             pub fn into_u16(self) -> u16 {
                 self.0.into_base() as u16
             }
@@ -82,6 +85,7 @@ macro_rules! to_u8 {
     ( u16, $name: ty ) => {};
     ( $base: tt, $name: ty ) => {
         impl $name {
+            #[inline]
             pub fn into_u8(self) -> u8 {
                 self.0.into_base() as u8
             }
@@ -99,6 +103,7 @@ macro_rules! to_usize {
     ( u64 ) => {
         // We can convert a u64 to usize only if we are on 64bits
         #[cfg(target_pointer_width = "64")]
+        #[inline]
         pub fn into_usize(self) -> usize {
             self.0.into_base() as usize
         }
@@ -106,12 +111,14 @@ macro_rules! to_usize {
     ( u32 ) => {
         // We can convert a u32 to usize only if we are on 32 or 64bits
         #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
+        #[inline]
         pub fn into_usize(self) -> usize {
             self.0.into_base() as usize
         }
     };
     ( $base: tt ) => {
         // We can convert a u8 and u16 to usize all the time
+        #[inline]
         pub fn into_usize(self) -> usize {
             self.0.into_base() as usize
         }
@@ -191,6 +198,7 @@ macro_rules! specific {
 
         impl $idx_name {
             to_usize!($base);
+            #[inline]
             fn into_base(self) -> $base {
                 self.0.into_base()
             }

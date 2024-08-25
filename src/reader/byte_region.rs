@@ -1,7 +1,7 @@
 use crate::bases::*;
 use std::{borrow::Cow, sync::Arc};
 
-use super::{ByteSlice, Stream};
+use super::{ByteSlice, ByteStream};
 
 /// A conceptual slice of u8.
 ///
@@ -26,9 +26,9 @@ impl ByteRegion {
         self.region.size()
     }
 
-    /// Create a [Stream] (equivalent of `std::io::Cursor`)  for this ByteRegion
-    pub fn stream(&self) -> Stream {
-        Stream::new_from_parts(Arc::clone(&self.source), self.region, self.region.begin())
+    /// Create a [ByteStream] (equivalent of `std::io::Cursor`)  for this ByteRegion
+    pub fn stream(&self) -> ByteStream {
+        ByteStream::new_from_parts(Arc::clone(&self.source), self.region, self.region.begin())
     }
 
     /// Create a new ByteRegion which is a subset of the current region.

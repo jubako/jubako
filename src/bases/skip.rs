@@ -20,6 +20,7 @@ where
 }
 
 impl<R> Skip<R> {
+    #[inline]
     pub fn into_inner(self) -> R {
         self.inner
     }

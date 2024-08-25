@@ -138,12 +138,9 @@ impl fmt::Display for Error {
             ErrorKind::Io(e) => write!(f, "IO Error {e}"),
             ErrorKind::Format(e) => write!(f, "Jubako format error {e}"),
             ErrorKind::Version(major, minor) => {
-                write!(f, "Jubako version error. Found ({major},{minor})\n")?;
-                write!(f, "Jubako specification is still unstable and compatibility is not guarenteed yet.\n")?;
-                write!(
-                    f,
-                    "Open this container with a older version of your tool.\n"
-                )?;
+                writeln!(f, "Jubako version error. Found ({major},{minor})")?;
+                writeln!(f, "Jubako specification is still unstable and compatibility is not guarenteed yet.")?;
+                writeln!(f, "Open this container with a older version of your tool.")?;
                 write!(
                     f,
                     "You may open a issue on `https://github.com/jubako/jubako` if you are lost."
@@ -168,7 +165,7 @@ impl fmt::Debug for Error {
 }
 
 impl std::error::Error for Error {
-    #[cfg(feature = "error_generic_member_access")]
+    #[cfg(feature = "nightly")]
     fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {
         #[cfg(debug_assertions)]
         request.provide_ref::<Backtrace>(&self.bt);
