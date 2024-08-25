@@ -10,6 +10,7 @@ use super::ByteSize;
 pub trait Parser {
     fn read_slice(&mut self, size: usize) -> Result<Cow<[u8]>>;
     fn read_data(&mut self, buf: &mut [u8]) -> Result<()>;
+    #[cfg(test)]
     fn tell(&self) -> Offset;
     fn global_offset(&self) -> Offset;
     fn skip(&mut self, size: usize) -> Result<()>;
@@ -189,6 +190,7 @@ impl<'a> Parser for SliceParser<'a> {
         Ok(())
     }
 
+    #[cfg(test)]
     fn tell(&self) -> Offset {
         self.offset.into()
     }
