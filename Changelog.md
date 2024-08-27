@@ -1,3 +1,105 @@
+# Jubako 0.3.0
+
+This is a major update of Jubako.
+It introduce breaking changes in the format
+
+## Format
+
+### PackInfo now store a SizedOffset instead of a Offset for CheckInfo
+
+CheckInfo is a variable length structure. When stored at end of pack, the size can
+be infered from the offset and the total file size.
+But when stored in the manifest (to be sure that no other packs), this is not possible.
+So PackInfo now store a SizedOffset.
+
+### ContainerPack is a classic Pack
+
+First version of ContainerPack was using a custom header/tail.
+Now `ContainerPack` is as any other packs, it starts/ends with a pack header followed
+by a `ContainerPackHeader`.
+
+### Common FreeData
+
+All packs have a free zone to store vendor specific datas. Initially, each pack has it own
+free data size. Now, all packs have a same free data size of 24 bytes.
+
+### Introduce a flag in the pack header.
+
+Not used for now, it is planned to use it to mark streamed packs (packs generated without seek)
+
+### Use a CRC32 to check all internal Jubako structures.
+
+Now, all internal Jubako structures are check with a CRC32.
+So, all structures are checked for transfer/stockage error before being parsed.
+Data in cluster (ContentPack) is not checked.
+
+### Reduce maximal length for entry's metadata array/string
+
+Before that, size could be store in a u56, so a maximal size of 64 PiB.
+Now, size is stored at maximum in u u24, so a maximal size of 16MiB.
+This is a more rational size, especially for 32 bits architectures.
+
+## Implementation
+
+### Read 4Kb of data to detect if we must compress data.
+
+Jubako compute the shannon entropy of the content to detect if it worth to compress it.
+Now it read the firsts 4KB of data instead of 1KB.
+
+### Layout structures now use named variables.
+
+Before that layout was composed of tuples.
+Now it is structures (with named members) to be more explicit.
+
+### Introduce `MayMissPack`.
+
+On Jubako side, it is normal that a refererenced pack is missing.
+Before that, a missing pack was handled as a Jubako `Error`.
+Now, when accessing content (or contentPack) we return a `Result<MayMissPack<T>>`.
+`MayMissPack` is a enum between a `T` and a `PackInfo` (if pack is missing)
+
+### Introduce `BasicCreator`
+
+Creating a Jubako archive need kind of always the same things
+(create `ContentPack`, `DirectoryPack`, `ManifestPack` and write them either in separate files
+or same files).
+
+Instead of reimplementing this in all downstream libraries (arx, waj, prezpack...) let's factorize
+this common steps here.
+
+### Performance improvements
+
+A lot of performance improvement has been made:
+- Better manangement of multithreading (thread pool ...)
+- Less memory copy
+- Use BufWriter in creators
+
+### Introduce `jbk explore` tool
+
+This allow to explore a Jubako container to inspect internal structures:
+- Different packs
+- Internal structures
+- Read data
+
+### Intrudoce `jbk locate` tool
+
+This allow to read and set the location of packs in the manifest packs.
+As packs may be store independently, user need a way to set the location of the packs
+in the manifest packs.
+
+### Support 32 bits architecture
+
+Jubako can now be compiled on 32 bits architectures.
+
+### Better low level reader api structures.
+
+While this change simplify a lot internal readers, it changes a bit the public API
+by exporting public `ByteRegion`, `ByteSlice` and `ByteStream` instead of `Reader` and `Stream`.
+
+### Reduce number of publicly exported structures.
+
+This reduce the public API surface.
+
 # Jubako 0.2.1
 
 - Use dependency `xz2` instead of `rust-lzma` for lzma compression
