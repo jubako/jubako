@@ -122,8 +122,6 @@ impl Source for FileSource {
                 .len(full_size.into_usize())
                 .populate();
             let mmap = unsafe { mmap_options.map(self.source.lock().unwrap().get_ref())? };
-            #[cfg(target_os = "linux")]
-            mmap.advise(Advice::populate_read())?;
             #[cfg(unix)]
             mmap.advise(Advice::will_need())?;
             if let BlockCheck::Crc32 = block_check {
