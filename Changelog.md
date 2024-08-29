@@ -1,16 +1,16 @@
 # Jubako 0.3.0
 
 This is a major update of Jubako.
-It introduce breaking changes in the format
+It introduces breaking changes in the format
 
 ## Format
 
-### PackInfo now store a SizedOffset instead of a Offset for CheckInfo
+### PackInfo now store a SizedOffset instead of an Offset for CheckInfo
 
-CheckInfo is a variable length structure. When stored at end of pack, the size can
-be infered from the offset and the total file size.
-But when stored in the manifest (to be sure that no other packs), this is not possible.
-So PackInfo now store a SizedOffset.
+CheckInfo is a variable length structure. When stored at the end of pack, the size can
+be inferred from the offset and the total file size.
+However when stored in the manifest (to be sure that no other packs), this is not possible,
+so PackInfo now stores a SizedOffset.
 
 ### ContainerPack is a classic Pack
 
@@ -20,7 +20,7 @@ by a `ContainerPackHeader`.
 
 ### Common FreeData
 
-All packs have a free zone to store vendor specific datas. Initially, each pack has it own
+All packs have a free zone to store vendor specific data. Initially, each pack has it owns
 free data size. Now, all packs have a same free data size of 24 bytes.
 
 ### Introduce a flag in the pack header.
@@ -29,21 +29,21 @@ Not used for now, it is planned to use it to mark streamed packs (packs generate
 
 ### Use a CRC32 to check all internal Jubako structures.
 
-Now, all internal Jubako structures are check with a CRC32.
-So, all structures are checked for transfer/stockage error before being parsed.
+Now, all internal Jubako structures are checked with a CRC32.
+So, all structures are checked for transfer/storage error before being parsed.
 Data in cluster (ContentPack) is not checked.
 
 ### Reduce maximal length for entry's metadata array/string
 
-Before that, size could be store in a u56, so a maximal size of 64 PiB.
-Now, size is stored at maximum in u u24, so a maximal size of 16MiB.
+Before that, size could be stored in an u56, so a maximal size of 64 PiB.
+Now, size is stored at maximum in an u24, so a maximal size of 16MiB.
 This is a more rational size, especially for 32 bits architectures.
 
 ## Implementation
 
 ### Read 4Kb of data to detect if we must compress data.
 
-Jubako compute the shannon entropy of the content to detect if it worth to compress it.
+Jubako compute the Shannon entropy of the content to detect if it worth to compress it.
 Now it read the firsts 4KB of data instead of 1KB.
 
 ### Layout structures now use named variables.
@@ -53,10 +53,10 @@ Now it is structures (with named members) to be more explicit.
 
 ### Introduce `MayMissPack`.
 
-On Jubako side, it is normal that a refererenced pack is missing.
+On Jubako side, it is normal that a referenced pack is missing.
 Before that, a missing pack was handled as a Jubako `Error`.
 Now, when accessing content (or contentPack) we return a `Result<MayMissPack<T>>`.
-`MayMissPack` is a enum between a `T` and a `PackInfo` (if pack is missing)
+`MayMissPack` is an enum between a `T` and a `PackInfo` (if pack is missing)
 
 ### Introduce `BasicCreator`
 
@@ -64,7 +64,7 @@ Creating a Jubako archive need kind of always the same things
 (create `ContentPack`, `DirectoryPack`, `ManifestPack` and write them either in separate files
 or same files).
 
-Instead of reimplementing this in all downstream libraries (arx, waj, prezpack...) let's factorize
+Instead of re-implementing this in all downstream libraries (arx, waj, prezpack...) let's factorize
 this common steps here.
 
 ### Performance improvements
@@ -84,7 +84,7 @@ This allow to explore a Jubako container to inspect internal structures:
 ### Intrudoce `jbk locate` tool
 
 This allow to read and set the location of packs in the manifest packs.
-As packs may be store independently, user need a way to set the location of the packs
+As packs may be stored independently, user need a way to set the location of the packs
 in the manifest packs.
 
 ### Support 32 bits architecture
