@@ -57,7 +57,7 @@ fn move_to_memory(region: Region) -> bool {
             s.parse::<usize>()
                 .expect(&format!("{s} should be a parsing size."))
         })
-        .unwrap_or(0xFFFF);
+        .unwrap_or(0xFFFFFF);
     region.size() <= Size::new(max_memory_block_size as u64)
 }
 
