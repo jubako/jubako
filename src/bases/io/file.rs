@@ -52,7 +52,13 @@ const fn move_to_memory(_region: Region) -> bool {
 #[cfg(target_pointer_width = "32")]
 #[inline]
 fn move_to_memory(region: Region) -> bool {
-    region.size() <= Size::new(0xFFFF)
+    let max_memory_block_size = option_env!("JBK_MAX_MEMORY_BLOC")
+        .map(|s| {
+            s.parse::<usize>()
+                .expect(&format!("{s} should be a parsing size."))
+        })
+        .unwrap_or(0xFFFF);
+    region.size() <= Size::new(max_memory_block_size as u64)
 }
 
 impl Source for FileSource {
