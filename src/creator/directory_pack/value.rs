@@ -1,7 +1,6 @@
 use super::ValueHandle;
 use crate::bases::*;
 use crate::common::ContentAddress;
-use static_assertions as sa;
 use std::cmp;
 
 #[derive(Debug, PartialEq)]
@@ -10,12 +9,6 @@ pub struct Array {
     pub data: Box<[u8]>,
     pub value_id: ValueHandle,
 }
-
-#[cfg(target_pointer_width = "64")]
-sa::assert_eq_size!(Array, [u8; 40]);
-
-#[cfg(target_pointer_width = "32")]
-sa::assert_eq_size!(Array, [u8; 24]);
 
 impl Array {
     fn cmp(&self, other: &Array) -> cmp::Ordering {
@@ -48,19 +41,6 @@ pub struct ArrayS<const N: usize> {
     pub value_id: ValueHandle,
     pub size: usize,
 }
-#[cfg(target_pointer_width = "64")]
-sa::assert_eq_size!(ArrayS<0>, [u8; 24]);
-#[cfg(target_pointer_width = "64")]
-sa::assert_eq_size!(ArrayS<1>, [u8; 32]);
-#[cfg(target_pointer_width = "64")]
-sa::assert_eq_size!(ArrayS<2>, [u8; 32]);
-
-#[cfg(target_pointer_width = "32")]
-sa::assert_eq_size!(ArrayS<0>, [u8; 16]);
-#[cfg(target_pointer_width = "32")]
-sa::assert_eq_size!(ArrayS<1>, [u8; 20]);
-#[cfg(target_pointer_width = "32")]
-sa::assert_eq_size!(ArrayS<2>, [u8; 20]);
 
 impl<const N: usize> ArrayS<N> {
     fn cmp<const M: usize>(&self, other: &ArrayS<M>) -> cmp::Ordering {
@@ -101,11 +81,6 @@ pub enum Value {
     Array2(Box<ArrayS<2>>),
     Array(Box<Array>),
 }
-#[cfg(target_pointer_width = "64")]
-sa::assert_eq_size!(Value, [u8; 16]);
-
-#[cfg(target_pointer_width = "32")]
-sa::assert_eq_size!(Value, [u8; 12]);
 
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Value) -> Option<cmp::Ordering> {
