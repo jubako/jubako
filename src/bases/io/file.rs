@@ -130,7 +130,7 @@ impl Source for FileSource {
                 .populate();
             let mmap = unsafe { mmap_options.map(self.source.lock().unwrap().get_ref())? };
             #[cfg(unix)]
-            mmap.advise(Advice::will_need())?;
+            mmap.advise(Advice::WillNeed)?;
             if let BlockCheck::Crc32 = block_check {
                 assert_slice_crc(&mmap)?;
             }
