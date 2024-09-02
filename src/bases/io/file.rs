@@ -1,4 +1,5 @@
 use crate::bases::*;
+use log::warn;
 #[cfg(unix)]
 use memmap2::Advice;
 use memmap2::MmapOptions;
@@ -94,7 +95,7 @@ impl Source for FileSource {
     ) -> Result<(Arc<dyn Source>, Region)> {
         if !move_to_memory(region) || !in_memory {
             if let BlockCheck::Crc32 = block_check {
-                unimplemented!("Block of not memory block is not implemented");
+                warn!("Check of not memory block is not implemented");
             }
             return Ok((self, region));
         }
