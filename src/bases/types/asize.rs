@@ -18,11 +18,6 @@ impl ASize {
     }
 
     #[inline]
-    pub const fn zero() -> Self {
-        Self(0)
-    }
-
-    #[inline]
     pub const fn into_u64(self) -> u64 {
         self.0 as u64
     }

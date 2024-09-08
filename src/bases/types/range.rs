@@ -84,10 +84,6 @@ impl ARegion {
         Self(Region { begin, end })
     }
 
-    pub fn new_from_size(begin: Offset, size: ASize) -> Self {
-        Self::new(begin, begin + size)
-    }
-
     pub fn begin(&self) -> Offset {
         self.0.begin
     }
