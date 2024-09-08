@@ -60,7 +60,7 @@ fn zstd_source(raw_stream: ByteStream, data_size: ASize) -> Result<Arc<dyn Sourc
 }
 
 #[cfg(not(feature = "zstd"))]
-fn zstd_source(_raw_stream: BytenStream, _data_size: ASize) -> Result<Arc<dyn Source>> {
+fn zstd_source(_raw_stream: ByteStream, _data_size: ASize) -> Result<Arc<dyn Source>> {
     Err("zstd compression is not supported in this configuration."
         .to_string()
         .into())
