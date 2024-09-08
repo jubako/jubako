@@ -1,3 +1,9 @@
+# Jubako 0.3.1
+
+Fix compilation on 32 bits.
+- Do not check size of rust struct
+- Print a warning instead of panic if trying to check a memory block to big to fit in memory.
+
 # Jubako 0.3.0
 
 This is a major update of Jubako.
