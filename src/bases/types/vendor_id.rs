@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::bases::*;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Default)]
@@ -10,6 +12,13 @@ impl VendorId {
     }
 }
 
+impl Deref for VendorId {
+    type Target = [u8; 4];
+    fn deref(&self) -> &[u8; 4] {
+        &self.0
+    }
+}
+
 #[cfg(feature = "explorable")]
 impl serde::Serialize for VendorId {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -17,6 +26,13 @@ impl serde::Serialize for VendorId {
         S: serde::Serializer,
     {
         serializer.serialize_newtype_struct("VendorId", &String::from_utf8_lossy(&self.0))
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for VendorId {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.write_str(&format!("{}", String::from_utf8_lossy(&self.0)))
     }
 }
 

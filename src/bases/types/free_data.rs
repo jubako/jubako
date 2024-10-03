@@ -51,5 +51,12 @@ impl<const N: usize> From<[u8; N]> for FreeData<N> {
     }
 }
 
+#[cfg(feature = "explorable")]
+impl<const N: usize> graphex::Display for FreeData<N> {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        graphex::AsBytes(&self.0).print(out)
+    }
+}
+
 pub type PackFreeData = FreeData<24>;
 pub type IndexFreeData = FreeData<4>;

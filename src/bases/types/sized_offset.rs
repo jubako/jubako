@@ -39,3 +39,14 @@ impl Serializable for SizedOffset {
         ser.write_u64(data)
     }
 }
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for SizedOffset {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.write_str(&format!(
+            "{} bytes at offset {}",
+            self.size.into_u64(),
+            self.offset.into_u64()
+        ))
+    }
+}

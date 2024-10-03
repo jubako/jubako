@@ -33,6 +33,19 @@ impl Serializable for CompressionType {
     }
 }
 
+#[cfg(feature = "explorable")]
+impl graphex::Display for CompressionType {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        let name = match self {
+            CompressionType::None => "None",
+            CompressionType::Lz4 => "Lz4",
+            CompressionType::Lzma => "Lzma",
+            CompressionType::Zstd => "Zstd",
+        };
+        writeln!(out, "{}", name)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

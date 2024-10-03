@@ -129,12 +129,37 @@ impl serde::Serialize for PackHeader {
             PackKind::Directory => "DirectoryPack",
         };
         let mut obj = serializer.serialize_struct(name, 4)?;
+        obj.serialize_field("kind", &name)?;
         obj.serialize_field("uuid", &self.uuid)?;
         obj.serialize_field("flags", &self.flags)?;
         obj.serialize_field("app_vendor_id", &self.app_vendor_id)?;
         obj.serialize_field("version", &(self.major_version, self.minor_version))?;
         obj.serialize_field("size", &self.file_size.into_u64())?;
         obj.end()
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for PackHeader {
+    fn header_footer(&self) -> Option<(String, String)> {
+        let name = match self.magic {
+            PackKind::Manifest => "ManifestPack",
+            PackKind::Container => "ContainerPack",
+            PackKind::Content => "ContentPack",
+            PackKind::Directory => "DirectoryPack",
+        };
+        Some((format!("{name}("), ")".to_string()))
+    }
+
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.item("uuid", &self.uuid.to_string())?;
+        out.item("flags", &self.flags)?;
+        out.item(
+            "app_vendor_id",
+            &String::from_utf8_lossy(&*self.app_vendor_id).as_ref(),
+        )?;
+        out.item("version", &(self.major_version, self.minor_version))?;
+        out.item("size", &self.file_size)
     }
 }
 

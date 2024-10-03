@@ -113,3 +113,10 @@ impl std::ops::Mul<u64> for Size {
         Size(self.0 * other)
     }
 }
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for Size {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        writeln!(out, "{} bytes", self.into_u64())
+    }
+}

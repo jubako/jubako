@@ -272,9 +272,64 @@ impl serde::Serialize for DirectoryPack {
 }
 
 #[cfg(feature = "explorable")]
-impl Explorable for DirectoryPack {
-    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
-        if let Some(item) = item.strip_prefix("e.") {
+impl graphex::Display for DirectoryPack {
+    fn header_footer(&self) -> Option<(String, String)> {
+        Some(("DirectoryPack(".to_string(), ")".to_string()))
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.item("uuid", &self.uuid().to_string())?;
+        out.item(
+            "indexes",
+            &self
+                .header
+                .index_count
+                .into_iter()
+                .map(|c| {
+                    let sized_offset = self.index_ptrs.index(*c).unwrap();
+                    let index_header = self
+                        .reader
+                        .parse_block_in::<IndexHeader>(sized_offset.offset, sized_offset.size)
+                        .unwrap();
+                    Index::new(index_header)
+                })
+                .collect::<Vec<_>>(),
+        )?;
+        out.item(
+            "entry_stores",
+            &self
+                .header
+                .entry_store_count
+                .into_iter()
+                .map(|c| {
+                    let sized_offset = self.entry_stores_ptrs.index(*c).unwrap();
+                    self.reader
+                        .parse_data_block::<EntryStore>(sized_offset)
+                        .unwrap()
+                })
+                .collect::<Vec<_>>(),
+        )?;
+        out.item(
+            "value_stores",
+            &self
+                .header
+                .value_store_count
+                .into_iter()
+                .map(|c| {
+                    let sized_offset = self.value_stores_ptrs.index(*c).unwrap();
+                    self.reader
+                        .parse_data_block::<ValueStore>(sized_offset)
+                        .unwrap()
+                })
+                .collect::<Vec<_>>(),
+        )?;
+        out.item("free_data", &self.header.free_data)
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Node for DirectoryPack {
+    fn next(&self, key: &str) -> graphex::ExploreResult {
+        if let Some(item) = key.strip_prefix("e.") {
             let index = if let Ok(index) = item.parse::<u32>() {
                 EntryStoreIdx::from(index)
             } else {
@@ -282,20 +337,24 @@ impl Explorable for DirectoryPack {
                 index.get_store_id()
             };
             let sized_offset = self.entry_stores_ptrs.index(*index)?;
-            Ok(Some(Box::new(
-                self.reader.parse_data_block::<EntryStore>(sized_offset)?,
-            )))
-        } else if let Some(item) = item.strip_prefix("v.") {
+            Ok(Box::new(self.reader.parse_data_block::<EntryStore>(sized_offset)?).into())
+        } else if let Some(item) = key.strip_prefix("v.") {
             let index = item
                 .parse::<u8>()
                 .map_err(|e| Error::from(format!("{e}")))?;
             let sized_offset = self.value_stores_ptrs.index(index.into())?;
-            Ok(Some(Box::new(
-                self.reader.parse_data_block::<ValueStore>(sized_offset)?,
-            )))
+            Ok(Box::new(self.reader.parse_data_block::<ValueStore>(sized_offset)?).into())
         } else {
-            Ok(None)
+            Err(graphex::Error::key(key))
         }
+    }
+
+    fn display(&self) -> &dyn graphex::Display {
+        self
+    }
+
+    fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
+        Some(self)
     }
 }
 

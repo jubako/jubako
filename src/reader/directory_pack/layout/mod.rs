@@ -5,7 +5,10 @@ mod property;
 use super::raw_layout::RawLayout;
 use crate::bases::*;
 
+#[cfg(feature = "explorable")]
+pub(super) use super::raw_layout::DeportedDefault;
 pub(super) use super::raw_layout::PropertyKind;
+
 pub(crate) use properties::{Properties, SharedProperties};
 pub(crate) use property::Property;
 use std::collections::HashMap;
@@ -20,6 +23,20 @@ pub struct VariantPart {
     pub names: HashMap<String, u8>,
 }
 
+#[cfg(feature = "explorable")]
+impl graphex::Display for VariantPart {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.item("variant_id_offset", &self.variant_id_offset.into_u64())?;
+        let display_map = self
+            .names
+            .iter()
+            .map(|(k, v)| (k.to_string(), self.variants[*v as usize].clone()))
+            .collect::<HashMap<_, _>>();
+        writeln!(out, "- Variants:")?;
+        display_map.print(&mut out.pad())
+    }
+}
+
 #[derive(Debug)]
 #[cfg_attr(feature = "explorable", derive(serde::Serialize))]
 pub struct Layout {
@@ -28,6 +45,20 @@ pub struct Layout {
     pub common: Properties,
     pub variant_part: Option<VariantPart>,
     pub(crate) entry_size: ASize,
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for Layout {
+    fn header_footer(&self) -> Option<(String, String)> {
+        Some(("Layout(".to_string(), "".to_string()))
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.item("entry count", &self.entry_count.into_u64())?;
+        out.item("is_entry_checked", &self.is_entry_checked)?;
+        out.item("entry_size", &self.entry_size)?;
+        out.item("common part", &self.common)?;
+        self.variant_part.print(out)
+    }
 }
 
 impl Parsable for Layout {

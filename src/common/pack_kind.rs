@@ -68,3 +68,16 @@ impl Serializable for FullPackKind {
         Ok(written)
     }
 }
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for PackKind {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        let str = match self {
+            Self::Manifest => "Manifest",
+            Self::Directory => "Directory",
+            Self::Content => "Content",
+            Self::Container => "Container",
+        };
+        writeln!(out, "{}", str)
+    }
+}

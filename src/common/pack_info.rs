@@ -109,3 +109,22 @@ impl serde::Serialize for PackInfo {
         cont.end()
     }
 }
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for PackInfo {
+    fn header_footer(&self) -> Option<(String, String)> {
+        Some((format!("{}(", self.uuid), ")".to_string()))
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.item("size", &self.pack_size)?;
+        out.item("id", &self.pack_id.into_u64())?;
+        out.item("kind", &self.pack_kind)?;
+        out.item("group", &self.pack_group)?;
+        out.item(
+            "location",
+            &String::from_utf8_lossy(&self.pack_location).as_ref(),
+        )?;
+        out.item("free_data_id", &self.free_data_id.into_u64())?;
+        out.item("check_info_pos", &self.check_info_pos)
+    }
+}

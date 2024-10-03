@@ -87,3 +87,10 @@ impl Sub<ASize> for ASize {
         ASize(self.0 - other.0)
     }
 }
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for ASize {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        writeln!(out, "{}", self.into_u64())
+    }
+}

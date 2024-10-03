@@ -2,8 +2,6 @@
 mod types;
 mod block;
 mod cache;
-#[cfg(feature = "explorable")]
-mod explorable;
 mod io;
 mod parsing;
 mod prop_type;
@@ -13,8 +11,6 @@ mod write;
 
 pub(crate) use block::*;
 pub(crate) use cache::*;
-#[cfg(feature = "explorable")]
-pub use explorable::Explorable;
 pub use io::FileSource;
 pub(crate) use io::*;
 pub(crate) use parsing::*;

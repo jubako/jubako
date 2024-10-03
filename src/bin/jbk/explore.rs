@@ -1,13 +1,11 @@
 use clap::{Parser, ValueEnum};
-use jbk::reader::Explorable;
+use graphex::{explore, explore_to_string, Node};
 use jubako as jbk;
 use std::path::PathBuf;
 
 #[derive(Clone, Copy, ValueEnum)]
 enum Format {
-    Ron,
     Json,
-    Yaml,
 }
 
 #[derive(Parser)]
@@ -18,43 +16,36 @@ pub struct Options {
     #[arg(value_parser, default_value = "")]
     key: String,
 
-    #[arg(long, value_enum, default_value = "yaml")]
-    format: Format,
+    #[arg(long, value_enum)]
+    format: Option<Format>,
 }
 
-pub fn run(options: Options) -> jbk::Result<()> {
-    let pack = Box::new(jbk::tools::open_pack(&options.infile)?);
-    let explorable: Option<Box<dyn Explorable>> = if options.key.is_empty() {
-        Some(pack)
-    } else {
-        let (mut explorable, mut left) = pack.explore(&options.key)?;
-        while let (Some(e), Some(l)) = (&explorable, left) {
-            (explorable, left) = e.explore(l)?;
-        }
-        explorable
-    };
+pub fn run(options: Options) -> Result<(), Box<dyn std::error::Error>> {
+    let pack = jbk::tools::open_pack(&options.infile)?;
 
-    if let Some(explorable) = explorable {
-        match options.format {
-            Format::Ron => {
-                let mut serializer = ron::ser::Serializer::new(
-                    std::io::stdout(),
-                    Some(ron::ser::PrettyConfig::new().struct_names(true)),
-                )
-                .unwrap();
-                erased_serde::serialize(&explorable, &mut serializer).unwrap();
+    match options.format {
+        None => match explore_to_string(&pack, &options.key) {
+            Ok(output) => println!("{}", output),
+            Err(graphex::Error::Key(_key)) => {
+                println!("Error, {} is not a valid key", options.key)
             }
-            Format::Yaml => {
-                let mut serializer = serde_yaml::Serializer::new(std::io::stdout());
-                erased_serde::serialize(&explorable, &mut serializer).unwrap();
-            }
-            Format::Json => {
-                let mut serializer = serde_json::Serializer::pretty(std::io::stdout());
-                erased_serde::serialize(&explorable, &mut serializer).unwrap();
+            Err(graphex::Error::Other(e)) => return Err(e.downcast::<jbk::Error>().unwrap()),
+            Err(graphex::Error::Fmt(_)) => unreachable!(),
+        },
+        Some(Format::Json) => {
+            let mut serializer = serde_json::Serializer::pretty(std::io::stdout());
+            let display = |n: &dyn Node| {
+                erased_serde::serialize(n.serde().unwrap(), &mut serializer).unwrap()
+            };
+            match explore(&pack, &options.key, display) {
+                Ok(_) => {}
+                Err(graphex::Error::Key(_key)) => {
+                    println!("Error, {} is not a valid key", options.key)
+                }
+                Err(graphex::Error::Other(e)) => return Err(e.downcast::<jbk::Error>().unwrap()),
+                Err(graphex::Error::Fmt(_)) => unreachable!(),
             }
         }
-    } else {
-        eprintln!("Key {} is not valid", options.key);
     }
     Ok(())
 }

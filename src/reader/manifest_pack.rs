@@ -232,7 +232,26 @@ impl serde::Serialize for ManifestPack {
 }
 
 #[cfg(feature = "explorable")]
-impl Explorable for ManifestPack {}
+impl graphex::Display for ManifestPack {
+    fn header_footer(&self) -> Option<(String, String)> {
+        Some(("ManifestPack(".to_string(), ")".to_string()))
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.item("uuid", &self.uuid().to_string())?;
+        out.item("directoryPack", &self.directory_pack_info)?;
+        out.item("contentPacks", &self.pack_infos)
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Node for ManifestPack {
+    fn display(&self) -> &dyn graphex::Display {
+        self
+    }
+    fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
+        Some(self)
+    }
+}
 
 #[cfg(test)]
 mod tests {

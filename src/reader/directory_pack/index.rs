@@ -17,6 +17,21 @@ pub(crate) struct IndexHeader {
     pub name: String,
 }
 
+#[cfg(feature = "explorable")]
+impl graphex::Display for IndexHeader {
+    fn header_footer(&self) -> Option<(String, String)> {
+        Some(("Index(".to_string(), ")".to_string()))
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.item("name", &self.name)?;
+        out.item("store_id", &self.store_id.into_u64())?;
+        out.item("entry_count", &self.entry_count.into_u64())?;
+        out.item("entry_offset", &self.entry_offset.into_u64())?;
+        out.item("free_data", &graphex::AsBytes(&*self.free_data))?;
+        out.item("index_property", &self.index_property)
+    }
+}
+
 impl Parsable for IndexHeader {
     type Output = Self;
     fn parse(parser: &mut impl Parser) -> Result<Self> {
@@ -83,6 +98,16 @@ impl RangeTrait for Index {
 
     fn count(&self) -> EntryCount {
         self.header.entry_count
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for Index {
+    fn header_footer(&self) -> Option<(String, String)> {
+        self.header.header_footer()
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        self.header.print_content(out)
     }
 }
 

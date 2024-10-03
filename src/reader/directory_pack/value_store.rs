@@ -44,11 +44,39 @@ impl ValueStoreTrait for ValueStore {
 }
 
 #[cfg(feature = "explorable")]
-impl Explorable for ValueStore {
-    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
+impl graphex::Node for ValueStore {
+    fn next(&self, key: &str) -> graphex::ExploreResult {
         match self {
-            ValueStore::Plain(store) => store.explore_one(item),
-            ValueStore::Indexed(store) => store.explore_one(item),
+            ValueStore::Plain(store) => store.next(key),
+            ValueStore::Indexed(store) => store.next(key),
+        }
+    }
+    fn display(&self) -> &dyn graphex::Display {
+        match self {
+            ValueStore::Plain(store) => store.display(),
+            ValueStore::Indexed(store) => store.display(),
+        }
+    }
+    fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
+        match self {
+            ValueStore::Plain(store) => store.serde(),
+            ValueStore::Indexed(store) => store.serde(),
+        }
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for ValueStore {
+    fn header_footer(&self) -> Option<(String, String)> {
+        match self {
+            ValueStore::Plain(store) => store.header_footer(),
+            ValueStore::Indexed(store) => store.header_footer(),
+        }
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        match self {
+            ValueStore::Plain(store) => store.print_content(out),
+            ValueStore::Indexed(store) => store.print_content(out),
         }
     }
 }
@@ -171,29 +199,47 @@ impl serde::Serialize for PlainValueStore {
 }
 
 #[cfg(feature = "explorable")]
-impl Explorable for PlainValueStore {
-    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
-        if let Some((first, second)) = item.split_once('-') {
+impl graphex::Display for PlainValueStore {
+    fn header_footer(&self) -> Option<(String, String)> {
+        Some(("PlainValueStore(".to_string(), ")".to_string()))
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.item("size", &self.reader.size())
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Node for PlainValueStore {
+    fn next(&self, key: &str) -> graphex::ExploreResult {
+        if let Some((first, second)) = key.split_once('-') {
             let offset = first
                 .parse::<u64>()
-                .map_err(|e| Error::from(format!("{e}")))?;
+                .map_err(|e| graphex::Error::key(&format!("{e}")))?;
             let size = second
                 .parse::<usize>()
-                .map_err(|e| Error::from(format!("{e}")))?;
+                .map_err(|e| graphex::Error::key(&format!("{e}")))?;
             if offset > self.reader.size().into_u64()
                 || (offset + size as u64 > self.reader.size().into_u64())
             {
-                return Ok(None);
+                return Err(graphex::Error::key(key));
             }
-            Ok(Some(Box::new(
+            Ok(Box::new(
                 String::from_utf8_lossy(
                     self.get_data(ValueIdx::from(offset), Some(ASize::from(size)))?,
                 )
                 .into_owned(),
-            )))
+            )
+            .into())
         } else {
-            Ok(None)
+            Err(graphex::Error::key(key))
         }
+    }
+
+    fn display(&self) -> &dyn graphex::Display {
+        self
+    }
+    fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
+        Some(self)
     }
 }
 
@@ -244,9 +290,19 @@ impl serde::Serialize for IndexedValueStore {
 }
 
 #[cfg(feature = "explorable")]
-impl Explorable for IndexedValueStore {
-    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
-        let (idx, size) = if let Some((first, second)) = item.split_once('-') {
+impl graphex::Display for IndexedValueStore {
+    fn header_footer(&self) -> Option<(String, String)> {
+        Some(("IndexedValueStore(".to_string(), ")".to_string()))
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.item("values count", &(self.value_offsets.len() - 1))
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Node for IndexedValueStore {
+    fn next(&self, key: &str) -> graphex::ExploreResult {
+        let (idx, size) = if let Some((first, second)) = key.split_once('-') {
             let offset = first
                 .parse::<u64>()
                 .map_err(|e| Error::from(format!("{e}")))?;
@@ -257,17 +313,25 @@ impl Explorable for IndexedValueStore {
             ));
             (offset, size)
         } else {
-            let offset = item
+            let offset = key
                 .parse::<u64>()
                 .map_err(|e| Error::from(format!("{e}")))?;
             (offset, None)
         };
         if idx >= self.value_offsets.len() as u64 {
-            return Err(format!("{idx} is not a valid index").into());
+            return Err(Error::from(format!("{idx} is not a valid index")).into());
         }
-        Ok(Some(Box::new(
+        Ok(Box::new(
             String::from_utf8_lossy(self.get_data(ValueIdx::from(idx), size)?).into_owned(),
-        )))
+        )
+        .into())
+    }
+
+    fn display(&self) -> &dyn graphex::Display {
+        self
+    }
+    fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
+        Some(self)
     }
 }
 

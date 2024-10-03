@@ -31,3 +31,19 @@ impl Properties {
         Ok(Properties(properties))
     }
 }
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for Properties {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        let mut keys = self
+            .0
+            .iter()
+            .map(|(k, v)| (v.offset, k))
+            .collect::<Vec<_>>();
+        keys.sort_unstable();
+        for (_, key) in keys.iter() {
+            out.item(key.as_ref(), &self.0[*key])?;
+        }
+        Ok(())
+    }
+}
