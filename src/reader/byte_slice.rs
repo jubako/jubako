@@ -23,7 +23,7 @@ impl<'s> ByteSlice<'s> {
         Self { source, region }
     }
 
-    /// The size of the region
+    /// The size of the slice
     pub fn size(&self) -> Size {
         self.region.size()
     }
