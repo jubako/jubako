@@ -22,6 +22,21 @@ impl ByteStream {
             offset,
         }
     }
+
+    /// The size of the data left to be read
+    pub fn size_left(&self) -> u64 {
+        (self.region.end() - self.offset).into_u64()
+    }
+
+    /// The full size of the ByteStream
+    pub fn size(&self) -> u64 {
+        self.region.size().into_u64()
+    }
+
+    /// The current offset in the ByteStream
+    pub fn offset(&self) -> u64 {
+        (self.offset - self.region.begin()).into_u64()
+    }
 }
 
 impl Read for ByteStream {
