@@ -272,13 +272,30 @@ impl serde::Serialize for DirectoryPack {
 }
 
 #[cfg(feature = "explorable")]
+struct VecWithKeyWrapper<'a, T> {
+    letter: &'a str,
+    data: &'a [T],
+}
+
+#[cfg(feature = "explorable")]
+impl<'a, T: graphex::Display> graphex::Display for VecWithKeyWrapper<'a, T> {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        use yansi::Paint;
+        for (i, d) in self.data.iter().enumerate() {
+            out.field(&format!("{}.{i}", self.letter).bold(), d)?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "explorable")]
 impl graphex::Display for DirectoryPack {
     fn header_footer(&self) -> Option<(String, String)> {
         Some(("DirectoryPack(".to_string(), ")".to_string()))
     }
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.item("uuid", &self.uuid().to_string())?;
-        out.item(
+        out.field("uuid", &self.uuid().to_string())?;
+        out.field(
             "indexes",
             &self
                 .header
@@ -294,35 +311,41 @@ impl graphex::Display for DirectoryPack {
                 })
                 .collect::<Vec<_>>(),
         )?;
-        out.item(
+        out.field(
             "entry_stores",
-            &self
-                .header
-                .entry_store_count
-                .into_iter()
-                .map(|c| {
-                    let sized_offset = self.entry_stores_ptrs.index(*c).unwrap();
-                    self.reader
-                        .parse_data_block::<EntryStore>(sized_offset)
-                        .unwrap()
-                })
-                .collect::<Vec<_>>(),
+            &VecWithKeyWrapper {
+                letter: "e",
+                data: &self
+                    .header
+                    .entry_store_count
+                    .into_iter()
+                    .map(|c| {
+                        let sized_offset = self.entry_stores_ptrs.index(*c).unwrap();
+                        self.reader
+                            .parse_data_block::<EntryStore>(sized_offset)
+                            .unwrap()
+                    })
+                    .collect::<Vec<_>>(),
+            },
         )?;
-        out.item(
+        out.field(
             "value_stores",
-            &self
-                .header
-                .value_store_count
-                .into_iter()
-                .map(|c| {
-                    let sized_offset = self.value_stores_ptrs.index(*c).unwrap();
-                    self.reader
-                        .parse_data_block::<ValueStore>(sized_offset)
-                        .unwrap()
-                })
-                .collect::<Vec<_>>(),
+            &VecWithKeyWrapper {
+                letter: "v",
+                data: &self
+                    .header
+                    .value_store_count
+                    .into_iter()
+                    .map(|c| {
+                        let sized_offset = self.value_stores_ptrs.index(*c).unwrap();
+                        self.reader
+                            .parse_data_block::<ValueStore>(sized_offset)
+                            .unwrap()
+                    })
+                    .collect::<Vec<_>>(),
+            },
         )?;
-        out.item("free_data", &self.header.free_data)
+        out.field("free_data", &self.header.free_data)
     }
 }
 

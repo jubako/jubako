@@ -145,10 +145,17 @@ impl graphex::Display for ContentPack {
     }
 
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.item("uuid", &self.uuid().to_string())?;
-        out.item("#contents", &self.header.content_count.into_u64())?;
-        out.item("#clusters", &self.header.cluster_count.into_u64())?;
-        out.item("freeData", &self.header.free_data)
+        use yansi::Paint;
+        out.field("uuid", &self.uuid().to_string())?;
+        out.field(
+            &format!("entries count ({})", "e.<N>".bold()),
+            &self.header.content_count.into_u64(),
+        )?;
+        out.field(
+            &format!("clusters count ({})", "c.<N>".bold()),
+            &self.header.cluster_count.into_u64(),
+        )?;
+        out.field("freeData", &self.header.free_data)
     }
 }
 

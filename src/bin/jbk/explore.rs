@@ -21,6 +21,7 @@ pub struct Options {
 }
 
 pub fn run(options: Options) -> Result<(), Box<dyn std::error::Error>> {
+    yansi::whenever(yansi::Condition::STDOUT_IS_TTY);
     let pack = jbk::tools::open_pack(&options.infile)?;
 
     match options.format {

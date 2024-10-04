@@ -217,9 +217,13 @@ impl graphex::Display for Cluster {
     }
 
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.item("offset", &(self.blob_offsets.len() - 1))?;
-        out.item("size", &self.data_size)?;
-        out.item("compression", &self.compression)
+        use yansi::Paint;
+        out.field(
+            &format!("blobs count ({} or {})", "<N>".bold(), "<N>#".bold()),
+            &(self.blob_offsets.len() - 1),
+        )?;
+        out.field("size", &self.data_size)?;
+        out.field("compression", &self.compression)
     }
 }
 

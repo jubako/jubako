@@ -47,8 +47,8 @@ impl graphex::Display for ContentInfo {
     }
 
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.item("Cluster index", &self.cluster_index.into_u64())?;
-        out.item("Blob index", &self.blob_index.into_u64())
+        out.field("Cluster index", &self.cluster_index.into_u64())?;
+        out.field("Blob index", &self.blob_index.into_u64())
     }
 }
 

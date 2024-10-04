@@ -26,14 +26,13 @@ pub struct VariantPart {
 #[cfg(feature = "explorable")]
 impl graphex::Display for VariantPart {
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.item("variant_id_offset", &self.variant_id_offset.into_u64())?;
+        out.field("variant_id_offset", &self.variant_id_offset.into_u64())?;
         let display_map = self
             .names
             .iter()
             .map(|(k, v)| (k.to_string(), self.variants[*v as usize].clone()))
             .collect::<HashMap<_, _>>();
-        writeln!(out, "- Variants:")?;
-        display_map.print(&mut out.pad())
+        out.field("Variants", &display_map)
     }
 }
 
@@ -53,10 +52,10 @@ impl graphex::Display for Layout {
         Some(("Layout(".to_string(), "".to_string()))
     }
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.item("entry count", &self.entry_count.into_u64())?;
-        out.item("is_entry_checked", &self.is_entry_checked)?;
-        out.item("entry_size", &self.entry_size)?;
-        out.item("common part", &self.common)?;
+        out.field("entry count", &self.entry_count.into_u64())?;
+        out.field("is_entry_checked", &self.is_entry_checked)?;
+        out.field("entry_size", &self.entry_size)?;
+        out.field("common part", &self.common)?;
         self.variant_part.print(out)
     }
 }

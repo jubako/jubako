@@ -114,9 +114,10 @@ impl graphex::Display for ContainerPack {
         Some(("Packs(".to_string(), ")".to_string()))
     }
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        use yansi::Paint;
         for (_uuid, reader) in self.packs.iter() {
             let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero()).unwrap();
-            out.item(&pack_header.uuid.to_string(), &pack_header)?;
+            out.field(&pack_header.uuid.bold(), &pack_header)?;
         }
         Ok(())
     }

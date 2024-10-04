@@ -237,9 +237,9 @@ impl graphex::Display for ManifestPack {
         Some(("ManifestPack(".to_string(), ")".to_string()))
     }
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.item("uuid", &self.uuid().to_string())?;
-        out.item("directoryPack", &self.directory_pack_info)?;
-        out.item("contentPacks", &self.pack_infos)
+        out.field("uuid", &self.uuid().to_string())?;
+        out.field("directoryPack", &self.directory_pack_info)?;
+        out.field("contentPacks", &self.pack_infos)
     }
 }
 

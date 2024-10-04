@@ -204,7 +204,11 @@ impl graphex::Display for PlainValueStore {
         Some(("PlainValueStore(".to_string(), ")".to_string()))
     }
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.item("size", &self.reader.size())
+        use yansi::Paint;
+        out.field(
+            &format!("size ({})", "<offset>-<len>".bold()),
+            &self.reader.size(),
+        )
     }
 }
 
@@ -295,7 +299,11 @@ impl graphex::Display for IndexedValueStore {
         Some(("IndexedValueStore(".to_string(), ")".to_string()))
     }
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.item("values count", &(self.value_offsets.len() - 1))
+        use yansi::Paint;
+        out.field(
+            &format!("values count ({})", "<N> or <N>-<len>".bold()),
+            &(self.value_offsets.len() - 1),
+        )
     }
 }
 

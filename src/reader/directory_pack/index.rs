@@ -23,12 +23,12 @@ impl graphex::Display for IndexHeader {
         Some(("Index(".to_string(), ")".to_string()))
     }
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.item("name", &self.name)?;
-        out.item("store_id", &self.store_id.into_u64())?;
-        out.item("entry_count", &self.entry_count.into_u64())?;
-        out.item("entry_offset", &self.entry_offset.into_u64())?;
-        out.item("free_data", &graphex::AsBytes(&*self.free_data))?;
-        out.item("index_property", &self.index_property)
+        out.field("name", &self.name)?;
+        out.field("store_id", &self.store_id.into_u64())?;
+        out.field("entry_count", &self.entry_count.into_u64())?;
+        out.field("entry_offset", &self.entry_offset.into_u64())?;
+        out.field("free_data", &graphex::AsBytes(&*self.free_data))?;
+        out.field("index_property", &self.index_property)
     }
 }
 

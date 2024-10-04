@@ -19,8 +19,8 @@ pub(crate) struct DeportedInfo {
 #[cfg(feature = "explorable")]
 impl graphex::Display for DeportedInfo {
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.item("value_store_idx", &self.value_store_idx.into_u64())?;
-        out.item("id_size", &(self.id_size as usize))
+        out.field("value_store_idx", &self.value_store_idx.into_u64())?;
+        out.field("id_size", &(self.id_size as usize))
     }
 }
 

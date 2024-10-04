@@ -148,7 +148,7 @@ impl serde::Serialize for PlainStore {
     {
         use serde::ser::SerializeStruct;
         let mut ser = serializer.serialize_struct("PlainStore", 2)?;
-        ser.serialize_field("nb_entries", &self.layout.entry_count)?;
+        ser.serialize_field("entries count", &self.layout.entry_count)?;
         ser.serialize_field("layout", &self.layout)?;
         ser.end()
     }
@@ -160,7 +160,9 @@ impl graphex::Display for PlainStore {
         Some(("PlainStore(".to_string(), ")".to_string()))
     }
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.item("layout", &self.layout)
+        use yansi::Paint;
+        out.field(&format!("entries count ({})", "<N>".bold()), &self.layout)?;
+        out.field("layout", &self.layout)
     }
 }
 

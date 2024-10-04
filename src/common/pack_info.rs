@@ -116,15 +116,15 @@ impl graphex::Display for PackInfo {
         Some((format!("{}(", self.uuid), ")".to_string()))
     }
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.item("size", &self.pack_size)?;
-        out.item("id", &self.pack_id.into_u64())?;
-        out.item("kind", &self.pack_kind)?;
-        out.item("group", &self.pack_group)?;
-        out.item(
+        out.field("size", &self.pack_size)?;
+        out.field("id", &self.pack_id.into_u64())?;
+        out.field("kind", &self.pack_kind)?;
+        out.field("group", &self.pack_group)?;
+        out.field(
             "location",
             &String::from_utf8_lossy(&self.pack_location).as_ref(),
         )?;
-        out.item("free_data_id", &self.free_data_id.into_u64())?;
-        out.item("check_info_pos", &self.check_info_pos)
+        out.field("free_data_id", &self.free_data_id.into_u64())?;
+        out.field("check_info_pos", &self.check_info_pos)
     }
 }

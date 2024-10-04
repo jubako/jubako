@@ -152,14 +152,14 @@ impl graphex::Display for PackHeader {
     }
 
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.item("uuid", &self.uuid.to_string())?;
-        out.item("flags", &self.flags)?;
-        out.item(
+        out.field("uuid", &self.uuid.to_string())?;
+        out.field("flags", &self.flags)?;
+        out.field(
             "app_vendor_id",
             &String::from_utf8_lossy(&*self.app_vendor_id).as_ref(),
         )?;
-        out.item("version", &(self.major_version, self.minor_version))?;
-        out.item("size", &self.file_size)
+        out.field("version", &(self.major_version, self.minor_version))?;
+        out.field("size", &self.file_size)
     }
 }
 

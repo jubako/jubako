@@ -42,7 +42,7 @@ impl graphex::Display for Properties {
             .collect::<Vec<_>>();
         keys.sort_unstable();
         for (_, key) in keys.iter() {
-            out.item(key.as_ref(), &self.0[*key])?;
+            out.field(key, &self.0[*key])?;
         }
         Ok(())
     }
