@@ -5,7 +5,7 @@ use std::error::Error;
 use std::fs::OpenOptions;
 
 // This is what will allow Jubako to differenciate your format from others.
-const VENDOR_ID: jbk::VendorId = jbk::VendorId::new([01, 02, 03, 04]);
+const VENDOR_ID: jbk::VendorId = jbk::VendorId::new([1, 2, 3, 4]);
 
 fn main() -> Result<(), Box<dyn Error>> {
     // We need a contentPack creator to store our content.

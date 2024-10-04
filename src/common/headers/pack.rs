@@ -164,7 +164,7 @@ mod tests {
             pack_header,
             PackHeader {
                 magic: PackKind::Content,
-                app_vendor_id: VendorId::from([00, 00, 00, 01]),
+                app_vendor_id: VendorId::from([0, 0, 0, 1]),
                 major_version: 0x00_u8,
                 minor_version: 0x02_u8,
                 uuid: Uuid::from_bytes([

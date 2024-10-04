@@ -89,7 +89,7 @@ test_suite! {
         Ok((pack_info, jubako::FileSource::new(file.into_inner())?.into()))
     }
 
-    fn create_directory_pack(value_store_kind: ValueStoreKind, entries: &Vec<TestEntry>, outfile: &Path) -> Result<(creator::PackData, jubako::Reader)> {
+    fn create_directory_pack(value_store_kind: ValueStoreKind, entries: &[TestEntry], outfile: &Path) -> Result<(creator::PackData, jubako::Reader)> {
         let mut creator = creator::DirectoryPackCreator::new(jubako::PackId::from(1), jubako::VendorId::from([1,0,0,0]), Default::default());
         let value_store = match value_store_kind {
             ValueStoreKind::Plain => creator::ValueStore::new_plain(None),
@@ -111,7 +111,7 @@ test_suite! {
             entry_store.add_entry(creator::BasicEntry::new_from_schema(&entry_store.schema, None, HashMap::from([
                 ("V0", jubako::Value::Array(entry.path.clone().into())),
                 ("V1", jubako::Value::Content(jubako::ContentAddress::new(1.into(), (idx as u32).into()))),
-                ("V2", jubako::Value::Unsigned((entry.word_count as u64).into()))
+                ("V2", jubako::Value::Unsigned(entry.word_count as u64))
             ])));
         }
 
@@ -210,7 +210,7 @@ test_suite! {
         assert_eq!(index.count(), (articles.val.len() as u32).into());
         for i in index.count() {
             println!("Check entry count {:?}", i);
-            let entry = index.get_entry(&builder, i.into()).unwrap();
+            let entry = index.get_entry(&builder, i).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             println!("Check value 0");
             let value_0 = entry.get_value("V0").unwrap();

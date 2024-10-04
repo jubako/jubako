@@ -253,10 +253,7 @@ mod tests {
 
         let content_pack = ContentPack::new(content.into()).unwrap();
         assert_eq!(content_pack.get_content_count(), ContentCount::from(3));
-        assert_eq!(
-            content_pack.app_vendor_id(),
-            VendorId::from([00, 00, 00, 01])
-        );
+        assert_eq!(content_pack.app_vendor_id(), VendorId::from([0, 0, 0, 1]));
         assert_eq!(content_pack.version(), (0, 2));
         assert_eq!(
             content_pack.uuid(),

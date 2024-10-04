@@ -6,7 +6,7 @@ use std::error::Error;
 use std::sync::Arc;
 
 // This is what will allow Jubako to differenciate your format from others.
-const VENDOR_ID: jbk::VendorId = jbk::VendorId::new([01, 02, 03, 04]);
+const VENDOR_ID: jbk::VendorId = jbk::VendorId::new([1, 2, 3, 4]);
 
 // Let's use a static str as property identifier.
 // More complex application may want to use a enum instead.

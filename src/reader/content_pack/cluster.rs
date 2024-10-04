@@ -247,7 +247,7 @@ mod tests {
 
     fn create_cluster(comp: CompressionType, data: &[u8]) -> (SizedOffset, Vec<u8>) {
         let mut cluster_data = Vec::new();
-        cluster_data.extend_from_slice(&data);
+        cluster_data.extend_from_slice(data);
         #[rustfmt::skip]
         let cluster_header = [
             comp as u8,       // compression

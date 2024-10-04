@@ -114,7 +114,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let container = jbk::reader::Container::new("test.jbkm")?; // or "test.jbkm"
     let index = container.get_index_for_name("My own index")?;
     let builder = create_builder(
-        index.get_store(&container.get_entry_storage())?,
+        index.get_store(container.get_entry_storage())?,
         container.get_value_storage(),
     )?;
 
