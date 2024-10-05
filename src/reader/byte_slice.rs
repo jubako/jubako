@@ -53,7 +53,10 @@ impl<'s> ByteSlice<'s> {
 }
 
 impl<'s> RandomParser for ByteSlice<'s> {
-    type Parser<'p> = SliceParser<'p> where 's: 'p;
+    type Parser<'p>
+        = SliceParser<'p>
+    where
+        's: 'p;
     fn create_parser(&self, offset: Offset) -> Result<Self::Parser<'_>> {
         let size = self.region.size() - offset.into();
         let size = std::cmp::min(0xFFFF_u64, size.into_u64()) as usize;
