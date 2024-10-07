@@ -21,12 +21,6 @@ impl Offset {
         self.0
     }
 
-    #[cfg(target_pointer_width = "64")]
-    #[inline]
-    pub fn into_usize(self) -> usize {
-        self.0 as usize
-    }
-
     #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
     #[inline]
     pub fn force_into_usize(self) -> usize {

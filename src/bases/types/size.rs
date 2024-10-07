@@ -23,12 +23,6 @@ impl Size {
         self.0
     }
 
-    #[cfg(target_pointer_width = "64")]
-    #[inline]
-    pub const fn into_usize(self) -> usize {
-        self.0 as usize
-    }
-
     pub fn is_zero(&self) -> bool {
         self.0 == 0
     }
