@@ -59,7 +59,7 @@ jobs:
 
       - name: Test binary compilation
         if: ${{ matrix.toolchain == 'stable' && matrix.feature == 'zstd,lzma,lz4' }}
-        run: cargo build --features zstd,lzma,lz4,build_bin --verbose
+        run: cargo build --features zstd,lzma,lz4,build_bin,explorable_serde --verbose
 
       - name: Build and run exemples
         run: |

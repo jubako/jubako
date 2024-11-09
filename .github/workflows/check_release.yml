@@ -60,7 +60,7 @@ jobs:
     - name: Build binary
       shell: bash
       run: |
-        cargo build --verbose --release --features=lz4,lzma,zstd,build_bin
+        cargo build --verbose --release --features=lz4,lzma,zstd,build_bin,explorable_serde
         if [ "${{ matrix.os }}" = "windows-latest" ]; then
           bin="target/release/jbk.exe"
         else
