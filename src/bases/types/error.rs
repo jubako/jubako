@@ -132,6 +132,13 @@ impl From<Box<dyn std::error::Error + Sync + Send>> for Error {
     }
 }
 
+#[cfg(feature = "explorable")]
+impl From<Error> for graphex::Error {
+    fn from(value: Error) -> Self {
+        graphex::Error::Other(Box::new(value))
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.error {

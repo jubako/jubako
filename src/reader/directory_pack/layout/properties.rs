@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Debug)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub struct Properties(HashMap<String, Property>);
 
 pub(crate) type SharedProperties = Arc<Properties>;
@@ -29,5 +29,21 @@ impl Properties {
             }
         }
         Ok(Properties(properties))
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for Properties {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        let mut keys = self
+            .0
+            .iter()
+            .map(|(k, v)| (v.offset, k))
+            .collect::<Vec<_>>();
+        keys.sort_unstable();
+        for (_, key) in keys.iter() {
+            out.field(key, &self.0[*key])?;
+        }
+        Ok(())
     }
 }

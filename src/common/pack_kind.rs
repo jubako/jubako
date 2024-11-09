@@ -5,7 +5,7 @@ const JBK_MAGIC: [u8; 3] = *b"jbk";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub enum PackKind {
     Manifest = b'm',
     Directory = b'd',
@@ -66,5 +66,18 @@ impl Serializable for FullPackKind {
         written += ser.write_data(b"jbk")?;
         written += self.0.serialize(ser)?;
         Ok(written)
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for PackKind {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        let str = match self {
+            Self::Manifest => "Manifest",
+            Self::Directory => "Directory",
+            Self::Content => "Content",
+            Self::Container => "Container",
+        };
+        writeln!(out, "{}", str)
     }
 }

@@ -7,7 +7,11 @@ use std::ops::{Add, AddAssign, Mul, Sub};
 /// We cannot use a usize as it is arch dependent.
 /// Let's define our own type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug, Default)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
+#[cfg_attr(
+    feature = "explorable_serde",
+    derive(serde::Serialize),
+    serde(transparent)
+)]
 #[repr(transparent)]
 pub(crate) struct ASize(usize);
 
@@ -85,5 +89,12 @@ impl Sub<ASize> for ASize {
     type Output = Self;
     fn sub(self, other: ASize) -> ASize {
         ASize(self.0 - other.0)
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for ASize {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        writeln!(out, "{}", self.into_u64())
     }
 }

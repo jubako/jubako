@@ -93,7 +93,7 @@ impl ContentPack {
     }
 }
 
-#[cfg(feature = "explorable")]
+#[cfg(feature = "explorable_serde")]
 impl serde::Serialize for ContentPack {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -110,28 +110,57 @@ impl serde::Serialize for ContentPack {
 }
 
 #[cfg(feature = "explorable")]
-impl Explorable for ContentPack {
-    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
-        if let Some(item) = item.strip_prefix("e.") {
+impl graphex::Node for ContentPack {
+    fn next(&self, key: &str) -> graphex::ExploreResult {
+        if let Some(item) = key.strip_prefix("e.") {
             let index = item
                 .parse::<u32>()
                 .map_err(|e| Error::from(format!("{e}")))?;
             let index = ContentIdx::from(index);
             let content_info = self.content_infos.index(*index)?;
-            Ok(Some(Box::new(content_info)))
-        } else if let Some(item) = item.strip_prefix("c.") {
+            Ok(Box::new(content_info).into())
+        } else if let Some(item) = key.strip_prefix("c.") {
             let index = item
                 .parse::<u32>()
                 .map_err(|e| Error::from(format!("{e}")))?;
             let cluster_info = self.cluster_ptrs.index(index.into())?;
-            Ok(Some(Box::new(
-                self.reader.parse_data_block::<Cluster>(cluster_info)?,
-            )))
+            Ok(Box::new(self.reader.parse_data_block::<Cluster>(cluster_info)?).into())
         } else {
-            Ok(None)
+            Err(graphex::Error::key(key))
         }
     }
+
+    fn display(&self) -> &dyn graphex::Display {
+        self
+    }
+
+    #[cfg(feature = "explorable_serde")]
+    fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
+        Some(self)
+    }
 }
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for ContentPack {
+    fn header_footer(&self) -> Option<(String, String)> {
+        Some(("ContentPack(".to_string(), ")".to_string()))
+    }
+
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        use yansi::Paint;
+        out.field("uuid", &self.uuid().to_string())?;
+        out.field(
+            &format!("entries count ({})", "e.<N>".bold()),
+            &self.header.content_count.into_u64(),
+        )?;
+        out.field(
+            &format!("clusters count ({})", "c.<N>".bold()),
+            &self.header.cluster_count.into_u64(),
+        )?;
+        out.field("freeData", &self.header.free_data)
+    }
+}
+
 impl Pack for ContentPack {
     fn kind(&self) -> PackKind {
         self.pack_header.magic

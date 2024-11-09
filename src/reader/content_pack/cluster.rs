@@ -195,7 +195,7 @@ impl Parsable for ClusterBuilder {
 
 impl BlockParsable for ClusterBuilder {}
 
-#[cfg(feature = "explorable")]
+#[cfg(feature = "explorable_serde")]
 impl serde::Serialize for Cluster {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -211,30 +211,56 @@ impl serde::Serialize for Cluster {
 }
 
 #[cfg(feature = "explorable")]
-impl Explorable for Cluster {
-    fn explore<'item>(
-        &self,
-        item: &'item str,
-    ) -> Result<(Option<Box<dyn Explorable>>, Option<&'item str>)> {
-        let (item, left) = if item.ends_with('#') {
-            let (item, left) = item.split_at(item.len() - 1);
-            (item, Some(left))
-        } else {
-            (item, None)
-        };
-        self.explore_one(item).map(|explo| (explo, left))
+impl graphex::Display for Cluster {
+    fn header_footer(&self) -> Option<(String, String)> {
+        Some(("Cluster(".to_string(), ")".to_string()))
     }
 
-    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
-        let index = item
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        use yansi::Paint;
+        out.field(
+            &format!("blobs count ({} or {})", "<N>".bold(), "<N>#".bold()),
+            &(self.blob_offsets.len() - 1),
+        )?;
+        out.field("size", &self.data_size)?;
+        out.field("compression", &self.compression)
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Node for Cluster {
+    fn next(&self, key: &str) -> graphex::ExploreResult {
+        let (key, pretty_print) = if key.ends_with('#') {
+            (key.split_at(key.len() - 1).0, true)
+        } else {
+            (key, false)
+        };
+
+        let index = key
             .parse::<u16>()
-            .map_err(|e| Error::from(format!("{e}")))?;
+            .map_err(|_e| graphex::Error::Key(key.to_string()))?;
 
         if index >= (self.blob_offsets.len() as u16 - 1) {
-            return Ok(None);
+            return Err(graphex::Error::key(key));
         }
         let bytes = self.get_bytes(BlobIdx::from(index))?;
-        Ok(Some(Box::new(bytes)))
+
+        if pretty_print {
+            let size = std::cmp::min(bytes.size().into_u64(), 0xFFFF) as usize;
+            let slice = bytes.get_slice(Offset::zero(), size)?;
+            Ok(Box::new(String::from_utf8_lossy(&slice).into_owned()).into())
+        } else {
+            Ok(Box::new(bytes).into())
+        }
+    }
+
+    fn display(&self) -> &dyn graphex::Display {
+        self
+    }
+
+    #[cfg(feature = "explorable_serde")]
+    fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
+        Some(self)
     }
 }
 

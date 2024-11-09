@@ -2,7 +2,7 @@ use crate::bases::*;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub enum CompressionType {
     None = 0,
     Lz4 = 1,
@@ -30,6 +30,19 @@ impl Parsable for CompressionType {
 impl Serializable for CompressionType {
     fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         ser.write_u8(*self as u8)
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for CompressionType {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        let name = match self {
+            CompressionType::None => "None",
+            CompressionType::Lz4 => "Lz4",
+            CompressionType::Lzma => "Lzma",
+            CompressionType::Zstd => "Zstd",
+        };
+        writeln!(out, "{}", name)
     }
 }
 

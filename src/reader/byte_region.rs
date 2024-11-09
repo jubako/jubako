@@ -92,7 +92,7 @@ impl RandomParser for ByteRegion {
     }
 }
 
-#[cfg(feature = "explorable")]
+#[cfg(feature = "explorable_serde")]
 impl serde::Serialize for ByteRegion {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -114,15 +114,23 @@ impl serde::Serialize for ByteRegion {
 }
 
 #[cfg(feature = "explorable")]
-impl Explorable for ByteRegion {
-    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
-        if item != "#" {
-            unreachable!()
-        }
+impl graphex::Display for ByteRegion {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
         let size = std::cmp::min(self.size().into_u64(), 0xFFFF) as usize;
+        let slice = self.get_slice(Offset::zero(), size)?;
 
-        Ok(Some(Box::new(
-            String::from_utf8_lossy(&self.get_slice(Offset::zero(), size)?).into_owned(),
-        )))
+        writeln!(out, "{:?}", slice)
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Node for ByteRegion {
+    fn display(&self) -> &dyn graphex::Display {
+        self
+    }
+
+    #[cfg(feature = "explorable_serde")]
+    fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
+        Some(self)
     }
 }

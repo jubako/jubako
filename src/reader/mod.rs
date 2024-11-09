@@ -27,6 +27,3 @@ pub use directory_pack::{
 pub use layout::VariantPart;
 pub use locator::{ChainedLocator, FsLocator, PackLocatorTrait};
 pub use manifest_pack::{ManifestPack, PackOffsetsIter};
-
-#[cfg(feature = "explorable")]
-pub use crate::bases::Explorable;

@@ -7,7 +7,11 @@ use std::ops::{Add, AddAssign, Sub};
 /// We cannot use a usize as it is arch dependent.
 /// Let's define our own type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug, Default)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
+#[cfg_attr(
+    feature = "explorable_serde",
+    derive(serde::Serialize),
+    serde(transparent)
+)]
 #[repr(transparent)]
 pub struct Size(u64);
 
@@ -111,5 +115,12 @@ impl std::ops::Mul<u64> for Size {
     type Output = Self;
     fn mul(self, other: u64) -> Size {
         Size(self.0 * other)
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for Size {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        writeln!(out, "{} bytes", self.into_u64())
     }
 }

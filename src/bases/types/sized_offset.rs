@@ -1,7 +1,7 @@
 use crate::bases::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub struct SizedOffset {
     pub(crate) size: ASize,
     pub(crate) offset: Offset,
@@ -37,5 +37,16 @@ impl Serializable for SizedOffset {
     fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         let data: u64 = (self.offset.into_u64() << 16) + (self.size.into_u64() & 0xFF_FF_u64);
         ser.write_u64(data)
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for SizedOffset {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.write_str(&format!(
+            "{} bytes at offset {}",
+            self.size.into_u64(),
+            self.offset.into_u64()
+        ))
     }
 }

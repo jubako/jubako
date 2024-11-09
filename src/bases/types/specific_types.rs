@@ -179,13 +179,21 @@ macro_rules! impl_add {
 macro_rules! def_type {
     ( Id, $base:ty, $idx_name:ident, $count_name:ident ) => {
         #[derive(PartialEq, Eq, Copy, Clone, Hash, Default)]
-        #[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
+        #[cfg_attr(
+            feature = "explorable_serde",
+            derive(serde::Serialize),
+            serde(transparent)
+        )]
         #[repr(transparent)]
         pub struct $idx_name(Id<$base>);
     };
     ( Idx, $base:ty, $idx_name:ident, $count_name:ident ) => {
         #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash, Default)]
-        #[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
+        #[cfg_attr(
+            feature = "explorable_serde",
+            derive(serde::Serialize),
+            serde(transparent)
+        )]
         #[repr(transparent)]
         pub struct $idx_name(Idx<$base>);
     };
@@ -303,7 +311,11 @@ macro_rules! specific {
 
         // Declare our Count
         #[derive(PartialEq, Eq, Copy, Clone)]
-        #[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
+        #[cfg_attr(
+            feature = "explorable_serde",
+            derive(serde::Serialize),
+            serde(transparent)
+        )]
         #[repr(transparent)]
         pub struct $count_name(pub(self) Count<$base>);
 

@@ -22,7 +22,7 @@ impl Parsable for StoreKind {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub enum EntryStore {
     Plain(PlainStore),
 }
@@ -91,10 +91,34 @@ impl DataBlockParsable for EntryStore {
 }
 
 #[cfg(feature = "explorable")]
-impl Explorable for EntryStore {
-    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
+impl graphex::Node for EntryStore {
+    fn next(&self, key: &str) -> graphex::ExploreResult {
         match self {
-            EntryStore::Plain(store) => store.explore_one(item),
+            EntryStore::Plain(store) => store.next(key),
+        }
+    }
+
+    fn display(&self) -> &dyn graphex::Display {
+        self
+    }
+
+    #[cfg(feature = "explorable_serde")]
+    fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
+        Some(self)
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for EntryStore {
+    fn header_footer(&self) -> Option<(String, String)> {
+        match self {
+            EntryStore::Plain(store) => store.header_footer(),
+        }
+    }
+
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        match self {
+            EntryStore::Plain(store) => store.print_content(out),
         }
     }
 }
@@ -118,7 +142,7 @@ impl PlainStore {
     }
 }
 
-#[cfg(feature = "explorable")]
+#[cfg(feature = "explorable_serde")]
 impl serde::Serialize for PlainStore {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -126,23 +150,47 @@ impl serde::Serialize for PlainStore {
     {
         use serde::ser::SerializeStruct;
         let mut ser = serializer.serialize_struct("PlainStore", 2)?;
-        ser.serialize_field("nb_entries", &self.layout.entry_count)?;
+        ser.serialize_field("entries count", &self.layout.entry_count)?;
         ser.serialize_field("layout", &self.layout)?;
         ser.end()
     }
 }
 
 #[cfg(feature = "explorable")]
-impl Explorable for PlainStore {
-    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
+impl graphex::Display for PlainStore {
+    fn header_footer(&self) -> Option<(String, String)> {
+        Some(("PlainStore(".to_string(), ")".to_string()))
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        use yansi::Paint;
+        out.field(&format!("entries count ({})", "<N>".bold()), &self.layout)?;
+        out.field("layout", &self.layout)
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Node for PlainStore {
+    fn next(&self, key: &str) -> graphex::ExploreResult {
         use std::io::Read;
-        let index = item
+        let index = key
             .parse::<u32>()
             .map_err(|e| Error::from(format!("{e}")))?;
         let entry_reader = self.get_entry_reader(EntryIdx::from(index));
         let mut data = vec![];
-        entry_reader.stream().read_to_end(&mut data)?;
-        Ok(Some(Box::new(data)))
+        entry_reader
+            .stream()
+            .read_to_end(&mut data)
+            .map_err(Error::from)?;
+        Ok(Box::new(data).into())
+    }
+
+    fn display(&self) -> &dyn graphex::Display {
+        &self.layout
+    }
+
+    #[cfg(feature = "explorable_serde")]
+    fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
+        Some(self)
     }
 }
 

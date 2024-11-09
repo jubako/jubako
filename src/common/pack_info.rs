@@ -90,7 +90,7 @@ impl Parsable for PackInfo {
 
 impl BlockParsable for PackInfo {}
 
-#[cfg(feature = "explorable")]
+#[cfg(feature = "explorable_serde")]
 impl serde::Serialize for PackInfo {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -107,5 +107,24 @@ impl serde::Serialize for PackInfo {
         cont.serialize_field("free_data_id", &self.free_data_id)?;
         cont.serialize_field("check_info_pos", &self.check_info_pos)?;
         cont.end()
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for PackInfo {
+    fn header_footer(&self) -> Option<(String, String)> {
+        Some((format!("{}(", self.uuid), ")".to_string()))
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.field("size", &self.pack_size)?;
+        out.field("id", &self.pack_id.into_u64())?;
+        out.field("kind", &self.pack_kind)?;
+        out.field("group", &self.pack_group)?;
+        out.field(
+            "location",
+            &String::from_utf8_lossy(&self.pack_location).as_ref(),
+        )?;
+        out.field("free_data_id", &self.free_data_id.into_u64())?;
+        out.field("check_info_pos", &self.check_info_pos)
     }
 }

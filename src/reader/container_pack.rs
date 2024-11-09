@@ -92,7 +92,7 @@ impl PackLocatorTrait for ContainerPack {
     }
 }
 
-#[cfg(feature = "explorable")]
+#[cfg(feature = "explorable_serde")]
 impl serde::Serialize for ContainerPack {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -109,8 +109,23 @@ impl serde::Serialize for ContainerPack {
 }
 
 #[cfg(feature = "explorable")]
-impl Explorable for ContainerPack {
-    fn explore_one(&self, item: &str) -> Result<Option<Box<dyn Explorable>>> {
+impl graphex::Display for ContainerPack {
+    fn header_footer(&self) -> Option<(String, String)> {
+        Some(("Packs(".to_string(), ")".to_string()))
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        use yansi::Paint;
+        for (_uuid, reader) in self.packs.iter() {
+            let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero()).unwrap();
+            out.field(&pack_header.uuid.bold(), &pack_header)?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Node for ContainerPack {
+    fn next(&self, item: &str) -> graphex::ExploreResult {
         let reader = if let Ok(index) = item.parse::<usize>() {
             let uuid = self
                 .packs_uuid
@@ -122,16 +137,25 @@ impl Explorable for ContainerPack {
                 .get(&uuid)
                 .ok_or_else(|| Error::from(format!("{item} is not a valid key.")))?
         } else {
-            return Err("Invalid key".into());
+            return Err(graphex::Error::key("Invalid key"));
         };
 
-        Ok(Some(
+        Ok(
             match reader.parse_block_at::<PackHeader>(Offset::zero())?.magic {
-                PackKind::Manifest => Box::new(ManifestPack::new(reader.clone())?),
-                PackKind::Directory => Box::new(DirectoryPack::new(reader.clone())?),
-                PackKind::Content => Box::new(ContentPack::new(reader.clone())?),
+                PackKind::Manifest => Box::new(ManifestPack::new(reader.clone())?).into(),
+                PackKind::Directory => Box::new(DirectoryPack::new(reader.clone())?).into(),
+                PackKind::Content => Box::new(ContentPack::new(reader.clone())?).into(),
                 PackKind::Container => unreachable!(),
             },
-        ))
+        )
+    }
+
+    fn display(&self) -> &dyn graphex::Display {
+        self
+    }
+
+    #[cfg(feature = "explorable_serde")]
+    fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
+        Some(self)
     }
 }

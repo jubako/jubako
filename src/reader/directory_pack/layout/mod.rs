@@ -5,7 +5,10 @@ mod property;
 use super::raw_layout::RawLayout;
 use crate::bases::*;
 
+#[cfg(feature = "explorable")]
+pub(super) use super::raw_layout::DeportedDefault;
 pub(super) use super::raw_layout::PropertyKind;
+
 pub(crate) use properties::{Properties, SharedProperties};
 pub(crate) use property::Property;
 use std::collections::HashMap;
@@ -13,21 +16,48 @@ use std::collections::HashMap;
 use std::cmp::Ordering;
 
 #[derive(Debug)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub struct VariantPart {
     pub variant_id_offset: Offset,
     pub variants: Box<[SharedProperties]>,
     pub names: HashMap<String, u8>,
 }
 
+#[cfg(feature = "explorable")]
+impl graphex::Display for VariantPart {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.field("variant_id_offset", &self.variant_id_offset.into_u64())?;
+        let display_map = self
+            .names
+            .iter()
+            .map(|(k, v)| (k.to_string(), self.variants[*v as usize].clone()))
+            .collect::<HashMap<_, _>>();
+        out.field("Variants", &display_map)
+    }
+}
+
 #[derive(Debug)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub struct Layout {
     pub(crate) entry_count: EntryCount,
     pub(crate) is_entry_checked: bool,
     pub common: Properties,
     pub variant_part: Option<VariantPart>,
     pub(crate) entry_size: ASize,
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for Layout {
+    fn header_footer(&self) -> Option<(String, String)> {
+        Some(("Layout(".to_string(), "".to_string()))
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.field("entry count", &self.entry_count.into_u64())?;
+        out.field("is_entry_checked", &self.is_entry_checked)?;
+        out.field("entry_size", &self.entry_size)?;
+        out.field("common part", &self.common)?;
+        self.variant_part.print(out)
+    }
 }
 
 impl Parsable for Layout {

@@ -16,7 +16,7 @@ impl<const N: usize> SizedParsable for FreeData<N> {
     const SIZE: usize = N;
 }
 
-#[cfg(feature = "explorable")]
+#[cfg(feature = "explorable_serde")]
 impl<const N: usize> serde::Serialize for FreeData<N> {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -48,6 +48,13 @@ impl<const N: usize> std::ops::Deref for FreeData<N> {
 impl<const N: usize> From<[u8; N]> for FreeData<N> {
     fn from(input: [u8; N]) -> Self {
         Self(input)
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl<const N: usize> graphex::Display for FreeData<N> {
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        graphex::AsBytes(&self.0).print(out)
     }
 }
 

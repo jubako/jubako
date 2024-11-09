@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(
-    feature = "explorable",
+    feature = "explorable_serde",
     derive(serde::Serialize),
     serde(rename = "Index")
 )]
@@ -15,6 +15,21 @@ pub(crate) struct IndexHeader {
     pub free_data: IndexFreeData,
     pub index_property: u8,
     pub name: String,
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for IndexHeader {
+    fn header_footer(&self) -> Option<(String, String)> {
+        Some(("Index(".to_string(), ")".to_string()))
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        out.field("name", &self.name)?;
+        out.field("store_id", &self.store_id.into_u64())?;
+        out.field("entry_count", &self.entry_count.into_u64())?;
+        out.field("entry_offset", &self.entry_offset.into_u64())?;
+        out.field("free_data", &graphex::AsBytes(&*self.free_data))?;
+        out.field("index_property", &self.index_property)
+    }
 }
 
 impl Parsable for IndexHeader {
@@ -40,7 +55,11 @@ impl Parsable for IndexHeader {
 impl BlockParsable for IndexHeader {}
 
 #[derive(Debug)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
+#[cfg_attr(
+    feature = "explorable_serde",
+    derive(serde::Serialize),
+    serde(transparent)
+)]
 
 pub struct Index {
     header: IndexHeader,
@@ -83,6 +102,16 @@ impl RangeTrait for Index {
 
     fn count(&self) -> EntryCount {
         self.header.entry_count
+    }
+}
+
+#[cfg(feature = "explorable")]
+impl graphex::Display for Index {
+    fn header_footer(&self) -> Option<(String, String)> {
+        self.header.header_footer()
+    }
+    fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
+        self.header.print_content(out)
     }
 }
 
