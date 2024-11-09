@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let container = jbk::reader::Container::new("test.jbkm")?; // or "test.jbk" if created using basic_creator.rs
     let index = container.get_index_for_name("My own index")?;
     let builder = AnyBuilder::new(
-        index.get_store(&container.get_entry_storage())?,
+        index.get_store(container.get_entry_storage())?,
         container.get_value_storage().as_ref(),
     )?;
 

@@ -2,7 +2,7 @@ use crate::bases::*;
 use std::fmt;
 use std::ops::{Add, AddAssign};
 
-/// A index of a object.
+/// A index of a object.
 /// All count object can be stored in a u32.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug, Default, Hash)]
 #[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]

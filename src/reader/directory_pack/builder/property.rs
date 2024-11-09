@@ -660,7 +660,7 @@ mod tests {
                 if idx < 100 {
                     let end = idx + size.unwrap().into_usize();
                     Ok(&self.data[idx..end])
-                } else if idx >= 1000 && idx < 1100 {
+                } else if (1000..1100).contains(&idx) {
                     let idx = idx - 900;
                     let end = idx + size.unwrap().into_usize();
                     Ok(&self.data[idx..end])

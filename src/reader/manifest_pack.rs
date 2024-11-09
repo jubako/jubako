@@ -350,7 +350,7 @@ mod tests {
         let reader = Reader::new_from_arc(content, content_size);
         let main_pack = ManifestPack::new(reader).unwrap();
         assert_eq!(main_pack.kind(), PackKind::Manifest);
-        assert_eq!(main_pack.app_vendor_id(), VendorId::from([00, 00, 00, 01]));
+        assert_eq!(main_pack.app_vendor_id(), VendorId::from([0, 0, 0, 1]));
         assert_eq!(main_pack.version(), (0, 2));
         assert_eq!(
             main_pack.uuid(),
@@ -371,7 +371,7 @@ mod tests {
                 pack_id: PackId::from(0),
                 pack_kind: PackKind::Directory,
                 pack_group: 240,
-                free_data_id: ValueIdx::from(1).into(),
+                free_data_id: ValueIdx::from(1),
                 pack_size: Size::new(0xffff),
                 check_info_pos: SizedOffset::new(0x01.into(), Offset::new(0xff)),
                 pack_location: vec![],
@@ -387,7 +387,7 @@ mod tests {
                 pack_id: PackId::from(1),
                 pack_kind: PackKind::Content,
                 pack_group: 0,
-                free_data_id: ValueIdx::from(0).into(),
+                free_data_id: ValueIdx::from(0),
                 pack_size: Size::new(0xffffff),
                 check_info_pos: SizedOffset::new(0x21.into(), Offset::new(0xff00ff)),
                 pack_location: vec![],
@@ -403,7 +403,7 @@ mod tests {
                 pack_id: PackId::from(2),
                 pack_kind: PackKind::Content,
                 pack_group: 0,
-                free_data_id: ValueIdx::from(0).into(),
+                free_data_id: ValueIdx::from(0),
 
                 pack_size: Size::new(0xffffff),
                 check_info_pos: SizedOffset::new(0x01.into(), Offset::new(0xffffff)),

@@ -408,13 +408,13 @@ mod tests {
                 base_len: 6,
                 extend: Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)})
             };
-            assert_eq!(raw_value.partial_cmp(&"Hel".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp(&"Hello".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp(&"Hello ".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp(&"Hello Jubako".as_bytes()).unwrap().unwrap(), cmp::Ordering::Equal);
-            assert_eq!(raw_value.partial_cmp(&"Hello Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Less);
-            assert_eq!(raw_value.partial_cmp(&"Hella Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp(&"Hemmo Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Less);
+            assert_eq!(raw_value.partial_cmp("Hel".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.partial_cmp("Hello".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.partial_cmp("Hello ".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.partial_cmp("Hello Jubako".as_bytes()).unwrap().unwrap(), cmp::Ordering::Equal);
+            assert_eq!(raw_value.partial_cmp("Hello Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Less);
+            assert_eq!(raw_value.partial_cmp("Hella Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.partial_cmp("Hemmo Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Less);
 
         }
     }

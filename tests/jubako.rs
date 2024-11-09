@@ -38,7 +38,7 @@ struct Cluster {
 }
 
 impl Cluster {
-    pub fn new(compression: jubako::CompressionType, entries: &Vec<Entry>) -> Self {
+    pub fn new(compression: jubako::CompressionType, entries: &[Entry]) -> Self {
         let mut data: Vec<Vec<u8>> = vec![];
         let mut entries_offset = vec![];
         let mut current_offset = 0;
@@ -150,10 +150,9 @@ struct IndexStore {
 }
 
 impl IndexStore {
-    pub fn new(entries: &Vec<Entry>) -> Self {
+    pub fn new(entries: &[Entry]) -> Self {
         let mut data: Vec<u8> = vec![];
-        let mut idx: u8 = 0;
-        for entry in entries {
+        for (idx, entry) in (0_u8..).zip(entries.iter()) {
             // We are creating entry data.
             // Each entry has 3 keys :
             // - The path : A char1[0] + deported(1)
@@ -162,7 +161,6 @@ impl IndexStore {
             data.extend(&[entry.path.as_bytes().len() as u8, idx].to_vec());
             data.extend(&(((idx as u16) << 8) + 0x01_u16).to_le_bytes().to_vec());
             data.extend(&entry.word_count.to_le_bytes().to_vec());
-            idx += 1;
         }
         let crc = crc32(&data);
         data.extend_from_slice(&crc.to_be_bytes()); // Crc32
@@ -211,7 +209,7 @@ struct Index {
 }
 
 impl Index {
-    pub fn new(entries: &Vec<Entry>) -> Self {
+    pub fn new(entries: &[Entry]) -> Self {
         Index {
             store_id: 0,
             entry_count: entries.len() as u32,
@@ -329,7 +327,7 @@ test_suite! {
         }
     }
 
-    fn create_content_pack(compression: jubako::CompressionType, entries:&Vec<TestEntry>) -> Result<PackInfo> {
+    fn create_content_pack(compression: jubako::CompressionType, entries:&[TestEntry]) -> Result<PackInfo> {
         let mut content_pack_path = std::env::temp_dir();
         content_pack_path.push("contentPack.jbkc");
         let mut file = OpenOptions::new()
@@ -349,15 +347,15 @@ test_suite! {
         file.write_all(&[0x52, 0x21, 0xEE, 0x84])?; // Crc32
 
         // Offset 128 + 12 = 140/0x8C
-        let cluster_ptr_info_offset = file.seek(SeekFrom::Current(0))?;
+        let cluster_ptr_info_offset = file.stream_position()?;
         file.write_all(&[0x00;12])?; // cluster offset and crc of the array,  to be write after
 
-        let mut cluster = Cluster::new(compression, &entries);
+        let mut cluster = Cluster::new(compression, entries);
         // Cluster data 140 + 12 = 152/0x98
         file.write_all(&cluster.data_bytes())?;
 
         // Cluster tail
-        let cluster_info_offset = file.seek(SeekFrom::Current(0))?.to_le_bytes();
+        let cluster_info_offset = file.stream_position()?.to_le_bytes();
         file.write_all(&cluster.tail_bytes())?;
 
         // Write back info about where cluster is
@@ -454,10 +452,10 @@ test_suite! {
             // Write Value Store
             let mut key_store = KeyStore::new(entries);
             file.write_all(&key_store.data_bytes())?;
-            let key_store_offset = file.seek(SeekFrom::Current(0))?.to_le_bytes();
+            let key_store_offset = file.stream_position()?.to_le_bytes();
             file.write_all(&key_store.tail_bytes())?;
             // Write value store ptr array
-            let key_store_ptr_offset = file.seek(SeekFrom::Current(0))?;
+            let key_store_ptr_offset = file.stream_position()?;
             let mut array_data = vec![];
             array_data.write_all(&key_store.tail_size().to_le_bytes())?;
             array_data.write_all(&key_store_offset[..6])?;
@@ -470,12 +468,12 @@ test_suite! {
         let index_store_ptr_offset = {
             // Write Entry store
             let mut index_store = IndexStore::new(entries);
-            file.write_all(&index_store.data_bytes())?;
-            let index_store_offset = file.seek(SeekFrom::Current(0))?.to_le_bytes();
+            file.write_all(index_store.data_bytes())?;
+            let index_store_offset = file.stream_position()?.to_le_bytes();
             file.write_all(&index_store.tail_bytes())?;
 
             // Write entry store ptr array
-            let index_store_ptr_offset = file.seek(SeekFrom::Current(0))?;
+            let index_store_ptr_offset = file.stream_position()?;
             let mut array_data = vec![];
             array_data.write_all(&index_store.tail_size().to_le_bytes())?;
             array_data.write_all(&index_store_offset[..6])?;
@@ -488,11 +486,11 @@ test_suite! {
         let index_ptr_offset = {
             // Write index
             let mut index = Index::new(entries);
-            let index_offset = file.seek(SeekFrom::Current(0))?.to_le_bytes();
+            let index_offset = file.stream_position()?.to_le_bytes();
             file.write_all(&index.bytes())?;
 
             // Write index ptr array
-            let index_ptr_offset = file.seek(SeekFrom::Current(0))?;
+            let index_ptr_offset = file.stream_position()?;
             let mut array_data = vec![];
             array_data.write_all(&index.tail_size().to_le_bytes())?;
             array_data.write_all(&index_offset[..6])?;
@@ -614,7 +612,7 @@ test_suite! {
         file.write_all(&directory_pack.check_info.bytes())?;
         file.write_all(&content_pack.check_info.bytes())?;
 
-        let pack_offset = file.seek(SeekFrom::Current(0))?;
+        let pack_offset = file.stream_position()?;
         file.write_all(&directory_pack.bytes(directory_check_info_pos))?;
         file.write_all(&content_pack.bytes(content_check_info_pos))?;
 
@@ -652,7 +650,7 @@ test_suite! {
         assert!(container.check().unwrap());
         let index = container.get_index_for_name("Super index").unwrap();
         let builder = reader::builder::AnyBuilder::new(
-            index.get_store(&container.get_entry_storage()).unwrap(),
+            index.get_store(container.get_entry_storage()).unwrap(),
             container.get_value_storage().as_ref()
         ).unwrap();
         assert_eq!(index.count(), (articles.val.len() as u32).into());

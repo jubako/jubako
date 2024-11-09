@@ -190,9 +190,7 @@ mod tests {
         let store = reader
             .parse_data_block::<EntryStore>(SizedOffset::new(size, Offset::new(4)))
             .unwrap();
-        let store = match store {
-            EntryStore::Plain(s) => s,
-        };
+        let EntryStore::Plain(store) = store;
         assert!(store.layout.variant_part.is_none());
         let expected = HashMap::from([
             (
@@ -406,9 +404,7 @@ mod tests {
         let store = reader
             .parse_data_block::<EntryStore>(SizedOffset::new(size, Offset::new(4)))
             .unwrap();
-        let store = match store {
-            EntryStore::Plain(s) => s,
-        };
+        let EntryStore::Plain(store) = store;
         let common = store.layout.common;
         let expected = HashMap::from([(
             "C0".to_string(),
