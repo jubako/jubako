@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Debug)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub struct Properties(HashMap<String, Property>);
 
 pub(crate) type SharedProperties = Arc<Properties>;

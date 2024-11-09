@@ -5,7 +5,7 @@ const JBK_MAGIC: [u8; 3] = *b"jbk";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub enum PackKind {
     Manifest = b'm',
     Directory = b'd',

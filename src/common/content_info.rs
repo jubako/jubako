@@ -1,7 +1,7 @@
 use crate::bases::*;
 
 #[derive(Debug)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub struct ContentInfo {
     pub cluster_index: ClusterIdx,
     pub blob_index: BlobIdx,
@@ -58,6 +58,7 @@ impl graphex::Node for ContentInfo {
         self
     }
 
+    #[cfg(feature = "explorable_serde")]
     fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
         Some(self)
     }

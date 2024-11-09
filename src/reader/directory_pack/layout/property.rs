@@ -5,7 +5,7 @@ use crate::bases::*;
 /// In opposition to RawProperty, the property is the "final" property.
 /// It describe how to parse te value of a entry.
 #[derive(Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub struct Property {
     pub(crate) offset: Offset,
     pub(crate) kind: PropertyKind,

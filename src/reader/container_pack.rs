@@ -92,7 +92,7 @@ impl PackLocatorTrait for ContainerPack {
     }
 }
 
-#[cfg(feature = "explorable")]
+#[cfg(feature = "explorable_serde")]
 impl serde::Serialize for ContainerPack {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -153,6 +153,8 @@ impl graphex::Node for ContainerPack {
     fn display(&self) -> &dyn graphex::Display {
         self
     }
+
+    #[cfg(feature = "explorable_serde")]
     fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
         Some(self)
     }

@@ -92,7 +92,7 @@ impl RandomParser for ByteRegion {
     }
 }
 
-#[cfg(feature = "explorable")]
+#[cfg(feature = "explorable_serde")]
 impl serde::Serialize for ByteRegion {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -128,6 +128,8 @@ impl graphex::Node for ByteRegion {
     fn display(&self) -> &dyn graphex::Display {
         self
     }
+
+    #[cfg(feature = "explorable_serde")]
     fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
         Some(self)
     }

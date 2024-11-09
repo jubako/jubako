@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(
-    feature = "explorable",
+    feature = "explorable_serde",
     derive(serde::Serialize),
     serde(rename = "Index")
 )]
@@ -55,7 +55,11 @@ impl Parsable for IndexHeader {
 impl BlockParsable for IndexHeader {}
 
 #[derive(Debug)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
+#[cfg_attr(
+    feature = "explorable_serde",
+    derive(serde::Serialize),
+    serde(transparent)
+)]
 
 pub struct Index {
     header: IndexHeader,

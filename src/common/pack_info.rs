@@ -90,7 +90,7 @@ impl Parsable for PackInfo {
 
 impl BlockParsable for PackInfo {}
 
-#[cfg(feature = "explorable")]
+#[cfg(feature = "explorable_serde")]
 impl serde::Serialize for PackInfo {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where

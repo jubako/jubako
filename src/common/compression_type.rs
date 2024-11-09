@@ -2,7 +2,7 @@ use crate::bases::*;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub enum CompressionType {
     None = 0,
     Lz4 = 1,

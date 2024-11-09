@@ -7,7 +7,11 @@ use std::ops::{Add, AddAssign, Sub};
 /// We cannot use a usize as it is arch dependent.
 /// Let's define our own type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug, Default)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
+#[cfg_attr(
+    feature = "explorable_serde",
+    derive(serde::Serialize),
+    serde(transparent)
+)]
 #[repr(transparent)]
 pub struct Size(u64);
 

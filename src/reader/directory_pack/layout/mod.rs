@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use std::cmp::Ordering;
 
 #[derive(Debug)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub struct VariantPart {
     pub variant_id_offset: Offset,
     pub variants: Box<[SharedProperties]>,
@@ -37,7 +37,7 @@ impl graphex::Display for VariantPart {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub struct Layout {
     pub(crate) entry_count: EntryCount,
     pub(crate) is_entry_checked: bool,

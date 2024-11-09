@@ -16,7 +16,7 @@ impl<const N: usize> SizedParsable for FreeData<N> {
     const SIZE: usize = N;
 }
 
-#[cfg(feature = "explorable")]
+#[cfg(feature = "explorable_serde")]
 impl<const N: usize> serde::Serialize for FreeData<N> {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where

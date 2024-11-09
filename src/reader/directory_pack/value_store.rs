@@ -28,7 +28,7 @@ pub trait ValueStoreTrait: std::fmt::Debug + Send + Sync {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub enum ValueStore {
     Plain(PlainValueStore),
     Indexed(IndexedValueStore),
@@ -57,6 +57,8 @@ impl graphex::Node for ValueStore {
             ValueStore::Indexed(store) => store.display(),
         }
     }
+
+    #[cfg(feature = "explorable_serde")]
     fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
         match self {
             ValueStore::Plain(store) => store.serde(),
@@ -185,7 +187,7 @@ impl PlainValueStore {
     }
 }
 
-#[cfg(feature = "explorable")]
+#[cfg(feature = "explorable_serde")]
 impl serde::Serialize for PlainValueStore {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -242,6 +244,8 @@ impl graphex::Node for PlainValueStore {
     fn display(&self) -> &dyn graphex::Display {
         self
     }
+
+    #[cfg(feature = "explorable_serde")]
     fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
         Some(self)
     }
@@ -280,7 +284,7 @@ impl IndexedValueStore {
     }
 }
 
-#[cfg(feature = "explorable")]
+#[cfg(feature = "explorable_serde")]
 impl serde::Serialize for IndexedValueStore {
     fn serialize<S>(&self, serializer: S) -> std::prelude::v1::Result<S::Ok, S::Error>
     where
@@ -338,6 +342,8 @@ impl graphex::Node for IndexedValueStore {
     fn display(&self) -> &dyn graphex::Display {
         self
     }
+
+    #[cfg(feature = "explorable_serde")]
     fn serde(&self) -> Option<&dyn erased_serde::Serialize> {
         Some(self)
     }

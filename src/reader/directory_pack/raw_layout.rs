@@ -1,14 +1,14 @@
 use crate::bases::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub(crate) enum DeportedDefault {
     Value(u64),
     KeySize(ByteSize),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub(crate) struct DeportedInfo {
     // The size of the id
     pub id_size: ByteSize,
@@ -26,7 +26,7 @@ impl graphex::Display for DeportedInfo {
 
 /// The kind of property definition as specified in the store.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize))]
+#[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
 pub(crate) enum PropertyKind {
     Padding,
     ContentAddress {

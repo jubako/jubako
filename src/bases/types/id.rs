@@ -4,7 +4,11 @@ use std::fmt;
 /// A identifier for a object.
 /// Identifier is somehow a simple integer, but without computation.
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Default, Hash)]
-#[cfg_attr(feature = "explorable", derive(serde::Serialize), serde(transparent))]
+#[cfg_attr(
+    feature = "explorable_serde",
+    derive(serde::Serialize),
+    serde(transparent)
+)]
 #[repr(transparent)]
 pub struct Id<T>(T);
 
