@@ -15,7 +15,7 @@ lz4 = ["dep:lz4"]
 lzma = ["dep:xz2"]
 zstd = ["dep:zstd"]
 explorable = ["dep:graphex", "dep:yansi"]
-build_bin = ["explorable", "dep:clap"]
+build_bin = ["explorable", "dep:clap", "dep:const_format", "dep:git-version"]
 explorable_serde = ["dep:serde", "dep:erased-serde", "dep:serde_json", "uuid/serde", "graphex/serde"]
 all = ["lz4", "lzma", "zstd", "build_bin"]
 nightly = []
@@ -26,7 +26,7 @@ blake3 = "1.5.0"
 lz4 = { version = "1.24.0", optional = true }
 zstd = { version = "0.13.2", optional = true }
 xz2 = { version = "0.1", optional = true }
-clap = { version = "4.4.5", features = ["derive"], optional = true }
+clap = { version = "4.4.5", features = ["derive", "cargo"], optional = true }
 lru = "0.12.4"
 memmap2 = "0.9.4"
 pathdiff = "0.2.1"
@@ -45,6 +45,8 @@ erased-serde = { version = "0.4", optional = true }
 crc = "3.2.1"
 graphex = { version = "0.2.0", optional = true }
 yansi = { version = "1.0.0", features = ["detect-tty"], optional = true }
+const_format = { version = "0.2.33", optional = true }
+git-version = { version = "0.3.9", optional = true }
 
 [dev-dependencies]
 test-case = "3.2.1"
