@@ -5,8 +5,14 @@ mod locate;
 
 use clap::Parser;
 
+const VERSION: &str = const_format::formatcp!(
+    "{} (git:{})",
+    clap::crate_version!(),
+    git_version::git_version!(args = ["--dirty=*", "--tags", "--always"])
+);
+
 #[derive(Parser)]
-#[clap(name="jbk", author, version, about, long_about=None)]
+#[clap(name="jbk", author, version, long_version=VERSION, about, long_about=None)]
 struct Options {
     #[command(subcommand)]
     command: Commands,
