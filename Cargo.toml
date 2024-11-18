@@ -17,7 +17,7 @@ zstd = ["dep:zstd"]
 explorable = ["dep:graphex", "dep:yansi"]
 build_bin = ["explorable", "dep:clap", "dep:const_format", "dep:git-version"]
 explorable_serde = ["dep:serde", "dep:erased-serde", "dep:serde_json", "uuid/serde", "graphex/serde"]
-all = ["lz4", "lzma", "zstd", "build_bin"]
+all = ["lz4", "lzma", "zstd", "build_bin", "explorable_serde"]
 nightly = []
 
 [dependencies]
