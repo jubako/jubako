@@ -95,12 +95,13 @@ After installing with the `build_bin` feature, the `jbk` command-line tool becom
 
 ## Contributing
 
-Contributions are welcomed !
+Contributions are welcome! Please open an issue or submit a pull request.
 
 ## Sponsoring
 
-I ([@mgautierfr](https://github.com/mgautierfr)) am a freelance developper. All jubako projects are created on my free time which compete with my paid time.
+I ([@mgautierfr](https://github.com/mgautierfr)) am a freelance developer. All jubako projects are created in my free time, which competes with my paid work.
 If you want me to be able to spend more time on Jubako projects, please consider [sponsoring me](https://github.com/sponsors/jubako).
+You can also donate on [liberapay](https://liberapay.com/jubako/donate) or [buy me a coffee](https://buymeacoffee.com/jubako).
 
 ## License
 
