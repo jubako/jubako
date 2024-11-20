@@ -8,6 +8,9 @@ pub mod creator;
 pub mod reader;
 pub mod tools;
 
+#[cfg(feature = "clap")]
+pub mod cmd_utils;
+
 pub use crate::bases::{
     Bound, ContentIdx, EntryCount, EntryIdx, EntryRange, Error, ErrorKind, FileSource, MayRef,
     Offset, PackId, PropertyCount, PropertyIdx, Reader, Result, Size, VariantIdx, VendorId, Vow,
