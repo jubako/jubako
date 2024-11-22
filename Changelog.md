@@ -1,3 +1,21 @@
+# Jubako 0.3.2
+
+- Remove `into_usize` methods from `Offset` and `Size`.
+- Add new `size`/`offset` methods on `ByteStream`
+- Add new module `cmd_utils` which provides usefull helper to parse command line options.
+  Behind `clap` feature.
+- Update README
+- Fix various typos and clippy warnings.
+
+## `jbk` tool
+
+- Use new `graphex` crate to explore Jubako structure instead of custom traits.
+  This is not a great change as `graphex` has been created to replace custom traits.
+- Display key is bold
+- `serde` is optional, even for binary
+- Only json and "human" outptu
+- `--version` option now include the git commit
+
 # Jubako 0.3.1
 
 Fix compilation on 32 bits.
