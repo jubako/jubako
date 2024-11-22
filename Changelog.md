@@ -1,3 +1,7 @@
+# Jubako 0.3.3
+
+- Fix compilation of jbk tools when installed from `crates.io` registry.
+
 # Jubako 0.3.2
 
 - Remove `into_usize` methods from `Offset` and `Size`.
