@@ -15,7 +15,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-tags: true
+          fetch-depth: 0
+
+      - name: Fetch tags (see actions/checkout#1467)
+        run: |
+          git fetch --tags
 
       - name: Publish
         env:
