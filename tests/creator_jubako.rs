@@ -213,12 +213,12 @@ test_suite! {
             let entry = index.get_entry(&builder, i).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
             println!("Check value 0");
-            let value_0 = entry.get_value("V0").unwrap();
+            let value_0 = entry.get_value("V0").unwrap().unwrap();
             println!("Raw value 0 is {:?}", value_0);
             let value_0 = value_0.as_vec().unwrap();
             assert_eq!(value_0, articles.val[i.into_usize()].path.as_bytes());
             println!("Check value 1");
-            let value_1 = entry.get_value("V1").unwrap();
+            let value_1 = entry.get_value("V1").unwrap().unwrap();
             println!("Raw value 1 is {:?}", value_1);
             let value_1 = value_1.as_content();
             println!("Value 1 is {:?}", value_1);
@@ -231,7 +231,7 @@ test_suite! {
             stream.read_to_string(&mut read_content).unwrap();
             assert_eq!(read_content, articles.val[i.into_usize()].content);
             println!("Check value 2");
-            let value_2 = entry.get_value("V2").unwrap();
+            let value_2 = entry.get_value("V2").unwrap().unwrap();
             let value_2 = value_2.as_unsigned();
             assert_eq!(value_2, articles.val[i.into_usize()].word_count as u64);
         }

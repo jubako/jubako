@@ -19,7 +19,7 @@ pub trait RangeTrait {
         if id.is_valid(*self.count()) {
             builder.create_entry(self.offset() + id)
         } else {
-            Err("Invalid id".to_string().into())
+            Err(Error::notfound("Invalid id"))
         }
     }
 
@@ -103,11 +103,11 @@ mod tests {
             fn get_variant_id(&self) -> Result<Option<VariantIdx>> {
                 Ok(None)
             }
-            fn get_value(&self, name: &str) -> Result<RawValue> {
+            fn get_value(&self, name: &str) -> Result<Option<RawValue>> {
                 if name == "foo" {
-                    Ok(self.v.clone())
+                    Ok(Some(self.v.clone()))
                 } else {
-                    panic!()
+                    Ok(None)
                 }
             }
         }
@@ -165,7 +165,7 @@ mod tests {
 
         for i in 0..10 {
             let entry = range.get_entry(&builder, i.into()).unwrap();
-            let value0 = entry.get_value("foo").unwrap();
+            let value0 = entry.get_value("foo").unwrap().unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }
     }
@@ -179,7 +179,7 @@ mod tests {
             let comparator = mock::EntryCompare::new(i, false);
             let idx = range.find(&comparator).unwrap().unwrap();
             let entry = range.get_entry(&builder, idx).unwrap();
-            let value0 = entry.get_value("foo").unwrap();
+            let value0 = entry.get_value("foo").unwrap().unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }
 
@@ -197,7 +197,7 @@ mod tests {
             let comparator = mock::EntryCompare::new(i, true);
             let idx = range.find(&comparator).unwrap().unwrap();
             let entry = range.get_entry(&builder, idx).unwrap();
-            let value0 = entry.get_value("foo").unwrap();
+            let value0 = entry.get_value("foo").unwrap().unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }
 

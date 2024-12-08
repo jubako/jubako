@@ -43,7 +43,10 @@ pub fn set_location<P: AsRef<Path>>(
 
     let manifest_pack_reader = container.get_manifest_pack_reader()?;
     if manifest_pack_reader.is_none() {
-        return Err(format!("No manifest pack in {}", filename.as_ref().display()).into());
+        return Err(Error::notfound(format!(
+            "No manifest pack in {}",
+            filename.as_ref().display()
+        )));
     };
     let manifest_pack_reader = manifest_pack_reader.unwrap();
     let pack_header = manifest_pack_reader.parse_block_at::<PackHeader>(jbk::Offset::zero())?;
@@ -71,5 +74,5 @@ pub fn set_location<P: AsRef<Path>>(
 
         return Ok((pack_info.pack_kind, old_location));
     }
-    Err(format!("Cannot find pack {uuid}").into())
+    Err(Error::notfound(format!("Cannot find pack {uuid}")))
 }

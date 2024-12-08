@@ -3,6 +3,7 @@ use crate::bases::*;
 #[cfg(debug_assertions)]
 use std::backtrace::Backtrace;
 use std::fmt;
+use std::ops::Deref;
 use std::string::FromUtf8Error;
 
 #[cfg(feature = "lzma")]
@@ -15,7 +16,7 @@ pub struct FormatError {
 }
 
 impl FormatError {
-    pub(crate) fn new(what: &str, where_: Option<Offset>) -> Self {
+    pub(crate) fn new(what: impl Into<String>, where_: Option<Offset>) -> Self {
         FormatError {
             what: what.into(),
             where_,
@@ -43,21 +44,61 @@ impl fmt::Display for FormatError {
 }
 
 #[derive(Debug)]
+/// Kind of error returned by Jubako.
 pub enum ErrorKind {
+    /// Io error. Can be raised by any error on the underlying system.
     Io(std::io::Error),
+
+    /// Corruption of the file detected (internal crc doesn't match)
+    Corrupted(Vec<u8>, [u8; 4]),
+
+    /// Format error detected.
+    ///
+    /// Crc is valid but data is not.
+    /// This can be because of a bug or (badly) forged file
     Format(FormatError),
+
+    /// Library cannot read the version of the file
     Version(u8, u8),
+
+    /// This is not a Jubako file
     NotAJbk,
-    Arg,
-    OtherError(Box<dyn std::error::Error + Send + Sync>),
-    Other(String),
-    OtherStatic(&'static str),
+
+    /// Arg given to the function/method is not valid (out of bound, ...)
+    Arg(String),
+
+    /// Type of the given value (at creation) doesn't correspond to the property type.
+    ///
+    /// This almost always because of a bug in the calling code.
+    /// This could, and maybe will, be replaced by assert.
+    WrongType(String),
+
+    /// Something in the archive cannot be read because Jubako has not be compile with
+    /// the right feature.
+    MissingFeature {
+        feature_name: String,
+        msg: String,
+    },
+    NotFound(String),
 }
 
 pub struct Error {
     pub error: ErrorKind,
     #[cfg(debug_assertions)]
     bt: Backtrace,
+}
+
+impl Deref for Error {
+    type Target = ErrorKind;
+    fn deref(&self) -> &Self::Target {
+        &self.error
+    }
+}
+
+impl From<ErrorKind> for Error {
+    fn from(value: ErrorKind) -> Self {
+        Self::new(value)
+    }
 }
 
 impl Error {
@@ -74,12 +115,30 @@ impl Error {
         Error { error }
     }
 
-    pub fn new_arg() -> Error {
-        Error::new(ErrorKind::Arg)
+    pub fn arg(msg: impl ToString) -> Error {
+        Error::new(ErrorKind::Arg(msg.to_string()))
     }
 
     pub fn version_error(major: u8, minor: u8) -> Error {
         Error::new(ErrorKind::Version(major, minor))
+    }
+
+    pub fn wrong_type(msg: impl Into<String>) -> Self {
+        Error::new(ErrorKind::WrongType(msg.into()))
+    }
+    pub fn missfeature(feature_name: impl Into<String>, msg: impl Into<String>) -> Self {
+        Error::new(ErrorKind::MissingFeature {
+            feature_name: feature_name.into(),
+            msg: msg.into(),
+        })
+    }
+
+    pub fn notfound(msg: impl Into<String>) -> Self {
+        Error::new(ErrorKind::NotFound(msg.into()))
+    }
+
+    pub fn corrupted(buf: Vec<u8>, found_crc: [u8; 4]) -> Self {
+        Error::new(ErrorKind::Corrupted(buf, found_crc))
     }
 }
 
@@ -101,34 +160,10 @@ impl From<FromUtf8Error> for Error {
     }
 }
 
-impl From<bstr::Utf8Error> for Error {
-    fn from(_e: bstr::Utf8Error) -> Error {
-        FormatError::new("Utf8DecodingError", None).into()
-    }
-}
-
 #[cfg(feature = "lzma")]
 impl From<lzmaError> for Error {
     fn from(_e: lzmaError) -> Error {
         FormatError::new("Lzma compression error", None).into()
-    }
-}
-
-impl From<String> for Error {
-    fn from(e: String) -> Error {
-        Error::new(ErrorKind::Other(e))
-    }
-}
-
-impl From<&'static str> for Error {
-    fn from(e: &'static str) -> Error {
-        Error::new(ErrorKind::OtherStatic(e))
-    }
-}
-
-impl From<Box<dyn std::error::Error + Sync + Send>> for Error {
-    fn from(e: Box<dyn std::error::Error + Sync + Send>) -> Error {
-        Error::new(ErrorKind::OtherError(e))
     }
 }
 
@@ -143,6 +178,10 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.error {
             ErrorKind::Io(e) => write!(f, "IO Error {e}"),
+            ErrorKind::Corrupted(buf, found_crc) => write!(
+                f,
+                "Not a valid checksum : {buf:X?}. Found is {found_crc:X?}"
+            ),
             ErrorKind::Format(e) => write!(f, "Jubako format error {e}"),
             ErrorKind::Version(major, minor) => {
                 writeln!(f, "Jubako version error. Found ({major},{minor})")?;
@@ -154,10 +193,16 @@ impl fmt::Display for Error {
                 )
             }
             ErrorKind::NotAJbk => write!(f, "This is not a Jubako archive"),
-            ErrorKind::Arg => write!(f, "Invalid argument"),
-            ErrorKind::Other(e) => write!(f, "Unknown error : {e}"),
-            ErrorKind::OtherStatic(e) => write!(f, "Unknown error : {e}"),
-            ErrorKind::OtherError(e) => write!(f, "Other error : {e}"),
+            ErrorKind::Arg(msg) => write!(f, "Invalid argument: {msg}"),
+            ErrorKind::WrongType(msg) => write!(f, "Wrong type: {msg}"),
+            ErrorKind::MissingFeature { feature_name, msg } => {
+                writeln!(f, "{msg}")?;
+                writeln!(
+                    f,
+                    "You may want to reinstall you tool with feature {feature_name}"
+                )
+            }
+            ErrorKind::NotFound(msg) => writeln!(f, "{msg}"),
         }
     }
 }

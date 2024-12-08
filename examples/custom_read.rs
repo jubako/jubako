@@ -104,7 +104,7 @@ impl jbk::reader::builder::BuilderTrait for Builder {
                     value2,
                 }))
             }
-            _ => Err("Unknown variant".into()),
+            _ => Err(jbk::Error::notfound("Unknown variant")),
         }
     }
 }

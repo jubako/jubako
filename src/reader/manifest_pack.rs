@@ -138,7 +138,7 @@ impl ManifestPack {
                 return Ok(pack_info);
             }
         }
-        Err(Error::new_arg())
+        Err(Error::arg(format!("Invalid pack_id {pack_id}")))
     }
 
     pub fn get_content_pack_info_uuid(&self, uuid: Uuid) -> Result<&PackInfo> {
@@ -147,7 +147,7 @@ impl ManifestPack {
                 return Ok(pack_info);
             }
         }
-        Err(Error::new_arg())
+        Err(Error::arg(format!("Invalid uuid {uuid}")))
     }
 
     pub fn get_pack_infos(&self) -> &[PackInfo] {

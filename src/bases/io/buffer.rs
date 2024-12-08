@@ -23,7 +23,9 @@ where
         let e = o + buf.len();
         let our_size = self.as_ref().len();
         if e > our_size {
-            return Err(format!("Out of slice. {e} ({o}) > {our_size}").into());
+            return Err(format_error!(format!(
+                "Out of slice. {e} ({o}) > {our_size}"
+            )));
         }
         buf.copy_from_slice(&self.as_ref()[o..e]);
         Ok(())

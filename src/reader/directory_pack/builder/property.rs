@@ -105,7 +105,9 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
                 let store = value_storage.get_value_store(value_store_idx)?;
                 IntProperty::new_from_deported(p.offset, int_size, store, id)
             }
-            _ => Err("Invalid key".to_string().into()),
+            ref other => Err(Error::wrong_type(format!(
+                "Layout property {other:?} is not compatible with integer"
+            ))),
         }
     }
 }
@@ -213,7 +215,9 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
                 let store = value_storage.get_value_store(value_store_idx)?;
                 SignedProperty::new_from_deported(p.offset, int_size, store, id)
             }
-            _ => Err("Invalid key".to_string().into()),
+            ref other => Err(Error::wrong_type(format!(
+                "Layout property {other:?} is not compatible with signed integer"
+            ))),
         }
     }
 }
@@ -312,7 +316,9 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
                     default,
                 ))
             }
-            _ => Err("Invalid key".to_string().into()),
+            ref other => Err(Error::wrong_type(format!(
+                "Layout property {other:?} is not compatible with array"
+            ))),
         }
     }
 }
@@ -383,7 +389,7 @@ impl ContentProperty {
 }
 
 impl TryFrom<&layout::Property> for ContentProperty {
-    type Error = String;
+    type Error = Error;
     fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
         match p.kind {
             layout::PropertyKind::ContentAddress {
@@ -396,7 +402,9 @@ impl TryFrom<&layout::Property> for ContentProperty {
                 pack_id_size,
                 content_id_size,
             )),
-            _ => Err("Invalid key".to_string()),
+            ref other => Err(Error::wrong_type(format!(
+                "Layout property {other:?} is not compatible with content"
+            ))),
         }
     }
 }

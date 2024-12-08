@@ -38,7 +38,6 @@ zerocopy = "0.7.5"
 rayon = "1.8.0"
 deranged = "0.3.10"
 tempfile = "3.8.0"
-bstr = "1.9.1"
 dropout = "0.1.0"
 serde = { version = "1.0.197", features = ["derive", "rc"], optional = true }
 serde_json = { version = "1.0.114", optional = true }

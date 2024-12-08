@@ -28,8 +28,15 @@ impl AnyVariantBuilder {
     pub(super) fn contains(&self, name: &str) -> bool {
         self.properties.contains_key(name)
     }
-    pub(super) fn create_value(&self, name: &str, parser: &impl RandomParser) -> Result<RawValue> {
-        self.properties[name].create(parser)
+    pub(super) fn create_value(
+        &self,
+        name: &str,
+        parser: &impl RandomParser,
+    ) -> Result<Option<RawValue>> {
+        self.properties
+            .get(name)
+            .map(|p| p.create(parser))
+            .transpose()
     }
 
     pub(super) fn new<ValueStorage>(
@@ -198,9 +205,12 @@ mod tests {
             assert!(entry.get_variant_id().unwrap().is_none());
             assert_eq!(
                 entry.get_value("V0").unwrap(),
-                RawValue::Content(ContentAddress::new(0.into(), 0x010000.into()))
+                Some(RawValue::Content(ContentAddress::new(
+                    0.into(),
+                    0x010000.into()
+                )))
             );
-            assert!(entry.get_value("V11").unwrap() == RawValue::U16(0x9988));
+            assert!(entry.get_value("V11").unwrap() == Some(RawValue::U16(0x9988)));
         }
 
         {
@@ -209,9 +219,12 @@ mod tests {
             assert!(entry.get_variant_id().unwrap().is_none());
             assert_eq!(
                 entry.get_value("V0").unwrap(),
-                RawValue::Content(ContentAddress::new(1.into(), 0x020000.into()))
+                Some(RawValue::Content(ContentAddress::new(
+                    1.into(),
+                    0x020000.into()
+                )))
             );
-            assert!(entry.get_value("V11").unwrap() == RawValue::U16(0x7766));
+            assert!(entry.get_value("V11").unwrap() == Some(RawValue::U16(0x7766)));
         }
     }
 
@@ -315,14 +328,14 @@ mod tests {
             assert_eq!(entry.get_variant_id().unwrap(), Some(0.into()));
             assert_eq!(
                 entry.get_value("V0").unwrap(),
-                RawValue::Array(Array::new(
+                Some(RawValue::Array(Array::new(
                     Some(ASize::new(4)),
                     BaseArray::new(&[0xFF, 0xEE, 0xDD, 0xCC]),
                     4,
                     None
-                ))
+                )))
             );
-            assert_eq!(entry.get_value("V1").unwrap(), RawValue::U16(0x8899));
+            assert_eq!(entry.get_value("V1").unwrap(), Some(RawValue::U16(0x8899)));
         }
 
         {
@@ -331,10 +344,15 @@ mod tests {
             assert_eq!(entry.get_variant_id().unwrap(), Some(1.into()));
             assert_eq!(
                 entry.get_value("V0").unwrap(),
-                RawValue::Array(Array::new(None, BaseArray::new(&[0xFF, 0xEE]), 2, None))
+                Some(RawValue::Array(Array::new(
+                    None,
+                    BaseArray::new(&[0xFF, 0xEE]),
+                    2,
+                    None
+                )))
             );
-            assert_eq!(entry.get_value("V2").unwrap(), RawValue::I8(-52));
-            assert_eq!(entry.get_value("V3").unwrap(), RawValue::U16(0x8899));
+            assert_eq!(entry.get_value("V2").unwrap(), Some(RawValue::I8(-52)));
+            assert_eq!(entry.get_value("V3").unwrap(), Some(RawValue::U16(0x8899)));
         }
     }
 }

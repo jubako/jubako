@@ -282,7 +282,7 @@ pub(super) struct ClusterWriterProxy<O: OutStream> {
     worker_threads: Vec<JoinHandle<Result<()>>>,
     thread_handle: JoinHandle<Result<(O, Vec<Late<SizedOffset>>)>>,
     dispatch_tx: spmc::Sender<ClusterCreator>,
-    fusion_tx: mpsc::Sender<WriteTask>,
+    fusion_tx: mpsc::Sender<WriteTask>, // FIXME: Should we use a `mpsc::SyncSender` instead ?
     nb_cluster_in_queue: Arc<(Mutex<usize>, Condvar)>,
     max_queue_size: usize,
     compression: Compression,
@@ -346,11 +346,13 @@ impl<O: OutStream + 'static> ClusterWriterProxy<O> {
                 .wait_while(count.lock().unwrap(), |c| *c >= self.max_queue_size)
                 .unwrap();
             *count += 1;
-            if let Err(e) = self.dispatch_tx.send(cluster) {
-                return Err(e.to_string().into());
-            }
-        } else if let Err(e) = self.fusion_tx.send(cluster.into()) {
-            return Err(e.to_string().into());
+            self.dispatch_tx
+                .send(cluster)
+                .expect("Receiver should not be closed");
+        } else {
+            self.fusion_tx
+                .send(cluster.into())
+                .expect("Receiver should not be closed");
         }
         Ok(())
     }

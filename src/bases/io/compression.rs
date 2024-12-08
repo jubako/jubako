@@ -175,7 +175,7 @@ impl Source for SeekableDecoder {
         let o = offset.force_into_usize();
         let end = o + buf.len();
         if end > self.buffer.total_size() {
-            return Err(String::from("Out of slice").into());
+            return Err(format_error!("Out of slice"));
         }
         self.decode_to(end);
         let slice = self.decoded_slice();
@@ -189,7 +189,11 @@ impl Source for SeekableDecoder {
             unreachable!()
         }
         if !region.end().is_valid(self.size()) {
-            return Err(format!("Out of slice. {} > {}", region.end(), self.size()).into());
+            return Err(format_error!(format!(
+                "Out of slice. {} > {}",
+                region.end(),
+                self.size()
+            )));
         }
         self.decode_to(region.end().force_into_usize());
         Ok(Cow::Borrowed(

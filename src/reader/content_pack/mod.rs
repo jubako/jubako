@@ -72,7 +72,7 @@ impl ContentPack {
 
     pub fn get_content(&self, index: ContentIdx) -> Result<ByteRegion> {
         if !index.is_valid(*self.header.content_count) {
-            return Err(Error::new_arg());
+            return Err(Error::arg(format!("Invalid index {index}")));
         }
         let content_info = self.content_infos.index(*index)?;
         if !content_info

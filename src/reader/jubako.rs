@@ -90,7 +90,7 @@ impl Container {
         let reader = container_pack.get_manifest_pack_reader()?;
 
         if reader.is_none() {
-            return Err("Impossible to locate the manifest_pack".into());
+            return Err(Error::notfound("Impossible to locate the manifest_pack"));
         }
         let reader = reader.unwrap();
 

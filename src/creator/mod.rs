@@ -23,8 +23,6 @@ use std::fs::OpenOptions;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 
-use bstr::ByteVec;
-
 mod private {
     use super::*;
     pub trait WritableTell {
@@ -288,11 +286,27 @@ impl OutStream for NamedFile {
     }
 }
 
+fn path_to_vec_u8(p: PathBuf) -> Result<Vec<u8>> {
+    #[cfg(unix)]
+    fn inner(p: PathBuf) -> Result<Vec<u8>> {
+        use std::os::unix::ffi::OsStrExt;
+        Ok(p.as_os_str().as_bytes().to_vec())
+    }
+    #[cfg(windows)]
+    fn inner(p: PathBuf) -> Result<Vec<u8>> {
+        use std::os::windows::ffi::OsStrExt;
+        let vec_16: Vec<u16> = self.final_path.encode_wide().collect();
+        let path: String = String::from_utf16(&vec_16)?;
+        Ok(path.as_bytes().to_vec())
+    }
+    inner(p)
+}
+
 impl private::Sealed for NamedFile {}
 
 impl PackRecipient for NamedFile {
     fn close_file(self: Box<Self>) -> Result<Vec<u8>> {
-        Vec::from_path_buf(self.final_path).map_err(|e| format!("{e:?} is not valid utf8").into())
+        path_to_vec_u8(self.final_path)
     }
 }
 
@@ -350,6 +364,6 @@ impl PackRecipient for AtomicOutFile {
         self.temp_file
             .persist(&self.final_path)
             .map_err(|e| e.error)?;
-        Vec::from_path_buf(self.final_path).map_err(|e| format!("{e:?} is not valid utf8").into())
+        path_to_vec_u8(self.final_path)
     }
 }

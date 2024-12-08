@@ -657,10 +657,10 @@ test_suite! {
         for i in index.count() {
             let entry = index.get_entry(&builder, i).unwrap();
             assert_eq!(entry.get_variant_id().unwrap(), None);
-            let value_0 = entry.get_value("V0").unwrap();
+            let value_0 = entry.get_value("V0").unwrap().unwrap();
             let vec = value_0.as_vec().unwrap();
             assert_eq!(vec, articles.val[i.into_u32() as usize].path.as_bytes());
-            let value_1 = entry.get_value("V1").unwrap();
+            let value_1 = entry.get_value("V1").unwrap().unwrap();
             if let reader::RawValue::Content(content) = value_1 {
                 assert_eq!(
                     content,
@@ -674,7 +674,7 @@ test_suite! {
             } else {
               panic!();
             }
-            let value_2= entry.get_value("V2").unwrap();
+            let value_2= entry.get_value("V2").unwrap().unwrap();
             if let reader::RawValue::U16(v) = value_2 {
                 assert_eq!(v, articles.val[i.into_u32() as usize].word_count);
             } else {

@@ -34,8 +34,9 @@ impl CompareTrait for PropertyCompare<'_> {
         for (name, value) in std::iter::zip(self.property_names.iter(), self.values.iter()) {
             let ordering = entry
                 .get_value(name)?
+                .ok_or_else(|| Error::arg(format!("Invalid name {name}")))?
                 .partial_cmp(value)?
-                .ok_or_else(|| Error::from("Invalide value type".to_string()))?;
+                .ok_or_else(|| Error::arg(format!("Invalid value type {value:?}")))?;
             if ordering.is_ne() {
                 return Ok(ordering);
             }
