@@ -2,7 +2,7 @@
 edition = "2021"
 name = "jubako"
 description = "The reference implementation of the Jubako container format"
-version = "0.3.3"
+version = "0.4.0-dev"
 authors = ["Matthieu Gautier <mgautier@kymeria.fr>"]
 repository = "https://github.com/jubako/jubako"
 license = "MIT"
