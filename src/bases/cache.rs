@@ -1,10 +1,10 @@
-use super::types::*;
 use std::sync::{Arc, OnceLock};
 
 pub(crate) trait CachableSource<Value> {
+    type Error;
     type Idx: Into<usize> + Copy;
     fn get_len(&self) -> usize;
-    fn get_value(&self, id: Self::Idx) -> Result<Arc<Value>>;
+    fn get_value(&self, id: Self::Idx) -> Result<Arc<Value>, Self::Error>;
 }
 
 pub(crate) struct VecCache<Value, Source>
@@ -25,7 +25,7 @@ where
         Self { source, values }
     }
 
-    pub fn get(&self, index: Source::Idx) -> Result<&Arc<Value>> {
+    pub fn get(&self, index: Source::Idx) -> Result<&Arc<Value>, Source::Error> {
         let cache_slot = &self.values[index.into()];
         if cache_slot.get().is_none() {
             let new_value = self.source.get_value(index)?;

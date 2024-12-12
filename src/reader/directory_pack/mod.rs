@@ -145,6 +145,7 @@ impl DirectoryPack {
 }
 
 impl CachableSource<ValueStore> for DirectoryPack {
+    type Error = Error;
     type Idx = ValueStoreIdx;
     fn get_len(&self) -> usize {
         self.header.value_store_count.into_usize()
@@ -159,6 +160,7 @@ impl CachableSource<ValueStore> for DirectoryPack {
 }
 
 impl CachableSource<EntryStore> for DirectoryPack {
+    type Error = Error;
     type Idx = EntryStoreIdx;
     fn get_len(&self) -> usize {
         self.header.entry_store_count.into_usize()
@@ -205,11 +207,12 @@ impl Pack for DirectoryPack {
             Size::from(self.pack_header.check_info_pos),
             false,
         )?;
-        self.check_info
+        Ok(self
+            .check_info
             .read()
             .unwrap()
             .unwrap()
-            .check(&mut check_stream)
+            .check(&mut check_stream)?)
     }
 }
 
