@@ -83,14 +83,14 @@ impl CheckInfo {
         Self { b3hash: None }
     }
 
-    pub(crate) fn new_blake3(source: &mut dyn Read) -> Result<Self> {
+    pub(crate) fn new_blake3(source: &mut dyn Read) -> std::io::Result<Self> {
         let mut hasher = blake3::Hasher::new();
         hasher.update_reader(source)?;
         let hash = hasher.finalize();
         Ok(Self { b3hash: Some(hash) })
     }
 
-    pub(crate) fn check(&self, source: &mut dyn Read) -> Result<bool> {
+    pub(crate) fn check(&self, source: &mut dyn Read) -> std::io::Result<bool> {
         if let Some(b3hash) = self.b3hash {
             let mut hasher = blake3::Hasher::new();
             hasher.update_reader(source)?;

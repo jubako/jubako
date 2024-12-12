@@ -20,12 +20,12 @@ pub struct InContainerFile<F: PackRecipient> {
 }
 
 impl ContainerPackCreator<NamedFile> {
-    pub fn new<P: AsRef<Path>>(path: P, free_data: PackFreeData) -> Result<Self> {
+    pub fn new<P: AsRef<Path>>(path: P, free_data: PackFreeData) -> IoResult<Self> {
         Self::from_file(NamedFile::new(path)?, free_data)
     }
 }
 impl<F: PackRecipient> ContainerPackCreator<F> {
-    pub fn from_file(mut file: Box<F>, free_data: PackFreeData) -> Result<Self> {
+    pub fn from_file(mut file: Box<F>, free_data: PackFreeData) -> IoResult<Self> {
         file.seek(SeekFrom::Start(
             (PackHeader::BLOCK_SIZE + ContainerPackHeader::BLOCK_SIZE) as u64,
         ))?;
@@ -36,7 +36,7 @@ impl<F: PackRecipient> ContainerPackCreator<F> {
         })
     }
 
-    pub fn into_file(self) -> Result<Box<InContainerFile<F>>> {
+    pub fn into_file(self) -> IoResult<Box<InContainerFile<F>>> {
         Ok(Box::new(self::InContainerFile {
             file: Skip::new(self.file)?,
             packs: self.packs,
@@ -44,7 +44,7 @@ impl<F: PackRecipient> ContainerPackCreator<F> {
         }))
     }
 
-    pub fn add_pack<I: Read>(&mut self, uuid: uuid::Uuid, reader: &mut I) -> Result<()> {
+    pub fn add_pack<I: Read>(&mut self, uuid: uuid::Uuid, reader: &mut I) -> IoResult<()> {
         let pack_offset = self.file.tell();
         std::io::copy(reader, &mut self.file)?;
         let pack_size = self.file.tell() - pack_offset;
@@ -53,7 +53,7 @@ impl<F: PackRecipient> ContainerPackCreator<F> {
         Ok(())
     }
 
-    pub fn finalize(mut self) -> Result<Box<F>> {
+    pub fn finalize(mut self) -> IoResult<Box<F>> {
         let pack_locators_pos = self.file.tell();
 
         for pack_locator in &self.packs {
@@ -95,7 +95,7 @@ impl<F: PackRecipient> ContainerPackCreator<F> {
 }
 
 impl<F: PackRecipient> InContainerFile<F> {
-    pub fn close(mut self, uuid: uuid::Uuid) -> Result<ContainerPackCreator<F>> {
+    pub fn close(mut self, uuid: uuid::Uuid) -> IoResult<ContainerPackCreator<F>> {
         let pack_size = self.file.seek(SeekFrom::End(0))?;
         self.file.seek(SeekFrom::Start(0))?;
         let mut file = self.file.into_inner();
@@ -112,23 +112,23 @@ impl<F: PackRecipient> InContainerFile<F> {
 }
 
 impl<F: PackRecipient> Seek for InContainerFile<F> {
-    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
+    fn seek(&mut self, pos: io::SeekFrom) -> IoResult<u64> {
         self.file.seek(pos)
     }
 }
 
 impl<F: PackRecipient> Write for InContainerFile<F> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
         self.file.write(buf)
     }
 
-    fn flush(&mut self) -> io::Result<()> {
+    fn flush(&mut self) -> IoResult<()> {
         self.file.flush()
     }
 }
 
 impl<F: PackRecipient> Read for InContainerFile<F> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
         self.file.read(buf)
     }
 }

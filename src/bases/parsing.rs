@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use zerocopy::{ByteOrder, LE};
 
-use super::{ByteSize, FormatError, Offset, Result};
+use super::{ByteSize, Offset, Result};
 
 /// A Parser is something parsing data from a [u8]
 pub trait Parser {
@@ -54,7 +54,7 @@ pub trait RandomParser {
 
     fn create_parser(&self, offset: Offset) -> Result<Self::Parser<'_>>;
     fn read_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>>;
-    fn read_data(&self, offset: Offset, buf: &mut [u8]) -> Result<()>;
+    fn read_data(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<()>;
 
     fn global_offset(&self) -> Offset;
     fn read_u8(&self, offset: Offset) -> Result<u8> {

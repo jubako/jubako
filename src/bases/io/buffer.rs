@@ -9,23 +9,21 @@ where
     fn size(&self) -> Size {
         self.as_ref().len().into()
     }
-    fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize> {
+    fn read(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<usize> {
         let o = offset.force_into_usize();
         let mut slice = &self.as_ref()[o..];
-        match Read::read(&mut slice, buf) {
-            Err(e) => Err(e.into()),
-            Ok(v) => Ok(v),
-        }
+        Read::read(&mut slice, buf)
     }
 
-    fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()> {
+    fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<()> {
         let o = offset.force_into_usize();
         let e = o + buf.len();
         let our_size = self.as_ref().len();
         if e > our_size {
-            return Err(format_error!(format!(
-                "Out of slice. {e} ({o}) > {our_size}"
-            )));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                format!("Out of slice. {e} ({o}) > {our_size}"),
+            ));
         }
         buf.copy_from_slice(&self.as_ref()[o..e]);
         Ok(())

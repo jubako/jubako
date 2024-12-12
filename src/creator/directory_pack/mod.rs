@@ -332,7 +332,7 @@ impl super::private::WritableTell for Index {
         // No data to write
         Ok(())
     }
-    fn serialize_tail(&mut self, ser: &mut Serializer) -> Result<()> {
+    fn serialize_tail(&mut self, ser: &mut Serializer) -> IoResult<()> {
         self.store_id.serialize(ser)?;
         self.count.serialize(ser)?;
         self.offset.get().serialize(ser)?;

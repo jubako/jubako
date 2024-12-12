@@ -18,13 +18,13 @@ pub struct FileSource {
 }
 
 impl FileSource {
-    pub fn open<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
+    pub fn open<P: AsRef<std::path::Path>>(path: P) -> std::io::Result<Self> {
         let mut s = Self::new(std::fs::File::open(&path)?)?;
         s.path = path.as_ref().into();
         Ok(s)
     }
 
-    pub fn new(mut source: File) -> Result<Self> {
+    pub fn new(mut source: File) -> std::io::Result<Self> {
         let len = source.seek(SeekFrom::End(0))?;
         source.seek(SeekFrom::Start(0))?;
         let source = io::BufReader::with_capacity(1024, source);
@@ -65,22 +65,18 @@ impl Source for FileSource {
     fn size(&self) -> Size {
         (self.len).into()
     }
-    fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize> {
+    fn read(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<usize> {
         let mut f = self.lock().unwrap();
+        // TODO: Use `read_at`/`seek_read`
         f.seek(SeekFrom::Start(offset.into_u64()))?;
-        match f.read(buf) {
-            Err(e) => Err(e.into()),
-            Ok(v) => Ok(v),
-        }
+        f.read(buf)
     }
 
-    fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()> {
+    fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<()> {
         let mut f = self.lock().unwrap();
+        // TODO: Use `read_at`/`seek_read`
         f.seek(SeekFrom::Start(offset.into_u64()))?;
-        match f.read_exact(buf) {
-            Err(e) => Err(e.into()),
-            Ok(v) => Ok(v),
-        }
+        f.read_exact(buf)
     }
 
     fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<[u8]>> {

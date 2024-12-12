@@ -132,7 +132,7 @@ where
         Ok(())
     }
 
-    fn serialize_tail(&mut self, ser: &mut Serializer) -> Result<()> {
+    fn serialize_tail(&mut self, ser: &mut Serializer) -> std::io::Result<()> {
         ser.write_u8(0x00)?; // kind
         let entry_count = EntryCount::from(self.entries.len() as u32);
         entry_count.serialize(ser)?;

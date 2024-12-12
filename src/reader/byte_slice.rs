@@ -76,7 +76,7 @@ impl<'s> RandomParser for ByteSlice<'s> {
         self.source.get_slice(region, BlockCheck::None)
     }
 
-    fn read_data(&self, offset: Offset, buf: &mut [u8]) -> Result<()> {
+    fn read_data(&self, offset: Offset, buf: &mut [u8]) -> IoResult<()> {
         self.source.read_exact(self.region.begin() + offset, buf)
     }
 }

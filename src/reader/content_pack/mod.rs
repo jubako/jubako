@@ -193,7 +193,7 @@ impl Pack for ContentPack {
             Size::from(self.pack_header.check_info_pos),
             false,
         )?;
-        check_info.check(&mut check_stream)
+        Ok(check_info.check(&mut check_stream)?)
     }
 }
 

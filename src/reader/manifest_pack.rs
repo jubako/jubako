@@ -212,7 +212,7 @@ impl Pack for ManifestPack {
         )?;
         let mut check_stream =
             ManifestCheckStream::new_from_offset_iter(&mut check_stream, self.packs_offset());
-        check_info.check(&mut check_stream)
+        Ok(check_info.check(&mut check_stream)?)
     }
 }
 

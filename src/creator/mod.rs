@@ -27,8 +27,8 @@ mod private {
     use super::*;
     pub trait WritableTell {
         fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()>;
-        fn serialize_tail(&mut self, stream: &mut Serializer) -> Result<()>;
         fn write(&mut self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
+        fn serialize_tail(&mut self, stream: &mut Serializer) -> std::io::Result<()>;
             self.write_data(stream)?;
             let offset = stream.tell();
             let mut serializer = Serializer::new(BlockCheck::Crc32);
@@ -79,15 +79,15 @@ pub struct InputFile {
 }
 
 impl InputFile {
-    pub fn open<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
+    pub fn open<P: AsRef<std::path::Path>>(path: P) -> IoResult<Self> {
         Self::new(std::fs::File::open(path)?)
     }
 
-    pub fn new(source: std::fs::File) -> Result<Self> {
+    pub fn new(source: std::fs::File) -> IoResult<Self> {
         Self::new_range(source, 0, None)
     }
 
-    pub fn new_range(mut source: std::fs::File, origin: u64, size: Option<u64>) -> Result<Self> {
+    pub fn new_range(mut source: std::fs::File, origin: u64, size: Option<u64>) -> IoResult<Self> {
         let total_len = source.seek(SeekFrom::End(0))?;
         let size = match size {
             None => total_len - origin,
@@ -108,7 +108,7 @@ impl InputFile {
 }
 
 impl Seek for InputFile {
-    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+    fn seek(&mut self, pos: SeekFrom) -> IoResult<u64> {
         let pos = match pos {
             SeekFrom::Start(o) => SeekFrom::Start(self.origin + o),
             SeekFrom::Current(o) => SeekFrom::Current(o),
@@ -118,24 +118,24 @@ impl Seek for InputFile {
         Ok(self.position)
     }
 
-    fn rewind(&mut self) -> std::io::Result<()> {
+    fn rewind(&mut self) -> IoResult<()> {
         self.seek(SeekFrom::Start(0))?;
         Ok(())
     }
 
     #[cfg(feature = "nightly")]
-    fn stream_len(&mut self) -> std::io::Result<()> {
+    fn stream_len(&mut self) -> IoResult<()> {
         Ok(self.len)
     }
 
-    fn stream_position(&mut self) -> std::io::Result<u64> {
+    fn stream_position(&mut self) -> IoResult<u64> {
         Ok(self.position - self.origin)
     }
 }
 
 impl Read for InputFile {
     // Required method
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
         let size_to_read = std::cmp::min(
             buf.len(),
             (self.len - self.local_position()).try_into().unwrap(),
@@ -236,7 +236,7 @@ pub struct NamedFile {
 }
 
 impl NamedFile {
-    fn new<P: AsRef<std::path::Path>>(final_path: P) -> Result<Box<Self>> {
+    fn new<P: AsRef<std::path::Path>>(final_path: P) -> IoResult<Box<Self>> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -256,23 +256,23 @@ impl NamedFile {
 }
 
 impl Seek for NamedFile {
-    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
+    fn seek(&mut self, pos: io::SeekFrom) -> IoResult<u64> {
         self.file.seek(pos)
     }
 }
 
 impl io::Write for NamedFile {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
         self.file.write(buf)
     }
 
-    fn flush(&mut self) -> io::Result<()> {
+    fn flush(&mut self) -> IoResult<()> {
         self.file.flush()
     }
 }
 
 impl io::Read for NamedFile {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
         self.file.read(buf)
     }
 }
@@ -317,7 +317,7 @@ pub struct AtomicOutFile {
 }
 
 impl AtomicOutFile {
-    pub fn new<P: AsRef<std::path::Path>>(final_path: P) -> Result<Box<Self>> {
+    pub fn new<P: AsRef<std::path::Path>>(final_path: P) -> IoResult<Box<Self>> {
         let parent = final_path.as_ref().parent().unwrap();
         let temp_file = tempfile::NamedTempFile::new_in(parent)?;
         Ok(Box::new(Self {
@@ -328,23 +328,23 @@ impl AtomicOutFile {
 }
 
 impl Seek for AtomicOutFile {
-    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
+    fn seek(&mut self, pos: io::SeekFrom) -> IoResult<u64> {
         self.temp_file.seek(pos)
     }
 }
 
 impl io::Write for AtomicOutFile {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
         self.temp_file.write(buf)
     }
 
-    fn flush(&mut self) -> io::Result<()> {
+    fn flush(&mut self) -> IoResult<()> {
         self.temp_file.flush()
     }
 }
 
 impl io::Read for AtomicOutFile {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
         self.temp_file.read(buf)
     }
 }

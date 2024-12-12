@@ -55,7 +55,7 @@ impl DirectoryPackCreator {
         self.indexes.push(index);
     }
 
-    pub fn finalize(self) -> Result<FinalizedDirectoryPackCreator> {
+    pub fn finalize(self) -> std::io::Result<FinalizedDirectoryPackCreator> {
         info!("======= Finalize creation =======");
 
         info!("----- Finalize value_stores -----");

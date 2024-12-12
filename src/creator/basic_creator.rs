@@ -213,7 +213,7 @@ impl BasicCreator {
         &mut self,
         content: Box<dyn InputReader>,
         comp_hint: CompHint,
-    ) -> Result<ContentAddress> {
+    ) -> std::io::Result<ContentAddress> {
         self.content_pack.add_content(content, comp_hint)
     }
 }
@@ -223,7 +223,7 @@ impl ContentAdder for BasicCreator {
         &mut self,
         content: Box<dyn InputReader>,
         comp_hint: CompHint,
-    ) -> Result<ContentAddress> {
+    ) -> std::io::Result<ContentAddress> {
         self.add_content(content, comp_hint)
     }
 }

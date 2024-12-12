@@ -185,7 +185,7 @@ impl WritableTell for ValueStore {
         }
     }
 
-    fn serialize_tail(&mut self, ser: &mut Serializer) -> Result<()> {
+    fn serialize_tail(&mut self, ser: &mut Serializer) -> IoResult<()> {
         match self {
             Self::Plain(s) => s.serialize_tail(ser),
             Self::Indexed(s) => s.serialize_tail(ser),
@@ -305,7 +305,7 @@ impl WritableTell for PlainValueStore {
         Ok(())
     }
 
-    fn serialize_tail(&mut self, ser: &mut Serializer) -> Result<()> {
+    fn serialize_tail(&mut self, ser: &mut Serializer) -> IoResult<()> {
         ser.write_u8(0x00)?;
         self.size().serialize(ser)?;
         Ok(())
@@ -385,7 +385,7 @@ impl WritableTell for IndexedValueStore {
         Ok(())
     }
 
-    fn serialize_tail(&mut self, ser: &mut Serializer) -> Result<()> {
+    fn serialize_tail(&mut self, ser: &mut Serializer) -> IoResult<()> {
         ser.write_u8(0x01)?;
         ser.write_u64(self.0.sorted_indirect.len() as u64)?; // key count
         let data_size = self.0.size.into_u64();
