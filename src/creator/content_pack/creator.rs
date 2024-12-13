@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use log::info;
 
-fn shannon_entropy(data: &[u8]) -> Result<f32> {
+fn shannon_entropy(data: &[u8]) -> f32 {
     let mut entropy = 0.0;
     let mut counts = [0; 256];
 
@@ -31,7 +31,7 @@ fn shannon_entropy(data: &[u8]) -> Result<f32> {
         entropy -= p * p.log(2.0);
     }
 
-    Ok(entropy)
+    entropy
 }
 
 pub struct ContentPackCreator<O: PackRecipient + ?Sized> {
@@ -207,7 +207,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
                 {
                     content.take(4 * 1024).read_to_end(&mut head)?;
                 }
-                let entropy = shannon_entropy(&head)?;
+                let entropy = shannon_entropy(&head);
                 content.seek(SeekFrom::Start(0))?;
                 Ok(entropy <= 6.0)
             }

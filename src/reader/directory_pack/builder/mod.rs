@@ -182,8 +182,7 @@ mod tests {
                         Some("V11".to_string()),
                     ),
                 ],
-            )
-            .unwrap(),
+            ),
             variant_part: None,
             entry_count: EntryCount::from(2),
             is_entry_checked: false,
@@ -231,7 +230,7 @@ mod tests {
     #[test]
     fn create_entry_with_variant() {
         let layout = Layout {
-            common: Properties::new(0, vec![]).unwrap(),
+            common: Properties::new(0, vec![]),
             variant_part: Some(VariantPart {
                 variant_id_offset: Offset::new(0),
                 variants: Box::new([
@@ -258,7 +257,6 @@ mod tests {
                             ),
                         ],
                     )
-                    .unwrap()
                     .into(),
                     Properties::new(
                         1,
@@ -292,7 +290,6 @@ mod tests {
                             ),
                         ],
                     )
-                    .unwrap()
                     .into(),
                 ]),
                 names: HashMap::from([
