@@ -8,6 +8,7 @@ mod value_store;
 
 use crate::bases::*;
 use crate::common;
+use crate::creator::Result;
 pub use directory_pack::DirectoryPackCreator;
 pub use entry_store::EntryStore;
 use std::cmp;

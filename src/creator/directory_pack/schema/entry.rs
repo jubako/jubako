@@ -1,7 +1,7 @@
 use super::properties::{CommonProperties, Properties, VariantProperties};
 use crate::bases::Writable;
 use crate::bases::*;
-use crate::creator::directory_pack::EntryTrait;
+use crate::creator::{directory_pack::EntryTrait, Result};
 
 #[derive(Debug)]
 struct Entry {

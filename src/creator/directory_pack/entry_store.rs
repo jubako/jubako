@@ -2,6 +2,7 @@ use super::schema;
 use super::{FullEntryTrait, PropertyName, VariantName};
 use crate::bases::*;
 use crate::creator::private::WritableTell;
+use crate::creator::Result;
 use rayon::prelude::*;
 
 use log::debug;

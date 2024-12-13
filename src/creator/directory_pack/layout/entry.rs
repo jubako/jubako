@@ -3,6 +3,7 @@ use super::properties::Properties;
 use crate::bases::Serializable;
 use crate::bases::*;
 use crate::creator::directory_pack::EntryTrait;
+use crate::creator::Result;
 use std::collections::HashMap;
 
 #[derive(Debug)]

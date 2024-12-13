@@ -2,6 +2,7 @@ mod basic_creator;
 mod container_pack;
 mod content_pack;
 mod directory_pack;
+mod errors;
 mod manifest_pack;
 
 pub use crate::bases::FileSource;
@@ -18,17 +19,19 @@ pub use directory_pack::{
     schema, Array, ArrayS, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait,
     FullEntryTrait, PropertyName, StoreHandle, Value, ValueHandle, ValueStore, VariantName,
 };
+pub use errors::{Error, Result};
 pub use manifest_pack::ManifestPackCreator;
 use std::fs::OpenOptions;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::PathBuf;
+use std::string::FromUtf16Error;
 
 mod private {
     use super::*;
     pub trait WritableTell {
         fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()>;
-        fn write(&mut self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
         fn serialize_tail(&mut self, stream: &mut Serializer) -> std::io::Result<()>;
+        fn write(&mut self, stream: &mut dyn OutStream) -> Result<SizedOffset> {
             self.write_data(stream)?;
             let offset = stream.tell();
             let mut serializer = Serializer::new(BlockCheck::Crc32);
@@ -286,14 +289,14 @@ impl OutStream for NamedFile {
     }
 }
 
-fn path_to_vec_u8(p: PathBuf) -> Result<Vec<u8>> {
+fn path_to_vec_u8(p: PathBuf) -> std::result::Result<Vec<u8>, FromUtf16Error> {
     #[cfg(unix)]
-    fn inner(p: PathBuf) -> Result<Vec<u8>> {
+    fn inner(p: PathBuf) -> std::result::Result<Vec<u8>, FromUtf16Error> {
         use std::os::unix::ffi::OsStrExt;
         Ok(p.as_os_str().as_bytes().to_vec())
     }
     #[cfg(windows)]
-    fn inner(p: PathBuf) -> Result<Vec<u8>> {
+    fn inner(p: PathBuf) -> std::result::Result<Vec<u8>, FromUtf16Error> {
         use std::os::windows::ffi::OsStrExt;
         let vec_16: Vec<u16> = self.final_path.encode_wide().collect();
         let path: String = String::from_utf16(&vec_16)?;
@@ -306,7 +309,7 @@ impl private::Sealed for NamedFile {}
 
 impl PackRecipient for NamedFile {
     fn close_file(self: Box<Self>) -> Result<Vec<u8>> {
-        path_to_vec_u8(self.final_path)
+        Ok(path_to_vec_u8(self.final_path)?)
     }
 }
 
@@ -364,6 +367,6 @@ impl PackRecipient for AtomicOutFile {
         self.temp_file
             .persist(&self.final_path)
             .map_err(|e| e.error)?;
-        path_to_vec_u8(self.final_path)
+        Ok(path_to_vec_u8(self.final_path)?)
     }
 }

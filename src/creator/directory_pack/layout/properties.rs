@@ -4,6 +4,7 @@ use super::Value;
 use crate::bases::Serializable;
 use crate::bases::*;
 use crate::creator::directory_pack::EntryTrait;
+use crate::creator::{Error, Result};
 
 #[derive(Debug)]
 #[repr(transparent)]

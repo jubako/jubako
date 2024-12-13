@@ -4,7 +4,7 @@ use crate::common::{
     CheckInfo, CheckKind, DirectoryPackHeader, PackHeader, PackHeaderInfo, PackKind,
 };
 use crate::creator::private::WritableTell;
-use crate::creator::PackData;
+use crate::creator::{PackData, Result};
 use entry_store::EntryStoreTrait;
 use std::io::{BufWriter, Seek, SeekFrom, Write};
 use value_store::StoreHandle;

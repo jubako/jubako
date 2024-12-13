@@ -1,5 +1,6 @@
 use crate::bases::*;
 use crate::common::{CheckInfo, ContainerPackHeader, PackHeader, PackHeaderInfo, PackLocator};
+use crate::creator::Result;
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 

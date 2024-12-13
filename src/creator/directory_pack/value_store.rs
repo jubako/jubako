@@ -1,5 +1,5 @@
 use crate::bases::*;
-use crate::creator::private::WritableTell;
+use crate::creator::{private::WritableTell, Result};
 use rayon::prelude::*;
 use std::cell::Cell;
 
