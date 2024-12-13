@@ -74,7 +74,9 @@ impl IntProperty {
                 let mut data_parser =
                     SliceParser::new(std::borrow::Cow::Borrowed(default_data), Offset::zero());
 
-                let default = data_parser.read_usized(size).unwrap();
+                let default = data_parser
+                    .read_usized(size)
+                    .expect("data_parser has the right size, so should not fail");
                 Ok(IntProperty::new(offset, size, Some(default), None))
             }
             DeportedDefault::KeySize(key_size) => Ok(IntProperty::new(
@@ -182,7 +184,9 @@ impl SignedProperty {
                 let mut data_parser =
                     SliceParser::new(std::borrow::Cow::Borrowed(default_data), Offset::zero());
 
-                let default = data_parser.read_isized(size).unwrap();
+                let default = data_parser
+                    .read_isized(size)
+                    .expect("data_parser has the right size, so should not fail");
                 Ok(SignedProperty::new(offset, size, Some(default), None))
             }
             DeportedDefault::KeySize(key_size) => Ok(SignedProperty::new(
