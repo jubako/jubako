@@ -298,6 +298,7 @@ impl Parsable for RawLayout {
 }
 
 #[cfg(test)]
+#[allow(clippy::identity_op)]
 mod tests {
     use super::*;
     use test_case::test_case;
