@@ -17,7 +17,7 @@ pub struct ValueHandle {
 }
 
 impl std::fmt::Debug for ValueHandle {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ValueHandle")
             .field("store", &"Unknown")
             .field("idx", &self.idx.get())
