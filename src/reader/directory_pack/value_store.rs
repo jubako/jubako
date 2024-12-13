@@ -317,21 +317,21 @@ impl graphex::Node for IndexedValueStore {
         let (idx, size) = if let Some((first, second)) = key.split_once('-') {
             let offset = first
                 .parse::<u64>()
-                .map_err(|e| Error::from(format!("{e}")))?;
+                .map_err(|e| graphex::Error::key(&format!("{e}")))?;
             let size = Some(ASize::from(
                 second
                     .parse::<usize>()
-                    .map_err(|e| Error::from(format!("{e}")))?,
+                    .map_err(|e| graphex::Error::key(&format!("{e}")))?,
             ));
             (offset, size)
         } else {
             let offset = key
                 .parse::<u64>()
-                .map_err(|e| Error::from(format!("{e}")))?;
+                .map_err(|e| graphex::Error::key(&format!("{e}")))?;
             (offset, None)
         };
         if idx >= self.value_offsets.len() as u64 {
-            return Err(Error::from(format!("{idx} is not a valid index")).into());
+            return Err(graphex::Error::key(&format!("{idx} is not a valid index")));
         }
         Ok(Box::new(
             String::from_utf8_lossy(self.get_data(ValueIdx::from(idx), size)?).into_owned(),

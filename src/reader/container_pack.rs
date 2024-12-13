@@ -130,12 +130,12 @@ impl graphex::Node for ContainerPack {
             let uuid = self
                 .packs_uuid
                 .get(index)
-                .ok_or_else(|| Error::from(format!("{item} is not a valid key.")))?;
+                .ok_or_else(|| graphex::Error::key(&format!("{item} is not a valid key.")))?;
             &self.packs[uuid]
         } else if let Ok(uuid) = item.parse::<Uuid>() {
             self.packs
                 .get(&uuid)
-                .ok_or_else(|| Error::from(format!("{item} is not a valid key.")))?
+                .ok_or_else(|| graphex::Error::key(&format!("{item} is not a valid key.")))?
         } else {
             return Err(graphex::Error::key("Invalid key"));
         };

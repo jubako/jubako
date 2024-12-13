@@ -115,14 +115,14 @@ impl graphex::Node for ContentPack {
         if let Some(item) = key.strip_prefix("e.") {
             let index = item
                 .parse::<u32>()
-                .map_err(|e| Error::from(format!("{e}")))?;
+                .map_err(|e| graphex::Error::key(&format!("{e}")))?;
             let index = ContentIdx::from(index);
             let content_info = self.content_infos.index(*index)?;
             Ok(Box::new(content_info).into())
         } else if let Some(item) = key.strip_prefix("c.") {
             let index = item
                 .parse::<u32>()
-                .map_err(|e| Error::from(format!("{e}")))?;
+                .map_err(|e| graphex::Error::key(&format!("{e}")))?;
             let cluster_info = self.cluster_ptrs.index(index.into())?;
             Ok(Box::new(self.reader.parse_data_block::<Cluster>(cluster_info)?).into())
         } else {

@@ -174,13 +174,13 @@ impl graphex::Node for PlainStore {
         use std::io::Read;
         let index = key
             .parse::<u32>()
-            .map_err(|e| Error::from(format!("{e}")))?;
+            .map_err(|e| graphex::Error::key(&format!("{e}")))?;
         let entry_reader = self.get_entry_reader(EntryIdx::from(index));
         let mut data = vec![];
         entry_reader
             .stream()
             .read_to_end(&mut data)
-            .map_err(Error::from)?;
+            .map_err(|e| graphex::Error::from(Error::from(e)))?;
         Ok(Box::new(data).into())
     }
 

@@ -367,7 +367,7 @@ impl graphex::Node for DirectoryPack {
         } else if let Some(item) = key.strip_prefix("v.") {
             let index = item
                 .parse::<u8>()
-                .map_err(|e| Error::from(format!("{e}")))?;
+                .map_err(|e| graphex::Error::key(&format!("{e}")))?;
             let sized_offset = self.value_stores_ptrs.index(index.into())?;
             Ok(Box::new(self.reader.parse_data_block::<ValueStore>(sized_offset)?).into())
         } else {
