@@ -27,10 +27,10 @@ impl FormatError {
 //#[macro_export]
 macro_rules! format_error {
     ($what:expr, $stream:ident) => {
-        FormatError::new($what, Some($stream.global_offset())).into()
+        crate::bases::FormatError::new($what, Some($stream.global_offset())).into()
     };
     ($what:expr) => {
-        FormatError::new($what, None).into()
+        crate::bases::FormatError::new($what, None).into()
     };
 }
 
