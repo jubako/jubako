@@ -7,14 +7,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Let's read our container created in `simple_create.rs` or `basic_creator.rs`
 
     let container = jbk::reader::Container::new("test.jbkm")?; // or "test.jbk" if created using basic_creator.rs
-    let index = container.get_index_for_name("My own index")?;
+    let index = container
+        .get_index_for_name("My own index")?
+        .expect("'My own index' should be in the container");
     let builder = AnyBuilder::new(
         index.get_store(container.get_entry_storage())?,
         container.get_value_storage().as_ref(),
     )?;
 
     {
-        let entry = index.get_entry(&builder, 0.into())?;
+        let entry = index
+            .get_entry(&builder, 0.into())?
+            .expect("We have the entry 0");
         assert_eq!(entry.get_variant_id().unwrap(), Some(0.into())); // We correctly have variant 0
         assert_eq!(
             entry.get_value("AString")?.unwrap().as_vec()?,
@@ -29,7 +33,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     {
-        let entry = index.get_entry(&builder, 1.into())?;
+        let entry = index
+            .get_entry(&builder, 1.into())?
+            .expect("We have the entry 1");
         assert_eq!(entry.get_variant_id().unwrap(), Some(1.into()));
         assert_eq!(
             entry.get_value("AString")?.unwrap().as_vec()?,
@@ -40,7 +46,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     {
-        let entry = index.get_entry(&builder, 2.into())?;
+        let entry = index
+            .get_entry(&builder, 2.into())?
+            .expect("We have the entry 2");
+
         assert_eq!(entry.get_variant_id().unwrap(), Some(1.into()));
         assert_eq!(
             entry.get_value("AString")?.unwrap().as_vec()?,

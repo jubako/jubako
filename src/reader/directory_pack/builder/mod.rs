@@ -17,7 +17,7 @@ pub use self::property::*;
 
 pub trait BuilderTrait {
     type Entry;
-    fn create_entry(&self, idx: EntryIdx) -> Result<Self::Entry>;
+    fn create_entry(&self, idx: EntryIdx) -> Result<Option<Self::Entry>>;
 }
 
 pub struct AnyVariantBuilder {
@@ -117,9 +117,14 @@ impl AnyBuilder {
 
 impl BuilderTrait for AnyBuilder {
     type Entry = LazyEntry;
-    fn create_entry(&self, idx: EntryIdx) -> Result<LazyEntry> {
-        let reader = self.store.get_entry_reader(idx);
-        Ok(LazyEntry::new(Rc::clone(&self.properties), reader.into()))
+    fn create_entry(&self, idx: EntryIdx) -> Result<Option<LazyEntry>> {
+        match self.store.get_entry_reader(idx) {
+            None => Ok(None),
+            Some(reader) => Ok(Some(LazyEntry::new(
+                Rc::clone(&self.properties),
+                reader.into(),
+            ))),
+        }
     }
 }
 
@@ -159,7 +164,7 @@ mod tests {
     }
 
     #[test]
-    fn create_entry() {
+    fn create_entry() -> Result<()> {
         let layout = Layout {
             common: Properties::new(
                 0,
@@ -196,39 +201,40 @@ mod tests {
             entry_reader,
         }));
         let value_storage = mock::ValueStorage {};
-        let builder = AnyBuilder::new(store, &value_storage).unwrap();
+        let builder = AnyBuilder::new(store, &value_storage)?;
 
         {
-            let entry = builder.create_entry(0.into()).unwrap();
+            let entry = builder.create_entry(0.into())?.unwrap();
 
-            assert!(entry.get_variant_id().unwrap().is_none());
+            assert!(entry.get_variant_id()?.is_none());
             assert_eq!(
-                entry.get_value("V0").unwrap(),
+                entry.get_value("V0")?,
                 Some(RawValue::Content(ContentAddress::new(
                     0.into(),
                     0x010000.into()
                 )))
             );
-            assert!(entry.get_value("V11").unwrap() == Some(RawValue::U16(0x9988)));
+            assert!(entry.get_value("V11")? == Some(RawValue::U16(0x9988)));
         }
 
         {
-            let entry = builder.create_entry(1.into()).unwrap();
+            let entry = builder.create_entry(1.into())?.unwrap();
 
-            assert!(entry.get_variant_id().unwrap().is_none());
+            assert!(entry.get_variant_id()?.is_none());
             assert_eq!(
-                entry.get_value("V0").unwrap(),
+                entry.get_value("V0")?,
                 Some(RawValue::Content(ContentAddress::new(
                     1.into(),
                     0x020000.into()
                 )))
             );
-            assert!(entry.get_value("V11").unwrap() == Some(RawValue::U16(0x7766)));
+            assert!(entry.get_value("V11")? == Some(RawValue::U16(0x7766)));
         }
+        Ok(())
     }
 
     #[test]
-    fn create_entry_with_variant() {
+    fn create_entry_with_variant() -> Result<()> {
         let layout = Layout {
             common: Properties::new(0, vec![]),
             variant_part: Some(VariantPart {
@@ -317,14 +323,14 @@ mod tests {
             entry_reader,
         }));
         let value_storage = mock::ValueStorage {};
-        let builder = AnyBuilder::new(store, &value_storage).unwrap();
+        let builder = AnyBuilder::new(store, &value_storage)?;
 
         {
-            let entry = builder.create_entry(0.into()).unwrap();
+            let entry = builder.create_entry(0.into())?.unwrap();
 
-            assert_eq!(entry.get_variant_id().unwrap(), Some(0.into()));
+            assert_eq!(entry.get_variant_id()?, Some(0.into()));
             assert_eq!(
-                entry.get_value("V0").unwrap(),
+                entry.get_value("V0")?,
                 Some(RawValue::Array(Array::new(
                     Some(ASize::new(4)),
                     BaseArray::new(&[0xFF, 0xEE, 0xDD, 0xCC]),
@@ -332,15 +338,15 @@ mod tests {
                     None
                 )))
             );
-            assert_eq!(entry.get_value("V1").unwrap(), Some(RawValue::U16(0x8899)));
+            assert_eq!(entry.get_value("V1")?, Some(RawValue::U16(0x8899)));
         }
 
         {
-            let entry = builder.create_entry(1.into()).unwrap();
+            let entry = builder.create_entry(1.into())?.unwrap();
 
-            assert_eq!(entry.get_variant_id().unwrap(), Some(1.into()));
+            assert_eq!(entry.get_variant_id()?, Some(1.into()));
             assert_eq!(
-                entry.get_value("V0").unwrap(),
+                entry.get_value("V0")?,
                 Some(RawValue::Array(Array::new(
                     None,
                     BaseArray::new(&[0xFF, 0xEE]),
@@ -348,8 +354,9 @@ mod tests {
                     None
                 )))
             );
-            assert_eq!(entry.get_value("V2").unwrap(), Some(RawValue::I8(-52)));
-            assert_eq!(entry.get_value("V3").unwrap(), Some(RawValue::U16(0x8899)));
+            assert_eq!(entry.get_value("V2")?, Some(RawValue::I8(-52)));
+            assert_eq!(entry.get_value("V3")?, Some(RawValue::U16(0x8899)));
         }
+        Ok(())
     }
 }

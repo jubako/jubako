@@ -41,7 +41,10 @@ pub fn run(options: Options) -> jbk::Result<()> {
         let uuid = uuid.unwrap();
 
         match jbk::tools::set_location(options.infile, uuid, location.as_bytes().to_owned()) {
-            Ok((pack_kind, old_location)) => {
+            Ok(None) => {
+                eprintln!("Pack {uuid} is not in the manifest");
+            }
+            Ok(Some((pack_kind, old_location))) => {
                 let old_location = String::from_utf8_lossy(&old_location);
                 println!(
                     "Change {:?} pack {} location from `{}` to `{}`",

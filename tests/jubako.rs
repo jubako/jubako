@@ -648,14 +648,14 @@ test_suite! {
         let container = reader::Container::new(main_path).unwrap();
         assert_eq!(container.pack_count(), 2.into());
         assert!(container.check().unwrap());
-        let index = container.get_index_for_name("Super index").unwrap();
+        let index = container.get_index_for_name("Super index").unwrap().expect("'Super index' is in the container");
         let builder = reader::builder::AnyBuilder::new(
             index.get_store(container.get_entry_storage()).unwrap(),
             container.get_value_storage().as_ref()
         ).unwrap();
         assert_eq!(index.count(), (articles.val.len() as u32).into());
         for i in index.count() {
-            let entry = index.get_entry(&builder, i).unwrap();
+            let entry = index.get_entry(&builder, i).unwrap().expect("Entry i is in the index");
             assert_eq!(entry.get_variant_id().unwrap(), None);
             let value_0 = entry.get_value("V0").unwrap().unwrap();
             let vec = value_0.as_vec().unwrap();

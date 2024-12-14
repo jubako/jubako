@@ -75,11 +75,7 @@ pub enum ErrorKind {
 
     /// Something in the archive cannot be read because Jubako has not be compile with
     /// the right feature.
-    MissingFeature {
-        feature_name: String,
-        msg: String,
-    },
-    NotFound(String),
+    MissingFeature { feature_name: String, msg: String },
 }
 
 pub struct Error {
@@ -131,10 +127,6 @@ impl Error {
             feature_name: feature_name.into(),
             msg: msg.into(),
         })
-    }
-
-    pub fn notfound(msg: impl Into<String>) -> Self {
-        Error::new(ErrorKind::NotFound(msg.into()))
     }
 
     pub fn corrupted(buf: Vec<u8>, found_crc: [u8; 4]) -> Self {
@@ -202,7 +194,6 @@ impl fmt::Display for Error {
                     "You may want to reinstall you tool with feature {feature_name}"
                 )
             }
-            ErrorKind::NotFound(msg) => writeln!(f, "{msg}"),
         }
     }
 }

@@ -90,7 +90,7 @@ impl Container {
         let reader = container_pack.get_manifest_pack_reader()?;
 
         if reader.is_none() {
-            return Err(Error::notfound("Impossible to locate the manifest_pack"));
+            return Err(format_error!("Impossible to locate the manifest_pack"));
         }
         let reader = reader.unwrap();
 
@@ -173,7 +173,7 @@ impl Container {
     }
 
     /// Get a index by its name
-    pub fn get_index_for_name(&self, name: &str) -> Result<Index> {
+    pub fn get_index_for_name(&self, name: &str) -> Result<Option<Index>> {
         self.directory_pack.get_index_from_name(name)
     }
 

@@ -28,7 +28,7 @@ pub enum EntryStore {
 }
 
 impl EntryStore {
-    pub fn get_entry_reader(&self, idx: EntryIdx) -> ByteSlice {
+    pub fn get_entry_reader(&self, idx: EntryIdx) -> Option<ByteSlice> {
         match self {
             EntryStore::Plain(store) => store.get_entry_reader(idx),
             /*  todo!() */
@@ -130,11 +130,15 @@ pub struct PlainStore {
 }
 
 impl PlainStore {
-    fn get_entry_reader(&self, idx: EntryIdx) -> ByteSlice {
-        self.entry_reader.get_byte_slice(
-            Offset::from(self.layout.entry_size.into_u64() * idx.into_u64()),
-            self.layout.entry_size.into(),
-        )
+    fn get_entry_reader(&self, idx: EntryIdx) -> Option<ByteSlice> {
+        if idx.is_valid(*self.layout.entry_count) {
+            Some(self.entry_reader.get_byte_slice(
+                Offset::from(self.layout.entry_size.into_u64() * idx.into_u64()),
+                self.layout.entry_size.into(),
+            ))
+        } else {
+            None
+        }
     }
 
     pub(crate) fn layout(&self) -> &Layout {
@@ -175,7 +179,9 @@ impl graphex::Node for PlainStore {
         let index = key
             .parse::<u32>()
             .map_err(|e| graphex::Error::key(&format!("{e}")))?;
-        let entry_reader = self.get_entry_reader(EntryIdx::from(index));
+        let entry_reader = self
+            .get_entry_reader(EntryIdx::from(index))
+            .ok_or_else(|| graphex::Error::key(&format!("Key {index} is not found in store")))?;
         let mut data = vec![];
         entry_reader
             .stream()

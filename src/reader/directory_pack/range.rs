@@ -15,11 +15,11 @@ pub trait RangeTrait {
         &self,
         builder: &Builder,
         id: EntryIdx,
-    ) -> Result<Builder::Entry> {
+    ) -> Result<Option<Builder::Entry>> {
         if id.is_valid(*self.count()) {
             builder.create_entry(self.offset() + id)
         } else {
-            Err(Error::notfound("Invalid id"))
+            Ok(None)
         }
     }
 
@@ -136,8 +136,8 @@ mod tests {
         pub struct Builder {}
         impl builder::BuilderTrait for Builder {
             type Entry = Entry;
-            fn create_entry(&self, idx: EntryIdx) -> Result<Self::Entry> {
-                Ok(Entry::new(idx.into_u32() as u16))
+            fn create_entry(&self, idx: EntryIdx) -> Result<Option<Self::Entry>> {
+                Ok(Some(Entry::new(idx.into_u32() as u16)))
             }
         }
 
@@ -159,50 +159,53 @@ mod tests {
     }
 
     #[test]
-    fn test_finder() {
+    fn test_finder() -> Result<()> {
         let builder = mock::Builder {};
         let range = EntryRange::new_from_size(EntryIdx::from(0), EntryCount::from(10));
 
         for i in 0..10 {
-            let entry = range.get_entry(&builder, i.into()).unwrap();
-            let value0 = entry.get_value("foo").unwrap().unwrap();
+            let entry = range.get_entry(&builder, i.into())?.unwrap();
+            let value0 = entry.get_value("foo")?.unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_comparator_false() {
+    fn test_comparator_false() -> Result<()> {
         let builder = mock::Builder {};
         let range = EntryRange::new_from_size(EntryIdx::from(0), EntryCount::from(10));
 
         for i in 0..10 {
             let comparator = mock::EntryCompare::new(i, false);
-            let idx = range.find(&comparator).unwrap().unwrap();
-            let entry = range.get_entry(&builder, idx).unwrap();
-            let value0 = entry.get_value("foo").unwrap().unwrap();
+            let idx = range.find(&comparator)?.unwrap();
+            let entry = range.get_entry(&builder, idx)?.unwrap();
+            let value0 = entry.get_value("foo")?.unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }
 
         let comparator = mock::EntryCompare::new(10, false);
-        let result = range.find(&comparator).unwrap();
+        let result = range.find(&comparator)?;
         assert_eq!(result, None);
+        Ok(())
     }
 
     #[test]
-    fn test_comparator_true() {
+    fn test_comparator_true() -> Result<()> {
         let builder = mock::Builder {};
         let range = EntryRange::new_from_size(EntryIdx::from(0), EntryCount::from(10));
 
         for i in 0..10 {
             let comparator = mock::EntryCompare::new(i, true);
-            let idx = range.find(&comparator).unwrap().unwrap();
-            let entry = range.get_entry(&builder, idx).unwrap();
-            let value0 = entry.get_value("foo").unwrap().unwrap();
+            let idx = range.find(&comparator)?.unwrap();
+            let entry = range.get_entry(&builder, idx)?.unwrap();
+            let value0 = entry.get_value("foo")?.unwrap();
             assert_eq!(value0.as_unsigned(), i as u64);
         }
 
         let comparator = mock::EntryCompare::new(10, true);
         let result = range.find(&comparator).unwrap();
         assert_eq!(result, None);
+        Ok(())
     }
 }

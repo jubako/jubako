@@ -30,7 +30,10 @@ impl<'builder> PropertyCompare<'builder> {
 
 impl CompareTrait for PropertyCompare<'_> {
     fn compare_entry(&self, idx: EntryIdx) -> Result<Ordering> {
-        let entry = self.builder.create_entry(idx)?;
+        let entry = self
+            .builder
+            .create_entry(idx)?
+            .expect("idx is valid as `compare_entry` is piloted by a range looping on its entries");
         for (name, value) in std::iter::zip(self.property_names.iter(), self.values.iter()) {
             let ordering = entry
                 .get_value(name)?

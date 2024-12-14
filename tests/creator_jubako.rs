@@ -209,7 +209,7 @@ test_suite! {
         assert_eq!(index.count(), (articles.val.len() as u32).into());
         for i in index.count() {
             println!("Check entry count {:?}", i);
-            let entry = index.get_entry(&builder, i).unwrap();
+            let entry = index.get_entry(&builder, i).unwrap().expect("Entry i is in the index");
             assert_eq!(entry.get_variant_id().unwrap(), None);
             println!("Check value 0");
             let value_0 = entry.get_value("V0").unwrap().unwrap();

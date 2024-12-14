@@ -38,12 +38,12 @@ pub fn set_location<P: AsRef<Path>>(
     filename: P,
     uuid: Uuid,
     new_location: Vec<u8>,
-) -> jbk::Result<(PackKind, Vec<u8>)> {
+) -> jbk::Result<Option<(PackKind, Vec<u8>)>> {
     let container = Arc::new(jbk::tools::open_pack(&filename)?);
 
     let manifest_pack_reader = container.get_manifest_pack_reader()?;
     if manifest_pack_reader.is_none() {
-        return Err(Error::notfound(format!(
+        return Err(format_error!(format!(
             "No manifest pack in {}",
             filename.as_ref().display()
         )));
@@ -72,7 +72,7 @@ pub fn set_location<P: AsRef<Path>>(
         file.seek(SeekFrom::Start(global_pack_offset))?;
         file.ser_write(&pack_info)?;
 
-        return Ok((pack_info.pack_kind, old_location));
+        return Ok(Some((pack_info.pack_kind, old_location)));
     }
-    Err(Error::notfound(format!("Cannot find pack {uuid}")))
+    Ok(None)
 }
