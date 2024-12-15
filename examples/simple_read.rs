@@ -28,8 +28,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         let value_2 = entry.get_value("TheContent")?.unwrap();
         let content_address = value_2.as_content();
         // Let's print the content on stdout
-        let region = container.get_bytes(content_address)?;
-        std::io::copy(&mut region.unwrap().stream(), &mut std::io::stdout().lock())?;
+        let region = container
+            .get_bytes(content_address)?
+            .expect("content_address has a valid pack_id")
+            .unwrap();
+        std::io::copy(
+            &mut region
+                .expect("content_address has a valid content_id")
+                .stream(),
+            &mut std::io::stdout().lock(),
+        )?;
     }
 
     {

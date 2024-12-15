@@ -133,9 +133,15 @@ fn main() -> Result<(), Box<dyn Error>> {
             assert_eq!(entry.value0, Vec::from("Super"));
             assert_eq!(entry.value1, 50);
             // Let's print the content on stdout
-            let reader = container.get_bytes(entry.value2)?;
+            let reader = container
+                .get_bytes(entry.value2)?
+                .expect("value2 has a valid packid")
+                .unwrap();
             std::io::copy(
-                &mut reader.as_ref().unwrap().stream(),
+                &mut reader
+                    .as_ref()
+                    .expect("value2 has a valid entry id")
+                    .stream(),
                 &mut std::io::stdout().lock(),
             )?;
         } else {

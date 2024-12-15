@@ -102,10 +102,16 @@ impl AnyBuilder {
         Ok(Self { properties, store })
     }
 
+    /// Build a new PropertyCompare to search in a Range.
+    ///
+    /// Search will panic if property_name is not in the entry or if value is not of the right type.
     pub fn new_property_compare(&self, property_name: String, value: Value) -> PropertyCompare {
         PropertyCompare::new(self, vec![property_name], vec![value])
     }
 
+    /// Build a new PropertyCompare from a set of propertie to search in a Range.
+    ///
+    /// Search will panic if property_names are not in the entry or if values are not of the right type.
     pub fn new_multiple_property_compare(
         &self,
         property_names: Vec<String>,

@@ -128,32 +128,49 @@ impl Container {
         self.manifest_pack.pack_count()
     }
 
-    pub fn get_pack(&self, pack_id: PackId) -> Result<MayMissPack<&ContentPack>> {
+    pub fn get_pack(&self, pack_id: PackId) -> Result<Option<MayMissPack<&ContentPack>>> {
+        if pack_id.into_usize() >= self.packs.len() {
+            return Ok(None);
+        }
         let cache_slot = &self.packs[pack_id.into_usize()];
         if cache_slot.get().is_none() {
             match self._get_pack(pack_id)? {
-                MayMissPack::MISSING(pack_info) => return Ok(MayMissPack::MISSING(pack_info)),
-                MayMissPack::FOUND(p) => {
+                None => return Ok(None),
+                Some(MayMissPack::MISSING(pack_info)) => {
+                    return Ok(Some(MayMissPack::MISSING(pack_info)))
+                }
+                Some(MayMissPack::FOUND(p)) => {
                     let _ = cache_slot.set(p);
                 }
             }
         }
-        Ok(MayMissPack::FOUND(cache_slot.get().unwrap()))
+        Ok(Some(MayMissPack::FOUND(cache_slot.get().unwrap())))
     }
 
-    pub fn get_bytes(&self, content: ContentAddress) -> Result<MayMissPack<ByteRegion>> {
-        let pack = self.get_pack(content.pack_id)?;
-        pack.map(|p| p.get_content(content.content_id)).transpose()
+    pub fn get_bytes(
+        &self,
+        content: ContentAddress,
+    ) -> Result<Option<MayMissPack<Option<ByteRegion>>>> {
+        match self.get_pack(content.pack_id)? {
+            None => Ok(None),
+            Some(MayMissPack::MISSING(pack_info)) => Ok(Some(MayMissPack::MISSING(pack_info))),
+            Some(MayMissPack::FOUND(p)) => {
+                Ok(Some(MayMissPack::FOUND(p.get_content(content.content_id)?)))
+            }
+        }
     }
 
-    fn _get_pack(&self, pack_id: PackId) -> Result<MayMissPack<ContentPack>> {
-        let pack_info = self.manifest_pack.get_content_pack_info(pack_id)?;
+    fn _get_pack(&self, pack_id: PackId) -> Result<Option<MayMissPack<ContentPack>>> {
+        let pack_info = match self.manifest_pack.get_content_pack_info(pack_id) {
+            None => return Ok(None),
+            Some(p) => p,
+        };
         let pack_reader = self
             .locator
             .locate(pack_info.uuid, &pack_info.pack_location)?;
         match pack_reader {
-            None => Ok(MayMissPack::MISSING(pack_info.clone())),
-            Some(r) => Ok(MayMissPack::FOUND(ContentPack::new(r)).transpose()?),
+            None => Ok(Some(MayMissPack::MISSING(pack_info.clone()))),
+            Some(r) => Ok(Some(MayMissPack::FOUND(ContentPack::new(r)).transpose()?)),
         }
     }
 

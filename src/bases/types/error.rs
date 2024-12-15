@@ -64,9 +64,6 @@ pub enum ErrorKind {
     /// This is not a Jubako file
     NotAJbk,
 
-    /// Arg given to the function/method is not valid (out of bound, ...)
-    Arg(String),
-
     /// Type of the given value (at creation) doesn't correspond to the property type.
     ///
     /// This almost always because of a bug in the calling code.
@@ -109,10 +106,6 @@ impl Error {
     #[cfg(not(debug_assertions))]
     pub fn new(error: ErrorKind) -> Error {
         Error { error }
-    }
-
-    pub fn arg(msg: impl ToString) -> Error {
-        Error::new(ErrorKind::Arg(msg.to_string()))
     }
 
     pub fn version_error(major: u8, minor: u8) -> Error {
@@ -185,7 +178,6 @@ impl fmt::Display for Error {
                 )
             }
             ErrorKind::NotAJbk => write!(f, "This is not a Jubako archive"),
-            ErrorKind::Arg(msg) => write!(f, "Invalid argument: {msg}"),
             ErrorKind::WrongType(msg) => write!(f, "Wrong type: {msg}"),
             ErrorKind::MissingFeature { feature_name, msg } => {
                 writeln!(f, "{msg}")?;

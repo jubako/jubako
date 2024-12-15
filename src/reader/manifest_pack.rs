@@ -116,38 +116,35 @@ impl ManifestPack {
         )
     }
 
-    pub fn get_pack_check_info(&self, uuid: Uuid) -> Result<CheckInfo> {
+    pub fn get_pack_check_info(&self, uuid: Uuid) -> Result<Option<CheckInfo>> {
         let pack_info = if self.directory_pack_info.uuid == uuid {
             &self.directory_pack_info
         } else {
-            self.get_content_pack_info_uuid(uuid)?
+            match self.get_content_pack_info_uuid(uuid) {
+                None => return Ok(None),
+                Some(p) => p,
+            }
         };
-        self.reader.parse_block_in::<CheckInfo>(
+        Ok(Some(self.reader.parse_block_in::<CheckInfo>(
             pack_info.check_info_pos.offset,
             pack_info.check_info_pos.size,
-        )
+        )?))
     }
 
     pub fn get_directory_pack_info(&self) -> &PackInfo {
         &self.directory_pack_info
     }
 
-    pub fn get_content_pack_info(&self, pack_id: PackId) -> Result<&PackInfo> {
-        for pack_info in &self.pack_infos {
-            if pack_info.pack_id == pack_id {
-                return Ok(pack_info);
-            }
-        }
-        Err(Error::arg(format!("Invalid pack_id {pack_id}")))
+    pub fn get_content_pack_info(&self, pack_id: PackId) -> Option<&PackInfo> {
+        self.pack_infos
+            .iter()
+            .find(|&pack_info| pack_info.pack_id == pack_id)
     }
 
-    pub fn get_content_pack_info_uuid(&self, uuid: Uuid) -> Result<&PackInfo> {
-        for pack_info in &self.pack_infos {
-            if pack_info.uuid == uuid {
-                return Ok(pack_info);
-            }
-        }
-        Err(Error::arg(format!("Invalid uuid {uuid}")))
+    pub fn get_content_pack_info_uuid(&self, uuid: Uuid) -> Option<&PackInfo> {
+        self.pack_infos
+            .iter()
+            .find(|&pack_info| pack_info.uuid == uuid)
     }
 
     pub fn get_pack_infos(&self) -> &[PackInfo] {
@@ -162,7 +159,10 @@ impl ManifestPack {
         let pack_info = if pack_id.into_u16() == 0 {
             &self.directory_pack_info
         } else {
-            self.get_content_pack_info(pack_id)?
+            match self.get_content_pack_info(pack_id) {
+                None => return Ok(None),
+                Some(p) => p,
+            }
         };
         self.get_pack_free_data_raw(pack_info.free_data_id)
     }
@@ -171,7 +171,10 @@ impl ManifestPack {
         let pack_info = if self.directory_pack_info.uuid == pack_uuid {
             &self.directory_pack_info
         } else {
-            self.get_content_pack_info_uuid(pack_uuid)?
+            match self.get_content_pack_info_uuid(pack_uuid) {
+                None => return Ok(None),
+                Some(p) => p,
+            }
         };
         self.get_pack_free_data_raw(pack_info.free_data_id)
     }
@@ -431,6 +434,6 @@ mod tests {
                 pack_location: vec![b'p', b'a', b'c', b'k', b'p', b'a', b't', b'h'],
             }
         );
-        assert!(main_pack.get_content_pack_info(PackId::from(3)).is_err());
+        assert!(main_pack.get_content_pack_info(PackId::from(3)).is_none());
     }
 }

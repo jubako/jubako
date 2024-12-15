@@ -667,7 +667,7 @@ test_suite! {
                     jubako::ContentAddress{pack_id:1.into(), content_id:jubako::ContentIdx::from(i.into_u32())}
                 );
                 let bytes = container.get_bytes(content).unwrap();
-                let mut stream = bytes.as_ref().unwrap().stream();
+                let mut stream = bytes.expect("V1 has a valid pack_id").unwrap().expect("V1 has a valid content_id").stream();
                 let mut read_content: String = "".to_string();
                 stream.read_to_string(&mut read_content).unwrap();
                 assert_eq!(read_content, articles.val[i.into_u32() as usize].content);
