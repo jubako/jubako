@@ -1,5 +1,7 @@
 mod property;
 
+use inner::FromLayoutProperty;
+
 use super::entry_store::EntryStore;
 use super::layout::Properties as LProperties;
 use super::layout::VariantPart;
@@ -48,9 +50,13 @@ impl AnyVariantBuilder {
     {
         let properties: Result<HashMap<String, _>> = properties
             .iter()
-            .map(|(n, p)| match (p, value_storage).try_into() {
-                Ok(p) => Ok((n.clone(), p)),
-                Err(e) => Err(e),
+            .map(|(n, p)| {
+                AnyProperty::from_property(p, value_storage).map(|p| {
+                    (
+                        n.clone(),
+                        p.expect("AnyProperty accept any layout property"),
+                    )
+                })
             })
             .collect();
         Ok(Self {
@@ -124,13 +130,10 @@ impl AnyBuilder {
 impl BuilderTrait for AnyBuilder {
     type Entry = LazyEntry;
     fn create_entry(&self, idx: EntryIdx) -> Result<Option<LazyEntry>> {
-        match self.store.get_entry_reader(idx) {
-            None => Ok(None),
-            Some(reader) => Ok(Some(LazyEntry::new(
-                Rc::clone(&self.properties),
-                reader.into(),
-            ))),
-        }
+        Ok(self
+            .store
+            .get_entry_reader(idx)
+            .map(|reader| LazyEntry::new(Rc::clone(&self.properties), reader.into())))
     }
 }
 

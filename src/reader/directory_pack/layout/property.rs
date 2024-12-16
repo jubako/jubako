@@ -1,5 +1,8 @@
 use super::PropertyKind;
-use crate::bases::*;
+use crate::{
+    bases::*, reader::directory_pack::builder::inner::FromLayoutProperty,
+    reader::directory_pack::private::ValueStorageTrait,
+};
 
 /// The definition of a property, as we need to parse it.
 /// In opposition to RawProperty, the property is the "final" property.
@@ -17,6 +20,14 @@ impl Property {
             offset: Offset::from(offset),
             kind,
         }
+    }
+
+    pub fn as_builder<B, ValueStorage>(&self, value_storage: &ValueStorage) -> Result<Option<B>>
+    where
+        ValueStorage: ValueStorageTrait,
+        B: FromLayoutProperty,
+    {
+        B::from_property(self, value_storage)
     }
 }
 

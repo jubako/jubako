@@ -64,12 +64,6 @@ pub enum ErrorKind {
     /// This is not a Jubako file
     NotAJbk,
 
-    /// Type of the given value (at creation) doesn't correspond to the property type.
-    ///
-    /// This almost always because of a bug in the calling code.
-    /// This could, and maybe will, be replaced by assert.
-    WrongType(String),
-
     /// Something in the archive cannot be read because Jubako has not be compile with
     /// the right feature.
     MissingFeature { feature_name: String, msg: String },
@@ -112,9 +106,6 @@ impl Error {
         Error::new(ErrorKind::Version(major, minor))
     }
 
-    pub fn wrong_type(msg: impl Into<String>) -> Self {
-        Error::new(ErrorKind::WrongType(msg.into()))
-    }
     pub fn missfeature(feature_name: impl Into<String>, msg: impl Into<String>) -> Self {
         Error::new(ErrorKind::MissingFeature {
             feature_name: feature_name.into(),
@@ -178,7 +169,6 @@ impl fmt::Display for Error {
                 )
             }
             ErrorKind::NotAJbk => write!(f, "This is not a Jubako archive"),
-            ErrorKind::WrongType(msg) => write!(f, "Wrong type: {msg}"),
             ErrorKind::MissingFeature { feature_name, msg } => {
                 writeln!(f, "{msg}")?;
                 writeln!(
