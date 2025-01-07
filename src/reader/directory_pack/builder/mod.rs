@@ -19,7 +19,8 @@ pub use self::property::*;
 
 pub trait BuilderTrait {
     type Entry;
-    fn create_entry(&self, idx: EntryIdx) -> Result<Option<Self::Entry>>;
+    type Error;
+    fn create_entry(&self, idx: EntryIdx) -> std::result::Result<Option<Self::Entry>, Self::Error>;
 }
 
 pub struct AnyVariantBuilder {
@@ -129,6 +130,7 @@ impl AnyBuilder {
 
 impl BuilderTrait for AnyBuilder {
     type Entry = LazyEntry;
+    type Error = Error;
     fn create_entry(&self, idx: EntryIdx) -> Result<Option<LazyEntry>> {
         Ok(self
             .store

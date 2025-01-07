@@ -15,7 +15,7 @@ pub trait RangeTrait {
         &self,
         builder: &Builder,
         id: EntryIdx,
-    ) -> Result<Option<Builder::Entry>> {
+    ) -> std::result::Result<Option<Builder::Entry>, Builder::Error> {
         if id.is_valid(*self.count()) {
             builder.create_entry(self.offset() + id)
         } else {
@@ -136,6 +136,7 @@ mod tests {
         pub struct Builder {}
         impl builder::BuilderTrait for Builder {
             type Entry = Entry;
+            type Error = Error;
             fn create_entry(&self, idx: EntryIdx) -> Result<Option<Self::Entry>> {
                 Ok(Some(Entry::new(idx.into_u32() as u16)))
             }

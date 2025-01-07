@@ -74,6 +74,7 @@ fn create_builder(
 // This is where we build our entry
 impl jbk::reader::builder::BuilderTrait for Builder {
     type Entry = Entry;
+    type Error = jbk::Error;
 
     fn create_entry(&self, idx: jbk::EntryIdx) -> jbk::Result<Option<Self::Entry>> {
         // With this, we can read the bytes corresponding to our entry in the container.
