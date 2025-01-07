@@ -128,6 +128,11 @@ impl Container {
         self.manifest_pack.pack_count()
     }
 
+    /// Get a pack for the given pack_id.
+    ///
+    /// If pack_id is not found in the manifest, return `None`.
+    /// As a existing pack may be actually missing, we return a MayMissPack which is kind
+    /// of option, but with a pack_info payload in the "None"
     pub fn get_pack(&self, pack_id: PackId) -> Result<Option<MayMissPack<&ContentPack>>> {
         if pack_id.into_usize() >= self.packs.len() {
             return Ok(None);
@@ -147,6 +152,25 @@ impl Container {
         Ok(Some(MayMissPack::FOUND(cache_slot.get().unwrap())))
     }
 
+    /// Get bytes associated to a content address.
+    ///
+    /// This imply 2 lookups:
+    /// - One to get the pack
+    /// - One to get the bytes from the pack.
+    ///
+    /// So the return value of this method is a bit complex.
+    /// Classic use case, when content address come from the jubako archive itself is:
+    /// ```
+    /// let bytes = container
+    ///             .get_bytes(content_address)?
+    ///             .and_then(|m| m.transpose())
+    ///             .expect("As content address should be valid, we should have a bytes (or a MayMissPack)");
+    ///             // `expect(...)` may be replaced with `or_or(SomeFormatError::new(...))?`
+    /// match bytes {
+    ///     MayMissPack::FOUND(bytes) => { read_from_bytes(bytes) }
+    ///     MayMissPack::MISSING(pack_info) => { display_user_pack_is_missing(pack_info) }
+    /// }
+    /// ```
     pub fn get_bytes(
         &self,
         content: ContentAddress,

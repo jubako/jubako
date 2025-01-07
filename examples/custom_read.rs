@@ -135,15 +135,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             // Let's print the content on stdout
             let reader = container
                 .get_bytes(entry.value2)?
-                .expect("value2 has a valid packid")
+                .and_then(|m| m.transpose())
+                .expect("value2 should be valid")
                 .unwrap();
-            std::io::copy(
-                &mut reader
-                    .as_ref()
-                    .expect("value2 has a valid entry id")
-                    .stream(),
-                &mut std::io::stdout().lock(),
-            )?;
+            std::io::copy(&mut reader.stream(), &mut std::io::stdout().lock())?;
         } else {
             panic!("We should have variant0")
         }

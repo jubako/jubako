@@ -46,9 +46,19 @@ impl<T, E> MayMissPack<Result<T, E>> {
     #[inline]
     pub fn transpose(self) -> Result<MayMissPack<T>, E> {
         match self {
-            Self::FOUND(Ok(x)) => Ok(MayMissPack::FOUND(x)),
             Self::FOUND(Err(e)) => Err(e),
+            Self::FOUND(Ok(x)) => Ok(MayMissPack::FOUND(x)),
             Self::MISSING(pack_info) => Ok(MayMissPack::MISSING(pack_info)),
+        }
+    }
+}
+
+impl<T> MayMissPack<Option<T>> {
+    pub fn transpose(self) -> Option<MayMissPack<T>> {
+        match self {
+            Self::FOUND(None) => None,
+            Self::FOUND(Some(x)) => Some(MayMissPack::FOUND(x)),
+            Self::MISSING(pack_info) => Some(MayMissPack::MISSING(pack_info)),
         }
     }
 }

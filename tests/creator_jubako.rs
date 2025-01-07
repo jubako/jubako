@@ -224,7 +224,7 @@ test_suite! {
             println!("Get reader");
             let bytes = container.get_bytes(value_1).unwrap();
             println!("Readir is {:?}", bytes);
-            let mut stream = bytes.expect("value_1 has a valid pack_id").unwrap().expect("value_1 has a valid content_id").stream();
+            let mut stream = bytes.and_then(|m| m.transpose()).expect("value_1 should be valid").unwrap().stream();
             let mut read_content: String = "".to_string();
             println!("Read from stream");
             stream.read_to_string(&mut read_content).unwrap();

@@ -30,14 +30,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         // Let's print the content on stdout
         let region = container
             .get_bytes(content_address)?
-            .expect("content_address has a valid pack_id")
+            .and_then(|m| m.transpose())
+            .expect("content_address should be valid")
             .unwrap();
-        std::io::copy(
-            &mut region
-                .expect("content_address has a valid content_id")
-                .stream(),
-            &mut std::io::stdout().lock(),
-        )?;
+        std::io::copy(&mut region.stream(), &mut std::io::stdout().lock())?;
     }
 
     {
