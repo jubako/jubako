@@ -2,14 +2,16 @@ use crate::bases::*;
 
 #[cfg(debug_assertions)]
 use std::backtrace::Backtrace;
+
 use std::fmt;
 use std::ops::Deref;
 use std::string::FromUtf8Error;
 
+use thiserror::Error;
 #[cfg(feature = "lzma")]
 use xz2::stream::Error as lzmaError;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub struct FormatError {
     what: String,
     where_: Option<Offset>,
@@ -43,92 +45,122 @@ impl fmt::Display for FormatError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
+#[error("Not a valid checksum : {buf:X?}. Found is {found_checksum:X?}")]
+pub struct CorruptedFile {
+    pub buf: Vec<u8>,
+    pub found_checksum: [u8; 4],
+}
+
+#[derive(Error, Debug)]
+#[error(
+    "Jubako version error. Found ({major},{minor})
+         Jubako specification is still unstable and compatibility is not guarenteed yet.
+         Open this container with a older version of your tool.
+         You may open a issue on `https://github.com/jubako/jubako` if you are lost."
+)]
+pub struct VersionError {
+    pub major: u8,
+    pub minor: u8,
+}
+
+#[derive(Error, Debug)]
+#[error(
+    "{msg}
+         You may want to reinstall you tool with feature {name}"
+)]
+pub struct MissingFeatureError {
+    pub name: &'static str,
+    pub msg: &'static str,
+}
+
+#[derive(Error, Debug)]
 /// Kind of error returned by Jubako.
 pub enum ErrorKind {
     /// Io error. Can be raised by any error on the underlying system.
-    Io(std::io::Error),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 
     /// Corruption of the file detected (internal crc doesn't match)
-    Corrupted(Vec<u8>, [u8; 4]),
+    #[error(transparent)]
+    Corrupted(#[from] CorruptedFile),
 
     /// Format error detected.
     ///
     /// Crc is valid but data is not.
     /// This can be because of a bug or (badly) forged file
-    Format(FormatError),
+    #[error("Jubako format error {0}")]
+    Format(#[from] FormatError),
 
     /// Library cannot read the version of the file
-    Version(u8, u8),
+    #[error(transparent)]
+    Version(#[from] VersionError),
 
     /// This is not a Jubako file
+    #[error("This is not a Jubako archive")]
     NotAJbk,
 
     /// Something in the archive cannot be read because Jubako has not be compile with
     /// the right feature.
-    MissingFeature { feature_name: String, msg: String },
+    #[error(transparent)]
+    MissingFeature(#[from] MissingFeatureError),
 }
 
+#[derive(Error, Debug)]
+#[error("{source}")]
+#[cfg_attr(not(debug_assertions), repr(transparent))]
 pub struct Error {
-    pub error: ErrorKind,
+    #[source]
+    source: ErrorKind,
     #[cfg(debug_assertions)]
-    bt: Backtrace,
+    backtrace: Option<Backtrace>,
+}
+
+impl From<ErrorKind> for Error {
+    #[cfg(not(debug_assertions))]
+    fn from(source: ErrorKind) -> Self {
+        Self { source }
+    }
+
+    #[cfg(debug_assertions)]
+    fn from(source: ErrorKind) -> Self {
+        let backtrace = std::backtrace::Backtrace::capture();
+        match backtrace.status() {
+            std::backtrace::BacktraceStatus::Disabled
+            | std::backtrace::BacktraceStatus::Unsupported => Self {
+                source,
+                backtrace: None,
+            },
+            _ => Self {
+                source,
+                backtrace: Some(backtrace),
+            },
+        }
+    }
 }
 
 impl Deref for Error {
     type Target = ErrorKind;
     fn deref(&self) -> &Self::Target {
-        &self.error
+        &self.source
     }
 }
 
-impl From<ErrorKind> for Error {
-    fn from(value: ErrorKind) -> Self {
-        Self::new(value)
-    }
-}
-
-impl Error {
-    #[cfg(debug_assertions)]
-    pub fn new(error: ErrorKind) -> Error {
-        Error {
-            error,
-            bt: Backtrace::capture(),
+macro_rules! impl_from_error {
+    ($what:ty) => {
+        impl From<$what> for Error {
+            fn from(e: $what) -> Error {
+                ErrorKind::from(e).into()
+            }
         }
-    }
-
-    #[cfg(not(debug_assertions))]
-    pub fn new(error: ErrorKind) -> Error {
-        Error { error }
-    }
-
-    pub fn version_error(major: u8, minor: u8) -> Error {
-        Error::new(ErrorKind::Version(major, minor))
-    }
-
-    pub fn missfeature(feature_name: impl Into<String>, msg: impl Into<String>) -> Self {
-        Error::new(ErrorKind::MissingFeature {
-            feature_name: feature_name.into(),
-            msg: msg.into(),
-        })
-    }
-
-    pub fn corrupted(buf: Vec<u8>, found_crc: [u8; 4]) -> Self {
-        Error::new(ErrorKind::Corrupted(buf, found_crc))
-    }
+    };
 }
 
-impl From<std::io::Error> for Error {
-    fn from(e: std::io::Error) -> Error {
-        Error::new(ErrorKind::Io(e))
-    }
-}
-
-impl From<FormatError> for Error {
-    fn from(e: FormatError) -> Error {
-        Error::new(ErrorKind::Format(e))
-    }
-}
+impl_from_error!(std::io::Error);
+impl_from_error!(FormatError);
+impl_from_error!(VersionError);
+impl_from_error!(MissingFeatureError);
+impl_from_error!(CorruptedFile);
 
 impl From<FromUtf8Error> for Error {
     fn from(_e: FromUtf8Error) -> Error {
@@ -147,59 +179,6 @@ impl From<lzmaError> for Error {
 impl From<Error> for graphex::Error {
     fn from(value: Error) -> Self {
         graphex::Error::Other(Box::new(value))
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.error {
-            ErrorKind::Io(e) => write!(f, "IO Error {e}"),
-            ErrorKind::Corrupted(buf, found_crc) => write!(
-                f,
-                "Not a valid checksum : {buf:X?}. Found is {found_crc:X?}"
-            ),
-            ErrorKind::Format(e) => write!(f, "Jubako format error {e}"),
-            ErrorKind::Version(major, minor) => {
-                writeln!(f, "Jubako version error. Found ({major},{minor})")?;
-                writeln!(f, "Jubako specification is still unstable and compatibility is not guarenteed yet.")?;
-                writeln!(f, "Open this container with a older version of your tool.")?;
-                write!(
-                    f,
-                    "You may open a issue on `https://github.com/jubako/jubako` if you are lost."
-                )
-            }
-            ErrorKind::NotAJbk => write!(f, "This is not a Jubako archive"),
-            ErrorKind::MissingFeature { feature_name, msg } => {
-                writeln!(f, "{msg}")?;
-                writeln!(
-                    f,
-                    "You may want to reinstall you tool with feature {feature_name}"
-                )
-            }
-        }
-    }
-}
-
-impl fmt::Debug for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Kind: {:?}", self.error)?;
-        #[cfg(debug_assertions)]
-        writeln!(f, "BT: {}", self.bt)?;
-        Ok(())
-    }
-}
-
-impl std::error::Error for Error {
-    #[cfg(feature = "nightly")]
-    fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {
-        #[cfg(debug_assertions)]
-        request.provide_ref::<Backtrace>(&self.bt);
-        match &self.error {
-            ErrorKind::Io(e) => request.provide_ref::<std::io::Error>(e),
-            ErrorKind::Format(e) => request.provide_ref::<FormatError>(e),
-            ErrorKind::Other(e) => request.provide_ref::<String>(e),
-            _ => request, /* Nothing*/
-        };
     }
 }
 

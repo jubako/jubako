@@ -26,7 +26,11 @@ pub(crate) fn assert_slice_crc(buf: &[u8]) -> Result<()> {
     let expected_checksum = BE::read_u32(&buf[data_size..]);
     if checksum != expected_checksum {
         let found_checksum = checksum.to_be_bytes();
-        return Err(Error::corrupted(buf.to_vec(), found_checksum));
+        return Err(CorruptedFile {
+            buf: buf.to_vec(),
+            found_checksum,
+        }
+        .into());
     }
     Ok(())
 }
