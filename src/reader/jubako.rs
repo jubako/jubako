@@ -160,7 +160,7 @@ impl Container {
     ///
     /// So the return value of this method is a bit complex.
     /// Classic use case, when content address come from the jubako archive itself is:
-    /// ```
+    /// ```ignore
     /// let bytes = container
     ///             .get_bytes(content_address)?
     ///             .and_then(|m| m.transpose())
