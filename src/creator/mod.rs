@@ -298,7 +298,7 @@ fn path_to_vec_u8(p: PathBuf) -> std::result::Result<Vec<u8>, FromUtf16Error> {
     #[cfg(windows)]
     fn inner(p: PathBuf) -> std::result::Result<Vec<u8>, FromUtf16Error> {
         use std::os::windows::ffi::OsStrExt;
-        let vec_16: Vec<u16> = self.final_path.encode_wide().collect();
+        let vec_16: Vec<u16> = p.as_os_str().encode_wide().collect();
         let path: String = String::from_utf16(&vec_16)?;
         Ok(path.as_bytes().to_vec())
     }
