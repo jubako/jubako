@@ -4,6 +4,7 @@ use super::Value;
 use crate::bases::Serializable;
 use crate::bases::*;
 use crate::creator::directory_pack::EntryTrait;
+use crate::creator::{Error, Result};
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -122,19 +123,15 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                         Value::IndirectArray(value_id) => {
                             assert_eq!(*array_len_size, None); // We don't store the size of the array
                             assert_eq!(*fixed_array_len, 0); // No fixed array
-                            if let Some((key_size, _)) = deported_info {
-                                written +=
-                                    ser.write_usized(value_id.get().into_u64(), *key_size)?;
-                            } else {
-                                return Err(
-                                    "A indirect array need a array property with a deported info"
-                                        .to_string()
-                                        .into(),
-                                );
-                            }
+                            assert!(deported_info.is_some()); // We must have a deported_info
+                            let (key_size, _) = deported_info.as_ref().unwrap();
+                            written += ser.write_usized(value_id.get().into_u64(), *key_size)?;
                         }
                         _ => {
-                            return Err("Not a Array".to_string().into());
+                            return Err(Error::wrong_type(format!(
+                                "Value type for {} is not compatible with Array",
+                                name.to_string()
+                            )));
                         }
                     }
                 }
@@ -147,7 +144,10 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                         written += ser.write_usized(value_id.get().into_u64(), *value_id_size)?;
                     }
                     _ => {
-                        return Err("Not a indirect Array".to_string().into());
+                        return Err(Error::wrong_type(format!(
+                            "Value type for {} is not compatible with indirect array",
+                            name.to_string()
+                        )));
                     }
                 },
                 Property::ContentAddress {
@@ -166,7 +166,10 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                             ser.write_usized(value.content_id.into_u64(), *content_id_size)?;
                     }
                     _ => {
-                        return Err("Not a Content".to_string().into());
+                        return Err(Error::wrong_type(format!(
+                            "Value type for {} is not compatible with content",
+                            name.to_string()
+                        )));
                     }
                 },
                 Property::UnsignedInt {
@@ -189,7 +192,10 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                         }
                     }
                     _ => {
-                        return Err("Not a unsigned".to_string().into());
+                        return Err(Error::wrong_type(format!(
+                            "Value type for {} is not compatible with unsigned integer",
+                            name.to_string()
+                        )));
                     }
                 },
                 Property::SignedInt {
@@ -212,7 +218,10 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                         }
                     }
                     _ => {
-                        return Err("Not a unsigned".to_string().into());
+                        return Err(Error::wrong_type(format!(
+                            "Value type for {} is not compatible with signed integer",
+                            name.to_string()
+                        )));
                     }
                 },
                 Property::Padding(size) => {

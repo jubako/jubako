@@ -2,9 +2,7 @@ use std::borrow::Cow;
 
 use zerocopy::{ByteOrder, LE};
 
-use super::{Offset, Result};
-
-use super::ByteSize;
+use super::{ByteSize, Offset, Result};
 
 /// A Parser is something parsing data from a [u8]
 pub trait Parser {
@@ -56,7 +54,7 @@ pub trait RandomParser {
 
     fn create_parser(&self, offset: Offset) -> Result<Self::Parser<'_>>;
     fn read_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>>;
-    fn read_data(&self, offset: Offset, buf: &mut [u8]) -> Result<()>;
+    fn read_data(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<()>;
 
     fn global_offset(&self) -> Offset;
     fn read_u8(&self, offset: Offset) -> Result<u8> {
@@ -131,12 +129,11 @@ impl<'a> SliceParser<'a> {
 impl<'a> Parser for SliceParser<'a> {
     fn read_slice(&mut self, size: usize) -> Result<Cow<[u8]>> {
         if self.slice.len() < size + self.offset {
-            return Err(format!(
+            return Err(format_error!(format!(
                 "Out of slice. {size}({}) > {}",
                 self.offset,
                 self.slice.len()
-            )
-            .into());
+            )));
         }
         let slice = &self.slice[self.offset..self.offset + size];
         self.offset += size;
@@ -145,13 +142,12 @@ impl<'a> Parser for SliceParser<'a> {
 
     fn read_data(&mut self, buf: &mut [u8]) -> Result<()> {
         if self.slice.len() < buf.len() + self.offset {
-            return Err(format!(
+            return Err(format_error!(format!(
                 "Out of slice. {}({}) > {}",
                 buf.len(),
                 self.offset,
                 self.slice.len()
-            )
-            .into());
+            )));
         }
         buf.copy_from_slice(&self.slice[self.offset..self.offset + buf.len()]);
         self.offset += buf.len();
@@ -160,12 +156,11 @@ impl<'a> Parser for SliceParser<'a> {
 
     fn skip(&mut self, size: usize) -> Result<()> {
         if self.slice.len() < size + self.offset {
-            return Err(format!(
+            return Err(format_error!(format!(
                 "Out of slice. {size}({}) > {}",
                 self.offset,
                 self.slice.len()
-            )
-            .into());
+            )));
         }
         self.offset += size;
         Ok(())

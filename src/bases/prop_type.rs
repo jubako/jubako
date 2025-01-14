@@ -1,3 +1,5 @@
+use crate::bases::{Error, Result};
+
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub(crate) enum PropType {
@@ -12,8 +14,8 @@ pub(crate) enum PropType {
 }
 
 impl TryFrom<u8> for PropType {
-    type Error = String;
-    fn try_from(v: u8) -> std::result::Result<Self, String> {
+    type Error = Error;
+    fn try_from(v: u8) -> Result<Self> {
         match v {
             0b0000_0000 => Ok(Self::Padding),
             0b0001_0000 => Ok(Self::ContentAddress),
@@ -24,7 +26,7 @@ impl TryFrom<u8> for PropType {
             0b1000_0000 => Ok(Self::VariantId),
             0b1010_0000 => Ok(Self::DeportedUnsignedInt),
             0b1011_0000 => Ok(Self::DeportedSignedInt),
-            _ => Err(format!("Invalid property type ({v})")),
+            _ => Err(format_error!(format!("Invalid property type ({v})"))),
         }
     }
 }

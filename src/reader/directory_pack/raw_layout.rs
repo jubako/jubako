@@ -84,8 +84,7 @@ impl Parsable for RawProperty {
     type Output = Self;
     fn parse(parser: &mut impl Parser) -> Result<Self> {
         let propinfo = parser.read_u8()?;
-        let proptype = PropType::try_from(propinfo & 0xF0)
-            .map_err::<Error, _>(|e| format_error!(&e, parser))?;
+        let proptype = PropType::try_from(propinfo & 0xF0)?;
         let propdata = propinfo & 0x0F;
         let (propsize, kind, name) = match proptype {
             PropType::Padding => (propdata as u16 + 1, PropertyKind::Padding, None),
@@ -299,6 +298,7 @@ impl Parsable for RawLayout {
 }
 
 #[cfg(test)]
+#[allow(clippy::identity_op)]
 mod tests {
     use super::*;
     use test_case::test_case;

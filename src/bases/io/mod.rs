@@ -14,8 +14,8 @@ use super::BlockCheck;
 
 pub(crate) trait Source: Sync + Send {
     fn size(&self) -> Size;
-    fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()>;
-    fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize>;
+    fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<()>;
+    fn read(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<usize>;
     fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<[u8]>>;
 
     fn cut(

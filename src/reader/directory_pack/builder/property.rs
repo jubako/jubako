@@ -1,3 +1,5 @@
+use inner::FromLayoutProperty;
+
 use crate::bases::*;
 use crate::common::ContentAddress;
 use crate::reader::directory_pack::layout;
@@ -18,6 +20,32 @@ use std::sync::Arc;
 pub trait PropertyBuilderTrait {
     type Output;
     fn create(&self, parser: &impl RandomParser) -> Result<Self::Output>;
+}
+
+/// As we want to create a specific property builder from a generic layout property
+/// we want to do a convertion which may fail for two reasons:
+/// - A classic error as we want to read data (from value storage)
+/// - A invalid cast as we the layout property kind doesn't match the specific property kind
+///
+/// The former has to be forwarded transparently to (and by) the caller.
+/// The latter must be handled by the caller, probably has its own format error.
+//
+/// To do so, we want to impl `TryFrom` for an `Option<SpecificProperty>`. But trait cannot be
+/// implemented for foreign types, so we have to define our own "Option".
+/// We may define a new type `struct MayMatchType<T>(Option<T>)` and impl `TryFrom` to it,
+/// but we would need to export it as it would be part of the generic contract in `layout::Property::as_builder`.
+///
+/// So let's define a custom sealed "TryFrom"
+pub(crate) mod inner {
+    use super::{layout, Result, ValueStorageTrait};
+    pub trait FromLayoutProperty {
+        fn from_property(
+            p: &layout::Property,
+            value_storage: &impl ValueStorageTrait,
+        ) -> Result<Option<Self>>
+        where
+            Self: Sized;
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -74,7 +102,9 @@ impl IntProperty {
                 let mut data_parser =
                     SliceParser::new(std::borrow::Cow::Borrowed(default_data), Offset::zero());
 
-                let default = data_parser.read_usized(size).unwrap();
+                let default = data_parser
+                    .read_usized(size)
+                    .expect("data_parser has the right size, so should not fail");
                 Ok(IntProperty::new(offset, size, Some(default), None))
             }
             DeportedDefault::KeySize(key_size) => Ok(IntProperty::new(
@@ -87,15 +117,17 @@ impl IntProperty {
     }
 }
 
-impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)> for IntProperty {
-    type Error = Error;
-    fn try_from(
-        p_vs: (&layout::Property, &ValueStorage),
-    ) -> std::result::Result<Self, Self::Error> {
-        let (p, value_storage) = p_vs;
-        match p.kind {
+impl FromLayoutProperty for IntProperty {
+    fn from_property(
+        p: &layout::Property,
+        value_storage: &impl ValueStorageTrait,
+    ) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        Ok(match p.kind {
             PropertyKind::UnsignedInt { int_size, default } => {
-                Ok(IntProperty::new(p.offset, int_size, default, None))
+                Some(IntProperty::new(p.offset, int_size, default, None))
             }
             PropertyKind::DeportedUnsignedInt {
                 int_size,
@@ -103,10 +135,12 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
                 id,
             } => {
                 let store = value_storage.get_value_store(value_store_idx)?;
-                IntProperty::new_from_deported(p.offset, int_size, store, id)
+                Some(IntProperty::new_from_deported(
+                    p.offset, int_size, store, id,
+                )?)
             }
-            _ => Err("Invalid key".to_string().into()),
-        }
+            _ => None,
+        })
     }
 }
 
@@ -180,7 +214,9 @@ impl SignedProperty {
                 let mut data_parser =
                     SliceParser::new(std::borrow::Cow::Borrowed(default_data), Offset::zero());
 
-                let default = data_parser.read_isized(size).unwrap();
+                let default = data_parser
+                    .read_isized(size)
+                    .expect("data_parser has the right size, so should not fail");
                 Ok(SignedProperty::new(offset, size, Some(default), None))
             }
             DeportedDefault::KeySize(key_size) => Ok(SignedProperty::new(
@@ -193,17 +229,17 @@ impl SignedProperty {
     }
 }
 
-impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)>
-    for SignedProperty
-{
-    type Error = Error;
-    fn try_from(
-        p_vs: (&layout::Property, &ValueStorage),
-    ) -> std::result::Result<Self, Self::Error> {
-        let (p, value_storage) = p_vs;
-        match p.kind {
+impl FromLayoutProperty for SignedProperty {
+    fn from_property(
+        p: &layout::Property,
+        value_storage: &impl ValueStorageTrait,
+    ) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        Ok(match p.kind {
             layout::PropertyKind::SignedInt { int_size, default } => {
-                Ok(SignedProperty::new(p.offset, int_size, default, None))
+                Some(SignedProperty::new(p.offset, int_size, default, None))
             }
             PropertyKind::DeportedSignedInt {
                 int_size,
@@ -211,10 +247,12 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
                 id,
             } => {
                 let store = value_storage.get_value_store(value_store_idx)?;
-                SignedProperty::new_from_deported(p.offset, int_size, store, id)
+                Some(SignedProperty::new_from_deported(
+                    p.offset, int_size, store, id,
+                )?)
             }
-            _ => Err("Invalid key".to_string().into()),
-        }
+            _ => None,
+        })
     }
 }
 
@@ -279,15 +317,15 @@ impl ArrayProperty {
     }
 }
 
-impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)>
-    for ArrayProperty
-{
-    type Error = Error;
-    fn try_from(
-        p_vs: (&layout::Property, &ValueStorage),
-    ) -> std::result::Result<Self, Self::Error> {
-        let (p, value_storage) = p_vs;
-        match p.kind {
+impl FromLayoutProperty for ArrayProperty {
+    fn from_property(
+        p: &layout::Property,
+        value_storage: &impl ValueStorageTrait,
+    ) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        Ok(match p.kind {
             layout::PropertyKind::Array {
                 array_len_size,
                 fixed_array_len,
@@ -304,7 +342,7 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
                         Some((id_size, value_store as Arc<dyn ValueStoreTrait>))
                     }
                 };
-                Ok(ArrayProperty::new(
+                Some(ArrayProperty::new(
                     p.offset,
                     array_len_size,
                     fixed_array_len,
@@ -312,8 +350,8 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
                     default,
                 ))
             }
-            _ => Err("Invalid key".to_string().into()),
-        }
+            _ => None,
+        })
     }
 }
 
@@ -382,22 +420,27 @@ impl ContentProperty {
     }
 }
 
-impl TryFrom<&layout::Property> for ContentProperty {
-    type Error = String;
-    fn try_from(p: &layout::Property) -> std::result::Result<Self, Self::Error> {
-        match p.kind {
+impl FromLayoutProperty for ContentProperty {
+    fn from_property(
+        p: &layout::Property,
+        _value_storage: &impl ValueStorageTrait,
+    ) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        Ok(match p.kind {
             layout::PropertyKind::ContentAddress {
                 pack_id_size,
                 content_id_size,
                 default_pack_id,
-            } => Ok(ContentProperty::new(
+            } => Some(ContentProperty::new(
                 p.offset,
                 default_pack_id,
                 pack_id_size,
                 content_id_size,
             )),
-            _ => Err("Invalid key".to_string()),
-        }
+            _ => None,
+        })
     }
 }
 
@@ -426,13 +469,15 @@ pub enum AnyProperty {
     Array(ArrayProperty),
 }
 
-impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)> for AnyProperty {
-    type Error = Error;
-    fn try_from(
-        p_vs: (&layout::Property, &ValueStorage),
-    ) -> std::result::Result<Self, Self::Error> {
-        let (p, value_storage) = p_vs;
-        Ok(match &p.kind {
+impl FromLayoutProperty for AnyProperty {
+    fn from_property(
+        p: &layout::Property,
+        value_storage: &impl ValueStorageTrait,
+    ) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        Ok(Some(match &p.kind {
             &PropertyKind::ContentAddress {
                 pack_id_size,
                 content_id_size,
@@ -495,7 +540,7 @@ impl<ValueStorage: ValueStorageTrait> TryFrom<(&layout::Property, &ValueStorage)
             }
             PropertyKind::Padding => unreachable!(),
             PropertyKind::VariantId => unreachable!(),
-        })
+        }))
     }
 }
 

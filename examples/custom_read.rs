@@ -48,14 +48,18 @@ fn create_builder(
         names,
     } = layout.variant_part.as_ref().unwrap();
     assert_eq!(variants.len(), 2);
-    let value0 = (&layout.common["AString"], value_storage).try_into()?;
-    let value1 = (&layout.common["AInteger"], value_storage).try_into()?;
-    let variant0_value2 = (&variants[names["FirstVariant"] as usize]["TheContent"]).try_into()?;
-    let variant1_value2 = (
-        &variants[names["SecondVariant"] as usize]["AnotherInt"],
-        value_storage,
-    )
-        .try_into()?;
+    let value0 = layout.common["AString"]
+        .as_builder(value_storage)?
+        .expect("Layout proprety should match ArrayProperty");
+    let value1 = layout.common["AInteger"]
+        .as_builder(value_storage)?
+        .expect("Layout proprety should match IntProperty");
+    let variant0_value2 = variants[names["FirstVariant"] as usize]["TheContent"]
+        .as_builder(value_storage)?
+        .expect("Layout proprety should match ContentProperty");
+    let variant1_value2 = variants[names["SecondVariant"] as usize]["AnotherInt"]
+        .as_builder(value_storage)?
+        .expect("Layout proprety should match IntProperty");
     let variant_id = jbk::reader::builder::VariantIdProperty::new(*variant_id_offset);
     Ok(Builder {
         store,
@@ -70,10 +74,15 @@ fn create_builder(
 // This is where we build our entry
 impl jbk::reader::builder::BuilderTrait for Builder {
     type Entry = Entry;
+    type Error = jbk::Error;
 
-    fn create_entry(&self, idx: jbk::EntryIdx) -> jbk::Result<Self::Entry> {
+    fn create_entry(&self, idx: jbk::EntryIdx) -> jbk::Result<Option<Self::Entry>> {
         // With this, we can read the bytes corresponding to our entry in the container.
         let reader = self.store.get_entry_reader(idx);
+        if reader.is_none() {
+            return Ok(None);
+        }
+        let reader = reader.unwrap();
 
         // Read the common part
 
@@ -90,21 +99,21 @@ impl jbk::reader::builder::BuilderTrait for Builder {
         match self.variant_id.create(&reader)?.into_u8() {
             0 => {
                 let value2 = self.variant0_value2.create(&reader)?;
-                Ok(Entry::Variant0(Variant0 {
+                Ok(Some(Entry::Variant0(Variant0 {
                     value0,
                     value1,
                     value2,
-                }))
+                })))
             }
             1 => {
                 let value2 = self.variant1_value2.create(&reader)?;
-                Ok(Entry::Variant1(Variant1 {
+                Ok(Some(Entry::Variant1(Variant1 {
                     value0,
                     value1,
                     value2,
-                }))
+                })))
             }
-            _ => Err("Unknown variant".into()),
+            _ => Ok(None),
         }
     }
 }
@@ -112,7 +121,9 @@ impl jbk::reader::builder::BuilderTrait for Builder {
 fn main() -> Result<(), Box<dyn Error>> {
     // Let's read our container created in `simple_create.rs`
     let container = jbk::reader::Container::new("test.jbkm")?; // or "test.jbkm"
-    let index = container.get_index_for_name("My own index")?;
+    let index = container
+        .get_index_for_name("My own index")?
+        .expect("'My own index' is in the container.");
     let builder = create_builder(
         index.get_store(container.get_entry_storage())?,
         container.get_value_storage(),
@@ -120,23 +131,28 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Now we can read our entries.
     {
-        let entry = index.get_entry(&builder, 0.into())?;
+        let entry = index
+            .get_entry(&builder, 0.into())?
+            .expect("Entry 0 exists in the index");
         if let Entry::Variant0(entry) = entry {
             assert_eq!(entry.value0, Vec::from("Super"));
             assert_eq!(entry.value1, 50);
             // Let's print the content on stdout
-            let reader = container.get_bytes(entry.value2)?;
-            std::io::copy(
-                &mut reader.as_ref().unwrap().stream(),
-                &mut std::io::stdout().lock(),
-            )?;
+            let reader = container
+                .get_bytes(entry.value2)?
+                .and_then(|m| m.transpose())
+                .expect("value2 should be valid")
+                .unwrap();
+            std::io::copy(&mut reader.stream(), &mut std::io::stdout().lock())?;
         } else {
             panic!("We should have variant0")
         }
     }
 
     {
-        let entry = index.get_entry(&builder, 1.into())?;
+        let entry = index
+            .get_entry(&builder, 1.into())?
+            .expect("Entry 1 exists in the index");
         if let Entry::Variant1(entry) = entry {
             assert_eq!(entry.value0, Vec::from("Mega"));
             assert_eq!(entry.value1, 42);
@@ -147,7 +163,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     {
-        let entry = index.get_entry(&builder, 2.into())?;
+        let entry = index
+            .get_entry(&builder, 2.into())?
+            .expect("Entry 2 exists in the index");
         if let Entry::Variant1(entry) = entry {
             assert_eq!(entry.value0, Vec::from("Hyper"));
             assert_eq!(entry.value1, 45);

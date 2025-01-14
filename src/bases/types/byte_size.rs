@@ -35,7 +35,9 @@ impl TryFrom<usize> for ByteSize {
 impl Parsable for ByteSize {
     type Output = Self;
     fn parse(parser: &mut impl Parser) -> Result<Self> {
-        Ok((parser.read_u8()? as usize).try_into()?)
+        (parser.read_u8()? as usize)
+            .try_into()
+            .map_err(|_e| format_error!("Invalid ByteSize"))
     }
 }
 impl SizedParsable for ByteSize {

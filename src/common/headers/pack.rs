@@ -62,7 +62,11 @@ impl Parsable for PackHeader {
         let major_version = parser.read_u8()?;
         let minor_version = parser.read_u8()?;
         if (major_version, minor_version) != (0, 2) {
-            return Err(Error::version_error(major_version, minor_version));
+            return Err(VersionError {
+                major: major_version,
+                minor: minor_version,
+            }
+            .into());
         }
         let uuid = Uuid::parse(parser)?;
         let flags = parser.read_u8()?;

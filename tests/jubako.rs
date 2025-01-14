@@ -648,33 +648,33 @@ test_suite! {
         let container = reader::Container::new(main_path).unwrap();
         assert_eq!(container.pack_count(), 2.into());
         assert!(container.check().unwrap());
-        let index = container.get_index_for_name("Super index").unwrap();
+        let index = container.get_index_for_name("Super index").unwrap().expect("'Super index' is in the container");
         let builder = reader::builder::AnyBuilder::new(
             index.get_store(container.get_entry_storage()).unwrap(),
             container.get_value_storage().as_ref()
         ).unwrap();
         assert_eq!(index.count(), (articles.val.len() as u32).into());
         for i in index.count() {
-            let entry = index.get_entry(&builder, i).unwrap();
+            let entry = index.get_entry(&builder, i).unwrap().expect("Entry i is in the index");
             assert_eq!(entry.get_variant_id().unwrap(), None);
-            let value_0 = entry.get_value("V0").unwrap();
+            let value_0 = entry.get_value("V0").unwrap().unwrap();
             let vec = value_0.as_vec().unwrap();
             assert_eq!(vec, articles.val[i.into_u32() as usize].path.as_bytes());
-            let value_1 = entry.get_value("V1").unwrap();
+            let value_1 = entry.get_value("V1").unwrap().unwrap();
             if let reader::RawValue::Content(content) = value_1 {
                 assert_eq!(
                     content,
                     jubako::ContentAddress{pack_id:1.into(), content_id:jubako::ContentIdx::from(i.into_u32())}
                 );
                 let bytes = container.get_bytes(content).unwrap();
-                let mut stream = bytes.as_ref().unwrap().stream();
+                let mut stream = bytes.and_then(|m| m.transpose()).expect("V1 should be valid").unwrap().stream();
                 let mut read_content: String = "".to_string();
                 stream.read_to_string(&mut read_content).unwrap();
                 assert_eq!(read_content, articles.val[i.into_u32() as usize].content);
             } else {
               panic!();
             }
-            let value_2= entry.get_value("V2").unwrap();
+            let value_2= entry.get_value("V2").unwrap().unwrap();
             if let reader::RawValue::U16(v) = value_2 {
                 assert_eq!(v, articles.val[i.into_u32() as usize].word_count);
             } else {

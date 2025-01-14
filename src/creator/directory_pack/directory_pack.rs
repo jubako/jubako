@@ -4,7 +4,7 @@ use crate::common::{
     CheckInfo, CheckKind, DirectoryPackHeader, PackHeader, PackHeaderInfo, PackKind,
 };
 use crate::creator::private::WritableTell;
-use crate::creator::PackData;
+use crate::creator::{PackData, Result};
 use entry_store::EntryStoreTrait;
 use std::io::{BufWriter, Seek, SeekFrom, Write};
 use value_store::StoreHandle;
@@ -55,7 +55,7 @@ impl DirectoryPackCreator {
         self.indexes.push(index);
     }
 
-    pub fn finalize(self) -> Result<FinalizedDirectoryPackCreator> {
+    pub fn finalize(self) -> std::io::Result<FinalizedDirectoryPackCreator> {
         info!("======= Finalize creation =======");
 
         info!("----- Finalize value_stores -----");

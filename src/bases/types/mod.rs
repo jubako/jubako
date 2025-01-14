@@ -22,7 +22,9 @@ pub(crate) use base_array::BaseArray;
 pub(crate) use byte_size::ByteSize;
 pub(crate) use count::Count;
 pub use delayed::{Bound, Late, SyncType, Vow, Word};
-pub(crate) use error::FormatError;
+#[allow(unused_imports)]
+pub(crate) use error::MissingFeatureError;
+pub(crate) use error::{CorruptedFile, FormatError, VersionError};
 pub use error::{Error, ErrorKind, Result};
 pub use free_data::{IndexFreeData, PackFreeData};
 pub(crate) use id::Id;

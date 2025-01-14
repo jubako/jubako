@@ -9,7 +9,11 @@ use super::{
     AtomicOutFile, Compression, ContainerPackCreator, ContentPackCreator, DirectoryPackCreator,
     InContainerFile, InputReader, ManifestPackCreator, PackRecipient, Progress,
 };
-use crate::{bases::*, ContentAddress};
+use crate::{
+    bases::*,
+    creator::{Error, Result},
+    ContentAddress,
+};
 
 /// How packs will be stored
 #[derive(Clone, Copy)]
@@ -155,7 +159,7 @@ impl BasicCreator {
             .map(|extra_creator| {
                 let (extra_pack_file, extra_pack_info) = extra_creator.finalize()?;
                 let extra_locator = extra_pack_file.close_file()?;
-                Ok::<_, crate::Error>((extra_pack_info, extra_locator))
+                Ok::<_, Error>((extra_pack_info, extra_locator))
             })
             .collect::<Result<Vec<_>>>()?;
 
@@ -213,7 +217,7 @@ impl BasicCreator {
         &mut self,
         content: Box<dyn InputReader>,
         comp_hint: CompHint,
-    ) -> Result<ContentAddress> {
+    ) -> std::io::Result<ContentAddress> {
         self.content_pack.add_content(content, comp_hint)
     }
 }
@@ -223,7 +227,7 @@ impl ContentAdder for BasicCreator {
         &mut self,
         content: Box<dyn InputReader>,
         comp_hint: CompHint,
-    ) -> Result<ContentAddress> {
+    ) -> std::io::Result<ContentAddress> {
         self.add_content(content, comp_hint)
     }
 }

@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use log::info;
 
-fn shannon_entropy(data: &[u8]) -> Result<f32> {
+fn shannon_entropy(data: &[u8]) -> f32 {
     let mut entropy = 0.0;
     let mut counts = [0; 256];
 
@@ -31,7 +31,7 @@ fn shannon_entropy(data: &[u8]) -> Result<f32> {
         entropy -= p * p.log(2.0);
     }
 
-    Ok(entropy)
+    entropy
 }
 
 pub struct ContentPackCreator<O: PackRecipient + ?Sized> {
@@ -71,7 +71,7 @@ impl ContentPackCreator<NamedFile> {
         app_vendor_id: VendorId,
         free_data: PackFreeData,
         compression: Compression,
-    ) -> Result<Self> {
+    ) -> std::io::Result<Self> {
         Self::new_with_progress(
             path,
             pack_id,
@@ -89,7 +89,7 @@ impl ContentPackCreator<NamedFile> {
         free_data: PackFreeData,
         compression: Compression,
         progress: Arc<dyn Progress>,
-    ) -> Result<Self> {
+    ) -> std::io::Result<Self> {
         let file = NamedFile::new(path)?;
         Self::new_from_output_with_progress(
             file,
@@ -109,7 +109,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         app_vendor_id: VendorId,
         free_data: PackFreeData,
         compression: Compression,
-    ) -> Result<Self> {
+    ) -> std::io::Result<Self> {
         Self::new_from_output_with_progress(
             file,
             pack_id,
@@ -127,7 +127,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         free_data: PackFreeData,
         compression: Compression,
         progress: Arc<dyn Progress>,
-    ) -> Result<Self> {
+    ) -> std::io::Result<Self> {
         file.seek(SeekFrom::Start(
             (PackHeader::BLOCK_SIZE + ContentPackHeader::BLOCK_SIZE) as u64,
         ))?;
@@ -163,7 +163,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         &mut self,
         compressed: bool,
         content_size: Size,
-    ) -> Result<&mut ClusterCreator> {
+    ) -> std::io::Result<&mut ClusterCreator> {
         // Let's get raw cluster
         if let Some(cluster) = self.setup_slot_and_get_to_close(content_size, compressed) {
             self.cluster_writer.write_cluster(cluster, compressed)?;
@@ -195,7 +195,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         &self,
         content: &mut dyn InputReader,
         comp_hint: CompHint,
-    ) -> Result<bool> {
+    ) -> std::io::Result<bool> {
         if let Compression::None = self.compression {
             return Ok(false);
         }
@@ -207,7 +207,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
                 {
                     content.take(4 * 1024).read_to_end(&mut head)?;
                 }
-                let entropy = shannon_entropy(&head)?;
+                let entropy = shannon_entropy(&head);
                 content.seek(SeekFrom::Start(0))?;
                 Ok(entropy <= 6.0)
             }
@@ -218,7 +218,7 @@ impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
         &mut self,
         mut content: Box<dyn InputReader>,
         comp_hint: CompHint,
-    ) -> Result<ContentAddress> {
+    ) -> std::io::Result<ContentAddress> {
         let content_size = content.size();
         self.progress.content_added(content_size);
         let should_compress = self.detect_compression(content.as_mut(), comp_hint)?;
@@ -235,13 +235,13 @@ impl<O: PackRecipient + 'static + ?Sized> ContentAdder for ContentPackCreator<O>
         &mut self,
         content: Box<dyn InputReader>,
         comp_hint: CompHint,
-    ) -> Result<ContentAddress> {
+    ) -> std::io::Result<ContentAddress> {
         self.add_content(content, comp_hint)
     }
 }
 
 impl<O: PackRecipient + 'static + ?Sized> ContentPackCreator<O> {
-    pub fn finalize(mut self) -> Result<(Box<O>, PackData)> {
+    pub fn finalize(mut self) -> std::io::Result<(Box<O>, PackData)> {
         info!("======= Finalize creation =======");
 
         if let Some(cluster) = self.raw_open_cluster.take() {

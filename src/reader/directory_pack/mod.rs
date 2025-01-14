@@ -24,7 +24,7 @@ pub use raw_value::RawValue;
 
 pub trait EntryTrait {
     fn get_variant_id(&self) -> Result<Option<VariantIdx>>;
-    fn get_value(&self, name: &str) -> Result<RawValue>;
+    fn get_value(&self, name: &str) -> Result<Option<RawValue>>;
 }
 
 mod private {
@@ -121,7 +121,7 @@ impl DirectoryPack {
         Ok(index)
     }
 
-    pub fn get_index_from_name(&self, index_name: &str) -> Result<Index> {
+    pub fn get_index_from_name(&self, index_name: &str) -> Result<Option<Index>> {
         for index_id in self.header.index_count {
             let sized_offset = self.index_ptrs.index(*index_id)?;
             let index_header = self
@@ -129,10 +129,10 @@ impl DirectoryPack {
                 .parse_block_in::<IndexHeader>(sized_offset.offset, sized_offset.size)?;
             if index_header.name == index_name {
                 let index = Index::new(index_header);
-                return Ok(index);
+                return Ok(Some(index));
             }
         }
-        Err(format!("Cannot find index {index_name}").into())
+        Ok(None)
     }
 
     pub fn create_value_storage(self: &Arc<Self>) -> Arc<ValueStorage> {
@@ -145,6 +145,7 @@ impl DirectoryPack {
 }
 
 impl CachableSource<ValueStore> for DirectoryPack {
+    type Error = Error;
     type Idx = ValueStoreIdx;
     fn get_len(&self) -> usize {
         self.header.value_store_count.into_usize()
@@ -159,6 +160,7 @@ impl CachableSource<ValueStore> for DirectoryPack {
 }
 
 impl CachableSource<EntryStore> for DirectoryPack {
+    type Error = Error;
     type Idx = EntryStoreIdx;
     fn get_len(&self) -> usize {
         self.header.entry_store_count.into_usize()
@@ -205,11 +207,12 @@ impl Pack for DirectoryPack {
             Size::from(self.pack_header.check_info_pos),
             false,
         )?;
-        self.check_info
+        Ok(self
+            .check_info
             .read()
             .unwrap()
             .unwrap()
-            .check(&mut check_stream)
+            .check(&mut check_stream)?)
     }
 }
 
@@ -356,7 +359,9 @@ impl graphex::Node for DirectoryPack {
             let index = if let Ok(index) = item.parse::<u32>() {
                 EntryStoreIdx::from(index)
             } else {
-                let index = self.get_index_from_name(item)?;
+                let index = self.get_index_from_name(item)?.ok_or_else(|| {
+                    graphex::Error::key(&format!("Key {item} not found in directory pack."))
+                })?;
                 index.get_store_id()
             };
             let sized_offset = self.entry_stores_ptrs.index(*index)?;
@@ -364,7 +369,7 @@ impl graphex::Node for DirectoryPack {
         } else if let Some(item) = key.strip_prefix("v.") {
             let index = item
                 .parse::<u8>()
-                .map_err(|e| Error::from(format!("{e}")))?;
+                .map_err(|e| graphex::Error::key(&format!("{e}")))?;
             let sized_offset = self.value_stores_ptrs.index(index.into())?;
             Ok(Box::new(self.reader.parse_data_block::<ValueStore>(sized_offset)?).into())
         } else {
@@ -431,7 +436,7 @@ mod tests {
     }
 
     #[test]
-    fn test_directorypack() {
+    fn test_directorypack() -> Result<()> {
         // Pack header offset 0/0x00
         let mut content = vec![
             0x6a, 0x62, 0x6b, 0x64, // magic
@@ -553,22 +558,19 @@ mod tests {
 
         // File size 366 + 64 = 430/0x1AE (file_size)
 
-        let directory_pack = Arc::new(DirectoryPack::new(content.into()).unwrap());
-        assert!(directory_pack.check().unwrap());
-        let index = directory_pack.get_index(0.into()).unwrap();
+        let directory_pack = Arc::new(DirectoryPack::new(content.into())?);
+        assert!(directory_pack.check()?);
+        let index = directory_pack.get_index(0.into())?;
         let value_storage = directory_pack.create_value_storage();
         let entry_storage = directory_pack.create_entry_storage();
-        let builder = builder::AnyBuilder::new(
-            index.get_store(&entry_storage).unwrap(),
-            value_storage.as_ref(),
-        )
-        .unwrap();
+        let builder =
+            builder::AnyBuilder::new(index.get_store(&entry_storage)?, value_storage.as_ref())?;
         assert_eq!(index.count(), 4.into());
         {
-            let entry = index.get_entry(&builder, 0.into()).unwrap();
-            assert_eq!(entry.get_variant_id().unwrap(), None);
-            let value0 = entry.get_value("A").unwrap();
-            if let RawValue::Array(a) = &value0 {
+            let entry = index.get_entry(&builder, 0.into())?.unwrap();
+            assert_eq!(entry.get_variant_id()?, None);
+            let value0 = entry.get_value("A")?;
+            if let Some(RawValue::Array(a)) = &value0 {
                 assert_eq!(
                     &FakeArray::new(
                         Some(ASize::new(7)),
@@ -582,11 +584,11 @@ mod tests {
                 panic!("Must be a array");
             };
             assert_eq!(
-                value0.as_vec().unwrap(),
+                value0.unwrap().as_vec()?,
                 b"J\xc5\xabbako" // Jūbako
             );
-            let value1 = entry.get_value("B").unwrap();
-            if let RawValue::Array(a) = &value1 {
+            let value1 = entry.get_value("B")?;
+            if let Some(RawValue::Array(a)) = &value1 {
                 assert_eq!(
                     &FakeArray::new(
                         Some(ASize::new(7)),
@@ -599,21 +601,21 @@ mod tests {
             } else {
                 panic!("Must be a array");
             };
-            assert_eq!(value1.as_vec().unwrap(), b"aBHello");
-            assert_eq!(entry.get_value("C").unwrap(), RawValue::U32(0x212223));
+            assert_eq!(value1.unwrap().as_vec()?, b"aBHello");
+            assert_eq!(entry.get_value("C")?, Some(RawValue::U32(0x212223)));
             assert_eq!(
-                entry.get_value("D").unwrap(),
-                RawValue::Content(ContentAddress {
+                entry.get_value("D")?,
+                Some(RawValue::Content(ContentAddress {
                     pack_id: PackId::from(1),
                     content_id: ContentIdx::from(0)
-                })
+                }))
             );
         }
         {
-            let entry = index.get_entry(&builder, 1.into()).unwrap();
-            assert_eq!(entry.get_variant_id().unwrap(), None);
-            let value0 = entry.get_value("A").unwrap();
-            if let RawValue::Array(a) = &value0 {
+            let entry = index.get_entry(&builder, 1.into())?.unwrap();
+            assert_eq!(entry.get_variant_id()?, None);
+            let value0 = entry.get_value("A")?;
+            if let Some(RawValue::Array(a)) = &value0 {
                 assert_eq!(
                     &FakeArray::new(
                         Some(ASize::new(3)),
@@ -626,9 +628,9 @@ mod tests {
             } else {
                 panic!("Must be a array");
             };
-            assert_eq!(value0.as_vec().unwrap(), b"Foo");
-            let value1 = entry.get_value("B").unwrap();
-            if let RawValue::Array(a) = &value1 {
+            assert_eq!(value0.unwrap().as_vec()?, b"Foo");
+            let value1 = entry.get_value("B")?;
+            if let Some(RawValue::Array(a)) = &value1 {
                 assert_eq!(
                     &FakeArray::new(
                         Some(ASize::new(9)),
@@ -641,21 +643,21 @@ mod tests {
             } else {
                 panic!("Must be a array");
             };
-            assert_eq!(value1.as_vec().unwrap(), b"ABJ\xc5\xabbako");
-            assert_eq!(entry.get_value("C").unwrap(), RawValue::U32(0x313233));
+            assert_eq!(value1.unwrap().as_vec()?, b"ABJ\xc5\xabbako");
+            assert_eq!(entry.get_value("C")?, Some(RawValue::U32(0x313233)));
             assert_eq!(
-                entry.get_value("D").unwrap(),
-                RawValue::Content(ContentAddress {
+                entry.get_value("D")?,
+                Some(RawValue::Content(ContentAddress {
                     pack_id: PackId::from(0),
                     content_id: ContentIdx::from(1)
-                })
+                }))
             );
         }
         {
-            let entry = index.get_entry(&builder, 2.into()).unwrap();
-            assert_eq!(entry.get_variant_id().unwrap(), None);
-            let value0 = entry.get_value("A").unwrap();
-            if let RawValue::Array(a) = &value0 {
+            let entry = index.get_entry(&builder, 2.into())?.unwrap();
+            assert_eq!(entry.get_variant_id()?, None);
+            let value0 = entry.get_value("A")?;
+            if let Some(RawValue::Array(a)) = &value0 {
                 assert_eq!(
                     &FakeArray::new(
                         Some(ASize::new(7)),
@@ -668,9 +670,9 @@ mod tests {
             } else {
                 panic!("Must be a array");
             };
-            assert_eq!(value0.as_vec().unwrap(), b"J\xc5\xabbako");
-            let value1 = entry.get_value("B").unwrap();
-            if let RawValue::Array(a) = &value1 {
+            assert_eq!(value0.unwrap().as_vec()?, b"J\xc5\xabbako");
+            let value1 = entry.get_value("B")?;
+            if let Some(RawValue::Array(a)) = &value1 {
                 assert_eq!(
                     &FakeArray::new(
                         Some(ASize::new(5)),
@@ -683,21 +685,21 @@ mod tests {
             } else {
                 panic!("Must be a array");
             };
-            assert_eq!(value1.as_vec().unwrap(), b"ABFoo");
-            assert_eq!(entry.get_value("C").unwrap(), RawValue::U32(0x414243));
+            assert_eq!(value1.unwrap().as_vec()?, b"ABFoo");
+            assert_eq!(entry.get_value("C")?, Some(RawValue::U32(0x414243)));
             assert_eq!(
-                entry.get_value("D").unwrap(),
-                RawValue::Content(ContentAddress {
+                entry.get_value("D")?,
+                Some(RawValue::Content(ContentAddress {
                     pack_id: PackId::from(0),
                     content_id: ContentIdx::from(2)
-                })
+                }))
             );
         }
         {
-            let entry = index.get_entry(&builder, 3.into()).unwrap();
-            assert_eq!(entry.get_variant_id().unwrap(), None);
-            let value0 = entry.get_value("A").unwrap();
-            if let RawValue::Array(a) = &value0 {
+            let entry = index.get_entry(&builder, 3.into())?.unwrap();
+            assert_eq!(entry.get_variant_id()?, None);
+            let value0 = entry.get_value("A")?;
+            if let Some(RawValue::Array(a)) = &value0 {
                 assert_eq!(
                     &FakeArray::new(
                         Some(ASize::new(5)),
@@ -710,9 +712,9 @@ mod tests {
             } else {
                 panic!("Must be a array");
             };
-            assert_eq!(value0.as_vec().unwrap(), b"Hello");
-            let value1 = entry.get_value("B").unwrap();
-            if let RawValue::Array(a) = &value1 {
+            assert_eq!(value0.unwrap().as_vec()?, b"Hello");
+            let value1 = entry.get_value("B")?;
+            if let Some(RawValue::Array(a)) = &value1 {
                 assert_eq!(
                     &FakeArray::new(
                         Some(ASize::new(5)),
@@ -725,15 +727,16 @@ mod tests {
             } else {
                 panic!("Must be a array");
             };
-            assert_eq!(value1.as_vec().unwrap(), b"\0\0Foo");
-            assert_eq!(entry.get_value("C").unwrap(), RawValue::U32(0x515253));
+            assert_eq!(value1.unwrap().as_vec()?, b"\0\0Foo");
+            assert_eq!(entry.get_value("C")?, Some(RawValue::U32(0x515253)));
             assert_eq!(
-                entry.get_value("D").unwrap(),
-                RawValue::Content(ContentAddress {
+                entry.get_value("D")?,
+                Some(RawValue::Content(ContentAddress {
                     pack_id: PackId::from(0),
                     content_id: ContentIdx::from(0xaaaaaa)
-                })
+                }))
             );
         }
+        Ok(())
     }
 }

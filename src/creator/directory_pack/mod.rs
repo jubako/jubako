@@ -8,6 +8,7 @@ mod value_store;
 
 use crate::bases::*;
 use crate::common;
+use crate::creator::Result;
 pub use directory_pack::DirectoryPackCreator;
 pub use entry_store::EntryStore;
 use std::cmp;
@@ -332,7 +333,7 @@ impl super::private::WritableTell for Index {
         // No data to write
         Ok(())
     }
-    fn serialize_tail(&mut self, ser: &mut Serializer) -> Result<()> {
+    fn serialize_tail(&mut self, ser: &mut Serializer) -> IoResult<()> {
         self.store_id.serialize(ser)?;
         self.count.serialize(ser)?;
         self.offset.get().serialize(ser)?;

@@ -4,6 +4,7 @@ use crate::common::{
     CheckInfo, CheckKind, ManifestCheckStream, ManifestPackHeader, PackHeader, PackHeaderInfo,
     PackInfo, PackKind,
 };
+use crate::creator::Result;
 use std::io::SeekFrom;
 
 pub struct ManifestPackCreator {

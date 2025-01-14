@@ -28,9 +28,11 @@ fn lz4_source(raw_stream: ByteStream, data_size: ASize) -> Result<Arc<dyn Source
 
 #[cfg(not(feature = "lz4"))]
 fn lz4_source(_raw_stream: ByteStream, _data_size: ASize) -> Result<Arc<dyn Source>> {
-    Err("Lz4 compression is not supported in this configuration."
-        .to_string()
-        .into())
+    Err(MissingFeatureError {
+        name: "lz4",
+        msg: "Lz4 compression is not supported in this configuration.",
+    }
+    .into())
 }
 
 #[cfg(feature = "lzma")]
@@ -46,9 +48,11 @@ fn lzma_source(raw_stream: ByteStream, data_size: ASize) -> Result<Arc<dyn Sourc
 
 #[cfg(not(feature = "lzma"))]
 fn lzma_source(_raw_stream: ByteStream, _data_size: ASize) -> Result<Arc<dyn Source>> {
-    Err("Lzma compression is not supported in this configuration."
-        .to_string()
-        .into())
+    Err(MissingFeatureError {
+        name: "lzma",
+        msg: "Lzma compression is not supported in this configuration.",
+    }
+    .into())
 }
 
 #[cfg(feature = "zstd")]
@@ -61,9 +65,11 @@ fn zstd_source(raw_stream: ByteStream, data_size: ASize) -> Result<Arc<dyn Sourc
 
 #[cfg(not(feature = "zstd"))]
 fn zstd_source(_raw_stream: ByteStream, _data_size: ASize) -> Result<Arc<dyn Source>> {
-    Err("zstd compression is not supported in this configuration."
-        .to_string()
-        .into())
+    Err(MissingFeatureError {
+        name: "zstd",
+        msg: "zstd compression is not supported in this configuration.",
+    }
+    .into())
 }
 
 impl Cluster {

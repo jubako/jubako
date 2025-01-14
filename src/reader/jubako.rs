@@ -90,7 +90,7 @@ impl Container {
         let reader = container_pack.get_manifest_pack_reader()?;
 
         if reader.is_none() {
-            return Err("Impossible to locate the manifest_pack".into());
+            return Err(format_error!("Impossible to locate the manifest_pack"));
         }
         let reader = reader.unwrap();
 
@@ -128,32 +128,73 @@ impl Container {
         self.manifest_pack.pack_count()
     }
 
-    pub fn get_pack(&self, pack_id: PackId) -> Result<MayMissPack<&ContentPack>> {
+    /// Get a pack for the given pack_id.
+    ///
+    /// If pack_id is not found in the manifest, return `None`.
+    /// As a existing pack may be actually missing, we return a MayMissPack which is kind
+    /// of option, but with a pack_info payload in the "None"
+    pub fn get_pack(&self, pack_id: PackId) -> Result<Option<MayMissPack<&ContentPack>>> {
+        if pack_id.into_usize() >= self.packs.len() {
+            return Ok(None);
+        }
         let cache_slot = &self.packs[pack_id.into_usize()];
         if cache_slot.get().is_none() {
             match self._get_pack(pack_id)? {
-                MayMissPack::MISSING(pack_info) => return Ok(MayMissPack::MISSING(pack_info)),
-                MayMissPack::FOUND(p) => {
+                None => return Ok(None),
+                Some(MayMissPack::MISSING(pack_info)) => {
+                    return Ok(Some(MayMissPack::MISSING(pack_info)))
+                }
+                Some(MayMissPack::FOUND(p)) => {
                     let _ = cache_slot.set(p);
                 }
             }
         }
-        Ok(MayMissPack::FOUND(cache_slot.get().unwrap()))
+        Ok(Some(MayMissPack::FOUND(cache_slot.get().unwrap())))
     }
 
-    pub fn get_bytes(&self, content: ContentAddress) -> Result<MayMissPack<ByteRegion>> {
-        let pack = self.get_pack(content.pack_id)?;
-        pack.map(|p| p.get_content(content.content_id)).transpose()
+    /// Get bytes associated to a content address.
+    ///
+    /// This imply 2 lookups:
+    /// - One to get the pack
+    /// - One to get the bytes from the pack.
+    ///
+    /// So the return value of this method is a bit complex.
+    /// Classic use case, when content address come from the jubako archive itself is:
+    /// ```ignore
+    /// let bytes = container
+    ///             .get_bytes(content_address)?
+    ///             .and_then(|m| m.transpose())
+    ///             .expect("As content address should be valid, we should have a bytes (or a MayMissPack)");
+    ///             // `expect(...)` may be replaced with `or_or(SomeFormatError::new(...))?`
+    /// match bytes {
+    ///     MayMissPack::FOUND(bytes) => { read_from_bytes(bytes) }
+    ///     MayMissPack::MISSING(pack_info) => { display_user_pack_is_missing(pack_info) }
+    /// }
+    /// ```
+    pub fn get_bytes(
+        &self,
+        content: ContentAddress,
+    ) -> Result<Option<MayMissPack<Option<ByteRegion>>>> {
+        match self.get_pack(content.pack_id)? {
+            None => Ok(None),
+            Some(MayMissPack::MISSING(pack_info)) => Ok(Some(MayMissPack::MISSING(pack_info))),
+            Some(MayMissPack::FOUND(p)) => {
+                Ok(Some(MayMissPack::FOUND(p.get_content(content.content_id)?)))
+            }
+        }
     }
 
-    fn _get_pack(&self, pack_id: PackId) -> Result<MayMissPack<ContentPack>> {
-        let pack_info = self.manifest_pack.get_content_pack_info(pack_id)?;
+    fn _get_pack(&self, pack_id: PackId) -> Result<Option<MayMissPack<ContentPack>>> {
+        let pack_info = match self.manifest_pack.get_content_pack_info(pack_id) {
+            None => return Ok(None),
+            Some(p) => p,
+        };
         let pack_reader = self
             .locator
             .locate(pack_info.uuid, &pack_info.pack_location)?;
         match pack_reader {
-            None => Ok(MayMissPack::MISSING(pack_info.clone())),
-            Some(r) => Ok(MayMissPack::FOUND(ContentPack::new(r)).transpose()?),
+            None => Ok(Some(MayMissPack::MISSING(pack_info.clone()))),
+            Some(r) => Ok(Some(MayMissPack::FOUND(ContentPack::new(r)).transpose()?)),
         }
     }
 
@@ -173,7 +214,7 @@ impl Container {
     }
 
     /// Get a index by its name
-    pub fn get_index_for_name(&self, name: &str) -> Result<Index> {
+    pub fn get_index_for_name(&self, name: &str) -> Result<Option<Index>> {
         self.directory_pack.get_index_from_name(name)
     }
 

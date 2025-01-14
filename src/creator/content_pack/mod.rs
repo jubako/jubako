@@ -46,7 +46,7 @@ pub trait ContentAdder {
         &mut self,
         reader: Box<dyn InputReader>,
         comp_hint: CompHint,
-    ) -> Result<ContentAddress>;
+    ) -> std::io::Result<ContentAddress>;
 }
 
 pub struct CachedContentAdder<Wrapped: ContentAdder + 'static> {
@@ -74,7 +74,7 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
         hash: Hash,
         reader: Box<dyn InputReader>,
         comp_hint: CompHint,
-    ) -> Result<crate::ContentAddress> {
+    ) -> std::io::Result<crate::ContentAddress> {
         match self.cache.entry(hash) {
             Entry::Vacant(e) => {
                 let content_address = self.content_pack.add_content(reader, comp_hint)?;
@@ -92,7 +92,7 @@ impl<Wrapped: ContentAdder> CachedContentAdder<Wrapped> {
         &mut self,
         mut reader: Box<dyn InputReader>,
         comp_hint: CompHint,
-    ) -> Result<crate::ContentAddress> {
+    ) -> std::io::Result<crate::ContentAddress> {
         let mut hasher = blake3::Hasher::new();
         if reader.size() < cluster::CLUSTER_SIZE {
             let mut buf = Vec::with_capacity(reader.size().into_u64() as usize);
@@ -114,7 +114,7 @@ impl<Wrapper: ContentAdder> ContentAdder for CachedContentAdder<Wrapper> {
         &mut self,
         reader: Box<dyn InputReader>,
         comp_hint: CompHint,
-    ) -> Result<crate::ContentAddress> {
+    ) -> std::io::Result<crate::ContentAddress> {
         self.add_content(reader, comp_hint)
     }
 }

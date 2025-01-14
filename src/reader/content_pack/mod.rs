@@ -70,9 +70,9 @@ impl ContentPack {
         Ok(cached.clone())
     }
 
-    pub fn get_content(&self, index: ContentIdx) -> Result<ByteRegion> {
+    pub fn get_content(&self, index: ContentIdx) -> Result<Option<ByteRegion>> {
         if !index.is_valid(*self.header.content_count) {
-            return Err(Error::new_arg());
+            return Ok(None);
         }
         let content_info = self.content_infos.index(*index)?;
         if !content_info
@@ -85,7 +85,7 @@ impl ContentPack {
             )));
         }
         let cluster = self.get_cluster(content_info.cluster_index)?;
-        cluster.get_bytes(content_info.blob_index)
+        Ok(Some(cluster.get_bytes(content_info.blob_index)?))
     }
 
     pub fn get_free_data(&self) -> &[u8] {
@@ -115,14 +115,14 @@ impl graphex::Node for ContentPack {
         if let Some(item) = key.strip_prefix("e.") {
             let index = item
                 .parse::<u32>()
-                .map_err(|e| Error::from(format!("{e}")))?;
+                .map_err(|e| graphex::Error::key(&format!("{e}")))?;
             let index = ContentIdx::from(index);
             let content_info = self.content_infos.index(*index)?;
             Ok(Box::new(content_info).into())
         } else if let Some(item) = key.strip_prefix("c.") {
             let index = item
                 .parse::<u32>()
-                .map_err(|e| Error::from(format!("{e}")))?;
+                .map_err(|e| graphex::Error::key(&format!("{e}")))?;
             let cluster_info = self.cluster_ptrs.index(index.into())?;
             Ok(Box::new(self.reader.parse_data_block::<Cluster>(cluster_info)?).into())
         } else {
@@ -193,7 +193,7 @@ impl Pack for ContentPack {
             Size::from(self.pack_header.check_info_pos),
             false,
         )?;
-        check_info.check(&mut check_stream)
+        Ok(check_info.check(&mut check_stream)?)
     }
 }
 
@@ -203,7 +203,7 @@ mod tests {
     use std::io::Read;
 
     #[test]
-    fn test_contentpack() {
+    fn test_contentpack() -> Result<()> {
         let mut content = vec![];
 
         // Pack header offset 0/0x00
@@ -280,7 +280,7 @@ mod tests {
 
         // FileSize 220 + 64 = 284/0x011C (file_size)
 
-        let content_pack = ContentPack::new(content.into()).unwrap();
+        let content_pack = ContentPack::new(content.into())?;
         assert_eq!(content_pack.get_content_count(), ContentCount::from(3));
         assert_eq!(content_pack.app_vendor_id(), VendorId::from([0, 0, 0, 1]));
         assert_eq!(content_pack.version(), (0, 2));
@@ -292,31 +292,38 @@ mod tests {
             ])
         );
         assert_eq!(content_pack.get_free_data(), [0xff; 24]);
-        assert!(&content_pack.check().unwrap());
+        assert!(&content_pack.check()?);
 
         {
-            let bytes = content_pack.get_content(ContentIdx::from(0)).unwrap();
+            let bytes = content_pack
+                .get_content(ContentIdx::from(0))?
+                .expect("0 is a valid content idx");
             assert_eq!(bytes.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
             let mut stream = bytes.stream();
-            stream.read_to_end(&mut v).unwrap();
+            stream.read_to_end(&mut v)?;
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
         {
-            let bytes = content_pack.get_content(ContentIdx::from(1)).unwrap();
+            let bytes = content_pack
+                .get_content(ContentIdx::from(1))?
+                .expect("1 is a valid content idx");
             assert_eq!(bytes.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
             let mut stream = bytes.stream();
-            stream.read_to_end(&mut v).unwrap();
+            stream.read_to_end(&mut v)?;
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
         {
-            let bytes = content_pack.get_content(ContentIdx::from(2)).unwrap();
+            let bytes = content_pack
+                .get_content(ContentIdx::from(2))?
+                .expect("2 is a valid content idx");
             assert_eq!(bytes.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
             let mut stream = bytes.stream();
-            stream.read_to_end(&mut v).unwrap();
+            stream.read_to_end(&mut v)?;
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }
+        Ok(())
     }
 }

@@ -105,7 +105,7 @@ fn decode_to_end<T: Read + Send>(
     mut decoder: T,
     mut buffer: SyncVecWr,
     chunk_size: usize,
-) -> Result<()> {
+) -> std::io::Result<()> {
     let total_size = buffer.total_size;
     let mut uncompressed = 0;
     //println!("Decompressing to {total_size}");
@@ -159,23 +159,23 @@ impl Source for SeekableDecoder {
     fn size(&self) -> Size {
         self.buffer.total_size().into()
     }
-    fn read(&self, offset: Offset, buf: &mut [u8]) -> Result<usize> {
+    fn read(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<usize> {
         let end = std::cmp::min(
             offset.force_into_usize() + buf.len(),
             self.buffer.total_size(),
         );
         self.decode_to(end);
         let mut slice = &self.decoded_slice()[offset.force_into_usize()..];
-        match Read::read(&mut slice, buf) {
-            Err(e) => Err(e.into()),
-            Ok(v) => Ok(v),
-        }
+        Read::read(&mut slice, buf)
     }
-    fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> Result<()> {
+    fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<()> {
         let o = offset.force_into_usize();
         let end = o + buf.len();
         if end > self.buffer.total_size() {
-            return Err(String::from("Out of slice").into());
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "Out of slice",
+            ));
         }
         self.decode_to(end);
         let slice = self.decoded_slice();
@@ -189,7 +189,11 @@ impl Source for SeekableDecoder {
             unreachable!()
         }
         if !region.end().is_valid(self.size()) {
-            return Err(format!("Out of slice. {} > {}", region.end(), self.size()).into());
+            return Err(format_error!(format!(
+                "Out of slice. {} > {}",
+                region.end(),
+                self.size()
+            )));
         }
         self.decode_to(region.end().force_into_usize());
         Ok(Cow::Borrowed(

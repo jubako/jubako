@@ -76,7 +76,7 @@ impl Parsable for Layout {
             common_size += raw_property.size;
             common_properties.push(raw_property);
         }
-        let common_properties = Properties::new(0, common_properties)?;
+        let common_properties = Properties::new(0, common_properties);
         let variant_part = if variant_count.into_u8() != 0 {
             let variant_id_offset = Offset::from(common_size);
             common_size += 1;
@@ -116,7 +116,7 @@ impl Parsable for Layout {
                         ))
                     }
                     Ordering::Equal => {
-                        variants.push(Properties::new(common_size, variant_def)?.into());
+                        variants.push(Properties::new(common_size, variant_def).into());
                         variants_map.insert(variant_name.unwrap(), variants.len() as u8 - 1);
                         variant_def = Vec::new();
                         variant_size = 0;

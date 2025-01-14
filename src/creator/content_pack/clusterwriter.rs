@@ -28,7 +28,7 @@ fn lz4_compress<'b>(
     data: &mut InputData,
     stream: &'b mut dyn OutStream,
     level: u32,
-) -> Result<&'b mut dyn OutStream> {
+) -> std::io::Result<&'b mut dyn OutStream> {
     let mut encoder = lz4::EncoderBuilder::new()
         .level(level)
         .block_size(lz4::BlockSize::Max4MB)
@@ -48,7 +48,7 @@ fn lzma_compress<'b>(
     data: &mut InputData,
     stream: &'b mut dyn OutStream,
     level: u32,
-) -> Result<&'b mut dyn OutStream> {
+) -> std::io::Result<&'b mut dyn OutStream> {
     let mut encoder = xz2::write::XzEncoder::new_stream(
         stream,
         xz2::stream::Stream::new_lzma_encoder(&xz2::stream::LzmaOptions::new_preset(level)?)?,
@@ -56,7 +56,7 @@ fn lzma_compress<'b>(
     for mut in_reader in data.drain(..) {
         std::io::copy(&mut in_reader, &mut encoder)?;
     }
-    Ok(encoder.finish()?)
+    encoder.finish()
 }
 
 #[cfg(feature = "zstd")]
@@ -64,7 +64,7 @@ fn zstd_compress<'b>(
     data: &mut InputData,
     stream: &'b mut dyn OutStream,
     level: i32,
-) -> Result<&'b mut dyn OutStream> {
+) -> std::io::Result<&'b mut dyn OutStream> {
     let mut encoder = zstd::Encoder::new(stream, level)?;
     encoder.include_contentsize(false)?;
     encoder.include_checksum(false)?;
@@ -72,7 +72,7 @@ fn zstd_compress<'b>(
     for mut in_reader in data.drain(..) {
         std::io::copy(&mut in_reader, &mut encoder)?;
     }
-    Ok(encoder.finish()?)
+    encoder.finish()
 }
 
 struct ClusterCompressor {
@@ -87,7 +87,7 @@ fn serialize_cluster_tail(
     cluster: &ClusterCreator,
     raw_data_size: Size,
     ser: &mut Serializer,
-) -> Result<()> {
+) -> std::io::Result<()> {
     let offset_size = needed_bytes(cluster.data_size().into_u64());
     let cluster_header = ClusterHeader::new(
         compression.into(),
@@ -124,7 +124,7 @@ impl ClusterCompressor {
         &mut self,
         cluster: &mut ClusterCreator,
         outstream: &mut dyn OutStream,
-    ) -> Result<()> {
+    ) -> std::io::Result<()> {
         match &self.compression {
             Compression::None => unreachable!(),
             #[cfg(feature = "lz4")]
@@ -141,7 +141,7 @@ impl ClusterCompressor {
         &mut self,
         mut cluster: ClusterCreator,
         outstream: &mut dyn OutStream,
-    ) -> Result<SizedOffset> {
+    ) -> std::io::Result<SizedOffset> {
         self.progress.handle_cluster(cluster.index.into(), true);
         let data_offset = outstream.tell();
         self.write_cluster_data(&mut cluster, outstream)?;
@@ -160,7 +160,7 @@ impl ClusterCompressor {
         })
     }
 
-    pub fn run(mut self) -> Result<()> {
+    pub fn run(mut self) -> std::io::Result<()> {
         while let Ok(cluster) = self.input.recv() {
             //[TODO] Avoid allocation. Reuse the data once it is written ?
             let mut data = Vec::<u8>::with_capacity(1024 * 1024);
@@ -213,7 +213,7 @@ where
         }
     }
 
-    fn write_cluster_data(&mut self, cluster_data: InputData) -> Result<u64> {
+    fn write_cluster_data(&mut self, cluster_data: InputData) -> std::io::Result<u64> {
         let mut copied = 0;
         for d in cluster_data.into_iter() {
             let (read, to_drop) = self.file.copy(d)?;
@@ -223,7 +223,7 @@ where
         Ok(copied)
     }
 
-    fn write_cluster(&mut self, mut cluster: ClusterCreator) -> Result<SizedOffset> {
+    fn write_cluster(&mut self, mut cluster: ClusterCreator) -> std::io::Result<SizedOffset> {
         self.progress
             .handle_cluster(cluster.index.into_u32(), false);
         let start_offset = self.file.tell();
@@ -244,13 +244,13 @@ where
         })
     }
 
-    fn write_data(&mut self, data: &[u8]) -> Result<Offset> {
+    fn write_data(&mut self, data: &[u8]) -> std::io::Result<Offset> {
         let offset = self.file.tell();
         self.file.write_all(data)?;
         Ok(offset)
     }
 
-    pub fn run(mut self) -> Result<(O, Vec<Late<SizedOffset>>)> {
+    pub fn run(mut self) -> std::io::Result<(O, Vec<Late<SizedOffset>>)> {
         while let Ok(task) = self.input.recv() {
             let (sized_offset, idx) = match task {
                 WriteTask::Cluster(cluster) => {
@@ -279,10 +279,10 @@ where
 }
 
 pub(super) struct ClusterWriterProxy<O: OutStream> {
-    worker_threads: Vec<JoinHandle<Result<()>>>,
-    thread_handle: JoinHandle<Result<(O, Vec<Late<SizedOffset>>)>>,
+    worker_threads: Vec<JoinHandle<std::io::Result<()>>>,
+    thread_handle: JoinHandle<std::io::Result<(O, Vec<Late<SizedOffset>>)>>,
     dispatch_tx: spmc::Sender<ClusterCreator>,
-    fusion_tx: mpsc::Sender<WriteTask>,
+    fusion_tx: mpsc::Sender<WriteTask>, // FIXME: Should we use a `mpsc::SyncSender` instead ?
     nb_cluster_in_queue: Arc<(Mutex<usize>, Condvar)>,
     max_queue_size: usize,
     compression: Compression,
@@ -334,7 +334,11 @@ impl<O: OutStream + 'static> ClusterWriterProxy<O> {
         }
     }
 
-    pub fn write_cluster(&mut self, cluster: ClusterCreator, compressed: bool) -> Result<()> {
+    pub fn write_cluster(
+        &mut self,
+        cluster: ClusterCreator,
+        compressed: bool,
+    ) -> std::io::Result<()> {
         let should_compress = if let Compression::None = self.compression {
             false
         } else {
@@ -346,16 +350,18 @@ impl<O: OutStream + 'static> ClusterWriterProxy<O> {
                 .wait_while(count.lock().unwrap(), |c| *c >= self.max_queue_size)
                 .unwrap();
             *count += 1;
-            if let Err(e) = self.dispatch_tx.send(cluster) {
-                return Err(e.to_string().into());
-            }
-        } else if let Err(e) = self.fusion_tx.send(cluster.into()) {
-            return Err(e.to_string().into());
+            self.dispatch_tx
+                .send(cluster)
+                .expect("Receiver should not be closed");
+        } else {
+            self.fusion_tx
+                .send(cluster.into())
+                .expect("Receiver should not be closed");
         }
         Ok(())
     }
 
-    pub fn finalize(self) -> Result<(O, Vec<Late<SizedOffset>>)> {
+    pub fn finalize(self) -> std::io::Result<(O, Vec<Late<SizedOffset>>)> {
         drop(self.dispatch_tx);
         drop(self.fusion_tx);
         for thread in self.worker_threads {

@@ -10,8 +10,7 @@ test_suite! {
     name basic_creation;
 
     use jubako::creator;
-    use jubako::creator::schema;
-    use jubako::Result;
+    use jubako::creator::{schema, Result};
     use jubako::reader::{Range, EntryTrait};
     use std::io::{Read, Seek};
     use crate::Entry as TestEntry;
@@ -210,28 +209,28 @@ test_suite! {
         assert_eq!(index.count(), (articles.val.len() as u32).into());
         for i in index.count() {
             println!("Check entry count {:?}", i);
-            let entry = index.get_entry(&builder, i).unwrap();
+            let entry = index.get_entry(&builder, i).unwrap().expect("Entry i is in the index");
             assert_eq!(entry.get_variant_id().unwrap(), None);
             println!("Check value 0");
-            let value_0 = entry.get_value("V0").unwrap();
+            let value_0 = entry.get_value("V0").unwrap().unwrap();
             println!("Raw value 0 is {:?}", value_0);
             let value_0 = value_0.as_vec().unwrap();
             assert_eq!(value_0, articles.val[i.into_usize()].path.as_bytes());
             println!("Check value 1");
-            let value_1 = entry.get_value("V1").unwrap();
+            let value_1 = entry.get_value("V1").unwrap().unwrap();
             println!("Raw value 1 is {:?}", value_1);
             let value_1 = value_1.as_content();
             println!("Value 1 is {:?}", value_1);
             println!("Get reader");
             let bytes = container.get_bytes(value_1).unwrap();
             println!("Readir is {:?}", bytes);
-            let mut stream = bytes.as_ref().unwrap().stream();
+            let mut stream = bytes.and_then(|m| m.transpose()).expect("value_1 should be valid").unwrap().stream();
             let mut read_content: String = "".to_string();
             println!("Read from stream");
             stream.read_to_string(&mut read_content).unwrap();
             assert_eq!(read_content, articles.val[i.into_usize()].content);
             println!("Check value 2");
-            let value_2 = entry.get_value("V2").unwrap();
+            let value_2 = entry.get_value("V2").unwrap().unwrap();
             let value_2 = value_2.as_unsigned();
             assert_eq!(value_2, articles.val[i.into_usize()].word_count as u64);
         }

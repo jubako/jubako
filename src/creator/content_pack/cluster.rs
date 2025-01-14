@@ -37,7 +37,7 @@ impl ClusterCreator {
         self.data.is_empty()
     }
 
-    pub fn add_content(&mut self, content: Box<dyn InputReader>) -> Result<ContentInfo> {
+    pub fn add_content(&mut self, content: Box<dyn InputReader>) -> std::io::Result<ContentInfo> {
         assert!(self.offsets.len() < MAX_BLOBS_PER_CLUSTER);
         let content_size = content.size();
         let idx = self.offsets.len() as u16;

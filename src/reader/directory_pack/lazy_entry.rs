@@ -16,18 +16,26 @@ impl LazyEntry {
         Self { properties, bytes }
     }
 
-    fn _get_value(&self, name: &str) -> Result<RawValue> {
+    fn _get_value(&self, name: &str) -> Result<Option<RawValue>> {
         if self.properties.common.contains(name) {
             self.properties.common.create_value(name, &self.bytes)
         } else {
-            match &self.properties.variant_part {
-                None => Err("Invalid key".to_string().into()),
-                Some((id_property, variants, _)) => {
-                    let variant_id = id_property.create(&self.bytes)?;
-                    let variant = &variants[variant_id.into_usize()];
-                    variant.create_value(name, &self.bytes)
-                }
-            }
+            self.properties
+                .variant_part
+                .as_ref()
+                .and_then(|(id_property, variants, _)| {
+                    let variant_id = match id_property.create(&self.bytes) {
+                        Ok(v) => v,
+                        Err(e) => return Some(Err(e)),
+                    };
+                    if variants.len() <= variant_id.into_usize() {
+                        None
+                    } else {
+                        let variant = &variants[variant_id.into_usize()];
+                        variant.create_value(name, &self.bytes).transpose()
+                    }
+                })
+                .transpose()
         }
     }
 }
@@ -40,7 +48,7 @@ impl EntryTrait for LazyEntry {
         }
     }
 
-    fn get_value(&self, name: &str) -> Result<RawValue> {
+    fn get_value(&self, name: &str) -> Result<Option<RawValue>> {
         self._get_value(name)
     }
 }
