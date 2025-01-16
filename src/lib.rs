@@ -13,7 +13,8 @@ pub mod cmd_utils;
 
 pub use crate::bases::{
     Bound, ContentIdx, EntryCount, EntryIdx, EntryRange, Error, ErrorKind, FileSource, MayRef,
-    Offset, PackId, PropertyCount, PropertyIdx, Reader, Result, Size, VariantIdx, VendorId, Vow,
+    Offset, PackId, PropertyCount, PropertyIdx, PropertyName, Reader, Result, Size, VariantIdx,
+    VariantName, VendorId, Vow,
 };
 pub use crate::common::{CompressionType, ContentAddress, Pack, Value};
 //use crate::reader::directory_pack::layout;

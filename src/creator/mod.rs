@@ -17,7 +17,7 @@ pub use content_pack::{
 };
 pub use directory_pack::{
     schema, Array, ArrayS, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait,
-    FullEntryTrait, PropertyName, StoreHandle, Value, ValueHandle, ValueStore, VariantName,
+    FullEntryTrait, StoreHandle, Value, ValueHandle, ValueStore,
 };
 pub use errors::{Error, Result};
 pub use manifest_pack::ManifestPackCreator;

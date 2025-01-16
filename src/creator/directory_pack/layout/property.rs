@@ -4,7 +4,7 @@ use crate::bases::Serializable;
 use crate::bases::*;
 
 pub(crate) enum Property<PN: PropertyName> {
-    VariantId(String),
+    VariantId(&'static str),
     Array {
         array_len_size: Option<ByteSize>,
         fixed_array_len: u8,
@@ -41,7 +41,7 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
         match self {
             VariantId(name) => f
                 .debug_struct("VariantId")
-                .field("name", &name)
+                .field("name", name)
                 .field("size", &self.size())
                 .finish(),
             Array {
@@ -55,7 +55,7 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .field("fixed_array_len", &fixed_array_len)
                 .field("deported_info", &deported_info)
                 .field("size", &self.size())
-                .field("name", &name.to_string())
+                .field("name", &name.as_str())
                 .finish(),
             IndirectArray {
                 value_id_size,
@@ -65,7 +65,7 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .debug_struct("IndirectArray")
                 .field("value_id_size", &value_id_size)
                 .field("store_handle", &store_handle)
-                .field("name", &name.to_string())
+                .field("name", &name.as_str())
                 .finish(),
             ContentAddress {
                 content_id_size,
@@ -78,7 +78,7 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .field("pack_id_size", &pack_id_size)
                 .field("default", &default)
                 .field("size", &self.size())
-                .field("name", &name.to_string())
+                .field("name", &name.as_str())
                 .finish(),
             UnsignedInt {
                 size,
@@ -89,7 +89,7 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .field("size", &size)
                 .field("default", &default)
                 .field("size", &self.size())
-                .field("name", &name.to_string())
+                .field("name", &name.as_str())
                 .finish(),
             SignedInt {
                 size,
@@ -100,7 +100,7 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .field("size", &size)
                 .field("default", &default)
                 .field("size", &self.size())
-                .field("name", &name.to_string())
+                .field("name", &name.as_str())
                 .finish(),
             Padding(_size) => f
                 .debug_struct("Padding")
@@ -202,7 +202,7 @@ impl<PN: PropertyName> Serializable for Property<PN> {
                 if let Some((_, store)) = deported_info {
                     written += store.get_idx().unwrap().serialize(ser)?;
                 }
-                written += PString::serialize_string(name.to_string().as_bytes(), ser)?;
+                written += PString::serialize_string(name.as_str().as_bytes(), ser)?;
                 Ok(written)
             }
             Property::IndirectArray {
@@ -213,7 +213,7 @@ impl<PN: PropertyName> Serializable for Property<PN> {
                 let mut written = ser.write_u8(PropType::Array as u8)?;
                 written += ser.write_u8((*value_id_size as usize as u8) << 5)?;
                 written += store_handle.get_idx().unwrap().serialize(ser)?;
-                written += PString::serialize_string(name.to_string().as_bytes(), ser)?;
+                written += PString::serialize_string(name.as_str().as_bytes(), ser)?;
                 Ok(written)
             }
             Property::ContentAddress {
@@ -236,7 +236,7 @@ impl<PN: PropertyName> Serializable for Property<PN> {
                         written
                     }
                 };
-                written += PString::serialize_string(name.to_string().as_bytes(), ser)?;
+                written += PString::serialize_string(name.as_str().as_bytes(), ser)?;
                 Ok(written)
             }
             Property::UnsignedInt {
@@ -255,7 +255,7 @@ impl<PN: PropertyName> Serializable for Property<PN> {
                         written
                     }
                 };
-                written += PString::serialize_string(name.to_string().as_bytes(), ser)?;
+                written += PString::serialize_string(name.as_str().as_bytes(), ser)?;
                 Ok(written)
             }
             Property::SignedInt {
@@ -274,7 +274,7 @@ impl<PN: PropertyName> Serializable for Property<PN> {
                         written
                     }
                 };
-                written += PString::serialize_string(name.to_string().as_bytes(), ser)?;
+                written += PString::serialize_string(name.as_str().as_bytes(), ser)?;
                 Ok(written)
             }
             Property::Padding(size) => {

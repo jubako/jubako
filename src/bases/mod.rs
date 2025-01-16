@@ -88,3 +88,22 @@ where
     nb_bytes = cmp::max(nb_bytes, 1);
     nb_bytes.try_into().unwrap()
 }
+
+pub trait PropertyName: std::cmp::Eq + std::hash::Hash + Copy + Send + 'static {
+    fn as_str(&self) -> &'static str;
+}
+
+impl PropertyName for &'static str {
+    fn as_str(&self) -> &'static str {
+        self
+    }
+}
+
+pub trait VariantName: std::cmp::Eq + std::hash::Hash + Copy + Send {
+    fn as_str(&self) -> &'static str;
+}
+impl VariantName for &'static str {
+    fn as_str(&self) -> &'static str {
+        self
+    }
+}
