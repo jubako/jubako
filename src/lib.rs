@@ -11,6 +11,9 @@ pub mod tools;
 #[cfg(feature = "clap")]
 pub mod cmd_utils;
 
+#[doc(hidden)]
+pub use const_format::concatcp;
+
 pub use crate::bases::{
     Bound, ContentIdx, EntryCount, EntryIdx, EntryRange, Error, ErrorKind, FileSource, MayRef,
     Offset, PackId, PropertyCount, PropertyIdx, PropertyName, Reader, Result, Size, VariantIdx,

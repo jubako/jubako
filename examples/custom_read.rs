@@ -1,51 +1,90 @@
-use core::convert::TryFrom;
 use jbk::reader::builder::PropertyBuilderTrait;
 use jbk::reader::Range;
 use jubako as jbk;
 use std::error::Error;
+use std::fmt::Display;
 
-// We first have to define the entry type we expect to read from jubako container.
-// The entry has two variants. We duplicate the common part in the variants for
-// simplification.
-pub enum Entry {
-    Variant0(Variant0),
-    Variant1(Variant1),
+// This example is showing how to create a Jubako reader which expect a specific
+// schema.
+//
+// This reader is expected to read a Jubako file created by `simple_create.rs` or
+// `basic_creator.rs`.
+// It expects:
+//  - An index called "My own index" which point to an entry store with a specific schema:
+//  - 2 variants (called "FirstVariant" and "SecondVariant")
+//  - 2 common properties (properties common to all variants):
+//    . A byte array called "AString"
+//    . An integer called "AInteger"
+//  - variant 0 ("FirstVariant") has one property which is a content reference called "TheContent"
+//  - variant 1 ("SecondVariant") has one property which is a integer called "AnotherInteger"
+//
+// Note that the Jubako container may contain another metadata
+// (other index, other variants or other properties), but we don't care.
+// We still can read a Jubako container as long as it is a super set of what expected.
+
+// Jubako API will return Option<T> type with None value if the expected metadata are
+// not found. A classical reader will do a `.ok_or` to transform this `Option` to a
+// `Result`. While an error is not necessary (you can still work with option), macros
+// provided to help implementing a reader is expecting one to transform the `Option`.
+// Let's define a error type now.
+#[derive(Debug)]
+pub struct ExampleError(&'static str);
+impl Display for ExampleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
+impl Error for ExampleError {}
 
-#[derive(Copy, Clone)]
-pub enum VariantType {
-    Variant0,
-    Variant1,
-}
-
-impl TryFrom<&str> for VariantType {
-    type Error = ();
-    fn try_from(v: &str) -> Result<Self, Self::Error> {
-        match v {
-            "FirstVariant" => Ok(Self::Variant0),
-            "SecondVariant" => Ok(Self::Variant1),
-            _ => Err(()),
-        }
+// Then we have to declare our two variants.
+// This will define a enum `VariantType` with the field `Variant0` and `Variant1`.
+// It defines also their name with expect to see in the container.
+jbk::variants! {
+    VariantType {
+        Variant0 => "FirstVariant",
+        Variant1 => "SecondVariant"
     }
 }
 
-pub struct Variant0 {
-    value0: Vec<u8>,
-    value1: u64,
-    value2: jbk::ContentAddress,
+// We have 4 properties: 2 commons and one per variant.
+jbk::properties! {
+    Property {
+        Value0:"array" => "AString",
+        Value1:"int" => "AInteger",
+        Variant0Value2:"content" => "TheContent",
+        Variant1Value2:"int" => "AnotherInteger"
+    }
 }
 
-pub struct Variant1 {
+// Now we define our Entry type itself.
+// This is the library's structure exposed to the user.
+// Nothing force us to have only one `Entry` struct.
+// Different use case may imply different Entry created from the same schema.
+// For exemple, a function listing only the entry may be interseted only by `value0`
+// while a function printing the content will have to parse the reader variant type and
+// the content reference.
+pub struct Entry {
     value0: Vec<u8>,
     value1: u64,
-    value2: u64,
+    variant: Variant,
 }
 
-// The builder is what will build the entry from the data stored in jubako.
+pub enum Variant {
+    Variant0 { value2: jbk::ContentAddress },
+    Variant1 { value2: u64 },
+}
+
+// As we may have several kind of entry type (and each library will define its own),
+// We need a builder which will build the entry from the data stored in jubako.
 // It is a composition of different individual property builder provided by jubako.
 pub struct Builder {
+    // The store associated to this builder
     store: jbk::reader::EntryStore,
+
+    // The variant id is what give us the actual variant of the entry being read
     variant_id: jbk::reader::builder::VariantIdBuilder<VariantType>,
+
+    // Now, a builder per property.
     value0: jbk::reader::builder::ArrayProperty,
     value1: jbk::reader::builder::IntProperty,
     variant0_value2: jbk::reader::builder::ContentProperty,
@@ -54,40 +93,37 @@ pub struct Builder {
 
 // Let's create our builder from the entryStore and ValueStore found in Jubako container.
 // This is where we check that the entrystore layout correspond to what we expect.
+// The macro `layout_builder` will extract the information about the property in the layout
+// and will build a property builder for us.
+// If it cannot (missing variant/property or wrong type), it will return a `ExempleError`.
 fn create_builder(
     store: jbk::reader::EntryStore,
     value_storage: &jbk::reader::ValueStorage,
-) -> jbk::Result<Builder> {
+) -> Result<Builder, Box<dyn Error>> {
     let layout = store.layout();
-    let variants = layout.variant_part.as_ref().unwrap();
     assert_eq!(layout.variant_len(), 2);
-    let value0 = layout
-        .common
-        .get("AString")
-        .expect("ASring is in layout")
-        .as_builder(value_storage)?
-        .expect("Layout proprety should match ArrayProperty");
-    let value1 = layout
-        .common
-        .get("AInteger")
-        .expect("AInteger is in layout")
-        .as_builder(value_storage)?
-        .expect("Layout proprety should match IntProperty");
-    let variant0_value2 = variants
-        .get("FirstVariant")
-        .expect("FirstVariant is in layout")
-        .get("TheContent")
-        .expect("TheContent is in layout")
-        .as_builder(value_storage)?
-        .expect("Layout proprety should match ContentProperty");
-    let variant1_value2 = variants
-        .get("SecondVariant")
-        .expect("SecondVariant is in layout")
-        .get("AnotherInt")
-        .expect("AnotherInt is in layout")
-        .as_builder(value_storage)?
-        .expect("Layout proprety should match IntProperty");
+    // We can unwrap the variant_id as we know that their is 2 variants.
     let variant_id = layout.variant_id_builder().unwrap();
+    let value0 = jbk::layout_builder!(
+        layout[common][Property::Value0],
+        value_storage,
+        ExampleError
+    );
+    let value1 = jbk::layout_builder!(
+        layout[common][Property::Value1],
+        value_storage,
+        ExampleError
+    );
+    let variant0_value2 = jbk::layout_builder!(
+        layout[VariantType::Variant0][Property::Variant0Value2],
+        value_storage,
+        ExampleError
+    );
+    let variant1_value2 = jbk::layout_builder!(
+        layout[VariantType::Variant1][Property::Variant1Value2],
+        value_storage,
+        ExampleError
+    );
     Ok(Builder {
         store,
         value0,
@@ -98,7 +134,7 @@ fn create_builder(
     })
 }
 
-// This is where we build our entry
+// The builder now have to create the entry.
 impl jbk::reader::builder::BuilderTrait for Builder {
     type Entry = Entry;
     type Error = jbk::Error;
@@ -116,7 +152,7 @@ impl jbk::reader::builder::BuilderTrait for Builder {
         // Value0 is a array with a part stored in a value store.
         // The property builder only parse the bytes in the entry_store
         // so we have to "resolve" the property to get the data from the value_store.
-        let mut value0 = vec![];
+        let mut value0 = Vec::new();
         self.value0.create(&reader)?.resolve_to_vec(&mut value0)?;
 
         // Read value1
@@ -126,19 +162,19 @@ impl jbk::reader::builder::BuilderTrait for Builder {
         match self.variant_id.create(&reader)? {
             Some(VariantType::Variant0) => {
                 let value2 = self.variant0_value2.create(&reader)?;
-                Ok(Some(Entry::Variant0(Variant0 {
+                Ok(Some(Entry {
                     value0,
                     value1,
-                    value2,
-                })))
+                    variant: Variant::Variant0 { value2 },
+                }))
             }
             Some(VariantType::Variant1) => {
                 let value2 = self.variant1_value2.create(&reader)?;
-                Ok(Some(Entry::Variant1(Variant1 {
+                Ok(Some(Entry {
                     value0,
                     value1,
-                    value2,
-                })))
+                    variant: Variant::Variant1 { value2 },
+                }))
             }
             None => Ok(None),
         }
@@ -161,12 +197,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         let entry = index
             .get_entry(&builder, 0.into())?
             .expect("Entry 0 exists in the index");
-        if let Entry::Variant0(entry) = entry {
-            assert_eq!(entry.value0, Vec::from("Super"));
-            assert_eq!(entry.value1, 50);
+        assert_eq!(entry.value0, b"Super");
+        assert_eq!(entry.value1, 50);
+        if let Variant::Variant0 { value2 } = entry.variant {
             // Let's print the content on stdout
             let reader = container
-                .get_bytes(entry.value2)?
+                .get_bytes(value2)?
                 .and_then(|m| m.transpose())
                 .expect("value2 should be valid")
                 .unwrap();
@@ -180,10 +216,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         let entry = index
             .get_entry(&builder, 1.into())?
             .expect("Entry 1 exists in the index");
-        if let Entry::Variant1(entry) = entry {
-            assert_eq!(entry.value0, Vec::from("Mega"));
-            assert_eq!(entry.value1, 42);
-            assert_eq!(entry.value2, 5);
+        assert_eq!(entry.value0, b"Mega");
+        assert_eq!(entry.value1, 42);
+        if let Variant::Variant1 { value2 } = entry.variant {
+            assert_eq!(value2, 5);
         } else {
             panic!("We should have variant1")
         }
@@ -193,10 +229,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         let entry = index
             .get_entry(&builder, 2.into())?
             .expect("Entry 2 exists in the index");
-        if let Entry::Variant1(entry) = entry {
-            assert_eq!(entry.value0, Vec::from("Hyper"));
-            assert_eq!(entry.value1, 45);
-            assert_eq!(entry.value2, 2);
+        assert_eq!(entry.value0, b"Hyper");
+        assert_eq!(entry.value1, 45);
+        if let Variant::Variant1 { value2 } = entry.variant {
+            assert_eq!(value2, 2);
         } else {
             panic!("We should have variant1")
         }

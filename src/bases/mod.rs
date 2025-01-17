@@ -107,3 +107,98 @@ impl VariantName for &'static str {
         self
     }
 }
+
+#[macro_export]
+macro_rules! variants {
+    ($vname:ident { $($name:ident => $jname:literal),+  $(,)? }) => {
+        #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+        #[repr(u8)]
+        pub enum $vname {
+            $($name),+
+        }
+
+        impl $vname {
+            pub(crate) const fn get_str(&self) -> &'static str {
+                use $vname::*;
+                match self {
+                    $($name => $jname),+
+                }
+            }
+                }
+
+        impl jbk::VariantName for $vname {
+            fn as_str(&self) -> &'static str {
+                self.get_str()
+            }
+        }
+
+        impl TryFrom<&str>  for $vname {
+            type Error = ();
+            fn try_from(v: &str) -> Result<Self, ()> {
+                $(
+                    if v == $jname {return Ok(Self::$name);}
+                )+
+                Err(())
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! properties {
+    ($pname:ident { $($name:ident:$kind:literal => $jname:literal),+ $(,)? }) => {
+        #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+        pub enum $pname {
+            $($name),+
+        }
+
+        impl $pname {
+            const fn get_str(&self) -> &'static str {
+                use $pname::*;
+                match self {
+                    $($name => $jname),+
+                }
+            }
+            const fn get_type(&self) -> &'static str {
+                use $pname::*;
+                match self {
+                    $($name => $kind),+
+                }
+            }
+        }
+
+        impl jbk::PropertyName for $pname {
+            fn as_str(&self) -> &'static str {
+                self.get_str()
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! layout_builder {
+    ($container:ident[common][$key:expr], $value_storage:expr, $error:ident) => {
+       $crate::layout_builder!(@from_key, $container.common, $key, $value_storage, $error)
+    };
+    ($container:ident[$variant:expr][$key:expr], $value_storage:expr, $error:ident) => {{
+        let variant = $container.get_variant($variant);
+        match variant {
+            None => Err($error($crate::concatcp!(
+                "Variant `", ($variant.get_str()), "` is not present."
+             )))?,
+            Some(variant) => $crate::layout_builder!(@from_key, variant, $key, $value_storage, $error)
+        }
+    }};
+
+    (@from_key, $container:expr, $key:expr, $value_storage:expr, $error:ident) => {
+        $container
+            .get($key)
+            .ok_or($error($crate::concatcp!(
+                "Property ", ($key.get_str()), " is not present."
+            )))?
+            .as_builder($value_storage)?
+            .ok_or($error($crate::concatcp!(
+                "Property ", ($key.get_str()), " is not a ", ($key.get_type()), " property."
+            )))?
+    };
+}
