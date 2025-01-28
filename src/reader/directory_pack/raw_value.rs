@@ -54,15 +54,22 @@ impl Array {
     }
 
     pub fn resolve_to_vec(&self, vec: &mut SmallBytes) -> Result<()> {
-        let our_iter = ArrayIter::new(self)?;
-        if let Some(s) = self.size {
-            vec.reserve(s.into_u64() as usize);
-        } else {
-            vec.reserve(self.base_len as usize);
-        }
-        for v in our_iter {
-            vec.push(v?);
-        }
+        vec.reserve(
+            self.size
+                .map(|s| s.into_u64())
+                .unwrap_or(self.base_len as u64) as usize,
+        );
+        // Array::new ensure us to have base_len <= self.size and
+        // jubako format ensure that base_len <= self.base.data.len()
+        vec.extend_from_slice(&self.base.data[..self.base_len as usize]);
+        if let Some(e) = &self.extend {
+            let data = e.store.get_data(
+                e.value_id,
+                self.size.map(|s| s - ASize::new(self.base_len as usize)),
+            )?;
+            vec.extend_from_slice(data)
+        };
+
         Ok(())
     }
 
