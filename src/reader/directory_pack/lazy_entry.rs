@@ -1,4 +1,4 @@
-use super::builder::{LazyEntryProperties, PropertyBuilderTrait};
+use super::builder::{AnyVariantBuilder, LazyEntryProperties, PropertyBuilderTrait};
 use super::raw_value::RawValue;
 use super::EntryTrait;
 use crate::bases::*;
@@ -23,18 +23,23 @@ impl LazyEntry {
             self.properties
                 .variant_part
                 .as_ref()
-                .and_then(|(id_property, variants, _)| {
-                    let variant_id = match id_property.create(&self.bytes) {
-                        Ok(v) => v,
-                        Err(e) => return Some(Err(e)),
-                    };
-                    if variants.len() <= variant_id.into_usize() {
-                        None
-                    } else {
-                        let variant = &variants[variant_id.into_usize()];
-                        variant.create_value(name, &self.bytes).transpose()
-                    }
-                })
+                .and_then(
+                    |AnyVariantBuilder {
+                         variant_id_property,
+                         variants,
+                     }| {
+                        let variant_id = match variant_id_property.create(&self.bytes) {
+                            Ok(v) => v,
+                            Err(e) => return Some(Err(e)),
+                        };
+                        if variants.len() <= variant_id.into_usize() {
+                            None
+                        } else {
+                            let variant = &variants[variant_id.into_usize()];
+                            variant.create_value(name, &self.bytes).transpose()
+                        }
+                    },
+                )
                 .transpose()
         }
     }
@@ -44,7 +49,10 @@ impl EntryTrait for LazyEntry {
     fn get_variant_id(&self) -> Result<Option<VariantIdx>> {
         match &self.properties.variant_part {
             None => Ok(None),
-            Some((id_property, _, _)) => Ok(Some(id_property.create(&self.bytes)?)),
+            Some(AnyVariantBuilder {
+                variant_id_property,
+                variants: _,
+            }) => Ok(Some(variant_id_property.create(&self.bytes)?)),
         }
     }
 

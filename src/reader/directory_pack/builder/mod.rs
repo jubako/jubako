@@ -23,11 +23,11 @@ pub trait BuilderTrait {
     fn create_entry(&self, idx: EntryIdx) -> std::result::Result<Option<Self::Entry>, Self::Error>;
 }
 
-pub struct AnyVariantBuilder {
+pub struct AnyPropertiesMap {
     properties: HashMap<SmallString, AnyProperty>,
 }
 
-impl AnyVariantBuilder {
+impl AnyPropertiesMap {
     pub(super) fn contains(&self, name: &str) -> bool {
         self.properties.contains_key(name)
     }
@@ -66,13 +66,14 @@ impl AnyVariantBuilder {
     }
 }
 
+pub(crate) struct AnyVariantBuilder {
+    pub variant_id_property: VariantIdProperty,
+    pub variants: Vec<AnyPropertiesMap>,
+}
+
 pub(crate) struct LazyEntryProperties {
-    pub common: AnyVariantBuilder,
-    pub variant_part: Option<(
-        VariantIdProperty,
-        Vec<AnyVariantBuilder>,
-        HashMap<SmallString, u8>,
-    )>,
+    pub common: AnyPropertiesMap,
+    pub variant_part: Option<AnyVariantBuilder>,
 }
 
 pub struct AnyBuilder {
@@ -86,20 +87,24 @@ impl AnyBuilder {
         ValueStorage: ValueStorageTrait,
     {
         let layout = store.layout();
-        let common = AnyVariantBuilder::new(&layout.common, value_storage)?;
+        let common = AnyPropertiesMap::new(&layout.common, value_storage)?;
         let variant_part = match &layout.variant_part {
             None => None,
             Some(VariantPart {
                 variant_id_offset,
                 variants,
-                names,
+                names: _,
             }) => {
                 let variants: Result<Vec<_>> = variants
                     .iter()
-                    .map(|v| AnyVariantBuilder::new(v, value_storage))
+                    .map(|v| AnyPropertiesMap::new(v, value_storage))
                     .collect();
-                let variant_id = VariantIdProperty::new(*variant_id_offset);
-                Some((variant_id, variants?, names.clone()))
+                let variants = variants?;
+                let variant_id_property = VariantIdProperty::new(*variant_id_offset);
+                Some(AnyVariantBuilder {
+                    variant_id_property,
+                    variants,
+                })
             }
         };
         let properties = Rc::new(LazyEntryProperties {
