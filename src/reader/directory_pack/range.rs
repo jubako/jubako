@@ -103,8 +103,8 @@ mod tests {
             fn get_variant_id(&self) -> Result<Option<VariantIdx>> {
                 Ok(None)
             }
-            fn get_value(&self, name: &str) -> Result<Option<RawValue>> {
-                if name == "foo" {
+            fn get_value(&self, name: impl AsRef<str>) -> Result<Option<RawValue>> {
+                if name.as_ref() == "foo" {
                     Ok(Some(self.v.clone()))
                 } else {
                     Ok(None)

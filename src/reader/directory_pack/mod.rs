@@ -24,7 +24,7 @@ pub use raw_value::RawValue;
 
 pub trait EntryTrait {
     fn get_variant_id(&self) -> Result<Option<VariantIdx>>;
-    fn get_value(&self, name: &str) -> Result<Option<RawValue>>;
+    fn get_value(&self, name: impl AsRef<str>) -> Result<Option<RawValue>>;
 }
 
 mod private {
@@ -127,7 +127,7 @@ impl DirectoryPack {
             let index_header = self
                 .reader
                 .parse_block_in::<IndexHeader>(sized_offset.offset, sized_offset.size)?;
-            if index_header.name == index_name {
+            if index_header.name.as_str() == index_name {
                 let index = Index::new(index_header);
                 return Ok(Some(index));
             }

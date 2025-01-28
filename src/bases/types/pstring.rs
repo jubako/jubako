@@ -57,11 +57,10 @@ impl Parsable for PArray<SmallBytes> {
 }
 
 impl Parsable for PArray<String> {
-    type Output = String;
-    fn parse(parser: &mut impl Parser) -> Result<String> {
-        let size = parser.read_u8()?;
-        let data = parser.read_slice(size as usize)?;
-        Ok(String::from_utf8(data.into())?)
+    type Output = SmallString;
+    fn parse(parser: &mut impl Parser) -> Result<SmallString> {
+        let data = PArray::<SmallBytes>::parse(parser)?;
+        Ok(SmallString::from_byte_vec(data)?)
     }
 }
 
@@ -84,6 +83,7 @@ mod tests {
         reader
             .parse_in::<PString>(Offset::zero(), reader.size().try_into().unwrap())
             .unwrap()
+            .to_string()
     }
 
     #[test_case(&[0x00] => b"".as_slice())]

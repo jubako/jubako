@@ -48,7 +48,7 @@ impl EntryTrait for LazyEntry {
         }
     }
 
-    fn get_value(&self, name: &str) -> Result<Option<RawValue>> {
-        self._get_value(name)
+    fn get_value(&self, name: impl AsRef<str>) -> Result<Option<RawValue>> {
+        self._get_value(name.as_ref())
     }
 }

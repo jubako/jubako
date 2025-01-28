@@ -1,12 +1,13 @@
 use super::super::raw_layout::{PropertyKind, RawProperty};
 use super::property::Property;
+use super::SmallString;
 use crate::PropertyName;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Debug)]
 #[cfg_attr(feature = "explorable_serde", derive(serde::Serialize))]
-pub struct Properties(HashMap<String, Property>);
+pub struct Properties(HashMap<SmallString, Property>);
 
 pub(crate) type SharedProperties = Arc<Properties>;
 
@@ -18,7 +19,7 @@ impl Properties {
             let property = Property::new(offset, raw_property.kind);
             offset += raw_property.size;
             if property.kind != PropertyKind::Padding && property.kind != PropertyKind::VariantId {
-                properties.insert(raw_property.name.unwrap(), property);
+                properties.insert(raw_property.name, property);
             }
         }
         Properties(properties)
@@ -28,12 +29,12 @@ impl Properties {
         self.0.get(name.as_str())
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&String, &Property)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&SmallString, &Property)> {
         self.0.iter()
     }
 
     #[cfg(test)]
-    pub fn inner(&self) -> &HashMap<String, Property> {
+    pub fn inner(&self) -> &HashMap<SmallString, Property> {
         &self.0
     }
 }

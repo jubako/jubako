@@ -5,7 +5,7 @@ use std::backtrace::Backtrace;
 
 use std::fmt;
 use std::ops::Deref;
-use std::string::FromUtf8Error;
+use std::{str::Utf8Error, string::FromUtf8Error};
 
 use thiserror::Error;
 #[cfg(feature = "lzma")]
@@ -164,6 +164,12 @@ impl_from_error!(CorruptedFile);
 
 impl From<FromUtf8Error> for Error {
     fn from(_e: FromUtf8Error) -> Error {
+        FormatError::new("Utf8DecodingError", None).into()
+    }
+}
+
+impl From<Utf8Error> for Error {
+    fn from(_e: Utf8Error) -> Error {
         FormatError::new("Utf8DecodingError", None).into()
     }
 }

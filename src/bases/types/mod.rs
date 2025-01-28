@@ -15,6 +15,7 @@ mod range;
 mod size;
 mod sized_offset;
 mod small_bytes;
+mod small_string;
 mod specific_types;
 mod vendor_id;
 
@@ -38,5 +39,6 @@ pub(crate) use range::{ARegion, Region};
 pub use size::Size;
 pub(crate) use sized_offset::SizedOffset;
 pub use small_bytes::SmallBytes;
+pub use small_string::SmallString;
 pub use specific_types::*;
 pub use vendor_id::VendorId;

@@ -14,7 +14,7 @@ pub(crate) struct IndexHeader {
     pub entry_offset: EntryIdx,
     pub free_data: IndexFreeData,
     pub index_property: u8,
-    pub name: String,
+    pub name: SmallString,
 }
 
 #[cfg(feature = "explorable")]
@@ -23,7 +23,7 @@ impl graphex::Display for IndexHeader {
         Some(("Index(".to_string(), ")".to_string()))
     }
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
-        out.field("name", &self.name)?;
+        out.field("name", &self.name.as_str())?;
         out.field("store_id", &self.store_id.into_u64())?;
         out.field("entry_count", &self.entry_count.into_u64())?;
         out.field("entry_offset", &self.entry_offset.into_u64())?;
@@ -142,7 +142,7 @@ mod tests {
                 entry_offset: EntryIdx::from(2),
                 free_data: [0x00; 4].into(),
                 index_property: 1,
-                name: String::from("Hello")
+                name: "Hello".into()
             }
         );
     }

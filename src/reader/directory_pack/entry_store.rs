@@ -248,7 +248,7 @@ mod tests {
         assert!(store.layout.variant_part.is_none());
         let expected = HashMap::from([
             (
-                "V0".to_string(),
+                "V0".into(),
                 Property::new(
                     8,
                     PropertyKind::ContentAddress {
@@ -259,7 +259,7 @@ mod tests {
                 ),
             ),
             (
-                "V1".to_string(),
+                "V1".into(),
                 Property::new(
                     12,
                     PropertyKind::UnsignedInt {
@@ -269,7 +269,7 @@ mod tests {
                 ),
             ),
             (
-                "V2".to_string(),
+                "V2".into(),
                 Property::new(
                     13,
                     PropertyKind::UnsignedInt {
@@ -279,7 +279,7 @@ mod tests {
                 ),
             ),
             (
-                "V3".to_string(),
+                "V3".into(),
                 Property::new(
                     16,
                     PropertyKind::UnsignedInt {
@@ -289,7 +289,7 @@ mod tests {
                 ),
             ),
             (
-                "V4".to_string(),
+                "V4".into(),
                 Property::new(
                     24,
                     PropertyKind::SignedInt {
@@ -299,7 +299,7 @@ mod tests {
                 ),
             ),
             (
-                "V5".to_string(),
+                "V5".into(),
                 Property::new(
                     25,
                     PropertyKind::SignedInt {
@@ -309,7 +309,7 @@ mod tests {
                 ),
             ),
             (
-                "V6".to_string(),
+                "V6".into(),
                 Property::new(
                     28,
                     PropertyKind::SignedInt {
@@ -319,7 +319,7 @@ mod tests {
                 ),
             ),
             (
-                "V7".to_string(),
+                "V7".into(),
                 Property::new(
                     36,
                     PropertyKind::Array {
@@ -331,7 +331,7 @@ mod tests {
                 ),
             ),
             (
-                "V8".to_string(),
+                "V8".into(),
                 Property::new(
                     39,
                     PropertyKind::Array {
@@ -343,7 +343,7 @@ mod tests {
                 ),
             ),
             (
-                "V9".to_string(),
+                "V9".into(),
                 Property::new(
                     49,
                     PropertyKind::Array {
@@ -355,7 +355,7 @@ mod tests {
                 ),
             ),
             (
-                "V10".to_string(),
+                "V10".into(),
                 Property::new(
                     82,
                     PropertyKind::Array {
@@ -370,7 +370,7 @@ mod tests {
                 ),
             ),
             (
-                "V11".to_string(),
+                "V11".into(),
                 Property::new(
                     84,
                     PropertyKind::Array {
@@ -385,7 +385,7 @@ mod tests {
                 ),
             ),
             (
-                "V12".to_string(),
+                "V12".into(),
                 Property::new(
                     93,
                     PropertyKind::Array {
@@ -400,7 +400,7 @@ mod tests {
                 ),
             ),
             (
-                "V13".to_string(),
+                "V13".into(),
                 Property::new(
                     97,
                     PropertyKind::Array {
@@ -415,7 +415,7 @@ mod tests {
                 ),
             ),
             (
-                "V14".to_string(),
+                "V14".into(),
                 Property::new(
                     108,
                     PropertyKind::ContentAddress {
@@ -461,7 +461,7 @@ mod tests {
         let EntryStore::Plain(store) = store;
         let common = store.layout.common;
         let expected = HashMap::from([(
-            "C0".to_string(),
+            "C0".into(),
             Property::new(
                 7,
                 PropertyKind::Array {
@@ -484,14 +484,11 @@ mod tests {
         } = store.layout.variant_part.unwrap();
         assert_eq!(variant_id_offset, Offset::new(12));
         assert_eq!(variants.len(), 2);
-        assert_eq!(
-            names,
-            HashMap::from([(String::from("VA0"), 0), (String::from("VA1"), 1)])
-        );
+        assert_eq!(names, HashMap::from([("VA0".into(), 0), ("VA1".into(), 1)]));
         let variant = &variants[0];
         let expected = HashMap::from([
             (
-                "V0".to_string(),
+                "V0".into(),
                 Property::new(
                     13,
                     PropertyKind::Array {
@@ -506,7 +503,7 @@ mod tests {
                 ),
             ),
             (
-                "V1".to_string(),
+                "V1".into(),
                 Property::new(
                     22,
                     PropertyKind::ContentAddress {
@@ -517,7 +514,7 @@ mod tests {
                 ),
             ),
             (
-                "V2".to_string(),
+                "V2".into(),
                 Property::new(
                     26,
                     PropertyKind::UnsignedInt {
@@ -531,7 +528,7 @@ mod tests {
         let variant = &variants[1];
         let expected = HashMap::from([
             (
-                "V0".to_string(),
+                "V0".into(),
                 Property::new(
                     13,
                     PropertyKind::Array {
@@ -543,7 +540,7 @@ mod tests {
                 ),
             ),
             (
-                "V1".to_string(),
+                "V1".into(),
                 Property::new(
                     21,
                     PropertyKind::ContentAddress {
@@ -554,7 +551,7 @@ mod tests {
                 ),
             ),
             (
-                "V2".to_string(),
+                "V2".into(),
                 Property::new(
                     25,
                     PropertyKind::UnsignedInt {

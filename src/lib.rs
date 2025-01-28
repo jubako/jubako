@@ -17,7 +17,7 @@ pub use const_format::concatcp;
 pub use crate::bases::{
     Bound, ContentIdx, EntryCount, EntryIdx, EntryRange, Error, ErrorKind, FileSource, MayRef,
     Offset, PackId, PropertyCount, PropertyIdx, PropertyName, Reader, Result, Size, SmallBytes,
-    VariantIdx, VariantName, VendorId, Vow,
+    SmallString, VariantIdx, VariantName, VendorId, Vow,
 };
 pub use crate::common::{CompressionType, ContentAddress, Pack, Value};
 //use crate::reader::directory_pack::layout;

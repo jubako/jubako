@@ -21,7 +21,7 @@ use std::cmp::Ordering;
 pub struct VariantPart {
     pub variant_id_offset: Offset,
     pub variants: Box<[SharedProperties]>,
-    pub names: HashMap<String, u8>,
+    pub names: HashMap<SmallString, u8>,
 }
 
 impl VariantPart {
@@ -134,7 +134,7 @@ impl Parsable for Layout {
             let mut variants = Vec::new();
             let mut variants_map = HashMap::new();
             let mut variant_def = Vec::new();
-            let mut variant_name: Option<String> = None;
+            let mut variant_name: Option<SmallString> = None;
             for raw_property in property_iter {
                 if !raw_property.is_variant_id() && variant_name.is_none() {
                     return Err(format_error!(
@@ -150,7 +150,7 @@ impl Parsable for Layout {
                 }
                 if raw_property.is_variant_id() {
                     // This is a special property
-                    variant_name = raw_property.name;
+                    variant_name = Some(raw_property.name);
                     continue;
                 }
                 variant_size += raw_property.size;
