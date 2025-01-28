@@ -398,7 +398,7 @@ mod tests {
                 free_data_id: ValueIdx::from(1),
                 pack_size: Size::new(0xffff),
                 check_info_pos: SizedOffset::new(0x01.into(), Offset::new(0xff)),
-                pack_location: vec![],
+                pack_location: SmallString::new()
             }
         );
         assert_eq!(
@@ -414,7 +414,7 @@ mod tests {
                 free_data_id: ValueIdx::from(0),
                 pack_size: Size::new(0xffffff),
                 check_info_pos: SizedOffset::new(0x21.into(), Offset::new(0xff00ff)),
-                pack_location: vec![],
+                pack_location: SmallString::new()
             }
         );
         assert_eq!(
@@ -431,7 +431,7 @@ mod tests {
 
                 pack_size: Size::new(0xffffff),
                 check_info_pos: SizedOffset::new(0x01.into(), Offset::new(0xffffff)),
-                pack_location: vec![b'p', b'a', b'c', b'k', b'p', b'a', b't', b'h'],
+                pack_location: "packpath".into(),
             }
         );
         assert!(main_pack.get_content_pack_info(PackId::from(3)).is_none());

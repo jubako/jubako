@@ -4,7 +4,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 pub trait PackLocatorTrait: Sync + Send {
-    fn locate(&self, uuid: Uuid, helper: &[u8]) -> Result<Option<Reader>>;
+    fn locate(&self, uuid: Uuid, helper: &str) -> Result<Option<Reader>>;
 }
 
 /** Locate in a directory
@@ -20,8 +20,7 @@ impl FsLocator {
 }
 
 impl PackLocatorTrait for FsLocator {
-    fn locate(&self, _uuid: Uuid, path: &[u8]) -> Result<Option<Reader>> {
-        let path: PathBuf = String::from_utf8(path.to_vec())?.into();
+    fn locate(&self, _uuid: Uuid, path: &str) -> Result<Option<Reader>> {
         let path = self.base_dir.join(path);
         if path.is_file() {
             Ok(Some(Reader::from(FileSource::open(path)?)))
@@ -40,7 +39,7 @@ impl ChainedLocator {
 }
 
 impl PackLocatorTrait for ChainedLocator {
-    fn locate(&self, uuid: Uuid, path: &[u8]) -> Result<Option<Reader>> {
+    fn locate(&self, uuid: Uuid, path: &str) -> Result<Option<Reader>> {
         for locator in &self.0 {
             let reader = locator.locate(uuid, path)?;
             if reader.is_some() {

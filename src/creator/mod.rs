@@ -11,6 +11,7 @@ pub(crate) use crate::bases::OutStream;
 use crate::bases::*;
 use crate::common::{CheckInfo, CompressionType, PackKind};
 pub use basic_creator::{BasicCreator, ConcatMode, EntryStoreTrait};
+use camino::{Utf8Path, Utf8PathBuf};
 pub use container_pack::{ContainerPackCreator, InContainerFile};
 pub use content_pack::{
     CacheProgress, CachedContentAdder, CompHint, ContentAdder, ContentPackCreator, Progress,
@@ -23,8 +24,7 @@ pub use errors::{Error, Result};
 pub use manifest_pack::ManifestPackCreator;
 use std::fs::OpenOptions;
 use std::io::{self, Read, Seek, SeekFrom};
-use std::path::PathBuf;
-use std::string::FromUtf16Error;
+use std::path::Path;
 
 mod private {
     use super::*;
@@ -82,7 +82,7 @@ pub struct InputFile {
 }
 
 impl InputFile {
-    pub fn open<P: AsRef<std::path::Path>>(path: P) -> IoResult<Self> {
+    pub fn open(path: impl AsRef<Path>) -> IoResult<Self> {
         Self::new(std::fs::File::open(path)?)
     }
 
@@ -229,26 +229,26 @@ impl From<Compression> for CompressionType {
 /// Something on which we can write a Pack.
 /// This may be a File or not.
 pub trait PackRecipient: InOutStream + private::Sealed {
-    fn close_file(self: Box<Self>) -> Result<Vec<u8>>;
+    fn close_file(self: Box<Self>) -> Result<Utf8PathBuf>;
 }
 
 #[derive(Debug)]
 pub struct NamedFile {
     file: std::fs::File,
-    final_path: PathBuf,
+    final_path: Utf8PathBuf,
 }
 
 impl NamedFile {
-    fn new<P: AsRef<std::path::Path>>(final_path: P) -> IoResult<Box<Self>> {
+    fn new<P: AsRef<Utf8Path>>(final_path: P) -> IoResult<Box<Self>> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(true)
-            .open(&final_path)?;
+            .open(final_path.as_ref().as_std_path())?;
         Ok(Box::new(Self {
             file,
-            final_path: final_path.as_ref().to_path_buf(),
+            final_path: final_path.as_ref().into(),
         }))
     }
 
@@ -289,38 +289,22 @@ impl OutStream for NamedFile {
     }
 }
 
-fn path_to_vec_u8(p: PathBuf) -> std::result::Result<Vec<u8>, FromUtf16Error> {
-    #[cfg(unix)]
-    fn inner(p: PathBuf) -> std::result::Result<Vec<u8>, FromUtf16Error> {
-        use std::os::unix::ffi::OsStrExt;
-        Ok(p.as_os_str().as_bytes().to_vec())
-    }
-    #[cfg(windows)]
-    fn inner(p: PathBuf) -> std::result::Result<Vec<u8>, FromUtf16Error> {
-        use std::os::windows::ffi::OsStrExt;
-        let vec_16: Vec<u16> = p.as_os_str().encode_wide().collect();
-        let path: String = String::from_utf16(&vec_16)?;
-        Ok(path.as_bytes().to_vec())
-    }
-    inner(p)
-}
-
 impl private::Sealed for NamedFile {}
 
 impl PackRecipient for NamedFile {
-    fn close_file(self: Box<Self>) -> Result<Vec<u8>> {
-        Ok(path_to_vec_u8(self.final_path)?)
+    fn close_file(self: Box<Self>) -> Result<Utf8PathBuf> {
+        Ok(self.final_path)
     }
 }
 
 #[derive(Debug)]
 pub struct AtomicOutFile {
     temp_file: tempfile::NamedTempFile,
-    final_path: PathBuf,
+    final_path: Utf8PathBuf,
 }
 
 impl AtomicOutFile {
-    pub fn new<P: AsRef<std::path::Path>>(final_path: P) -> IoResult<Box<Self>> {
+    pub fn new<P: AsRef<Utf8Path>>(final_path: P) -> IoResult<Box<Self>> {
         let parent = final_path.as_ref().parent().unwrap();
         let temp_file = tempfile::NamedTempFile::new_in(parent)?;
         Ok(Box::new(Self {
@@ -363,10 +347,10 @@ impl OutStream for AtomicOutFile {
 
 impl private::Sealed for AtomicOutFile {}
 impl PackRecipient for AtomicOutFile {
-    fn close_file(self: Box<Self>) -> Result<Vec<u8>> {
+    fn close_file(self: Box<Self>) -> Result<Utf8PathBuf> {
         self.temp_file
             .persist(&self.final_path)
             .map_err(|e| e.error)?;
-        Ok(path_to_vec_u8(self.final_path)?)
+        Ok(self.final_path)
     }
 }

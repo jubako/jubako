@@ -87,7 +87,7 @@ impl ContainerPack {
 }
 
 impl PackLocatorTrait for ContainerPack {
-    fn locate(&self, uuid: Uuid, _path: &[u8]) -> Result<Option<Reader>> {
+    fn locate(&self, uuid: Uuid, _path: &str) -> Result<Option<Reader>> {
         Ok(self.get_pack_reader(&uuid))
     }
 }

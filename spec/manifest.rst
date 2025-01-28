@@ -62,7 +62,7 @@ packLocation     [u8,214]    38     A string locating the pack file
 Full Size : 252 bytes.
 A pack info is a 252 bytes block.
 
-The packLocation is a URL locating the pack file. For now, two kind of value are possible:
+The packLocation is a utf8 URL locating the pack file. For now, two kind of value are possible:
 - An empty value : The pack is contained in the current Container pack (only valid if the manifest pack is itself in a container pack)
 - A relative path : The pack is located in the file pointed by the path, relative to the directory containing the manifest pack (or container)
 - An absolute path : The pack is located in the file pointed by the path.

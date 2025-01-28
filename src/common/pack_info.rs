@@ -11,7 +11,7 @@ pub struct PackInfo {
     pub pack_kind: PackKind,
     pub pack_group: u8,
     pub free_data_id: ValueIdx,
-    pub pack_location: Vec<u8>,
+    pub pack_location: SmallString,
 }
 
 impl PackInfo {
@@ -20,7 +20,7 @@ impl PackInfo {
         pack_group: u8,
         free_data_id: ValueIdx,
         check_info_pos: SizedOffset,
-        pack_location: Vec<u8>,
+        pack_location: SmallString,
     ) -> Self {
         Self {
             uuid: pack_data.uuid,
@@ -45,7 +45,7 @@ impl Serializable for PackInfo {
         written += self.pack_kind.serialize(ser)?;
         written += ser.write_u8(self.pack_group)?;
         written += ser.write_u16(self.free_data_id.into_u64() as u16)?;
-        written += PBytes::serialize_string_padded(self.pack_location.as_slice(), 213, ser)?;
+        written += PString::serialize_string_padded(self.pack_location.as_str(), 213, ser)?;
         Ok(written)
     }
 }
@@ -73,7 +73,7 @@ impl Parsable for PackInfo {
         let pack_kind = PackKind::parse(parser)?;
         let pack_group = parser.read_u8()?;
         let free_data_id = ValueIdx::from(parser.read_u16()? as u64);
-        let pack_location = PBytes::parse(parser)?.to_vec();
+        let pack_location = PString::parse(parser)?;
         parser.skip(213 - pack_location.len())?;
         Ok(Self {
             uuid,
@@ -103,7 +103,7 @@ impl serde::Serialize for PackInfo {
         cont.serialize_field("id", &self.pack_id)?;
         cont.serialize_field("kind", &self.pack_kind)?;
         cont.serialize_field("group", &self.pack_group)?;
-        cont.serialize_field("location", &String::from_utf8_lossy(&self.pack_location))?;
+        cont.serialize_field("location", &self.pack_location)?;
         cont.serialize_field("free_data_id", &self.free_data_id)?;
         cont.serialize_field("check_info_pos", &self.check_info_pos)?;
         cont.end()
@@ -120,10 +120,7 @@ impl graphex::Display for PackInfo {
         out.field("id", &self.pack_id.into_u64())?;
         out.field("kind", &self.pack_kind)?;
         out.field("group", &self.pack_group)?;
-        out.field(
-            "location",
-            &String::from_utf8_lossy(&self.pack_location).as_ref(),
-        )?;
+        out.field("location", &self.pack_location.as_str())?;
         out.field("free_data_id", &self.free_data_id.into_u64())?;
         out.field("check_info_pos", &self.check_info_pos)
     }

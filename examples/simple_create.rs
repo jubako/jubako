@@ -138,10 +138,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         jbk::creator::ManifestPackCreator::new(VENDOR_ID, Default::default());
 
     // As we don't store packs in a container, we have to indicate where to find the directory pack.
-    manifest_creator.add_pack(directory_pack_info, "test.jbkd".into());
+    manifest_creator.add_pack(directory_pack_info, "test.jbkd");
 
     // As we don't store packs in a container, we have to indicate where to find the content pack.
-    manifest_creator.add_pack(content_pack_info, "test.jbkc".into());
+    manifest_creator.add_pack(content_pack_info, "test.jbkc");
 
     let mut manifest_file = OpenOptions::new()
         .read(true)

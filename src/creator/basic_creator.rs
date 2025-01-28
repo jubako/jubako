@@ -1,8 +1,7 @@
-use std::{
-    ffi::OsStr,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::sync::Arc;
+
+use camino::{Utf8Path, Utf8PathBuf};
+use pathdiff::diff_utf8_paths;
 
 use super::{
     content_pack::{CompHint, ContentAdder},
@@ -52,17 +51,9 @@ pub struct BasicCreator {
     vendor_id: VendorId,
 }
 
-fn new_with_extension<S: AsRef<OsStr>>(path: &Path, extension: S) -> PathBuf {
-    let new_extension = match path.extension() {
-        None => extension.as_ref().to_os_string(),
-        Some(e) => {
-            let mut e = e.to_os_string();
-            e.push(extension);
-            e
-        }
-    };
+fn new_with_extension(path: &Utf8Path, extension: &str) -> Utf8PathBuf {
     let mut buf = path.to_path_buf();
-    buf.set_extension(new_extension);
+    buf.set_extension(extension);
     buf
 }
 
@@ -72,7 +63,7 @@ impl BasicCreator {
     /// Temporary files will be stored in `tempdir`. For performance reason, it is adviced
     /// to using a tempdir in same filesystem than final files to avoid copy of file between
     /// fs at end of creation process.
-    pub fn new<P: AsRef<Path>>(
+    pub fn new<P: AsRef<Utf8Path>>(
         outfile: P,
         concat_mode: ConcatMode,
         vendor_id: VendorId,
@@ -112,13 +103,18 @@ impl BasicCreator {
     }
 
     /// Finalize the creation of Jubako container and create the archive as `outfile`.
-    pub fn finalize<P: AsRef<Path>>(
+    pub fn finalize<P: AsRef<Utf8Path>>(
         mut self,
         outfile: P,
         entry_store_creator: Box<dyn EntryStoreTrait>,
         extra_content_pack_creators: Vec<ContentPackCreator<dyn PackRecipient>>,
     ) -> Result<()> {
         let outfile = outfile.as_ref();
+        if outfile.is_relative() {
+            return Err(Error::WrongType(format!(
+                "Outfile {outfile} must be absolute"
+            )));
+        }
         entry_store_creator.finalize(&mut self.directory_pack);
         let finalized_directory_pack_creator = self.directory_pack.finalize()?;
 
@@ -128,12 +124,12 @@ impl BasicCreator {
             match self.concat_mode {
                 ConcatMode::OneFile => {
                     // Don't close the container as we will add new pack in it.
-                    (Some(container), vec![])
+                    (Some(container), Utf8PathBuf::new())
                 }
                 _ => {
                     // We must close the container, persist it but, maybe create a new one.
                     let container_file = container.finalize()?;
-                    let content_pack_locator = container_file.close_file()?;
+                    let content_pack_path = container_file.close_file()?;
                     let new_container = if let ConcatMode::TwoFiles = self.concat_mode {
                         // We have to create a new container creator for other packs
 
@@ -149,7 +145,7 @@ impl BasicCreator {
                     } else {
                         None
                     };
-                    (new_container, content_pack_locator)
+                    (new_container, content_pack_path)
                 }
             }
         };
@@ -169,14 +165,15 @@ impl BasicCreator {
                 let mut infile = inner_container.into_file()?;
                 let directory_pack_info = finalized_directory_pack_creator.write(&mut infile)?;
                 container = Some(infile.close(directory_pack_info.uuid)?);
-                (directory_pack_info, vec![])
+                (directory_pack_info, Utf8PathBuf::new())
             }
             None => {
                 // Write directory pack in its own file
                 let mut atomic_tmp_file = AtomicOutFile::new(new_with_extension(outfile, ".jbkd"))?;
                 let directory_pack_info =
                     finalized_directory_pack_creator.write(&mut atomic_tmp_file)?;
-                let directory_pack_locator = atomic_tmp_file.close_file()?;
+                let directory_pack_path = atomic_tmp_file.close_file()?;
+                let directory_pack_locator = diff_utf8_paths(directory_pack_path, outfile).expect("diff_utf8_path return None only if content_pack_path is absolut and outfile is not.");
                 (directory_pack_info, directory_pack_locator)
             }
         };

@@ -110,7 +110,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Let's create a basic creator. It wrapper a ContentCreator and
     // correctly write files, manifest packs... at finish.
     let mut creator = jbk::creator::BasicCreator::new(
-        std::env::current_dir()?,
+        jbk::Utf8Path::from_path(&std::env::current_dir()?).expect("We expect utf8 encoding"),
         jbk::creator::ConcatMode::OneFile, // Let's put all our packs in one file
         VENDOR_ID,
         jbk::creator::Compression::default(),

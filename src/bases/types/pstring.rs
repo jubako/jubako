@@ -59,7 +59,7 @@ impl Parsable for PArray<SmallBytes> {
 impl Parsable for PArray<String> {
     type Output = SmallString;
     fn parse(parser: &mut impl Parser) -> Result<SmallString> {
-        let data = PArray::<SmallBytes>::parse(parser)?;
+        let data = PBytes::parse(parser)?;
         Ok(SmallString::from_byte_vec(data)?)
     }
 }

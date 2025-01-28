@@ -1,5 +1,7 @@
 use std::{borrow::Borrow, fmt::Display, ops::Deref, str::Utf8Error};
 
+use camino::Utf8PathBuf;
+
 use crate::SmallBytes;
 
 /// A SmallVec which is guaranty to be a value utf8 content.
@@ -7,6 +9,10 @@ use crate::SmallBytes;
 pub struct SmallString(SmallBytes);
 
 impl SmallString {
+    pub fn new() -> Self {
+        Self(SmallBytes::new())
+    }
+
     pub fn as_str(&self) -> &str {
         // SAFETY: Bytes in SmallVec is guaranted to be valid utf8 from
         // SmallString contructors and the absence of way to modify this SmallVec.
@@ -39,6 +45,18 @@ impl std::hash::Hash for SmallString {
 impl From<&str> for SmallString {
     fn from(value: &str) -> Self {
         Self(SmallBytes::from(value.as_bytes()))
+    }
+}
+
+impl From<String> for SmallString {
+    fn from(value: String) -> Self {
+        Self(SmallBytes::from(value.into_bytes()))
+    }
+}
+
+impl From<Utf8PathBuf> for SmallString {
+    fn from(value: Utf8PathBuf) -> Self {
+        value.as_str().into()
     }
 }
 
