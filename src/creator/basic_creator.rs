@@ -49,6 +49,7 @@ pub struct BasicCreator {
     content_pack: ContentPackCreator<InContainerFile<AtomicOutFile>>,
     concat_mode: ConcatMode,
     vendor_id: VendorId,
+    outpath: Utf8PathBuf,
 }
 
 fn new_with_extension(path: &Utf8Path, extension: &str) -> Utf8PathBuf {
@@ -63,17 +64,18 @@ impl BasicCreator {
     /// Temporary files will be stored in `tempdir`. For performance reason, it is adviced
     /// to using a tempdir in same filesystem than final files to avoid copy of file between
     /// fs at end of creation process.
-    pub fn new<P: AsRef<Utf8Path>>(
-        outfile: P,
+    pub fn new(
+        outpath: impl AsRef<Utf8Path>,
         concat_mode: ConcatMode,
         vendor_id: VendorId,
         compression: Compression,
         progress: Arc<dyn Progress>,
     ) -> Result<Self> {
+        let outpath = camino::absolute_utf8(outpath.as_ref())?;
         let atomic_content_pack_file = if let ConcatMode::OneFile = concat_mode {
-            AtomicOutFile::new(outfile)?
+            AtomicOutFile::new(&outpath)?
         } else {
-            AtomicOutFile::new(new_with_extension(outfile.as_ref(), "jbkc"))?
+            AtomicOutFile::new(new_with_extension(&outpath, "jbkc"))?
         };
         // We may have only one (content) pack in the container so container may not be necessary.
         // But let's put all in a container. It is simpler and it can simplify things if
@@ -99,22 +101,27 @@ impl BasicCreator {
             content_pack,
             concat_mode,
             vendor_id,
+            outpath,
         })
     }
 
     /// Finalize the creation of Jubako container and create the archive as `outfile`.
-    pub fn finalize<P: AsRef<Utf8Path>>(
+    pub fn finalize(
         mut self,
-        outfile: P,
         entry_store_creator: Box<dyn EntryStoreTrait>,
         extra_content_pack_creators: Vec<ContentPackCreator<dyn PackRecipient>>,
     ) -> Result<()> {
-        let outfile = outfile.as_ref();
-        if outfile.is_relative() {
-            return Err(Error::WrongType(format!(
-                "Outfile {outfile} must be absolute"
-            )));
-        }
+        let parent_path = self
+            .outpath
+            .parent()
+            .expect("outfile is absolute and have a parent");
+        let relative_locator = |p: Utf8PathBuf| {
+            if p.as_str().is_empty() {
+                p
+            } else {
+                diff_utf8_paths(p, parent_path).expect("outfile is absolute")
+            }
+        };
         entry_store_creator.finalize(&mut self.directory_pack);
         let finalized_directory_pack_creator = self.directory_pack.finalize()?;
 
@@ -133,7 +140,7 @@ impl BasicCreator {
                     let new_container = if let ConcatMode::TwoFiles = self.concat_mode {
                         // We have to create a new container creator for other packs
 
-                        let atomic_container_pack = AtomicOutFile::new(outfile)?;
+                        let atomic_container_pack = AtomicOutFile::new(&self.outpath)?;
                         // We may have only one (content) pack in the container so container may not be necessary.
                         // But let's put all in a container. It is simpler and it can simplify things if
                         // user want to concat packs later.
@@ -154,8 +161,8 @@ impl BasicCreator {
             .into_iter()
             .map(|extra_creator| {
                 let (extra_pack_file, extra_pack_info) = extra_creator.finalize()?;
-                let extra_locator = extra_pack_file.close_file()?;
-                Ok::<_, Error>((extra_pack_info, extra_locator))
+                let extra_path = extra_pack_file.close_file()?;
+                Ok::<_, Error>((extra_pack_info, extra_path))
             })
             .collect::<Result<Vec<_>>>()?;
 
@@ -169,22 +176,22 @@ impl BasicCreator {
             }
             None => {
                 // Write directory pack in its own file
-                let mut atomic_tmp_file = AtomicOutFile::new(new_with_extension(outfile, ".jbkd"))?;
+                let mut atomic_tmp_file =
+                    AtomicOutFile::new(new_with_extension(&self.outpath, ".jbkd"))?;
                 let directory_pack_info =
                     finalized_directory_pack_creator.write(&mut atomic_tmp_file)?;
                 let directory_pack_path = atomic_tmp_file.close_file()?;
-                let directory_pack_locator = diff_utf8_paths(directory_pack_path, outfile).expect("diff_utf8_path return None only if content_pack_path is absolut and outfile is not.");
-                (directory_pack_info, directory_pack_locator)
+                (directory_pack_info, directory_pack_path)
             }
         };
 
         // Time to build our manifest
         let mut manifest_creator = ManifestPackCreator::new(self.vendor_id, Default::default());
-        manifest_creator.add_pack(directory_pack_info, directory_locator);
-        manifest_creator.add_pack(content_pack_info, content_locator);
+        manifest_creator.add_pack(directory_pack_info, relative_locator(directory_locator));
+        manifest_creator.add_pack(content_pack_info, relative_locator(content_locator));
 
         for (extra_pack_info, extra_locator) in extra_locators {
-            manifest_creator.add_pack(extra_pack_info, extra_locator);
+            manifest_creator.add_pack(extra_pack_info, relative_locator(extra_locator));
         }
 
         match container.take() {
@@ -195,7 +202,7 @@ impl BasicCreator {
             }
             None => {
                 // Write manifest in its own file
-                let mut atomic_tmp_file = AtomicOutFile::new(outfile)?;
+                let mut atomic_tmp_file = AtomicOutFile::new(&self.outpath)?;
                 manifest_creator.finalize(&mut atomic_tmp_file)?;
                 atomic_tmp_file.close_file()?;
             }
