@@ -61,16 +61,30 @@ fn create_builder(
     let layout = store.layout();
     let variants = layout.variant_part.as_ref().unwrap();
     assert_eq!(layout.variant_len(), 2);
-    let value0 = layout.common["AString"]
+    let value0 = layout
+        .common
+        .get("AString")
+        .expect("ASring is in layout")
         .as_builder(value_storage)?
         .expect("Layout proprety should match ArrayProperty");
-    let value1 = layout.common["AInteger"]
+    let value1 = layout
+        .common
+        .get("AInteger")
+        .expect("AInteger is in layout")
         .as_builder(value_storage)?
         .expect("Layout proprety should match IntProperty");
-    let variant0_value2 = variants.get("FirstVariant").unwrap()["TheContent"]
+    let variant0_value2 = variants
+        .get("FirstVariant")
+        .expect("FirstVariant is in layout")
+        .get("TheContent")
+        .expect("TheContent is in layout")
         .as_builder(value_storage)?
         .expect("Layout proprety should match ContentProperty");
-    let variant1_value2 = variants.get("SecondVariant").unwrap()["AnotherInt"]
+    let variant1_value2 = variants
+        .get("SecondVariant")
+        .expect("SecondVariant is in layout")
+        .get("AnotherInt")
+        .expect("AnotherInt is in layout")
         .as_builder(value_storage)?
         .expect("Layout proprety should match IntProperty");
     let variant_id = layout.variant_id_builder().unwrap();

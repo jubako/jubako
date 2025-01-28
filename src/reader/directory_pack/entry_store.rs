@@ -426,7 +426,7 @@ mod tests {
                 ),
             ),
         ]);
-        assert_eq!(&*store.layout.common, &expected);
+        assert_eq!(store.layout.common.inner(), &expected);
     }
 
     #[test]
@@ -475,7 +475,7 @@ mod tests {
                 },
             ),
         )]);
-        assert_eq!(&*common, &expected);
+        assert_eq!(common.inner(), &expected);
 
         let VariantPart {
             variant_id_offset,
@@ -527,7 +527,7 @@ mod tests {
                 ),
             ),
         ]);
-        assert_eq!(***variant, expected);
+        assert_eq!(variant.inner(), &expected);
         let variant = &variants[1];
         let expected = HashMap::from([
             (
@@ -564,6 +564,6 @@ mod tests {
                 ),
             ),
         ]);
-        assert_eq!(***variant, expected);
+        assert_eq!(variant.inner(), &expected);
     }
 }
