@@ -1,5 +1,5 @@
+use core::convert::TryFrom;
 use jbk::reader::builder::PropertyBuilderTrait;
-use jbk::reader::layout::VariantPart;
 use jbk::reader::Range;
 use jubako as jbk;
 use std::error::Error;
@@ -10,6 +10,23 @@ use std::error::Error;
 pub enum Entry {
     Variant0(Variant0),
     Variant1(Variant1),
+}
+
+#[derive(Copy, Clone)]
+pub enum VariantType {
+    Variant0,
+    Variant1,
+}
+
+impl TryFrom<&str> for VariantType {
+    type Error = ();
+    fn try_from(v: &str) -> Result<Self, Self::Error> {
+        match v {
+            "FirstVariant" => Ok(Self::Variant0),
+            "SecondVariant" => Ok(Self::Variant1),
+            _ => Err(()),
+        }
+    }
 }
 
 pub struct Variant0 {
@@ -28,7 +45,7 @@ pub struct Variant1 {
 // It is a composition of different individual property builder provided by jubako.
 pub struct Builder {
     store: jbk::reader::EntryStore,
-    variant_id: jbk::reader::builder::VariantIdProperty,
+    variant_id: jbk::reader::builder::VariantIdBuilder<VariantType>,
     value0: jbk::reader::builder::ArrayProperty,
     value1: jbk::reader::builder::IntProperty,
     variant0_value2: jbk::reader::builder::ContentProperty,
@@ -42,25 +59,21 @@ fn create_builder(
     value_storage: &jbk::reader::ValueStorage,
 ) -> jbk::Result<Builder> {
     let layout = store.layout();
-    let VariantPart {
-        variant_id_offset,
-        variants,
-        names,
-    } = layout.variant_part.as_ref().unwrap();
-    assert_eq!(variants.len(), 2);
+    let variants = layout.variant_part.as_ref().unwrap();
+    assert_eq!(layout.variant_len(), 2);
     let value0 = layout.common["AString"]
         .as_builder(value_storage)?
         .expect("Layout proprety should match ArrayProperty");
     let value1 = layout.common["AInteger"]
         .as_builder(value_storage)?
         .expect("Layout proprety should match IntProperty");
-    let variant0_value2 = variants[names["FirstVariant"] as usize]["TheContent"]
+    let variant0_value2 = variants.get("FirstVariant").unwrap()["TheContent"]
         .as_builder(value_storage)?
         .expect("Layout proprety should match ContentProperty");
-    let variant1_value2 = variants[names["SecondVariant"] as usize]["AnotherInt"]
+    let variant1_value2 = variants.get("SecondVariant").unwrap()["AnotherInt"]
         .as_builder(value_storage)?
         .expect("Layout proprety should match IntProperty");
-    let variant_id = jbk::reader::builder::VariantIdProperty::new(*variant_id_offset);
+    let variant_id = layout.variant_id_builder().unwrap();
     Ok(Builder {
         store,
         value0,
@@ -96,8 +109,8 @@ impl jbk::reader::builder::BuilderTrait for Builder {
         let value1 = self.value1.create(&reader)?;
 
         // Read other property, depending of the variant.
-        match self.variant_id.create(&reader)?.into_u8() {
-            0 => {
+        match self.variant_id.create(&reader)? {
+            Some(VariantType::Variant0) => {
                 let value2 = self.variant0_value2.create(&reader)?;
                 Ok(Some(Entry::Variant0(Variant0 {
                     value0,
@@ -105,7 +118,7 @@ impl jbk::reader::builder::BuilderTrait for Builder {
                     value2,
                 })))
             }
-            1 => {
+            Some(VariantType::Variant1) => {
                 let value2 = self.variant1_value2.create(&reader)?;
                 Ok(Some(Entry::Variant1(Variant1 {
                     value0,
@@ -113,7 +126,7 @@ impl jbk::reader::builder::BuilderTrait for Builder {
                     value2,
                 })))
             }
-            _ => Ok(None),
+            None => Ok(None),
         }
     }
 }

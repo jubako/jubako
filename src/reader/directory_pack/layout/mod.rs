@@ -1,6 +1,7 @@
 mod properties;
 mod property;
 
+use super::builder::{VariantIdBuilder, VariantIdProperty};
 // Reuse from super to allow sub module to use it.
 use super::raw_layout::RawLayout;
 use crate::bases::*;
@@ -21,6 +22,26 @@ pub struct VariantPart {
     pub variant_id_offset: Offset,
     pub variants: Box<[SharedProperties]>,
     pub names: HashMap<String, u8>,
+}
+
+impl VariantPart {
+    pub fn get(&self, name: impl VariantName) -> Option<&SharedProperties> {
+        self.names
+            .get(name.as_str())
+            .and_then(|idx| self.variants.get(*idx as usize))
+    }
+
+    pub fn len(&self) -> usize {
+        self.variants.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.variants.is_empty()
+    }
+
+    pub fn as_builder(&self) -> VariantIdProperty {
+        VariantIdProperty::new(self.variant_id_offset)
+    }
 }
 
 #[cfg(feature = "explorable")]
@@ -44,6 +65,34 @@ pub struct Layout {
     pub common: Properties,
     pub variant_part: Option<VariantPart>,
     pub(crate) entry_size: ASize,
+}
+
+impl Layout {
+    pub fn get_variant(&self, name: impl VariantName) -> Option<&SharedProperties> {
+        self.variant_part.as_ref().and_then(|v| v.get(name))
+    }
+    pub fn variant_len(&self) -> usize {
+        self.variant_part.as_ref().map_or(0, |v| v.len())
+    }
+    pub fn variant_id_builder<T>(&self) -> Option<VariantIdBuilder<T>>
+    where
+        T: for<'a> TryFrom<&'a str> + Copy,
+    {
+        self.variant_part.as_ref().map(|v_part| {
+            let mut variant_map = v_part
+                .names
+                .iter()
+                .map(|(key, idx)| (*idx, T::try_from(key).ok()))
+                .collect::<Vec<_>>();
+            variant_map.sort_by_key(|(idx, _)| *idx);
+            let variant_map = variant_map
+                .into_iter()
+                .map(|(_, variant)| variant)
+                .collect::<Vec<_>>();
+            let raw_variant_id_builder = v_part.as_builder();
+            VariantIdBuilder::new(raw_variant_id_builder, variant_map)
+        })
+    }
 }
 
 #[cfg(feature = "explorable")]
