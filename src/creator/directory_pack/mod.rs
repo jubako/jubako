@@ -167,7 +167,11 @@ impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
                         counter: _,
                         size: _,
                         name,
-                    } => match self.values.remove(name).unwrap() {
+                    } => match self
+                        .values
+                        .remove(name)
+                        .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()))
+                    {
                         common::Value::Unsigned(v) => {
                             return Some((*name, Value::Unsigned(v)));
                         }
@@ -182,7 +186,11 @@ impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
                         counter: _,
                         size: _,
                         name,
-                    } => match self.values.remove(name).unwrap() {
+                    } => match self
+                        .values
+                        .remove(name)
+                        .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()))
+                    {
                         common::Value::Signed(v) => {
                             return Some((*name, Value::Signed(v)));
                         }
@@ -199,7 +207,10 @@ impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
                         content_id_size: _,
                         name,
                     } => {
-                        let value = self.values.remove(name).unwrap();
+                        let value = self
+                            .values
+                            .remove(name)
+                            .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
                         if let common::Value::Content(v) = value {
                             return Some((*name, Value::Content(v)));
                         } else {
