@@ -89,7 +89,7 @@ impl<'a, PN: PropertyName> ValueTransformer<'a, PN> {
     }
 }
 
-impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
+impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
     type Item = (PN, Value);
     fn next(&mut self) -> Option<Self::Item> {
         loop {

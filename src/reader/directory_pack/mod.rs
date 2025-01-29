@@ -281,7 +281,7 @@ struct VecWithKeyWrapper<'a, T> {
 }
 
 #[cfg(feature = "explorable")]
-impl<'a, T: graphex::Display> graphex::Display for VecWithKeyWrapper<'a, T> {
+impl<T: graphex::Display> graphex::Display for VecWithKeyWrapper<'_, T> {
     fn print_content(&self, out: &mut graphex::Output) -> graphex::Result {
         use yansi::Paint;
         for (i, d) in self.data.iter().enumerate() {
