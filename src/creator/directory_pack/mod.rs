@@ -54,43 +54,56 @@ pub struct BasicEntry<PN, VN> {
     idx: Vow<EntryIdx>,
 }
 
+/// ValueTransformer is responsible to transform `common::Value` (used outside of Jubako)
+/// into `creator::Value`, a value we can write in container, according to a schema.
+/// For example, it replace a array value (&[u8]) to a
+/// creator::Value::Array(base_array + idx to value stored in value_store)
 pub(crate) struct ValueTransformer<'a, PN: PropertyName> {
     keys: Box<dyn Iterator<Item = &'a schema::Property<PN>> + 'a>,
     values: HashMap<PN, common::Value>,
 }
 
 impl<'a, PN: PropertyName> ValueTransformer<'a, PN> {
+    /// Create a new ValueTransformer
+    /// `variant_name` and `values` must match the schema:
+    /// - If schema contain a variant, variant_name must be Some(...)
+    /// - values hashmap must contains values corresponding to the properties
+    ///   declared in the schema (variant).
     pub fn new<VN: VariantName>(
         schema: &'a schema::Schema<PN, VN>,
         variant_name: &Option<VN>,
         values: HashMap<PN, common::Value>,
     ) -> Self {
-        if schema.variants.is_empty() {
-            return ValueTransformer {
-                keys: Box::new(schema.common.iter()),
-                values,
-            };
+        let keys: Option<Box<dyn Iterator<Item = _>>> = if schema.variants.is_empty() {
+            Some(Box::new(schema.common.iter()))
         } else {
-            for (n, v) in &schema.variants {
-                if n == variant_name.as_ref().unwrap() {
-                    let keys = schema.common.iter().chain(v.iter());
-                    return ValueTransformer {
-                        keys: Box::new(keys),
-                        values,
-                    };
+            let variant_name = variant_name.as_ref().unwrap();
+            schema.variants.iter().find_map(|(n, v)| {
+                if n == variant_name {
+                    let keys = Box::new(schema.common.iter().chain(v.iter()))
+                        as Box<dyn Iterator<Item = _>>;
+                    Some(keys)
+                } else {
+                    None
                 }
-            }
+            })
+        };
+
+        if let Some(keys) = keys {
+            ValueTransformer { keys, values }
+        } else {
             //[TODO] Transform this as Result
             panic!(
                 "Entry variant name {} doesn't correspond to possible variants",
-                variant_name.unwrap().as_str()
+                variant_name.as_ref().unwrap().as_str()
             );
-        };
+        }
     }
 }
 
 impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
     type Item = (PN, Value);
+    // Iter on all `common::Value` and produce `(PN, creator::Value)`
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.keys.next() {
