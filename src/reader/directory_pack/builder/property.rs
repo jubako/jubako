@@ -67,6 +67,30 @@ impl PropertyBuilderTrait for VariantIdProperty {
 }
 
 #[derive(Debug, Clone)]
+pub struct VariantIdBuilder<T: Copy> {
+    raw_variant_id_builder: VariantIdProperty,
+    variant_map: Vec<Option<T>>,
+}
+
+impl<T: Copy> VariantIdBuilder<T> {
+    pub fn new(raw_variant_id_builder: VariantIdProperty, variant_map: Vec<Option<T>>) -> Self {
+        Self {
+            raw_variant_id_builder,
+            variant_map,
+        }
+    }
+}
+
+impl<T: Copy> PropertyBuilderTrait for VariantIdBuilder<T> {
+    type Output = Option<T>;
+
+    fn create(&self, parser: &impl RandomParser) -> Result<Self::Output> {
+        let raw_id = self.raw_variant_id_builder.create(parser)?;
+        Ok(self.variant_map[raw_id.into_usize()])
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct IntProperty {
     offset: Offset,
     size: ByteSize,

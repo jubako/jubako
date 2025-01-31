@@ -130,7 +130,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                         _ => {
                             return Err(Error::wrong_type(format!(
                                 "Value type for {} is not compatible with Array",
-                                name.to_string()
+                                name.as_str()
                             )));
                         }
                     }
@@ -146,7 +146,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     _ => {
                         return Err(Error::wrong_type(format!(
                             "Value type for {} is not compatible with indirect array",
-                            name.to_string()
+                            name.as_str()
                         )));
                     }
                 },
@@ -168,7 +168,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     _ => {
                         return Err(Error::wrong_type(format!(
                             "Value type for {} is not compatible with content",
-                            name.to_string()
+                            name.as_str()
                         )));
                     }
                 },
@@ -194,7 +194,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     _ => {
                         return Err(Error::wrong_type(format!(
                             "Value type for {} is not compatible with unsigned integer",
-                            name.to_string()
+                            name.as_str()
                         )));
                     }
                 },
@@ -220,7 +220,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     _ => {
                         return Err(Error::wrong_type(format!(
                             "Value type for {} is not compatible with signed integer",
-                            name.to_string()
+                            name.as_str()
                         )));
                     }
                 },

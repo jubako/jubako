@@ -17,12 +17,6 @@ pub use value::{Array, ArrayS, Value};
 pub(crate) use value_store::ValueStoreKind;
 pub use value_store::{StoreHandle, ValueHandle, ValueStore};
 
-pub trait PropertyName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send + 'static {}
-impl PropertyName for &'static str {}
-
-pub trait VariantName: ToString + std::cmp::Eq + std::hash::Hash + Copy + Send {}
-impl VariantName for &str {}
-
 pub trait EntryTrait<PN: PropertyName, VN: VariantName> {
     fn variant_name(&self) -> Option<MayRef<VN>>;
     fn value<'a>(&'a self, name: &PN) -> MayRef<'a, Value>;
@@ -89,7 +83,7 @@ impl<'a, PN: PropertyName> ValueTransformer<'a, PN> {
             //[TODO] Transform this as Result
             panic!(
                 "Entry variant name {} doesn't correspond to possible variants",
-                variant_name.unwrap().to_string()
+                variant_name.unwrap().as_str()
             );
         };
     }
@@ -111,7 +105,7 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                         let value = self
                             .values
                             .remove(name)
-                            .unwrap_or_else(|| panic!("Cannot find entry {:?}", name.to_string()));
+                            .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
                         if let common::Value::Array(mut data) = value {
                             let size = data.len();
                             let to_store = data.split_off(cmp::min(*fixed_array_len, data.len()));
@@ -149,7 +143,7 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                         let value = self
                             .values
                             .remove(name)
-                            .unwrap_or_else(|| panic!("Cannot find entry {:?}", name.to_string()));
+                            .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
                         if let common::Value::Array(data) = value {
                             let value_id = store_handle.add_value(data);
                             return Some((*name, Value::IndirectArray(Box::new(value_id))));
@@ -250,7 +244,7 @@ impl<PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for BasicEntry<PN, VN
     fn value(&self, name: &PN) -> MayRef<Value> {
         match self.names.iter().position(|n| n == name) {
             Some(i) => MayRef::Borrowed(&self.values[i]),
-            None => panic!("{} should be in entry", name.to_string()),
+            None => panic!("{} should be in entry", name.as_str()),
         }
     }
     fn value_count(&self) -> PropertyCount {

@@ -129,7 +129,7 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .debug_struct("UnsignedInt")
                 .field("counter", &counter)
                 .field("size", &size)
-                .field("name", &name.to_string())
+                .field("name", &name.as_str())
                 .finish(),
             Self::SignedInt {
                 counter,
@@ -139,7 +139,7 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .debug_struct("SignedInt")
                 .field("counter", &counter)
                 .field("size", &size)
-                .field("name", &name.to_string())
+                .field("name", &name.as_str())
                 .finish(),
             Self::Array {
                 max_array_size,
@@ -152,13 +152,13 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .field("fixed_array_len", &fixed_array_len)
                 .field("store_idx", &store_handle.get_idx())
                 .field("key_size", &store_handle.key_size())
-                .field("name", &name.to_string())
+                .field("name", &name.as_str())
                 .finish(),
             Self::IndirectArray { store_handle, name } => f
                 .debug_struct("IndirectArray")
                 .field("store_idx", &store_handle.get_idx())
                 .field("key_size", &store_handle.key_size())
-                .field("name", &name.to_string())
+                .field("name", &name.as_str())
                 .finish(),
             Self::ContentAddress {
                 pack_id_counter,
@@ -170,7 +170,7 @@ impl<PN: PropertyName> std::fmt::Debug for Property<PN> {
                 .field("pack_id_counter", &pack_id_counter)
                 .field("pack_id_size", &pack_id_size)
                 .field("content_id_size", &content_id_size)
-                .field("name", &name.to_string())
+                .field("name", &name.as_str())
                 .finish(),
             Self::Padding(s) => f.debug_tuple("Padding").field(&s).finish(),
         }

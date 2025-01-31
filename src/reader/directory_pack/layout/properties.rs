@@ -1,5 +1,6 @@
 use super::super::raw_layout::{PropertyKind, RawProperty};
 use super::property::Property;
+use crate::PropertyName;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -8,13 +9,6 @@ use std::sync::Arc;
 pub struct Properties(HashMap<String, Property>);
 
 pub(crate) type SharedProperties = Arc<Properties>;
-
-impl std::ops::Deref for Properties {
-    type Target = HashMap<String, Property>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 impl Properties {
     pub(crate) fn new(initial_offset: usize, raw_properties: Vec<RawProperty>) -> Self {
@@ -28,6 +22,19 @@ impl Properties {
             }
         }
         Properties(properties)
+    }
+
+    pub fn get(&self, name: impl PropertyName) -> Option<&Property> {
+        self.0.get(name.as_str())
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &Property)> {
+        self.0.iter()
+    }
+
+    #[cfg(test)]
+    pub fn inner(&self) -> &HashMap<String, Property> {
+        &self.0
     }
 }
 
