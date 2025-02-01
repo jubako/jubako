@@ -106,9 +106,10 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                             .values
                             .remove(name)
                             .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
-                        if let common::Value::Array(mut data) = value {
+                        if let common::Value::Array(data) = value {
                             let size = data.len();
-                            let to_store = data.split_off(cmp::min(*fixed_array_len, data.len()));
+                            let (data, to_store) =
+                                data.split_at(cmp::min(*fixed_array_len, data.len()));
                             let value_id = store_handle.add_value(to_store);
                             return Some((
                                 *name,
@@ -121,7 +122,7 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                                     1 => Value::Array1(Box::new(ArrayS::<1> {
                                         size,
                                         value_id,
-                                        data: data.as_slice().try_into().unwrap(),
+                                        data: data.try_into().unwrap(),
                                     })),
                                     2 => Value::Array2(Box::new(ArrayS::<2> {
                                         size,
@@ -130,7 +131,7 @@ impl<'a, PN: PropertyName> Iterator for ValueTransformer<'a, PN> {
                                     })),
                                     _ => Value::Array(Box::new(Array {
                                         size,
-                                        data: data.into_boxed_slice(),
+                                        data: data.into(),
                                         value_id,
                                     })),
                                 },

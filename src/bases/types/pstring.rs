@@ -1,6 +1,8 @@
-use core::{borrow::Borrow, marker::PhantomData};
-
 use crate::bases::*;
+use std::{
+    borrow::{Borrow, Cow},
+    marker::PhantomData,
+};
 
 pub struct PArray<Output> {
     _output: PhantomData<Output>,
@@ -43,11 +45,14 @@ impl<Output> PArray<Output> {
     }
 }
 
-impl Parsable for PArray<Vec<u8>> {
-    type Output = Vec<u8>;
-    fn parse(parser: &mut impl Parser) -> Result<Vec<u8>> {
+impl Parsable for PArray<SmallBytes> {
+    type Output = SmallBytes;
+    fn parse(parser: &mut impl Parser) -> Result<SmallBytes> {
         let size = parser.read_u8()?;
-        Ok(parser.read_slice(size as usize)?.into_owned())
+        match parser.read_slice(size as usize)? {
+            Cow::Borrowed(slice) => Ok(slice.into()),
+            Cow::Owned(vec) => Ok(vec.into()),
+        }
     }
 }
 
@@ -60,7 +65,7 @@ impl Parsable for PArray<String> {
     }
 }
 
-pub type PBytes = PArray<Vec<u8>>;
+pub type PBytes = PArray<SmallBytes>;
 pub type PString = PArray<String>;
 
 #[cfg(test)]
@@ -77,7 +82,7 @@ mod tests {
         content.extend_from_slice(source);
         let reader = CheckReader::from(content);
         reader
-            .parse_in::<PArray<String>>(Offset::zero(), reader.size().try_into().unwrap())
+            .parse_in::<PString>(Offset::zero(), reader.size().try_into().unwrap())
             .unwrap()
     }
 
@@ -90,7 +95,8 @@ mod tests {
         content.extend_from_slice(source);
         let reader = CheckReader::from(content);
         reader
-            .parse_in::<PArray<Vec<u8>>>(Offset::zero(), reader.size().try_into().unwrap())
+            .parse_in::<PBytes>(Offset::zero(), reader.size().try_into().unwrap())
             .unwrap()
+            .to_vec()
     }
 }
