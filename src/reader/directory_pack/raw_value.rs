@@ -73,26 +73,26 @@ impl Array {
         Ok(())
     }
 
-    pub fn partial_cmp(&self, other: &[u8]) -> Result<Option<cmp::Ordering>> {
+    pub fn cmp(&self, other: &[u8]) -> Result<cmp::Ordering> {
         let our_iter = ArrayIter::new(self)?;
         let mut other_iter = other.iter();
         for our_value in our_iter {
             let our_value = our_value?;
             let other_value = other_iter.next();
             match other_value {
-                None => return Ok(Some(cmp::Ordering::Greater)),
+                None => return Ok(cmp::Ordering::Greater),
                 Some(other_value) => {
                     let cmp = our_value.cmp(other_value);
                     if cmp != cmp::Ordering::Equal {
-                        return Ok(Some(cmp));
+                        return Ok(cmp);
                     };
                 }
             }
         }
-        Ok(Some(match other_iter.next() {
+        Ok(match other_iter.next() {
             None => cmp::Ordering::Equal,
             Some(_) => cmp::Ordering::Less,
-        }))
+        })
     }
 
     pub fn size(&self) -> Option<usize> {
@@ -292,7 +292,7 @@ impl RawValue {
                 _ => None,
             }),
             Value::Array(v) => match self {
-                RawValue::Array(a) => a.partial_cmp(v),
+                RawValue::Array(a) => Ok(Some(a.cmp(v)?)),
                 _ => Ok(None),
             },
         }
@@ -415,13 +415,13 @@ mod tests {
                 base_len: 6,
                 extend: Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)})
             };
-            assert_eq!(raw_value.partial_cmp("Hel".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp("Hello".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp("Hello ".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp("Hello Jubako".as_bytes()).unwrap().unwrap(), cmp::Ordering::Equal);
-            assert_eq!(raw_value.partial_cmp("Hello Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Less);
-            assert_eq!(raw_value.partial_cmp("Hella Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp("Hemmo Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Less);
+            assert_eq!(raw_value.cmp("Hel".as_bytes()).unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.cmp("Hello".as_bytes()).unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.cmp("Hello ".as_bytes()).unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.cmp("Hello Jubako".as_bytes()).unwrap(), cmp::Ordering::Equal);
+            assert_eq!(raw_value.cmp("Hello Jubako!".as_bytes()).unwrap(), cmp::Ordering::Less);
+            assert_eq!(raw_value.cmp("Hella Jubako!".as_bytes()).unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.cmp("Hemmo Jubako!".as_bytes()).unwrap(), cmp::Ordering::Less);
 
         }
     }
