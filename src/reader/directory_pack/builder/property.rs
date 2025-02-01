@@ -69,14 +69,14 @@ impl PropertyBuilderTrait for VariantIdProperty {
 #[derive(Debug, Clone)]
 pub struct VariantIdBuilder<T: Copy> {
     raw_variant_id_builder: VariantIdProperty,
-    variant_map: Vec<Option<T>>,
+    variant_map: smallvec::SmallVec<[Option<T>; 4]>,
 }
 
 impl<T: Copy> VariantIdBuilder<T> {
     pub fn new(raw_variant_id_builder: VariantIdProperty, variant_map: Vec<Option<T>>) -> Self {
         Self {
             raw_variant_id_builder,
-            variant_map,
+            variant_map: variant_map.into(),
         }
     }
 }

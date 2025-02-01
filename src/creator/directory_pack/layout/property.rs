@@ -178,7 +178,7 @@ impl<PN: PropertyName> Serializable for Property<PN> {
         match self {
             Property::VariantId(name) => {
                 let mut written = ser.write_u8(PropType::VariantId as u8)?;
-                written += PString::serialize_string(name.as_bytes(), ser)?;
+                written += PString::serialize_string(*name, ser)?;
                 Ok(written)
             }
             Property::Array {
@@ -202,7 +202,7 @@ impl<PN: PropertyName> Serializable for Property<PN> {
                 if let Some((_, store)) = deported_info {
                     written += store.get_idx().unwrap().serialize(ser)?;
                 }
-                written += PString::serialize_string(name.as_str().as_bytes(), ser)?;
+                written += PString::serialize_string(name.as_str(), ser)?;
                 Ok(written)
             }
             Property::IndirectArray {
@@ -213,7 +213,7 @@ impl<PN: PropertyName> Serializable for Property<PN> {
                 let mut written = ser.write_u8(PropType::Array as u8)?;
                 written += ser.write_u8((*value_id_size as usize as u8) << 5)?;
                 written += store_handle.get_idx().unwrap().serialize(ser)?;
-                written += PString::serialize_string(name.as_str().as_bytes(), ser)?;
+                written += PString::serialize_string(name.as_str(), ser)?;
                 Ok(written)
             }
             Property::ContentAddress {
@@ -236,7 +236,7 @@ impl<PN: PropertyName> Serializable for Property<PN> {
                         written
                     }
                 };
-                written += PString::serialize_string(name.as_str().as_bytes(), ser)?;
+                written += PString::serialize_string(name.as_str(), ser)?;
                 Ok(written)
             }
             Property::UnsignedInt {
@@ -255,7 +255,7 @@ impl<PN: PropertyName> Serializable for Property<PN> {
                         written
                     }
                 };
-                written += PString::serialize_string(name.as_str().as_bytes(), ser)?;
+                written += PString::serialize_string(name.as_str(), ser)?;
                 Ok(written)
             }
             Property::SignedInt {
@@ -274,7 +274,7 @@ impl<PN: PropertyName> Serializable for Property<PN> {
                         written
                     }
                 };
-                written += PString::serialize_string(name.as_str().as_bytes(), ser)?;
+                written += PString::serialize_string(name.as_str(), ser)?;
                 Ok(written)
             }
             Property::Padding(size) => {

@@ -53,7 +53,7 @@ impl Array {
         }
     }
 
-    pub fn resolve_to_vec(&self, vec: &mut Vec<u8>) -> Result<()> {
+    pub fn resolve_to_vec(&self, vec: &mut SmallBytes) -> Result<()> {
         let our_iter = ArrayIter::new(self)?;
         if let Some(s) = self.size {
             vec.reserve(s.into_u64() as usize);
@@ -208,16 +208,16 @@ impl RawValue {
             RawValue::I32(v) => Value::Signed(*v as i64),
             RawValue::I64(v) => Value::Signed(*v),
             RawValue::Array(a) => {
-                let mut vec = vec![];
+                let mut vec = SmallBytes::new();
                 a.resolve_to_vec(&mut vec)?;
                 Value::Array(vec)
             }
         })
     }
 
-    pub fn as_vec(&self) -> Result<Vec<u8>> {
+    pub fn as_vec(&self) -> Result<SmallBytes> {
         if let RawValue::Array(a) = self {
-            let mut vec = vec![];
+            let mut vec = SmallBytes::new();
             a.resolve_to_vec(&mut vec)?;
             Ok(vec)
         } else {
@@ -374,10 +374,10 @@ mod tests {
             );
         }
 
-        fixture indirect_value(base: Vec<u8>, extend:Option<Extend>, expected: Vec<u8>) -> RawValue {
+        fixture indirect_value(base: Vec<u8>, extend:Option<Extend>, expected: SmallBytes) -> RawValue {
             params {
                 vec![
-                    (vec![], None, vec![]),
+                    (vec![], None, SmallBytes::new()),
                     ("Hello".into(), None, "Hello".into()),
                     ("Hello".into(), Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(0)}), "HelloHello".into()),
                     ("Hello ".into(), Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)}), "Hello Jubako".into()),

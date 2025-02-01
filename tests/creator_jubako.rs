@@ -108,7 +108,7 @@ test_suite! {
         let mut entry_store = Box::new(creator::EntryStore::new(entry_def, None));
         for (idx, entry) in entries.iter().enumerate() {
             entry_store.add_entry(creator::BasicEntry::new_from_schema(&entry_store.schema, None, HashMap::from([
-                ("V0", jubako::Value::Array(entry.path.clone().into())),
+                ("V0", jubako::Value::Array(entry.path.as_bytes().into())),
                 ("V1", jubako::Value::Content(jubako::ContentAddress::new(1.into(), (idx as u32).into()))),
                 ("V2", jubako::Value::Unsigned(entry.word_count as u64))
             ])));

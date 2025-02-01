@@ -24,7 +24,7 @@ pub trait BuilderTrait {
 }
 
 pub struct AnyVariantBuilder {
-    properties: HashMap<String, AnyProperty>,
+    properties: HashMap<SmallString, AnyProperty>,
 }
 
 impl AnyVariantBuilder {
@@ -49,7 +49,7 @@ impl AnyVariantBuilder {
     where
         ValueStorage: ValueStorageTrait,
     {
-        let properties: Result<HashMap<String, _>> = properties
+        let properties: Result<HashMap<SmallString, _>> = properties
             .iter()
             .map(|(n, p)| {
                 AnyProperty::from_property(p, value_storage).map(|p| {
@@ -71,7 +71,7 @@ pub(crate) struct LazyEntryProperties {
     pub variant_part: Option<(
         VariantIdProperty,
         Vec<AnyVariantBuilder>,
-        HashMap<String, u8>,
+        HashMap<SmallString, u8>,
     )>,
 }
 
@@ -187,7 +187,7 @@ mod tests {
                             default_pack_id: None,
                         },
                         4,
-                        Some("V0".to_string()),
+                        "V0",
                     ),
                     RawProperty::new(
                         PropertyKind::UnsignedInt {
@@ -195,7 +195,7 @@ mod tests {
                             default: None,
                         },
                         2,
-                        Some("V11".to_string()),
+                        "V11",
                     ),
                 ],
             ),
@@ -262,7 +262,7 @@ mod tests {
                                     default: None,
                                 },
                                 5,
-                                Some("V0".to_string()),
+                                "V0",
                             ),
                             RawProperty::new(
                                 PropertyKind::UnsignedInt {
@@ -270,7 +270,7 @@ mod tests {
                                     default: None,
                                 },
                                 2,
-                                Some("V1".to_string()),
+                                "V1",
                             ),
                         ],
                     )
@@ -286,16 +286,16 @@ mod tests {
                                     default: None,
                                 },
                                 2,
-                                Some("V0".to_string()),
+                                "V0",
                             ),
-                            RawProperty::new(PropertyKind::Padding, 2, Some("V1".to_string())),
+                            RawProperty::new(PropertyKind::Padding, 2, "V1"),
                             RawProperty::new(
                                 PropertyKind::SignedInt {
                                     int_size: ByteSize::U1,
                                     default: None,
                                 },
                                 1,
-                                Some("V2".to_string()),
+                                "V2",
                             ),
                             RawProperty::new(
                                 PropertyKind::UnsignedInt {
@@ -303,16 +303,13 @@ mod tests {
                                     default: None,
                                 },
                                 2,
-                                Some("V3".to_string()),
+                                "V3",
                             ),
                         ],
                     )
                     .into(),
                 ]),
-                names: HashMap::from([
-                    (String::from("Variant1"), 0),
-                    (String::from("Variant2"), 1),
-                ]),
+                names: HashMap::from([("Variant1".into(), 0), ("Variant2".into(), 1)]),
             }),
             entry_count: EntryCount::from(2),
             is_entry_checked: false,

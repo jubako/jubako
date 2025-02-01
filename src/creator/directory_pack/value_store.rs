@@ -88,7 +88,7 @@ impl StoreHandle {
         self.0.read().unwrap().get_idx()
     }
 
-    pub fn add_value(&self, data: Vec<u8>) -> ValueHandle {
+    pub fn add_value(&self, data: impl Into<Box<[u8]>>) -> ValueHandle {
         let idx = self.0.write().unwrap().add_value(data);
         ValueHandle::new(&self.0, idx)
     }
@@ -141,7 +141,7 @@ impl ValueStore {
         }
     }
 
-    pub(crate) fn add_value(&mut self, data: Vec<u8>) -> usize {
+    pub(crate) fn add_value(&mut self, data: impl Into<Box<[u8]>>) -> usize {
         match self {
             Self::Plain(s) => s.add_value(data),
             Self::Indexed(s) => s.add_value(data),
@@ -215,7 +215,7 @@ impl BaseValueStore {
         }
     }
 
-    pub(crate) fn add_value(&mut self, data: Vec<u8>) -> usize {
+    pub(crate) fn add_value(&mut self, data: impl Into<Box<[u8]>>) -> usize {
         // Let's act like if data is sorted when we add it
         let key = self.data.len();
         self.data.push((data.into(), 0));
@@ -269,7 +269,7 @@ impl PlainValueStore {
         self.0.finalized = true;
     }
 
-    pub(self) fn add_value(&mut self, data: Vec<u8>) -> usize {
+    pub(self) fn add_value(&mut self, data: impl Into<Box<[u8]>>) -> usize {
         self.0.add_value(data)
     }
 
@@ -339,19 +339,19 @@ impl IndexedValueStore {
         self.0.finalized = true;
     }
 
-    pub(self) fn add_value(&mut self, data: Vec<u8>) -> usize {
+    pub(self) fn add_value(&mut self, data: impl Into<Box<[u8]>>) -> usize {
+        let data = data.into();
         // [TODO] This is a long search when we have a lot of values...
         let potential_idx = if self.0.data.len() >= 1024 {
-            let d = data.as_slice();
             self.0
                 .data
                 .par_iter()
-                .position_any(|(existing_data, _)| d == existing_data.as_ref())
+                .position_any(|(existing_data, _)| &data == existing_data)
         } else {
             self.0
                 .data
                 .iter()
-                .position(|(existing_data, _)| data == existing_data.as_ref())
+                .position(|(existing_data, _)| &data == existing_data)
         };
         match potential_idx {
             Some(idx) => idx,

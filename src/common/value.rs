@@ -8,5 +8,5 @@ pub enum Value {
     Signed(i64),
     UnsignedWord(Word<u64>),
     SignedWord(Word<i64>),
-    Array(Vec<u8>),
+    Array(SmallBytes),
 }

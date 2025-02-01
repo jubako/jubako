@@ -64,7 +64,7 @@ jbk::properties! {
 // while a function printing the content will have to parse the reader variant type and
 // the content reference.
 pub struct Entry {
-    value0: Vec<u8>,
+    value0: jbk::SmallBytes,
     value1: u64,
     variant: Variant,
 }
@@ -152,7 +152,7 @@ impl jbk::reader::builder::BuilderTrait for Builder {
         // Value0 is a array with a part stored in a value store.
         // The property builder only parse the bytes in the entry_store
         // so we have to "resolve" the property to get the data from the value_store.
-        let mut value0 = Vec::new();
+        let mut value0 = jbk::SmallBytes::new();
         self.value0.create(&reader)?.resolve_to_vec(&mut value0)?;
 
         // Read value1
