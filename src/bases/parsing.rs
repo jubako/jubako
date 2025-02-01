@@ -126,7 +126,7 @@ impl<'a> SliceParser<'a> {
     }
 }
 
-impl<'a> Parser for SliceParser<'a> {
+impl Parser for SliceParser<'_> {
     fn read_slice(&mut self, size: usize) -> Result<Cow<[u8]>> {
         if self.slice.len() < size + self.offset {
             return Err(format_error!(format!(

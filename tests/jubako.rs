@@ -44,7 +44,7 @@ impl Cluster {
         let mut current_offset = 0;
         for entry in entries {
             data.push(entry.content.as_bytes().to_vec());
-            current_offset += entry.content.as_bytes().len();
+            current_offset += entry.content.len();
             entries_offset.push(current_offset);
         }
         Cluster {
@@ -104,7 +104,7 @@ impl KeyStore {
         let mut current_offset = 0;
         for entry in entries {
             data.push(entry.path.as_bytes().to_vec());
-            current_offset += entry.path.as_bytes().len();
+            current_offset += entry.path.len();
             entries_offset.push(current_offset);
         }
         KeyStore {
@@ -158,7 +158,7 @@ impl IndexStore {
             // - The path : A char1[0] + deported(1)
             // - The content : a content address(1)
             // - The words counts : a u16
-            data.extend(&[entry.path.as_bytes().len() as u8, idx].to_vec());
+            data.extend(&[entry.path.len() as u8, idx].to_vec());
             data.extend(&(((idx as u16) << 8) + 0x01_u16).to_le_bytes().to_vec());
             data.extend(&entry.word_count.to_le_bytes().to_vec());
         }

@@ -29,7 +29,7 @@ pub fn run(options: Options) -> jbk::Result<()> {
         },
     };
     if let Some(location) = &options.new_location {
-        if location.as_bytes().len() > 217 {
+        if location.len() > 217 {
             eprintln!("{location} is too long. Only 217 bytes allowed");
             return Ok(());
         }
