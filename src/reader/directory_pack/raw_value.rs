@@ -54,38 +54,45 @@ impl Array {
     }
 
     pub fn resolve_to_vec(&self, vec: &mut SmallBytes) -> Result<()> {
-        let our_iter = ArrayIter::new(self)?;
-        if let Some(s) = self.size {
-            vec.reserve(s.into_u64() as usize);
-        } else {
-            vec.reserve(self.base_len as usize);
-        }
-        for v in our_iter {
-            vec.push(v?);
-        }
+        vec.reserve(
+            self.size
+                .map(|s| s.into_u64())
+                .unwrap_or(self.base_len as u64) as usize,
+        );
+        // Array::new ensure us to have base_len <= self.size and
+        // jubako format ensure that base_len <= self.base.data.len()
+        vec.extend_from_slice(&self.base.data[..self.base_len as usize]);
+        if let Some(e) = &self.extend {
+            let data = e.store.get_data(
+                e.value_id,
+                self.size.map(|s| s - ASize::new(self.base_len as usize)),
+            )?;
+            vec.extend_from_slice(data)
+        };
+
         Ok(())
     }
 
-    pub fn partial_cmp(&self, other: &[u8]) -> Result<Option<cmp::Ordering>> {
+    pub fn cmp(&self, other: &[u8]) -> Result<cmp::Ordering> {
         let our_iter = ArrayIter::new(self)?;
         let mut other_iter = other.iter();
         for our_value in our_iter {
             let our_value = our_value?;
             let other_value = other_iter.next();
             match other_value {
-                None => return Ok(Some(cmp::Ordering::Greater)),
+                None => return Ok(cmp::Ordering::Greater),
                 Some(other_value) => {
                     let cmp = our_value.cmp(other_value);
                     if cmp != cmp::Ordering::Equal {
-                        return Ok(Some(cmp));
+                        return Ok(cmp);
                     };
                 }
             }
         }
-        Ok(Some(match other_iter.next() {
+        Ok(match other_iter.next() {
             None => cmp::Ordering::Equal,
             Some(_) => cmp::Ordering::Less,
-        }))
+        })
     }
 
     pub fn size(&self) -> Option<usize> {
@@ -285,7 +292,7 @@ impl RawValue {
                 _ => None,
             }),
             Value::Array(v) => match self {
-                RawValue::Array(a) => a.partial_cmp(v),
+                RawValue::Array(a) => Ok(Some(a.cmp(v)?)),
                 _ => Ok(None),
             },
         }
@@ -408,13 +415,13 @@ mod tests {
                 base_len: 6,
                 extend: Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)})
             };
-            assert_eq!(raw_value.partial_cmp("Hel".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp("Hello".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp("Hello ".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp("Hello Jubako".as_bytes()).unwrap().unwrap(), cmp::Ordering::Equal);
-            assert_eq!(raw_value.partial_cmp("Hello Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Less);
-            assert_eq!(raw_value.partial_cmp("Hella Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.partial_cmp("Hemmo Jubako!".as_bytes()).unwrap().unwrap(), cmp::Ordering::Less);
+            assert_eq!(raw_value.cmp("Hel".as_bytes()).unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.cmp("Hello".as_bytes()).unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.cmp("Hello ".as_bytes()).unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.cmp("Hello Jubako".as_bytes()).unwrap(), cmp::Ordering::Equal);
+            assert_eq!(raw_value.cmp("Hello Jubako!".as_bytes()).unwrap(), cmp::Ordering::Less);
+            assert_eq!(raw_value.cmp("Hella Jubako!".as_bytes()).unwrap(), cmp::Ordering::Greater);
+            assert_eq!(raw_value.cmp("Hemmo Jubako!".as_bytes()).unwrap(), cmp::Ordering::Less);
 
         }
     }
