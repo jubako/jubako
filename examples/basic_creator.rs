@@ -110,7 +110,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Let's create a basic creator. It wrapper a ContentCreator and
     // correctly write files, manifest packs... at finish.
     let mut creator = jbk::creator::BasicCreator::new(
-        std::env::current_dir()?,
+        "test.jbk",
         jbk::creator::ConcatMode::OneFile, // Let's put all our packs in one file
         VENDOR_ID,
         jbk::creator::Compression::default(),
@@ -151,7 +151,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ]),
     );
 
-    Ok(creator.finalize("test.jbk", entry_store, vec![])?)
+    Ok(creator.finalize(entry_store, vec![])?)
 
     // You have now 3 files : "test.jbkm", "test.jbkc" and "test.jbkd".
 

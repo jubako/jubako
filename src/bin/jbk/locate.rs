@@ -40,12 +40,11 @@ pub fn run(options: Options) -> jbk::Result<()> {
         }
         let uuid = uuid.unwrap();
 
-        match jbk::tools::set_location(options.infile, uuid, location.as_bytes().to_owned()) {
+        match jbk::tools::set_location(options.infile, uuid, location.as_str().into()) {
             Ok(None) => {
                 eprintln!("Pack {uuid} is not in the manifest");
             }
             Ok(Some((pack_kind, old_location))) => {
-                let old_location = String::from_utf8_lossy(&old_location);
                 println!(
                     "Change {:?} pack {} location from `{}` to `{}`",
                     pack_kind, uuid, old_location, location
@@ -73,8 +72,6 @@ pub fn run(options: Options) -> jbk::Result<()> {
                 }
             }
 
-            let location = String::from_utf8_lossy(&pack_info.pack_location).into_owned();
-
             let fs_locator = Arc::new(jbk::reader::FsLocator::new(
                 options.infile.parent().unwrap().to_path_buf(),
             ));
@@ -83,11 +80,11 @@ pub fn run(options: Options) -> jbk::Result<()> {
             match locator.locate(pack_info.uuid, &pack_info.pack_location)? {
                 None => println!(
                     "{:?} pack {} has declared location `{}`",
-                    pack_info.pack_kind, pack_info.uuid, location,
+                    pack_info.pack_kind, pack_info.uuid, pack_info.pack_location,
                 ),
                 Some(reader) => println!(
                     "{:?} pack {} (with declared location `{}`) is located in {}",
-                    pack_info.pack_kind, pack_info.uuid, location, reader
+                    pack_info.pack_kind, pack_info.uuid, pack_info.pack_location, reader
                 ),
             }
             break;

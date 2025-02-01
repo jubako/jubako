@@ -21,6 +21,8 @@ pub use crate::bases::{
 };
 pub use crate::common::{CompressionType, ContentAddress, Pack, Value};
 //use crate::reader::directory_pack::layout;
+//
+pub use camino::{Utf8Path, Utf8PathBuf};
 
 #[cfg(doctest)]
 use bases::BaseArray;

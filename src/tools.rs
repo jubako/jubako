@@ -1,6 +1,7 @@
 use crate as jbk;
 use crate::common::{PackHeader, PackKind};
 use crate::reader::{ManifestPackHeader, PackOffsetsIter};
+use camino::Utf8Path;
 use jbk::bases::*;
 use jbk::reader::ContainerPack;
 use std::io::{Seek, SeekFrom};
@@ -8,11 +9,11 @@ use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
 
-pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
+pub fn concat(infiles: &[impl AsRef<Path>], outfile: impl AsRef<Utf8Path>) -> jbk::Result<()> {
     let mut container = jbk::creator::ContainerPackCreator::new(&outfile, Default::default())?;
 
     for infile in infiles {
-        let in_container = open_pack(infile)?;
+        let in_container = open_pack(infile.as_ref())?;
         for (uuid, reader) in in_container.iter() {
             container.add_pack(
                 *uuid,
@@ -25,8 +26,8 @@ pub fn concat<P: AsRef<Path>>(infiles: &[P], outfile: P) -> jbk::Result<()> {
     Ok(())
 }
 
-pub fn open_pack<P: AsRef<Path>>(path: P) -> jbk::Result<ContainerPack> {
-    let reader = Reader::from(FileSource::open(&path)?);
+pub fn open_pack(path: impl AsRef<Path>) -> jbk::Result<ContainerPack> {
+    let reader = Reader::from(FileSource::open(path.as_ref())?);
     let pack_header = reader.parse_block_at::<jbk::common::PackHeader>(Offset::zero())?;
     Ok(match pack_header.magic {
         jbk::common::PackKind::Container => ContainerPack::new(reader)?,
@@ -34,11 +35,11 @@ pub fn open_pack<P: AsRef<Path>>(path: P) -> jbk::Result<ContainerPack> {
     })
 }
 
-pub fn set_location<P: AsRef<Path>>(
-    filename: P,
+pub fn set_location(
+    filename: impl AsRef<Path>,
     uuid: Uuid,
-    new_location: Vec<u8>,
-) -> jbk::Result<Option<(PackKind, Vec<u8>)>> {
+    new_location: SmallString,
+) -> jbk::Result<Option<(PackKind, SmallString)>> {
     let container = Arc::new(jbk::tools::open_pack(&filename)?);
 
     let manifest_pack_reader = container.get_manifest_pack_reader()?;

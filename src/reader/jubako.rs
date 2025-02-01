@@ -70,7 +70,7 @@ impl Container {
     /// Open a new container
     ///
     /// `path` is the path to the manifest pack (or a container pack with a manifest pack within).
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn new(path: impl AsRef<Path>) -> Result<Self> {
         let locator = Arc::new(FsLocator::new(
             path.as_ref().parent().unwrap().to_path_buf(),
         ));
@@ -80,8 +80,8 @@ impl Container {
     /// Open a new container with a specific locator to found other pack.
     ///
     /// `path` is the path to the manifest pack (or a container pack with a manifest pack within).
-    pub fn new_with_locator<P: AsRef<Path>>(
-        path: P,
+    pub fn new_with_locator(
+        path: impl AsRef<Path>,
         locator: Arc<dyn PackLocatorTrait>,
     ) -> Result<Self> {
         let path: PathBuf = path.as_ref().into();

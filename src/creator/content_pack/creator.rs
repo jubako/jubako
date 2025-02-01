@@ -9,9 +9,9 @@ use crate::common::{
 use crate::creator::{Compression, InputReader, NamedFile, PackData, PackRecipient};
 use std::cell::Cell;
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::path::Path;
 use std::sync::Arc;
 
+use camino::Utf8Path;
 use log::info;
 
 fn shannon_entropy(data: &[u8]) -> f32 {
@@ -65,8 +65,8 @@ macro_rules! open_cluster_ref {
 }
 
 impl ContentPackCreator<NamedFile> {
-    pub fn new<P: AsRef<Path>>(
-        path: P,
+    pub fn new(
+        path: impl AsRef<Utf8Path>,
         pack_id: PackId,
         app_vendor_id: VendorId,
         free_data: PackFreeData,
@@ -82,8 +82,8 @@ impl ContentPackCreator<NamedFile> {
         )
     }
 
-    pub fn new_with_progress<P: AsRef<Path>>(
-        path: P,
+    pub fn new_with_progress(
+        path: impl AsRef<Utf8Path>,
         pack_id: PackId,
         app_vendor_id: VendorId,
         free_data: PackFreeData,

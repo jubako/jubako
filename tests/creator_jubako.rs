@@ -18,6 +18,7 @@ test_suite! {
     use std::sync::Arc;
     use std::fs::OpenOptions;
     use std::path::{PathBuf, Path};
+    use camino::{Utf8Path, Utf8PathBuf};
 
     #[derive(Clone, Copy, Debug)]
     pub enum ValueStoreKind {
@@ -70,7 +71,7 @@ test_suite! {
         }
     }
 
-    fn create_content_pack(compression: creator::Compression, entries:&Vec<TestEntry>, outfile: &Path) -> Result<(creator::PackData, jubako::Reader)> {
+    fn create_content_pack(compression: creator::Compression, entries:&Vec<TestEntry>, outfile: &Utf8Path) -> Result<(creator::PackData, jubako::Reader)> {
         let mut creator = creator::ContentPackCreator::new(
             outfile,
             jubako::PackId::from(1),
@@ -137,8 +138,8 @@ test_suite! {
     fn create_main_pack(directory_pack: creator::PackData, content_pack:creator::PackData) -> Result<PathBuf> {
         let mut creator = creator::ManifestPackCreator::new(jubako::VendorId::from([1, 0,0,0]), Default::default());
 
-        creator.add_pack(directory_pack, "directoryPack.jbkd".into());
-        creator.add_pack(content_pack, "contentPack.jbkc".into());
+        creator.add_pack(directory_pack, "directoryPack.jbkd");
+        creator.add_pack(content_pack, "contentPack.jbkc");
 
         let mut manifest_path = std::env::temp_dir();
         manifest_path.push("manifestPath.jbkm");
@@ -167,7 +168,7 @@ test_suite! {
     }
 
     impl jubako::reader::PackLocatorTrait for Locator {
-        fn locate(&self, uuid: uuid::Uuid, _helper: &[u8]) -> jubako::Result<Option<jubako::Reader>> {
+        fn locate(&self, uuid: uuid::Uuid, _helper: &str) -> jubako::Result<Option<jubako::Reader>> {
             println!("Search for {uuid}");
             println!("We have {:?}", self.0);
             Ok(self.0.get(&uuid).cloned())
@@ -177,7 +178,7 @@ test_suite! {
 
 
     test test_content_pack(compression, value_store_kind, articles) {
-        let mut content_pack_path = std::env::temp_dir();
+        let mut content_pack_path:Utf8PathBuf = std::env::temp_dir().try_into().expect("We expect an utf8 path");
         content_pack_path.push("contentPack.jbkc");
         let (content_info, content_reader) = create_content_pack(compression.val, &articles.val, &content_pack_path).unwrap();
         let mut directory_pack_path = std::env::temp_dir();

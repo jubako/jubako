@@ -1,8 +1,9 @@
+use camino::{Utf8Path, Utf8PathBuf};
+
 use crate::bases::*;
 use crate::common::{CheckInfo, ContainerPackHeader, PackHeader, PackHeaderInfo, PackLocator};
 use crate::creator::Result;
 use std::io::{self, Read, Seek, SeekFrom, Write};
-use std::path::Path;
 
 use super::private::Sealed;
 use super::{MaybeFileReader, NamedFile, PackRecipient};
@@ -21,7 +22,7 @@ pub struct InContainerFile<F: PackRecipient> {
 }
 
 impl ContainerPackCreator<NamedFile> {
-    pub fn new<P: AsRef<Path>>(path: P, free_data: PackFreeData) -> IoResult<Self> {
+    pub fn new(path: impl AsRef<Utf8Path>, free_data: PackFreeData) -> IoResult<Self> {
         Self::from_file(NamedFile::new(path)?, free_data)
     }
 }
@@ -146,7 +147,7 @@ impl<F: PackRecipient + std::fmt::Debug + Sync + Send> OutStream for InContainer
 impl<F: PackRecipient + Sync + Send> Sealed for InContainerFile<F> {}
 
 impl<F: PackRecipient + Sync + Send> PackRecipient for InContainerFile<F> {
-    fn close_file(self: Box<Self>) -> Result<Vec<u8>> {
-        Ok(vec![])
+    fn close_file(self: Box<Self>) -> Result<Utf8PathBuf> {
+        Ok(Utf8PathBuf::new())
     }
 }

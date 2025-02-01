@@ -1,3 +1,5 @@
+use camino::Utf8PathBuf;
+
 use super::{private::WritableTell, PackData, StoreHandle, ValueStore};
 use crate::bases::*;
 use crate::common::{
@@ -10,7 +12,7 @@ use std::io::SeekFrom;
 pub struct ManifestPackCreator {
     app_vendor_id: VendorId,
     free_data: PackFreeData,
-    packs: Vec<(PackData, Vec<u8>)>,
+    packs: Vec<(PackData, Utf8PathBuf)>,
     value_store: StoreHandle,
 }
 
@@ -24,8 +26,8 @@ impl ManifestPackCreator {
         }
     }
 
-    pub fn add_pack(&mut self, pack_info: PackData, locator: Vec<u8>) {
-        self.packs.push((pack_info, locator));
+    pub fn add_pack(&mut self, pack_info: PackData, locator: impl Into<Utf8PathBuf>) {
+        self.packs.push((pack_info, locator.into()));
     }
 
     pub fn finalize<O: InOutStream>(self, file: &mut O) -> Result<uuid::Uuid> {
@@ -56,7 +58,7 @@ impl ManifestPackCreator {
                 0,
                 free_data_id.get(),
                 SizedOffset::new(check_info_size.into(), check_info_pos.into()),
-                locator,
+                locator.into(),
             ));
         }
 

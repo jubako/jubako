@@ -10,7 +10,7 @@ pub struct Options {
 
     // Out file
     #[clap(short, long, value_parser)]
-    outfile: PathBuf,
+    outfile: jbk::Utf8PathBuf,
 }
 
 pub fn run(options: Options) -> jbk::Result<()> {
