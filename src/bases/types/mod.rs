@@ -31,7 +31,7 @@ pub(crate) use id::Id;
 pub(crate) use idx::{Idx, IndexTrait};
 pub use mayref::MayRef;
 pub use offset::Offset;
-pub(crate) use pstring::PString;
+pub(crate) use pstring::{PBytes, PString};
 pub use range::EntryRange;
 pub(crate) use range::{ARegion, Region};
 pub use size::Size;

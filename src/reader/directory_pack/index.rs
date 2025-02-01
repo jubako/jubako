@@ -40,7 +40,7 @@ impl Parsable for IndexHeader {
         let entry_offset = Idx::<u32>::parse(parser)?.into();
         let free_data = IndexFreeData::parse(parser)?;
         let index_property = parser.read_u8()?;
-        let name = String::from_utf8(PString::parse(parser)?)?;
+        let name = PString::parse(parser)?;
         Ok(Self {
             store_id,
             entry_count,

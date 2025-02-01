@@ -109,7 +109,7 @@ impl Parsable for RawProperty {
                         content_id_size: ByteSize::try_from(content_id_size as usize).unwrap(),
                         default_pack_id,
                     },
-                    Some(String::from_utf8(PString::parse(parser)?)?),
+                    Some(PString::parse(parser)?),
                 )
             }
             PropType::UnsignedInt | PropType::SignedInt => {
@@ -129,7 +129,7 @@ impl Parsable for RawProperty {
                                 default: Some(parser.read_isized(int_size)?),
                             }
                         },
-                        Some(String::from_utf8(PString::parse(parser)?)?),
+                        Some(PString::parse(parser)?),
                     )
                 } else {
                     (
@@ -145,7 +145,7 @@ impl Parsable for RawProperty {
                                 default: None,
                             }
                         },
-                        Some(String::from_utf8(PString::parse(parser)?)?),
+                        Some(PString::parse(parser)?),
                     )
                 }
             }
@@ -191,7 +191,7 @@ impl Parsable for RawProperty {
                                 default: Some((ASize::new(size as usize), fixed_data, key_id)),
                             }
                         },
-                        Some(String::from_utf8(PString::parse(parser)?)?),
+                        Some(PString::parse(parser)?),
                     )
                 } else {
                     (
@@ -206,15 +206,11 @@ impl Parsable for RawProperty {
                             deported_info,
                             default: None,
                         },
-                        Some(String::from_utf8(PString::parse(parser)?)?),
+                        Some(PString::parse(parser)?),
                     )
                 }
             }
-            PropType::VariantId => (
-                1,
-                PropertyKind::VariantId,
-                Some(String::from_utf8(PString::parse(parser)?)?),
-            ),
+            PropType::VariantId => (1, PropertyKind::VariantId, Some(PString::parse(parser)?)),
             PropType::DeportedUnsignedInt | PropType::DeportedSignedInt => {
                 let default_value = (propdata & 0b1000) != 0;
                 let int_size = ByteSize::try_from((propdata & 0x07) as usize + 1).unwrap();
@@ -238,7 +234,7 @@ impl Parsable for RawProperty {
                                 id: DeportedDefault::Value(key_value),
                             }
                         },
-                        Some(String::from_utf8(PString::parse(parser)?)?),
+                        Some(PString::parse(parser)?),
                     )
                 } else {
                     (
@@ -256,7 +252,7 @@ impl Parsable for RawProperty {
                                 id: DeportedDefault::KeySize(key_id_size),
                             }
                         },
-                        Some(String::from_utf8(PString::parse(parser)?)?),
+                        Some(PString::parse(parser)?),
                     )
                 }
             }

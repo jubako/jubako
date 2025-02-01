@@ -333,7 +333,7 @@ impl super::private::WritableTell for Index {
         self.offset.get().serialize(ser)?;
         self.free_data.serialize(ser)?;
         self.index_key.serialize(ser)?;
-        PString::serialize_string(self.name.as_ref(), ser)?;
+        PString::serialize_string(&self.name, ser)?;
         Ok(())
     }
 }
