@@ -179,8 +179,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn create_entry() -> Result<()> {
+    #[rustest::test]
+    fn create_entry() -> rustest::Result {
         let layout = Layout {
             common: Properties::new(
                 0,
@@ -249,8 +249,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn create_entry_with_variant() -> Result<()> {
+    #[rustest::test]
+    fn create_entry_with_variant() -> rustest::Result {
         let layout = Layout {
             common: Properties::new(0, vec![]),
             variant_part: Some(VariantPart {

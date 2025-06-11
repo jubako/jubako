@@ -304,125 +304,139 @@ mod tests {
     use super::*;
     use crate::reader::directory_pack::ValueStoreTrait;
     use crate::ContentAddress;
-    use galvanic_test::test_suite;
 
-    test_suite! {
+    mod mock {
         use super::*;
-
-        mod mock {
-            use super::*;
-            #[derive(Debug)]
-            pub struct ValueStore {}
-            impl ValueStoreTrait for ValueStore {
-                fn get_data(&self, id: ValueIdx, size: Option<ASize>) -> Result<&[u8]> {
-                    let id = id.into_u64() as usize;
-                    assert!(size.is_some());
-                    Ok(&b"HelloWorldJubakoisawsome"[id..id+size.unwrap().into_usize()])
-                }
+        #[derive(Debug)]
+        pub struct ValueStore {}
+        impl ValueStoreTrait for ValueStore {
+            fn get_data(&self, id: ValueIdx, size: Option<ASize>) -> Result<&[u8]> {
+                let id = id.into_u64() as usize;
+                assert!(size.is_some());
+                Ok(&b"HelloWorldJubakoisawsome"[id..id + size.unwrap().into_usize()])
             }
         }
+    }
 
-        fixture value(value: RawValue, expected: Value) -> () {
-            params {
-                vec![
-                    (RawValue::U8(5),    Value::Unsigned(5)),
-                    (RawValue::U16(300), Value::Unsigned(300)),
-                    (RawValue::U32(5),   Value::Unsigned(5)),
-                    (RawValue::U64(5),   Value::Unsigned(5)),
-                    (RawValue::I8(5),    Value::Signed(5)),
-                    (RawValue::I16(5),   Value::Signed(5)),
-                    (RawValue::I32(5),   Value::Signed(5)),
-                    (RawValue::I64(5),   Value::Signed(5)),
-                    (RawValue::Array(Array{
-                       size: Some(ASize::new(10)),
-                       base: BaseArray::new(b"Bye "),
-                       base_len: 4,
-                       extend:Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)})
-                     }),
-                     Value::Array("Bye Jubako".into())),
-                    (RawValue::Content(ContentAddress::new(PackId::from(0), ContentIdx::from(50))),
-                       Value::Content(ContentAddress::new(PackId::from(0), ContentIdx::from(50)))),
-                ].into_iter()
-            }
-            setup(&mut self) {}
+    #[derive(Clone)]
+    pub struct ResolveTestCase(&'static str, RawValue, Value);
+
+    impl rustest::ParamName for ResolveTestCase {
+        fn param_name(&self) -> String {
+            self.0.to_string()
         }
+    }
 
-        test test_resolver_resolve(value) {
-            assert_eq!(&value.params.value.get().unwrap(), value.params.expected);
+    #[rustest::test(params:ResolveTestCase=[
+            ResolveTestCase("u8(5)",RawValue::U8(5),    Value::Unsigned(5)),
+            ResolveTestCase("U16(300)", RawValue::U16(300), Value::Unsigned(300)),
+            ResolveTestCase("U32(5)", RawValue::U32(5),   Value::Unsigned(5)),
+            ResolveTestCase("U64(5)", RawValue::U64(5),   Value::Unsigned(5)),
+            ResolveTestCase("I8(5)",RawValue::I8(5),    Value::Signed(5)),
+            ResolveTestCase("I16(5)", RawValue::I16(5),   Value::Signed(5)),
+            ResolveTestCase("I32(5)", RawValue::I32(5),   Value::Signed(5)),
+            ResolveTestCase("I64(5)", RawValue::I64(5),   Value::Signed(5)),
+            ResolveTestCase("Array(Bye Jubako)", RawValue::Array(Array{
+               size: Some(ASize::new(10)),
+               base: BaseArray::new(b"Bye "),
+               base_len: 4,
+               extend:Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)})
+             }),
+             Value::Array("Bye Jubako".into())),
+            ResolveTestCase("ContentAddress", RawValue::Content(ContentAddress::new(PackId::from(0), ContentIdx::from(50))),
+               Value::Content(ContentAddress::new(PackId::from(0), ContentIdx::from(50)))),
+        ])]
+    fn test_resolver_resolve(Param(ResolveTestCase(_, value, expected)): Param) {
+        assert_eq!(value.get().unwrap(), expected);
+    }
+
+    #[rustest::test]
+    fn test_resolver_unsigned() {
+        assert_eq!(RawValue::U8(0).as_unsigned(), 0);
+        assert_eq!(RawValue::U8(5).as_unsigned(), 5);
+        assert_eq!(RawValue::U8(255).as_unsigned(), 255);
+        assert_eq!(RawValue::U16(300).as_unsigned(), 300);
+        assert_eq!(RawValue::U32(30000).as_unsigned(), 30000);
+        assert_eq!(RawValue::U64(300000000).as_unsigned(), 300000000);
+    }
+
+    #[rustest::test]
+    fn test_resolver_signed() {
+        assert_eq!(RawValue::I8(0).as_signed(), 0);
+        assert_eq!(RawValue::I8(5).as_signed(), 5);
+        assert_eq!(RawValue::I8(-1).as_signed(), -1);
+        assert_eq!(RawValue::I16(300).as_signed(), 300);
+        assert_eq!(RawValue::I16(-300).as_signed(), -300);
+        assert_eq!(RawValue::I32(30000).as_signed(), 30000);
+        assert_eq!(RawValue::I32(-30000).as_signed(), -30000);
+        assert_eq!(RawValue::I64(300000000).as_signed(), 300000000);
+        assert_eq!(RawValue::I64(-300000000).as_signed(), -300000000);
+    }
+
+    #[derive(Clone)]
+    pub struct IndirectTestCase(&'static [u8], Option<Extend>, SmallBytes);
+
+    impl rustest::ParamName for IndirectTestCase {
+        fn param_name(&self) -> String {
+            self.0.param_name()
         }
+    }
 
-        test test_resolver_unsigned() {
-            assert_eq!(RawValue::U8(0).as_unsigned(), 0);
-            assert_eq!(RawValue::U8(5).as_unsigned(), 5);
-            assert_eq!(RawValue::U8(255).as_unsigned(), 255);
-            assert_eq!(RawValue::U16(300).as_unsigned(), 300);
-            assert_eq!(RawValue::U32(30000).as_unsigned(), 30000);
-            assert_eq!(
-                RawValue::U64(300000000).as_unsigned(),
-                300000000
-            );
-        }
+    #[rustest::test(params:pub(crate)IndirectTestCase=[
+            IndirectTestCase(b"", None, SmallBytes::new()),
+            IndirectTestCase(b"Hello", None, "Hello".into()),
+            IndirectTestCase(b"Hello", Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(0)}), "HelloHello".into()),
+            IndirectTestCase(b"Hello ", Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)}), "Hello Jubako".into()),
+            IndirectTestCase(b"", Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(18)}), "awsome".into()),
+        ])]
+    fn test_resolver_indirect(Param(IndirectTestCase(base, extend, expected)): Param) {
+        let raw_value = RawValue::Array(Array {
+            size: Some(expected.len().into()),
+            base: BaseArray::new(base),
+            base_len: base.len() as u8,
+            extend: extend.clone(),
+        });
+        assert_eq!(raw_value.as_vec().unwrap(), expected)
+    }
 
-        test test_resolver_signed() {
-            assert_eq!(RawValue::I8(0).as_signed(), 0);
-            assert_eq!(RawValue::I8(5).as_signed(), 5);
-            assert_eq!(RawValue::I8(-1).as_signed(), -1);
-            assert_eq!(RawValue::I16(300).as_signed(), 300);
-            assert_eq!(RawValue::I16(-300).as_signed(), -300);
-            assert_eq!(RawValue::I32(30000).as_signed(), 30000);
-            assert_eq!(RawValue::I32(-30000).as_signed(), -30000);
-            assert_eq!(
-                RawValue::I64(300000000).as_signed(),
-                300000000
-            );
-            assert_eq!(
-                RawValue::I64(-300000000).as_signed(),
-                -300000000
-            );
-        }
-
-        fixture indirect_value(base: Vec<u8>, extend:Option<Extend>, expected: SmallBytes) -> RawValue {
-            params {
-                vec![
-                    (vec![], None, SmallBytes::new()),
-                    ("Hello".into(), None, "Hello".into()),
-                    ("Hello".into(), Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(0)}), "HelloHello".into()),
-                    ("Hello ".into(), Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)}), "Hello Jubako".into()),
-                    (vec![], Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(18)}), "awsome".into()),
-                ].into_iter()
-            }
-            setup(&mut self) {
-                RawValue::Array(Array {
-                    size: Some(self.expected.len().into()),
-                    base: BaseArray::new(self.base.as_slice()),
-                    base_len: self.base.len() as u8,
-                    extend: self.extend.clone()
-                })
-            }
-        }
-
-        test test_resolver_indirect(indirect_value) {
-            assert_eq!(
-                &indirect_value.val.as_vec().unwrap(),
-                indirect_value.params.expected
-            )
-        }
-
-        test test_resolver_compare() {
-            let raw_value = Array {
-                size: Some(12.into()),
-                base: BaseArray::new(b"Hello "),
-                base_len: 6,
-                extend: Some(Extend{store:Arc::new(mock::ValueStore{}), value_id:ValueIdx::from(10)})
-            };
-            assert_eq!(raw_value.cmp("Hel".as_bytes()).unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.cmp("Hello".as_bytes()).unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.cmp("Hello ".as_bytes()).unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.cmp("Hello Jubako".as_bytes()).unwrap(), cmp::Ordering::Equal);
-            assert_eq!(raw_value.cmp("Hello Jubako!".as_bytes()).unwrap(), cmp::Ordering::Less);
-            assert_eq!(raw_value.cmp("Hella Jubako!".as_bytes()).unwrap(), cmp::Ordering::Greater);
-            assert_eq!(raw_value.cmp("Hemmo Jubako!".as_bytes()).unwrap(), cmp::Ordering::Less);
-
-        }
+    #[rustest::test]
+    fn test_resolver_compare() {
+        let raw_value = Array {
+            size: Some(12.into()),
+            base: BaseArray::new(b"Hello "),
+            base_len: 6,
+            extend: Some(Extend {
+                store: Arc::new(mock::ValueStore {}),
+                value_id: ValueIdx::from(10),
+            }),
+        };
+        assert_eq!(
+            raw_value.cmp("Hel".as_bytes()).unwrap(),
+            cmp::Ordering::Greater
+        );
+        assert_eq!(
+            raw_value.cmp("Hello".as_bytes()).unwrap(),
+            cmp::Ordering::Greater
+        );
+        assert_eq!(
+            raw_value.cmp("Hello ".as_bytes()).unwrap(),
+            cmp::Ordering::Greater
+        );
+        assert_eq!(
+            raw_value.cmp("Hello Jubako".as_bytes()).unwrap(),
+            cmp::Ordering::Equal
+        );
+        assert_eq!(
+            raw_value.cmp("Hello Jubako!".as_bytes()).unwrap(),
+            cmp::Ordering::Less
+        );
+        assert_eq!(
+            raw_value.cmp("Hella Jubako!".as_bytes()).unwrap(),
+            cmp::Ordering::Greater
+        );
+        assert_eq!(
+            raw_value.cmp("Hemmo Jubako!".as_bytes()).unwrap(),
+            cmp::Ordering::Less
+        );
     }
 }

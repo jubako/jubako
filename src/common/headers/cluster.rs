@@ -46,7 +46,7 @@ impl Serializable for ClusterHeader {
 mod tests {
     use super::*;
 
-    #[test]
+    #[rustest::test]
     fn test_clusterheader() {
         let reader = CheckReader::from(vec![
             0x00, // compression

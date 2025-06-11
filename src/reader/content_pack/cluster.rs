@@ -275,7 +275,6 @@ mod tests {
     use super::*;
     use std::io::Cursor;
     use std::io::Read;
-    use test_case::test_case;
 
     fn create_cluster(comp: CompressionType, data: &[u8]) -> (SizedOffset, Vec<u8>) {
         let mut cluster_data = Vec::new();
@@ -304,17 +303,17 @@ mod tests {
         )
     }
 
-    fn create_raw_cluster() -> Option<(SizedOffset, Vec<u8>)> {
+    fn create_raw_cluster() -> (SizedOffset, Vec<u8>) {
         let raw_data = vec![
             0x11, 0x12, 0x13, 0x14, 0x15, // Blob 0
             0x21, 0x22, 0x23, // Blob 1
             0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, // Blob 3
         ];
-        Some(create_cluster(CompressionType::None, &raw_data))
+        create_cluster(CompressionType::None, &raw_data)
     }
 
     #[cfg(feature = "lz4")]
-    fn create_lz4_cluster() -> Option<(SizedOffset, Vec<u8>)> {
+    fn create_lz4_cluster() -> (SizedOffset, Vec<u8>) {
         let indata = vec![
             0x11, 0x12, 0x13, 0x14, 0x15, // Blob 0
             0x21, 0x22, 0x23, // Blob 1
@@ -332,16 +331,11 @@ mod tests {
             err.unwrap();
             compressed_content.into_inner()
         };
-        Some(create_cluster(CompressionType::Lz4, &data))
-    }
-
-    #[cfg(not(feature = "lz4"))]
-    fn create_lz4_cluster() -> Option<(SizedOffset, Vec<u8>)> {
-        None
+        create_cluster(CompressionType::Lz4, &data)
     }
 
     #[cfg(feature = "lzma")]
-    fn create_lzma_cluster() -> Option<(SizedOffset, Vec<u8>)> {
+    fn create_lzma_cluster() -> (SizedOffset, Vec<u8>) {
         let indata = vec![
             0x11, 0x12, 0x13, 0x14, 0x15, // Blob 0
             0x21, 0x22, 0x23, // Blob 1
@@ -360,16 +354,11 @@ mod tests {
             std::io::copy(&mut incursor, &mut encoder).unwrap();
             encoder.finish().unwrap().into_inner()
         };
-        Some(create_cluster(CompressionType::Lzma, &data))
-    }
-
-    #[cfg(not(feature = "lzma"))]
-    fn create_lzma_cluster() -> Option<(SizedOffset, Vec<u8>)> {
-        None
+        create_cluster(CompressionType::Lzma, &data)
     }
 
     #[cfg(feature = "zstd")]
-    fn create_zstd_cluster() -> Option<(SizedOffset, Vec<u8>)> {
+    fn create_zstd_cluster() -> (SizedOffset, Vec<u8>) {
         let indata = vec![
             0x11, 0x12, 0x13, 0x14, 0x15, // Blob 0
             0x21, 0x22, 0x23, // Blob 1
@@ -382,26 +371,55 @@ mod tests {
             std::io::copy(&mut incursor, &mut encoder).unwrap();
             encoder.finish().unwrap().into_inner()
         };
-        Some(create_cluster(CompressionType::Zstd, &data))
+        create_cluster(CompressionType::Zstd, &data)
     }
 
-    #[cfg(not(feature = "zstd"))]
-    fn create_zstd_cluster() -> Option<(SizedOffset, Vec<u8>)> {
-        None
-    }
+    type ClusterCreator = fn() -> (SizedOffset, Vec<u8>);
 
-    type ClusterCreator = fn() -> Option<(SizedOffset, Vec<u8>)>;
+    #[derive(Clone, Copy)]
+    pub struct TestComp(CompressionType);
 
-    #[test_case(CompressionType::None, create_raw_cluster)]
-    #[test_case(CompressionType::Lz4, create_lz4_cluster)]
-    #[test_case(CompressionType::Lzma, create_lzma_cluster)]
-    #[test_case(CompressionType::Zstd, create_zstd_cluster)]
-    fn test_cluster(comp: CompressionType, creator: ClusterCreator) {
-        let cluster_info = creator();
-        if cluster_info.is_none() {
-            return;
+    impl From<CompressionType> for TestComp {
+        fn from(v: CompressionType) -> Self {
+            Self(v)
         }
-        let (ptr_info, data) = cluster_info.unwrap();
+    }
+
+    impl rustest::ParamName for TestComp {
+        fn param_name(&self) -> String {
+            format!("{:?}", self.0)
+        }
+    }
+
+    #[rustest::fixture(params:TestComp = [
+        TestComp(CompressionType::None),
+        #[cfg(feature = "lz4")]
+        TestComp(CompressionType::Lz4),
+        #[cfg(feature = "lzma")]
+        TestComp(CompressionType::Lzma),
+        #[cfg(feature = "zstd")]
+        TestComp(CompressionType::Zstd)
+    ])]
+    fn Compression(Param(TestComp(comp)): Param) -> (CompressionType, ClusterCreator) {
+        (
+            comp,
+            match comp {
+                CompressionType::None => create_raw_cluster,
+                #[cfg(feature = "lz4")]
+                CompressionType::Lz4 => create_lz4_cluster,
+                #[cfg(feature = "lzma")]
+                CompressionType::Lzma => create_lzma_cluster,
+                #[cfg(feature = "zstd")]
+                CompressionType::Zstd => create_zstd_cluster,
+                _ => unreachable!(),
+            },
+        )
+    }
+
+    #[rustest::test]
+    fn test_cluster(comp: Compression) {
+        let (comp, creator) = *comp;
+        let (ptr_info, data) = creator();
         let reader = CheckReader::from(data);
         let header = reader
             .parse_in::<ClusterHeader>(ptr_info.offset, ptr_info.size)

@@ -123,19 +123,19 @@ mod tests {
     use std::hash::DefaultHasher;
 
     use super::*;
-    #[test]
+    #[rustest::test]
     fn byte_string_ok() {
         assert_eq!(SmallString::from("Hello").as_ref(), "Hello");
         assert_eq!(SmallString::from("Héllü").as_ref(), "Héllü");
         assert_eq!(SmallString::from("Héllü\x57").as_ref(), "HéllüW");
     }
 
-    #[test]
+    #[rustest::test]
     fn byte_string_ko() {
         assert!(SmallString::try_from(b"Hello\xFF").is_err());
     }
 
-    #[test]
+    #[rustest::test]
     fn hash_equal() {
         use std::hash::{Hash, Hasher};
         let b_hash = {

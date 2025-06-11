@@ -174,16 +174,17 @@ pub trait IndexTrait<Idx> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_case::test_case;
 
-    #[test_case(0, 0 => false)]
-    #[test_case(0, 1 => true)]
-    #[test_case(1, 1 => false)]
-    #[test_case(1, 0 => false)]
-    #[test_case(254, 255 => true)]
-    #[test_case(255, 255 => false)]
-    #[test_case(256, 255 => false)]
-    fn test_index_is_valid(o: u64, s: u64) -> bool {
-        Idx(o).is_valid(s.into())
+    #[rustest::test(params:(u64,u64,bool)= [
+        (0, 0, false),
+        (0, 1, true),
+        (1, 1, false),
+        (1, 0, false),
+        (254, 255, true),
+        (255, 255, false),
+        (256, 255, false),
+    ])]
+    fn test_index_is_valid(Param((o, s, expected)): Param) {
+        assert_eq!(Idx(o).is_valid(s.into()), expected)
     }
 }

@@ -21,6 +21,9 @@ explorable_serde = ["dep:serde", "dep:erased-serde", "dep:serde_json", "uuid/ser
 all = ["lz4", "lzma", "zstd", "build_bin", "explorable_serde", "clap"]
 nightly = []
 
+[lib]
+harness = false
+
 [dependencies]
 uuid = { version = "1.4.1", features = ["v4"] }
 blake3 = "1.5.0"
@@ -52,10 +55,18 @@ camino = "1.1.9"
 pathdiff = { version = "0.2.3", features = ["camino"] }
 
 [dev-dependencies]
-test-case = "3.2.1"
 tempfile  = "3.8.0"
-galvanic-test = "0.2.0"
+rustest = "0.3.1"
+rustest-fixtures = "0.3.1"
 
 [[bin]]
 name = "jbk"
 required-features = ["build_bin"]
+
+[[test]]
+name = "jubako"
+harness = false
+
+[[test]]
+name = "creator_jubako"
+harness = false

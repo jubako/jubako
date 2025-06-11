@@ -598,7 +598,7 @@ impl PropertyBuilderTrait for AnyProperty {
 mod tests {
     use super::*;
 
-    #[test]
+    #[rustest::test]
     fn test_uint() {
         let reader = Reader::from([0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
         let byte_slice = reader.get_byte_slice(Offset::zero(), reader.size());
@@ -643,7 +643,7 @@ mod tests {
         assert_eq!(prop.create(&byte_slice).unwrap(), 0xFF1032547698BADC);
     }
 
-    #[test]
+    #[rustest::test]
     fn test_sint() {
         let reader = Reader::from([0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
         let byte_slice = reader.get_byte_slice(Offset::zero(), reader.size());
@@ -688,7 +688,7 @@ mod tests {
         assert_eq!(prop.create(&byte_slice).unwrap(), -0x00efcdab89674524);
     }
 
-    #[test]
+    #[rustest::test]
     fn test_default_int() {
         let reader = Reader::from([]);
         let byte_slice = reader.get_byte_slice(Offset::zero(), reader.size());
@@ -740,7 +740,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[rustest::test]
     fn test_deported_int() {
         let value_store = Arc::new(mock::ValueStore::new());
         let reader = Reader::from([0x01, 0x00, 0x02, 0x03, 0x04, 0x1A, 0x04, 0x20, 0x04, 0xff]);
@@ -859,7 +859,7 @@ mod tests {
         assert_eq!(prop.create(&byte_slice).unwrap(), 20);
     }
 
-    #[test]
+    #[rustest::test]
     fn test_deported_sint() {
         let value_store = Arc::new(mock::ValueStore::new());
         let reader = Reader::from([0x01, 0x00, 0x02, 0x03, 0x04, 0x1A, 0x04, 0x20, 0x04, 0xff]);
@@ -1032,7 +1032,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[rustest::test]
     fn test_array() {
         let reader = Reader::from([0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
         let byte_slice = reader.get_byte_slice(Offset::zero(), reader.size());
@@ -1114,7 +1114,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[rustest::test]
     fn test_deported_array() {
         let reader = Reader::from([0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
         let byte_slice = reader.get_byte_slice(Offset::zero(), reader.size());
@@ -1286,7 +1286,7 @@ mod tests {
         );
     }
 
-    #[test]
+    #[rustest::test]
     fn default_array() {
         let reader = Reader::from([]);
         let byte_slice = reader.get_byte_slice(Offset::zero(), reader.size());
@@ -1322,7 +1322,7 @@ mod tests {
         );
     }
 
-    #[test]
+    #[rustest::test]
     fn test_content() {
         let reader = Reader::from([0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10, 0xff]);
         let byte_slice = reader.get_byte_slice(Offset::zero(), reader.size());

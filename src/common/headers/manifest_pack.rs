@@ -61,7 +61,7 @@ impl Serializable for ManifestPackHeader {
 mod tests {
     use super::*;
 
-    #[test]
+    #[rustest::test]
     fn test_mainpackheader() {
         let mut content = vec![
             0x02, 0x00, // pack_count

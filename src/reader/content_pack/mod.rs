@@ -202,8 +202,8 @@ mod tests {
     use super::*;
     use std::io::Read;
 
-    #[test]
-    fn test_contentpack() -> Result<()> {
+    #[rustest::test]
+    fn test_contentpack() -> rustest::Result {
         let mut content = vec![];
 
         // Pack header offset 0/0x00

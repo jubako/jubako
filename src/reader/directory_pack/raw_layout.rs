@@ -305,86 +305,706 @@ impl Parsable for RawLayout {
 #[allow(clippy::identity_op)]
 mod tests {
     use super::*;
-    use test_case::test_case;
 
-    #[test_case(&[0b1000_0000, 1, b'a'] => RawProperty::new(PropertyKind::VariantId, 1, "a"))]
-    #[test_case(&[0b0000_0000] => RawProperty::new(PropertyKind::Padding, 1, ""))]
-    #[test_case(&[0b0000_0111] => RawProperty::new(PropertyKind::Padding, 8, ""))]
-    #[test_case(&[0b0000_1111] => RawProperty::new(PropertyKind::Padding, 16, ""))]
-    // ContentAddress
-    #[test_case(&[0b0001_0000, 1, b'a'] => RawProperty::new(PropertyKind::ContentAddress{pack_id_size: ByteSize::U1, content_id_size: ByteSize::U1, default_pack_id: None}, 2, "a"))]
-    #[test_case(&[0b0001_0001, 1, b'a'] => RawProperty::new(PropertyKind::ContentAddress{pack_id_size: ByteSize::U1, content_id_size: ByteSize::U2, default_pack_id: None}, 3, "a"))]
-    #[test_case(&[0b0001_0110, 1, b'a'] => RawProperty::new(PropertyKind::ContentAddress{pack_id_size: ByteSize::U2, content_id_size: ByteSize::U3, default_pack_id: None}, 5, "a"))]
-    // ContentAddress with default pack_id
-    #[test_case(&[0b0001_1000, 0x01, 1, b'a'] => RawProperty::new(PropertyKind::ContentAddress{pack_id_size: ByteSize::U1, content_id_size: ByteSize::U1, default_pack_id: Some(1.into())},1, "a"))]
-    #[test_case(&[0b0001_1001, 0x01, 1, b'a'] => RawProperty::new(PropertyKind::ContentAddress{pack_id_size: ByteSize::U1, content_id_size: ByteSize::U2, default_pack_id: Some(1.into())}, 2, "a"))]
-    #[test_case(&[0b0001_1110, 0x01, 0x02, 1, b'a'] => RawProperty::new(PropertyKind::ContentAddress{pack_id_size: ByteSize::U2, content_id_size: ByteSize::U3, default_pack_id: Some(0x0201.into())}, 3, "a"))]
-    // Plain integer
-    #[test_case(&[0b0010_0000, 1, b'a'] => RawProperty::new(PropertyKind::UnsignedInt{int_size: ByteSize::U1, default: None}, 1, "a"))]
-    #[test_case(&[0b0010_0010, 1, b'a'] => RawProperty::new(PropertyKind::UnsignedInt{int_size: ByteSize::U3, default: None}, 3, "a"))]
-    #[test_case(&[0b0010_0111, 1, b'a'] => RawProperty::new(PropertyKind::UnsignedInt{int_size: ByteSize::U8, default: None}, 8, "a"))]
-    #[test_case(&[0b0011_0000, 1, b'a'] => RawProperty::new(PropertyKind::SignedInt{int_size: ByteSize::U1, default: None}, 1, "a"))]
-    #[test_case(&[0b0011_0010, 1, b'a'] => RawProperty::new(PropertyKind::SignedInt{int_size: ByteSize::U3, default: None}, 3, "a"))]
-    #[test_case(&[0b0011_0111, 1, b'a'] => RawProperty::new(PropertyKind::SignedInt{int_size: ByteSize::U8, default: None}, 8, "a"))]
-    // Plain integer with default value
-    #[test_case(&[0b0010_1000, 0xff, 1, b'a'] => RawProperty::new(PropertyKind::UnsignedInt{int_size: ByteSize::U1, default: Some(0xff)}, 0, "a"))]
-    #[test_case(&[0b0010_1010, 0x03, 0x02, 0x01, 1, b'a'] => RawProperty::new(PropertyKind::UnsignedInt{int_size: ByteSize::U3, default: Some(0x010203)}, 0, "a"))]
-    #[test_case(&[0b0010_1111, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 1, b'a'] => RawProperty::new(PropertyKind::UnsignedInt{int_size: ByteSize::U8, default: Some(0x0102030405060708)}, 0, "a"))]
-    #[test_case(&[0b0011_1000, 0xff, 1, b'a'] => RawProperty::new(PropertyKind::SignedInt{int_size: ByteSize::U1, default: Some(-1_i64)}, 0, "a"))]
-    #[test_case(&[0b0011_1010, 0x03, 0x02, 0x01, 1, b'a'] => RawProperty::new(PropertyKind::SignedInt{int_size: ByteSize::U3, default: Some(0x010203_i64)}, 0, "a"))]
-    #[test_case(&[0b0011_1111, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 1, b'a'] => RawProperty::new(PropertyKind::SignedInt{int_size: ByteSize::U8, default: Some(0x0102030405060708_i64)}, 0, "a"))]
-    // Deported integer
-    #[test_case(&[0b1010_0000, 0b0000_0000, 0xff, 1, b'a'] => RawProperty::new(PropertyKind::DeportedUnsignedInt{int_size: ByteSize::U1, value_store_idx: 0xff.into(), id: DeportedDefault::KeySize(ByteSize::U1)}, 1, "a"))]
-    #[test_case(&[0b1010_0010, 0b0000_0001, 0xff, 1, b'a'] => RawProperty::new(PropertyKind::DeportedUnsignedInt{int_size: ByteSize::U3, value_store_idx: 0xff.into(), id: DeportedDefault::KeySize(ByteSize::U2)}, 2, "a"))]
-    #[test_case(&[0b1010_0111, 0b0000_0111, 0xff, 1, b'a'] => RawProperty::new(PropertyKind::DeportedUnsignedInt{int_size: ByteSize::U8, value_store_idx: 0xff.into(), id: DeportedDefault::KeySize(ByteSize::U8)}, 8, "a"))]
-    #[test_case(&[0b1011_0000, 0b0000_0111, 0xff, 1, b'a'] => RawProperty::new(PropertyKind::DeportedSignedInt{int_size: ByteSize::U1, value_store_idx: 0xff.into(), id: DeportedDefault::KeySize(ByteSize::U8)}, 8, "a"))]
-    #[test_case(&[0b1011_0010, 0b0000_0001, 0xff, 1, b'a'] => RawProperty::new(PropertyKind::DeportedSignedInt{int_size: ByteSize::U3, value_store_idx: 0xff.into(), id: DeportedDefault::KeySize(ByteSize::U2)}, 2, "a"))]
-    #[test_case(&[0b1011_0111, 0b0000_0010, 0xff, 1, b'a'] => RawProperty::new(PropertyKind::DeportedSignedInt{int_size: ByteSize::U8, value_store_idx: 0xff.into(), id: DeportedDefault::KeySize(ByteSize::U3)}, 3, "a"))]
-    // Deported integer with default index
-    #[test_case(&[0b1010_1000, 0b0000_0000, 0xff, 0xff, 1, b'a'] => RawProperty::new(PropertyKind::DeportedUnsignedInt{int_size: ByteSize::U1, value_store_idx: 0xff.into(), id: DeportedDefault::Value(0xff_u64)}, 0, "a"))]
-    #[test_case(&[0b1010_1010, 0b0000_0001, 0xff, 0xfe, 0xff, 1, b'a'] => RawProperty::new(PropertyKind::DeportedUnsignedInt{int_size: ByteSize::U3, value_store_idx: 0xff.into(), id: DeportedDefault::Value(0xfffe_u64)}, 0, "a"))]
-    #[test_case(&[0b1010_1111, 0b0000_0010, 0xff, 0x03, 0x02, 0x01, 1, b'a'] => RawProperty::new(PropertyKind::DeportedUnsignedInt{int_size: ByteSize::U8, value_store_idx: 0xff.into(), id: DeportedDefault::Value(0x010203_u64)}, 0, "a"))]
-    #[test_case(&[0b1011_1000, 0b0000_0011, 0xff, 0xff, 0xff, 0xff, 0xff, 1, b'a'] => RawProperty::new(PropertyKind::DeportedSignedInt{int_size: ByteSize::U1, value_store_idx: 0xff.into(), id: DeportedDefault::Value(0xffffffff_u64)}, 0, "a"))]
-    #[test_case(&[0b1011_1010, 0b0000_0001, 0xff, 0xff, 0xff, 1, b'a'] => RawProperty::new(PropertyKind::DeportedSignedInt{int_size: ByteSize::U3, value_store_idx: 0xff.into(), id: DeportedDefault::Value(0xffff_u64)}, 0, "a"))]
-    #[test_case(&[0b1011_1111, 0b0000_0010, 0xff, 0xff, 0xff, 0xff, 1, b'a'] => RawProperty::new(PropertyKind::DeportedSignedInt{int_size: ByteSize::U8, value_store_idx: 0xff.into(), id: DeportedDefault::Value(0xffffff_u64)},0 , "a"))]
-    // Char[] without deported part :
-    #[test_case(&[0b0101_0001, 0b000_00000, 1, b'a'] => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 0, deported_info: None, default: None}, 1+0+0, "a"))]
-    #[test_case(&[0b0101_0001, 0b000_00001, 1, b'a'] => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 1, deported_info: None, default: None}, 1+1+0, "a"))]
-    #[test_case(&[0b0101_0011, 0b000_00101, 1, b'a'] => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U3), fixed_array_len: 5, deported_info: None, default: None}, 3+5+0, "a"))]
-    #[test_case(&[0b0101_0011, 0b000_11111, 1, b'a'] => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U3), fixed_array_len: 31, deported_info: None, default: None}, 3+31+0, "a"))]
-    // Char[] without deported part and with default value:
-    #[test_case(&[0b0101_1001, 0b000_00000, 0x00, 1, b'a'] => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 0, deported_info: None, default: Some((0.into(), BaseArray::default(), None))}, 0, "a"))]
-    #[test_case(&[0b0101_1001, 0b000_00001, 0x01, b'a', 1, b'a'] => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 1, deported_info: None, default: Some((1.into(), BaseArray::new(b"a"), None))}, 0, "a"))]
-    #[test_case(&[0b0101_1011, 0b000_00101, 0x04, 0x00, 0x00, b'a', b'b', b'c', b'd', b'\0', 1, b'a'] => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U3), fixed_array_len: 5, deported_info: None, default: Some((4.into(), BaseArray::new(b"abcd"), None))}, 0, "a"))]
-    #[test_case(&[0b0101_1001, 0b000_11111,
-      0x1A,
-      b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h', b'i', b'j', b'k', b'l', b'm', b'n', b'o', b'p', b'q', b'r', b's', b't', b'u', b'v', b'w', b'x', b'y', b'z', 0x00, 0x00, 0x00, 0x00, 0x00, 1, b'a' ] =>
-      RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 31, deported_info: None, default: Some((26.into(), BaseArray::new(b"abcdefghijklmnopqrstuvwxyz"), None))}, 0, "a"))]
-    // Char[] with deported part :
-    #[test_case(&[0b0101_0001, 0b001_00000, 0x0F, 1, b'a'] => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 0, deported_info: Some(DeportedInfo{ id_size: ByteSize::U1, value_store_idx: ValueStoreIdx::from(0x0F)}), default: None}, 1+0+1, "a"))]
-    #[test_case(&[0b0101_0001, 0b010_00001, 0x0F, 1, b'a'] => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 1, deported_info: Some(DeportedInfo{ id_size: ByteSize::U2, value_store_idx: ValueStoreIdx::from(0x0F)}), default: None}, 1+1+2, "a"))]
-    #[test_case(&[0b0101_0011, 0b100_00101, 0x0F, 1, b'a'] => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U3), fixed_array_len: 5, deported_info: Some(DeportedInfo{ id_size: ByteSize::U4, value_store_idx: ValueStoreIdx::from(0x0F)}), default: None}, 3+5+4, "a"))]
-    #[test_case(&[0b0101_0011, 0b100_11111, 0x0F, 1, b'a'] => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U3), fixed_array_len: 31, deported_info: Some(DeportedInfo{ id_size: ByteSize::U4, value_store_idx: ValueStoreIdx::from(0x0F)}), default: None}, 3+31+4, "a"))]
-    // Char[] without deported part and with default value:
-    #[test_case(&[0b0101_1001, 0b001_00000, 0x0F, 0x00, 0x50, 1, b'a']
-      => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 0, deported_info: Some(DeportedInfo{ id_size: ByteSize::U1, value_store_idx: ValueStoreIdx::from(0x0F)}), default: Some((0.into(), BaseArray::default(), Some(0x50)))}, 0, "a"))]
-    #[test_case(&[0b0101_1001, 0b010_00001, 0x0F, 0x10, b'a', 0x50, 0x00, 1, b'a']
-      => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U1), fixed_array_len: 1, deported_info: Some(DeportedInfo{ id_size: ByteSize::U2, value_store_idx: ValueStoreIdx::from(0x0F)}), default: Some((16.into(), BaseArray::new(b"a"), Some(0x50)))}, 0, "a"))]
-    #[test_case(&[0b0101_1011, 0b100_00101, 0x0F, 0x04, 0x00, 0x00, b'a', b'b', b'c', b'd', b'\0', 0xfc, 0xfd, 0xfe, 0xff, 1, b'a']
-      => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U3), fixed_array_len: 5, deported_info: Some(DeportedInfo{ id_size: ByteSize::U4, value_store_idx: ValueStoreIdx::from(0x0F)}), default: Some((4.into(), BaseArray::new(b"abcd"), Some(0xfffefdfc)))}, 0, "a"))]
-    #[test_case(&[0b0101_1011, 0b100_11111, 0x0F,
-      0x03, 0x02, 0x01,
-      b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h', b'i', b'j', b'k', b'l', b'm', b'n', b'o', b'p', b'q', b'r', b's', b't', b'u', b'v', b'w', b'x', b'y', b'z', 0x00, 0x00, 0x00, 0x00, 0x00,
-      0xfc, 0xfd, 0xfe, 0xff, 1, b'a' ]
-       => RawProperty::new(PropertyKind::Array{array_len_size: Some(ByteSize::U3), fixed_array_len: 31, deported_info: Some(DeportedInfo{ id_size: ByteSize::U4, value_store_idx: ValueStoreIdx::from(0x0F)}), default: Some((0x010203.into(), BaseArray::new(b"abcdefghijklmnopqrstuvwxyz"), Some(0xfffefdfc)))}, 0, "a"))]
+    #[derive(Clone)]
+    pub struct TestLayout(&'static str, &'static [u8], RawProperty);
 
-    fn test_rawproperty(source: &[u8]) -> RawProperty {
+    impl rustest::ToParamName<(&'static [u8], RawProperty)> for TestLayout {
+        fn into_param_name(self) -> ((&'static [u8], RawProperty), String) {
+            ((self.1, self.2), self.0.to_owned())
+        }
+    }
+
+    fn gen_param() -> Vec<TestLayout> {
+        #[rustfmt::skip]
+        let param = &[
+            TestLayout(
+                "VariantId",
+                &[0b1000_0000, 1, b'a'],
+                RawProperty::new(PropertyKind::VariantId, 1, "a"),
+            ),
+            TestLayout(
+                "Padding1",
+                &[0b0000_0000],
+                RawProperty::new(PropertyKind::Padding, 1, ""),
+            ),
+            TestLayout(
+                "Padding8",
+                &[0b0000_0111],
+                RawProperty::new(PropertyKind::Padding, 8, ""),
+            ),
+            TestLayout(
+                "Padding16",
+                &[0b0000_1111],
+                RawProperty::new(PropertyKind::Padding, 16, ""),
+            ),
+            // ContentAddress
+            TestLayout(
+                "ContentAddress11",
+                &[0b0001_0000, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::ContentAddress {
+                        pack_id_size: ByteSize::U1,
+                        content_id_size: ByteSize::U1,
+                        default_pack_id: None,
+                    },
+                    2,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "ContentAddress12",
+                &[0b0001_0001, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::ContentAddress {
+                        pack_id_size: ByteSize::U1,
+                        content_id_size: ByteSize::U2,
+                        default_pack_id: None,
+                    },
+                    3,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "ContentAddress23",
+                &[0b0001_0110, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::ContentAddress {
+                        pack_id_size: ByteSize::U2,
+                        content_id_size: ByteSize::U3,
+                        default_pack_id: None,
+                    },
+                    5,
+                    "a",
+                ),
+            ),
+            // ContentAddress with default pack_id
+            TestLayout(
+                "ContentAddress111",
+                &[0b0001_1000, 0x01, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::ContentAddress {
+                        pack_id_size: ByteSize::U1,
+                        content_id_size: ByteSize::U1,
+                        default_pack_id: Some(1.into()),
+                    },
+                    1,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "ContentAddress121",
+                &[0b0001_1001, 0x01, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::ContentAddress {
+                        pack_id_size: ByteSize::U1,
+                        content_id_size: ByteSize::U2,
+                        default_pack_id: Some(1.into()),
+                    },
+                    2,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "ContentAddress230201",
+                &[0b0001_1110, 0x01, 0x02, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::ContentAddress {
+                        pack_id_size: ByteSize::U2,
+                        content_id_size: ByteSize::U3,
+                        default_pack_id: Some(0x0201.into()),
+                    },
+                    3,
+                    "a",
+                ),
+            ),
+            // Plain integer
+            TestLayout(
+                "UInt1",
+                &[0b0010_0000, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::UnsignedInt {
+                        int_size: ByteSize::U1,
+                        default: None,
+                    },
+                    1,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "UInt3",
+                &[0b0010_0010, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::UnsignedInt {
+                        int_size: ByteSize::U3,
+                        default: None,
+                    },
+                    3,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "UInt8",
+                &[0b0010_0111, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::UnsignedInt {
+                        int_size: ByteSize::U8,
+                        default: None,
+                    },
+                    8,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "SInt1",
+                &[0b0011_0000, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::SignedInt {
+                        int_size: ByteSize::U1,
+                        default: None,
+                    },
+                    1,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "SInt3",
+                &[0b0011_0010, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::SignedInt {
+                        int_size: ByteSize::U3,
+                        default: None,
+                    },
+                    3,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "SInt8",
+                &[0b0011_0111, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::SignedInt {
+                        int_size: ByteSize::U8,
+                        default: None,
+                    },
+                    8,
+                    "a",
+                ),
+            ),
+            // Plain integer with default value
+            TestLayout(
+                "UInt1Default",
+                &[0b0010_1000, 0xff, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::UnsignedInt {
+                        int_size: ByteSize::U1,
+                        default: Some(0xff),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "UInt3Default",
+                &[0b0010_1010, 0x03, 0x02, 0x01, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::UnsignedInt {
+                        int_size: ByteSize::U3,
+                        default: Some(0x010203),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "UInt8Default",
+                &[0b0010_1111, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::UnsignedInt {
+                        int_size: ByteSize::U8,
+                        default: Some(0x0102030405060708),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "SInt1Default",
+                &[0b0011_1000, 0xff, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::SignedInt {
+                        int_size: ByteSize::U1,
+                        default: Some(-1_i64),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "SInt3Default",
+                &[0b0011_1010, 0x03, 0x02, 0x01, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::SignedInt {
+                        int_size: ByteSize::U3,
+                        default: Some(0x010203_i64),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "SInt8Default",
+                &[ 0b0011_1111, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::SignedInt {
+                        int_size: ByteSize::U8,
+                        default: Some(0x0102030405060708_i64),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            // Deported integer
+            TestLayout(
+                "DeportedUInt11",
+                &[0b1010_0000, 0b0000_0000, 0xff, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::DeportedUnsignedInt {
+                        int_size: ByteSize::U1,
+                        value_store_idx: 0xff.into(),
+                        id: DeportedDefault::KeySize(ByteSize::U1),
+                    },
+                    1,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "DeportedUInt32",
+                &[0b1010_0010, 0b0000_0001, 0xff, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::DeportedUnsignedInt {
+                        int_size: ByteSize::U3,
+                        value_store_idx: 0xff.into(),
+                        id: DeportedDefault::KeySize(ByteSize::U2),
+                    },
+                    2,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "DeportedUInt88",
+                &[0b1010_0111, 0b0000_0111, 0xff, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::DeportedUnsignedInt {
+                        int_size: ByteSize::U8,
+                        value_store_idx: 0xff.into(),
+                        id: DeportedDefault::KeySize(ByteSize::U8),
+                    },
+                    8,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "DeportedSInt18",
+                &[0b1011_0000, 0b0000_0111, 0xff, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::DeportedSignedInt {
+                        int_size: ByteSize::U1,
+                        value_store_idx: 0xff.into(),
+                        id: DeportedDefault::KeySize(ByteSize::U8),
+                    },
+                    8,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "DeportedSInt32",
+                &[0b1011_0010, 0b0000_0001, 0xff, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::DeportedSignedInt {
+                        int_size: ByteSize::U3,
+                        value_store_idx: 0xff.into(),
+                        id: DeportedDefault::KeySize(ByteSize::U2),
+                    },
+                    2,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "DeportedSInt83",
+                &[0b1011_0111, 0b0000_0010, 0xff, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::DeportedSignedInt {
+                        int_size: ByteSize::U8,
+                        value_store_idx: 0xff.into(),
+                        id: DeportedDefault::KeySize(ByteSize::U3),
+                    },
+                    3,
+                    "a",
+                ),
+            ),
+            // Deported integer with default index
+            TestLayout(
+                "DeportedUIntDefault1",
+                &[0b1010_1000, 0b0000_0000, 0xff, 0xff, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::DeportedUnsignedInt {
+                        int_size: ByteSize::U1,
+                        value_store_idx: 0xff.into(),
+                        id: DeportedDefault::Value(0xff_u64),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "DeportedUIntDefault3",
+                &[0b1010_1010, 0b0000_0001, 0xff, 0xfe, 0xff, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::DeportedUnsignedInt {
+                        int_size: ByteSize::U3,
+                        value_store_idx: 0xff.into(),
+                        id: DeportedDefault::Value(0xfffe_u64),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "DeportedUIntDefault8",
+                &[0b1010_1111, 0b0000_0010, 0xff, 0x03, 0x02, 0x01, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::DeportedUnsignedInt {
+                        int_size: ByteSize::U8,
+                        value_store_idx: 0xff.into(),
+                        id: DeportedDefault::Value(0x010203_u64),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "DeportedSIntDefault1",
+                &[0b1011_1000, 0b0000_0011, 0xff, 0xff, 0xff, 0xff, 0xff, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::DeportedSignedInt {
+                        int_size: ByteSize::U1,
+                        value_store_idx: 0xff.into(),
+                        id: DeportedDefault::Value(0xffffffff_u64),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "DeportedSIntDefault3",
+                &[0b1011_1010, 0b0000_0001, 0xff, 0xff, 0xff, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::DeportedSignedInt {
+                        int_size: ByteSize::U3,
+                        value_store_idx: 0xff.into(),
+                        id: DeportedDefault::Value(0xffff_u64),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "DeportedSIntDefault8",
+                &[0b1011_1111, 0b0000_0010, 0xff, 0xff, 0xff, 0xff, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::DeportedSignedInt {
+                        int_size: ByteSize::U8,
+                        value_store_idx: 0xff.into(),
+                        id: DeportedDefault::Value(0xffffff_u64),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            // Char[] without deported part :
+            TestLayout(
+                "Char[1+0+0]",
+                &[0b0101_0001, 0b000_00000, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U1),
+                        fixed_array_len: 0,
+                        deported_info: None,
+                        default: None,
+                    },
+                    1 + 0 + 0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "Char[1+1+0]",
+                &[0b0101_0001, 0b000_00001, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U1),
+                        fixed_array_len: 1,
+                        deported_info: None,
+                        default: None,
+                    },
+                    1 + 1 + 0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "Char[3+5+0]",
+                &[0b0101_0011, 0b000_00101, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U3),
+                        fixed_array_len: 5,
+                        deported_info: None,
+                        default: None,
+                    },
+                    3 + 5 + 0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "Char[3+31+0]",
+                &[0b0101_0011, 0b000_11111, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U3),
+                        fixed_array_len: 31,
+                        deported_info: None,
+                        default: None,
+                    },
+                    3 + 31 + 0,
+                    "a",
+                ),
+            ),
+            // Char[] without deported part and with default value:
+            TestLayout(
+                "CharDefault[1+0+0]",
+                &[0b0101_1001, 0b000_00000, 0x00, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U1),
+                        fixed_array_len: 0,
+                        deported_info: None,
+                        default: Some((0.into(), BaseArray::default(), None)),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "CharDefault[1+1+1]",
+                &[0b0101_1001, 0b000_00001, 0x01, b'a', 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U1),
+                        fixed_array_len: 1,
+                        deported_info: None,
+                        default: Some((1.into(), BaseArray::new(b"a"), None)),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "CharDefault[3+5+4]",
+                &[0b0101_1011, 0b000_00101, 0x04, 0x00, 0x00, b'a', b'b', b'c', b'd', b'\0', 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U3),
+                        fixed_array_len: 5,
+                        deported_info: None,
+                        default: Some((4.into(), BaseArray::new(b"abcd"), None)),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "CharDefault[1+31+26]",
+                &[0b0101_1001, 0b000_11111, 0x1A,
+                    b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h', b'i', b'j', b'k', b'l', b'm', b'n', b'o', b'p',
+                    b'q', b'r', b's', b't', b'u', b'v', b'w', b'x', b'y', b'z', 0x00, 0x00, 0x00, 0x00, 0x00,
+                    1, b'a',
+                ],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U1),
+                        fixed_array_len: 31,
+                        deported_info: None,
+                        default: Some((
+                            26.into(),
+                            BaseArray::new(b"abcdefghijklmnopqrstuvwxyz"),
+                            None,
+                        )),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            // Char[] with deported part :
+            TestLayout(
+                "CharDeported[1+0+1]",
+                &[0b0101_0001, 0b001_00000, 0x0F, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U1),
+                        fixed_array_len: 0,
+                        deported_info: Some(DeportedInfo {
+                            id_size: ByteSize::U1,
+                            value_store_idx: ValueStoreIdx::from(0x0F),
+                        }),
+                        default: None,
+                    },
+                    1 + 0 + 1,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "CharDeported[1+1+2]",
+                &[0b0101_0001, 0b010_00001, 0x0F, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U1),
+                        fixed_array_len: 1,
+                        deported_info: Some(DeportedInfo {
+                            id_size: ByteSize::U2,
+                            value_store_idx: ValueStoreIdx::from(0x0F),
+                        }),
+                        default: None,
+                    },
+                    1 + 1 + 2,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "CharDeported[3+5+4]",
+                &[0b0101_0011, 0b100_00101, 0x0F, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U3),
+                        fixed_array_len: 5,
+                        deported_info: Some(DeportedInfo {
+                            id_size: ByteSize::U4,
+                            value_store_idx: ValueStoreIdx::from(0x0F),
+                        }),
+                        default: None,
+                    },
+                    3 + 5 + 4,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "CharDeported[3+31+4]",
+                &[0b0101_0011, 0b100_11111, 0x0F, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U3),
+                        fixed_array_len: 31,
+                        deported_info: Some(DeportedInfo {
+                            id_size: ByteSize::U4,
+                            value_store_idx: ValueStoreIdx::from(0x0F),
+                        }),
+                        default: None,
+                    },
+                    3 + 31 + 4,
+                    "a",
+                ),
+            ),
+            // Char[] with deported part and with default value:
+            TestLayout(
+                "CharDeportedDefault[1+0+1+0]",
+                &[0b0101_1001, 0b001_00000, 0x0F, 0x00, 0x50, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U1),
+                        fixed_array_len: 0,
+                        deported_info: Some(DeportedInfo {
+                            id_size: ByteSize::U1,
+                            value_store_idx: ValueStoreIdx::from(0x0F),
+                        }),
+                        default: Some((0.into(), BaseArray::default(), Some(0x50))),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "CharDeportedDefault[1+1+2+16]",
+                &[0b0101_1001, 0b010_00001, 0x0F, 0x10, b'a', 0x50, 0x00, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U1),
+                        fixed_array_len: 1,
+                        deported_info: Some(DeportedInfo {
+                            id_size: ByteSize::U2,
+                            value_store_idx: ValueStoreIdx::from(0x0F),
+                        }),
+                        default: Some((16.into(), BaseArray::new(b"a"), Some(0x50))),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "CharDeportedDefault[3+5+4+4]",
+                &[0b0101_1011, 0b100_00101, 0x0F, 0x04, 0x00, 0x00, b'a', b'b', b'c', b'd', b'\0', 0xfc, 0xfd, 0xfe, 0xff, 1, b'a'],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U3),
+                        fixed_array_len: 5,
+                        deported_info: Some(DeportedInfo {
+                            id_size: ByteSize::U4,
+                            value_store_idx: ValueStoreIdx::from(0x0F),
+                        }),
+                        default: Some((4.into(), BaseArray::new(b"abcd"), Some(0xfffefdfc))),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+            TestLayout(
+                "CharDeportedDefault[3+31+4+xxx]",
+                &[0b0101_1011, 0b100_11111, 0x0F, 0x03, 0x02, 0x01,
+                  b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h', b'i', b'j', b'k', b'l', b'm', b'n', b'o', b'p',
+                  b'q', b'r', b's', b't', b'u', b'v', b'w', b'x', b'y', b'z', 0x00, 0x00, 0x00, 0x00, 0x00,
+                  0xfc, 0xfd, 0xfe, 0xff,
+                  1, b'a'
+                ],
+                RawProperty::new(
+                    PropertyKind::Array {
+                        array_len_size: Some(ByteSize::U3),
+                        fixed_array_len: 31,
+                        deported_info: Some(DeportedInfo {
+                            id_size: ByteSize::U4,
+                            value_store_idx: ValueStoreIdx::from(0x0F),
+                        }),
+                        default: Some((
+                            0x010203.into(),
+                            BaseArray::new(b"abcdefghijklmnopqrstuvwxyz"),
+                            Some(0xfffefdfc),
+                        )),
+                    },
+                    0,
+                    "a",
+                ),
+            ),
+        ];
+        param.into()
+    }
+
+    #[rustest::test(params:pub(crate)(&'static [u8], RawProperty)=gen_param())]
+    fn test_rawproperty(Param((source, expected)): Param) {
         let mut content = Vec::new();
         content.extend_from_slice(source);
         let size = content.len();
         let reader = CheckReader::from(content);
-        reader
+        let parsed = reader
             .parse_in::<RawProperty>(Offset::zero(), size.into())
-            .unwrap()
+            .unwrap();
+
+        assert_eq!(parsed, expected);
     }
 }

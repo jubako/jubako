@@ -50,7 +50,7 @@ impl graphex::Display for CompressionType {
 mod tests {
     use super::*;
 
-    #[test]
+    #[rustest::test]
     fn test_compressiontype() {
         let reader = CheckReader::from(vec![0x00, 0x01, 0x02, 0x03, 0x4, 0xFF]);
         let mut parser = reader.create_parser(Offset::zero(), 6.into()).unwrap();

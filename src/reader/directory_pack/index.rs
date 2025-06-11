@@ -60,7 +60,6 @@ impl BlockParsable for IndexHeader {}
     derive(serde::Serialize),
     serde(transparent)
 )]
-
 pub struct Index {
     header: IndexHeader,
 }
@@ -119,7 +118,7 @@ impl graphex::Display for Index {
 mod tests {
     use super::*;
 
-    #[test]
+    #[rustest::test]
     fn test_index() {
         let content = vec![
             0x01, 0x00, 0x00, 0x00, // store_id

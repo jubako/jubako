@@ -264,7 +264,7 @@ mod tests {
     use std::io;
     use std::sync::Arc;
 
-    #[test]
+    #[rustest::test]
     fn test_mainpack() {
         let mut content = Arc::new(Vec::new());
         {

@@ -353,7 +353,7 @@ impl graphex::Node for IndexedValueStore {
 mod tests {
     use super::*;
 
-    #[test]
+    #[rustest::test]
     fn test_valuestorekind() {
         let reader = CheckReader::from([0x00, 0x01, 0x02]);
         let mut parser = reader.create_parser(Offset::zero(), 3.into()).unwrap();
@@ -369,7 +369,7 @@ mod tests {
         assert!(ValueStoreKind::parse(&mut parser).is_err());
     }
 
-    #[test]
+    #[rustest::test]
     fn test_plainvaluestore() {
         #[rustfmt::skip]
         let reader = Reader::from(
@@ -423,7 +423,7 @@ mod tests {
         );
     }
 
-    #[test]
+    #[rustest::test]
     fn test_indexedvaluestore() {
         #[rustfmt::skip]
         let reader = Reader::from(
