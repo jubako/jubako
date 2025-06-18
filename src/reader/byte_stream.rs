@@ -51,7 +51,7 @@ impl Read for ByteStream {
                 self.offset += s;
                 Ok(s)
             }
-            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
+            Err(e) => Err(std::io::Error::other(e)),
         }
     }
 }

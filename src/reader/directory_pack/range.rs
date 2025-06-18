@@ -159,8 +159,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_finder() -> Result<()> {
+    #[rustest::test]
+    fn test_finder() -> rustest::Result {
         let builder = mock::Builder {};
         let range = EntryRange::new_from_size(EntryIdx::from(0), EntryCount::from(10));
 
@@ -172,8 +172,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_comparator_false() -> Result<()> {
+    #[rustest::test]
+    fn test_comparator_false() -> rustest::Result {
         let builder = mock::Builder {};
         let range = EntryRange::new_from_size(EntryIdx::from(0), EntryCount::from(10));
 
@@ -191,8 +191,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_comparator_true() -> Result<()> {
+    #[rustest::test]
+    fn test_comparator_true() -> rustest::Result {
         let builder = mock::Builder {};
         let range = EntryRange::new_from_size(EntryIdx::from(0), EntryCount::from(10));
 

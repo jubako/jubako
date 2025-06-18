@@ -70,33 +70,53 @@ pub type PString = PArray<String>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_case::test_case;
 
-    #[test_case(&[0x00] => "")]
-    #[test_case(&[0x01, 72] => "H")]
-    #[test_case(&[0x02, 72, 101] => "He")]
-    #[test_case(&[0x03, 72, 0xC3, 0xA9] => "Hé")]
-    fn test_pstring(source: &[u8]) -> String {
-        let mut content = Vec::new();
-        content.extend_from_slice(source);
-        let reader = CheckReader::from(content);
-        reader
-            .parse_in::<PString>(Offset::zero(), reader.size().try_into().unwrap())
-            .unwrap()
-            .to_string()
+    #[derive(Clone)]
+    pub struct TestPString(&'static [u8], &'static str);
+    impl rustest::ParamName for TestPString {
+        fn param_name(&self) -> String {
+            self.1.into()
+        }
     }
 
-    #[test_case(&[0x00] => b"".as_slice())]
-    #[test_case(&[0x01, 72] => b"H".as_slice())]
-    #[test_case(&[0x02, 72, 101] => b"He".as_slice())]
-    #[test_case(&[0x03, 72, 0xC3, 0xA9] => "Hé".as_bytes())]
-    fn test_pvec(source: &[u8]) -> Vec<u8> {
+    #[rustest::test(params:TestPString = [
+        TestPString(&[0x00_u8] as &[u8] , ""),
+        TestPString(&[0x01, 72] , "H"),
+        TestPString(&[0x02, 72, 101],"He"),
+        TestPString(&[0x03, 72, 0xC3, 0xA9], "Hé")
+    ])]
+    fn test_pstring(Param(TestPString(source, expected)): Param) {
         let mut content = Vec::new();
         content.extend_from_slice(source);
         let reader = CheckReader::from(content);
-        reader
+        let parsed = reader
+            .parse_in::<PString>(Offset::zero(), reader.size().try_into().unwrap())
+            .unwrap()
+            .to_string();
+        assert_eq!(parsed, expected);
+    }
+
+    #[derive(Clone)]
+    pub struct TestPVec(&'static [u8], &'static [u8]);
+    impl rustest::ParamName for TestPVec {
+        fn param_name(&self) -> String {
+            format!("{:?}", self.1)
+        }
+    }
+    #[rustest::test(params:TestPVec = [
+        TestPVec(&[0x00_u8] as &[u8] , b""),
+        TestPVec(&[0x01, 72] ,  b"H"),
+        TestPVec(&[0x02, 72, 101], b"He"),
+        TestPVec(&[0x03, 72, 0xC3, 0xA9], "Hé".as_bytes())
+    ])]
+    fn test_pvec(Param(TestPVec(source, expected)): Param) {
+        let mut content = Vec::new();
+        content.extend_from_slice(source);
+        let reader = CheckReader::from(content);
+        let parsed = reader
             .parse_in::<PBytes>(Offset::zero(), reader.size().try_into().unwrap())
             .unwrap()
-            .to_vec()
+            .to_vec();
+        assert_eq!(parsed, expected);
     }
 }

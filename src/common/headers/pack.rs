@@ -171,7 +171,7 @@ impl graphex::Display for PackHeader {
 mod tests {
     use super::*;
 
-    #[test]
+    #[rustest::test]
     fn test_packheader() {
         let mut content = vec![
             0x6a, 0x62, 0x6b, 0x63, // magic

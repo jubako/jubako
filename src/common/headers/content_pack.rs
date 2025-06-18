@@ -75,7 +75,7 @@ impl Serializable for ContentPackHeader {
 mod tests {
     use super::*;
 
-    #[test]
+    #[rustest::test]
     fn test_contentpackheader() {
         let mut content = vec![
             0x00, 0xee, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // entry_ptr_pos

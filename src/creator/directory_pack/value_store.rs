@@ -419,8 +419,8 @@ impl std::fmt::Debug for IndexedValueStore {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_empty_plain() -> Result<()> {
+    #[rustest::test]
+    fn test_empty_plain() -> rustest::Result {
         let creator = ValueStore::new_plain(None);
         creator.finalize(0.into());
         let buffer = vec![];
@@ -429,8 +429,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_empty_indexed() -> Result<()> {
+    #[rustest::test]
+    fn test_empty_indexed() -> rustest::Result {
         let creator = ValueStore::new_indexed();
         creator.finalize(0.into());
         let buffer = vec![];

@@ -435,8 +435,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_directorypack() -> Result<()> {
+    #[rustest::test]
+    fn test_directorypack() -> rustest::Result {
         // Pack header offset 0/0x00
         let mut content = vec![
             0x6a, 0x62, 0x6b, 0x64, // magic

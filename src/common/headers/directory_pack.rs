@@ -86,7 +86,7 @@ impl Serializable for DirectoryPackHeader {
 mod tests {
     use super::*;
 
-    #[test]
+    #[rustest::test]
     fn test_directorypackheader() {
         let mut content = vec![
             0xdd, 0xee, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // index_ptr_pos

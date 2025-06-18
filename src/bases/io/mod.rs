@@ -40,20 +40,19 @@ mod tests {
     use crate::bases::{CheckReader, Parser};
     use std::io::{Cursor, Write};
     use tempfile::tempfile;
-    use test_case::test_case;
 
-    fn create_buf_reader(data: &[u8]) -> Option<CheckReader> {
-        Some(data.to_vec().into())
+    fn create_buf_reader(data: &[u8]) -> CheckReader {
+        data.to_vec().into()
     }
 
-    fn create_file_reader(data: &[u8]) -> Option<CheckReader> {
+    fn create_file_reader(data: &[u8]) -> CheckReader {
         let mut file = tempfile().unwrap();
         file.write_all(data).unwrap();
-        Some(FileSource::new(file).unwrap().into())
+        FileSource::new(file).unwrap().into()
     }
 
     #[cfg(feature = "lz4")]
-    fn create_lz4_reader(data: &[u8]) -> Option<CheckReader> {
+    fn create_lz4_reader(data: &[u8]) -> CheckReader {
         let compressed_content = {
             let compressed_content = Vec::new();
             let mut encoder = lz4::EncoderBuilder::new()
@@ -67,16 +66,11 @@ mod tests {
             compressed_content.into_inner()
         };
         let decoder = lz4::Decoder::new(Cursor::new(compressed_content)).unwrap();
-        Some(SeekableDecoder::new(decoder, ASize::from(data.len())).into())
-    }
-
-    #[cfg(not(feature = "lz4"))]
-    fn create_lz4_reader(_data: &[u8]) -> Option<CheckReader> {
-        None
+        SeekableDecoder::new(decoder, ASize::from(data.len())).into()
     }
 
     #[cfg(feature = "lzma")]
-    fn create_lzma_reader(data: &[u8]) -> Option<CheckReader> {
+    fn create_lzma_reader(data: &[u8]) -> CheckReader {
         let compressed_content = {
             let compressed_content = Vec::new();
             let mut encoder = xz2::write::XzEncoder::new_stream(
@@ -94,16 +88,11 @@ mod tests {
             Cursor::new(compressed_content),
             xz2::stream::Stream::new_lzma_decoder(128 * 1024 * 1024).unwrap(),
         );
-        Some(SeekableDecoder::new(decoder, ASize::from(data.len())).into())
-    }
-
-    #[cfg(not(feature = "lzma"))]
-    fn create_lzma_reader(_data: &[u8]) -> Option<CheckReader> {
-        None
+        SeekableDecoder::new(decoder, ASize::from(data.len())).into()
     }
 
     #[cfg(feature = "zstd")]
-    fn create_zstd_reader(data: &[u8]) -> Option<CheckReader> {
+    fn create_zstd_reader(data: &[u8]) -> CheckReader {
         let compressed_content = {
             let compressed_content = Vec::new();
             let mut encoder = zstd::Encoder::new(Cursor::new(compressed_content), 0).unwrap();
@@ -112,27 +101,55 @@ mod tests {
             encoder.finish().unwrap().into_inner()
         };
         let decoder = zstd::Decoder::new(Cursor::new(compressed_content)).unwrap();
-        Some(SeekableDecoder::new(decoder, data.len().into()).into())
+        SeekableDecoder::new(decoder, data.len().into()).into()
     }
 
-    #[cfg(not(feature = "zstd"))]
-    fn create_zstd_reader(_data: &[u8]) -> Option<CheckReader> {
-        None
+    type ReaderCreator = fn(&[u8]) -> CheckReader;
+
+    #[derive(Debug, Copy, Clone)]
+    pub enum TestReaderName {
+        Buf,
+        File,
+        #[cfg(feature = "lz4")]
+        Lz4,
+        #[cfg(feature = "lzma")]
+        Lzma,
+        #[cfg(feature = "zstd")]
+        Zstd,
     }
 
-    type ReaderCreator = fn(&[u8]) -> Option<CheckReader>;
-
-    #[test_case(create_buf_reader)]
-    #[test_case(create_file_reader)]
-    #[test_case(create_lz4_reader)]
-    #[test_case(create_lzma_reader)]
-    #[test_case(create_zstd_reader)]
-    fn test_parser(creator: ReaderCreator) {
-        let reader = creator(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
-        if reader.is_none() {
-            return;
+    impl rustest::ParamName for TestReaderName {
+        fn param_name(&self) -> String {
+            format!("{self:?}")
         }
-        let reader = reader.unwrap();
+    }
+
+    #[rustest::fixture(params:TestReaderName = [
+        TestReaderName::Buf,
+        TestReaderName::File,
+        #[cfg(feature = "lz4")]
+        TestReaderName::Lz4,
+        #[cfg(feature = "lzma")]
+        TestReaderName::Lzma,
+        #[cfg(feature = "zstd")]
+        TestReaderName::Zstd
+    ])]
+    fn TestReader(Param(name): Param) -> ReaderCreator {
+        match name {
+            TestReaderName::Buf => create_buf_reader,
+            TestReaderName::File => create_file_reader,
+            #[cfg(feature = "lz4")]
+            TestReaderName::Lz4 => create_lz4_reader,
+            #[cfg(feature = "lzma")]
+            TestReaderName::Lzma => create_lzma_reader,
+            #[cfg(feature = "zstd")]
+            TestReaderName::Zstd => create_zstd_reader,
+        }
+    }
+
+    #[rustest::test]
+    fn test_parser(creator: TestReader) {
+        let reader = creator(&[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
         let mut parser = reader.create_parser(Offset::zero(), 9.into()).unwrap();
         assert_eq!(parser.read_u8().unwrap(), 0x00_u8);
         assert_eq!(parser.tell(), Offset::new(1));

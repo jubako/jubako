@@ -210,7 +210,7 @@ mod tests {
     };
     use std::collections::HashMap;
 
-    #[test]
+    #[rustest::test]
     fn test_1variant_allproperties() {
         #[rustfmt::skip]
         let content = vec![
@@ -429,7 +429,7 @@ mod tests {
         assert_eq!(store.layout.common.inner(), &expected);
     }
 
-    #[test]
+    #[rustest::test]
     fn test_2variants() {
         #[rustfmt::skip]
         let content = vec![

@@ -116,7 +116,7 @@ mod tests {
     use super::{Range, Region};
     use crate::{Offset, Size};
 
-    #[test]
+    #[rustest::test]
     fn test_empty_range() {
         let range = Range::new(5, 5);
         assert_eq!(range.begin(), 5);
@@ -128,7 +128,7 @@ mod tests {
         assert_eq!(range.size(), 0);
     }
 
-    #[test]
+    #[rustest::test]
     fn test_range() {
         let range = Range::new(5, 10);
         assert_eq!(range.begin(), 5);
@@ -140,7 +140,7 @@ mod tests {
         assert_eq!(range.size(), 5);
     }
 
-    #[test]
+    #[rustest::test]
     fn test_empty_region() {
         let region = Region::new_from_size(Offset::new(5), Size::zero());
         assert_eq!(region.begin(), Offset::new(5));
@@ -161,7 +161,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
+    #[rustest::test]
     fn test_region() {
         let region = Region::new_from_size(Offset::new(5), Size::new(5));
         assert_eq!(region.begin(), Offset::new(5));

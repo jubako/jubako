@@ -26,3 +26,7 @@ pub use camino::{Utf8Path, Utf8PathBuf};
 
 #[cfg(doctest)]
 use bases::BaseArray;
+
+#[cfg(test)]
+#[rustest::main]
+fn main() {}

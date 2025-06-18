@@ -57,7 +57,7 @@ impl Serializable for ContainerPackHeader {
 mod tests {
     use super::*;
 
-    #[test]
+    #[rustest::test]
     fn test_containerpackheader() {
         let mut content = vec![
             0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // pack_locators_pos

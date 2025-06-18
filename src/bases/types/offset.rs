@@ -170,16 +170,17 @@ impl fmt::Display for Offset {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_case::test_case;
 
-    #[test_case(0, 0 => true)]
-    #[test_case(0, 1 => true)]
-    #[test_case(1, 1 => true)]
-    #[test_case(1, 0 => false)]
-    #[test_case(254, 255 => true)]
-    #[test_case(255, 255 => true)]
-    #[test_case(256, 255 => false)]
-    fn test_offset_is_valid(o: u64, s: u64) -> bool {
-        Offset(o).is_valid(s.into())
+    #[rustest::test(params:(u64,u64, bool)=[
+        (0, 0, true),
+        (0, 1, true),
+        (1, 1, true),
+        (1, 0, false),
+        (254, 255, true),
+        (255, 255, true),
+        (256, 255, false)
+    ])]
+    fn test_offset_is_valid(Param((o, s, expected)): Param) {
+        assert_eq!(Offset(o).is_valid(s.into()), expected)
     }
 }
