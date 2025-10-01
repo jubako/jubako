@@ -28,7 +28,7 @@ pub enum EntryStore {
 }
 
 impl EntryStore {
-    pub fn get_entry_reader(&self, idx: EntryIdx) -> Option<ByteSlice> {
+    pub fn get_entry_reader(&self, idx: EntryIdx) -> Option<ByteSlice<'_>> {
         match self {
             EntryStore::Plain(store) => store.get_entry_reader(idx),
             /*  todo!() */
@@ -130,7 +130,7 @@ pub struct PlainStore {
 }
 
 impl PlainStore {
-    fn get_entry_reader(&self, idx: EntryIdx) -> Option<ByteSlice> {
+    fn get_entry_reader(&self, idx: EntryIdx) -> Option<ByteSlice<'_>> {
         if idx.is_valid(*self.layout.entry_count) {
             Some(self.entry_reader.get_byte_slice(
                 Offset::from(self.layout.entry_size.into_u64() * idx.into_u64()),

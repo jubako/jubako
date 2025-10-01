@@ -79,7 +79,7 @@ impl Source for FileSource {
         f.read_exact(buf)
     }
 
-    fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<[u8]>> {
+    fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<'_, [u8]>> {
         let mut buf = vec![0; region.size().into_usize() + block_check.size()];
         self.read_exact(region.begin(), &mut buf)?;
         if let BlockCheck::Crc32 = block_check {

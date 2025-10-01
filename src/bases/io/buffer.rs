@@ -29,7 +29,7 @@ where
         Ok(())
     }
 
-    fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<[u8]>> {
+    fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<'_, [u8]>> {
         debug_assert!(region.end().force_into_usize() <= self.as_ref().len());
         if let BlockCheck::Crc32 = block_check {
             let full_slice = &self.as_ref()[region.begin().force_into_usize()

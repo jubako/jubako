@@ -6,7 +6,7 @@ use super::{ByteSize, Offset, Result};
 
 /// A Parser is something parsing data from a [u8]
 pub trait Parser {
-    fn read_slice(&mut self, size: usize) -> Result<Cow<[u8]>>;
+    fn read_slice(&mut self, size: usize) -> Result<Cow<'_, [u8]>>;
     fn read_data(&mut self, buf: &mut [u8]) -> Result<()>;
     #[cfg(test)]
     fn tell(&self) -> Offset;
@@ -53,7 +53,7 @@ pub trait RandomParser {
         Self: 'a;
 
     fn create_parser(&self, offset: Offset) -> Result<Self::Parser<'_>>;
-    fn read_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>>;
+    fn read_slice(&self, offset: Offset, size: usize) -> Result<Cow<'_, [u8]>>;
     fn read_data(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<()>;
 
     fn global_offset(&self) -> Offset;
@@ -127,7 +127,7 @@ impl<'a> SliceParser<'a> {
 }
 
 impl Parser for SliceParser<'_> {
-    fn read_slice(&mut self, size: usize) -> Result<Cow<[u8]>> {
+    fn read_slice(&mut self, size: usize) -> Result<Cow<'_, [u8]>> {
         if self.slice.len() < size + self.offset {
             return Err(format_error!(format!(
                 "Out of slice. {size}({}) > {}",

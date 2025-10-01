@@ -18,7 +18,7 @@ pub(crate) use value_store::ValueStoreKind;
 pub use value_store::{StoreHandle, ValueHandle, ValueStore};
 
 pub trait EntryTrait<PN: PropertyName, VN: VariantName> {
-    fn variant_name(&self) -> Option<MayRef<VN>>;
+    fn variant_name(&self) -> Option<MayRef<'_, VN>>;
     fn value<'a>(&'a self, name: &PN) -> MayRef<'a, Value>;
     fn value_count(&self) -> PropertyCount;
     fn set_idx(&mut self, idx: EntryIdx);
@@ -263,10 +263,10 @@ impl<PN: PropertyName, VN: VariantName> BasicEntry<PN, VN> {
 }
 
 impl<PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for BasicEntry<PN, VN> {
-    fn variant_name(&self) -> Option<MayRef<VN>> {
+    fn variant_name(&self) -> Option<MayRef<'_, VN>> {
         self.variant_name.as_ref().map(MayRef::Borrowed)
     }
-    fn value(&self, name: &PN) -> MayRef<Value> {
+    fn value(&self, name: &PN) -> MayRef<'_, Value> {
         match self.names.iter().position(|n| n == name) {
             Some(i) => MayRef::Borrowed(&self.values[i]),
             None => panic!("{} should be in entry", name.as_str()),
@@ -287,10 +287,10 @@ impl<T, PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for Box<T>
 where
     T: EntryTrait<PN, VN>,
 {
-    fn variant_name(&self) -> Option<MayRef<VN>> {
+    fn variant_name(&self) -> Option<MayRef<'_, VN>> {
         T::variant_name(self)
     }
-    fn value(&self, name: &PN) -> MayRef<Value> {
+    fn value(&self, name: &PN) -> MayRef<'_, Value> {
         T::value(self, name)
     }
     fn value_count(&self) -> PropertyCount {

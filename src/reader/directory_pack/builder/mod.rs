@@ -117,7 +117,7 @@ impl AnyBuilder {
     /// Build a new PropertyCompare to search in a Range.
     ///
     /// Search will panic if property_name is not in the entry or if value is not of the right type.
-    pub fn new_property_compare(&self, property_name: String, value: Value) -> PropertyCompare {
+    pub fn new_property_compare(&self, property_name: String, value: Value) -> PropertyCompare<'_> {
         PropertyCompare::new(self, vec![property_name], vec![value])
     }
 
@@ -128,7 +128,7 @@ impl AnyBuilder {
         &self,
         property_names: Vec<String>,
         values: Vec<Value>,
-    ) -> PropertyCompare {
+    ) -> PropertyCompare<'_> {
         PropertyCompare::new(self, property_names, values)
     }
 }

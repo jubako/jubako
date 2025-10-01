@@ -75,7 +75,7 @@ impl Reader {
         T::finalize(intermediate, sized_offset.offset, self)
     }
 
-    pub(crate) fn get_byte_slice(&self, offset: Offset, size: Size) -> ByteSlice {
+    pub(crate) fn get_byte_slice(&self, offset: Offset, size: Size) -> ByteSlice<'_> {
         let region = self.region.cut_rel(offset, size);
         ByteSlice::new_from_parts(&self.source, region)
     }
@@ -175,7 +175,7 @@ impl CheckReader {
         let mut parser = self.create_parser(offset, size)?;
         T::parse(&mut parser)
     }
-    pub fn get_slice(&self, offset: Offset, size: ASize) -> Result<Cow<[u8]>> {
+    pub fn get_slice(&self, offset: Offset, size: ASize) -> Result<Cow<'_, [u8]>> {
         let region = self.region.cut_rel_asize(offset, size);
         self.source.get_slice(region, BlockCheck::None)
     }
