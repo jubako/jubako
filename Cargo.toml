@@ -8,6 +8,7 @@ repository = "https://github.com/jubako/jubako"
 license = "MIT"
 keywords = ["compression", "container", "archive"]
 categories = ["database", "data-structures", "compression"]
+rust-version = "1.85.1"
 
 [features]
 default = ["zstd"]
