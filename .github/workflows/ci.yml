@@ -51,8 +51,17 @@ jobs:
           rustup default ${{ matrix.toolchain }}
           rustup component add rustfmt
 
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.15.7
+
       - name: Check format
-        run: cargo fmt --check
+        run: |
+          cargo fmt --check
+
+      - name: MSRV
+        run: |
+          cargo binstall cargo-msrv -y
+          cargo msrv --output-format minimal verify
 
       - name: Test code
         run: cargo test --features ${{ matrix.feature }} --verbose
