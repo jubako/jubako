@@ -54,6 +54,21 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Setup cache
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/.crates.toml
+          ~/.cargo/.crates2.json
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+        key: ${{ runner.os }}-cargo-stable-zstd_lzma_lz4-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Run sccache-cache
+      uses: mozilla-actions/sccache-action@v0.0.9
+
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
 

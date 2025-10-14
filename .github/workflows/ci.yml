@@ -19,31 +19,49 @@ jobs:
           - ubuntu-latest
           - macos-latest
           - windows-latest
-        feature:
-          - zstd,lzma,lz4
+        features:
+          - [zstd,lzma,lz4]
         include:
           - toolchain: stable
             os: ubuntu-latest
-            feature: zstd
+            features: [zstd]
           - toolchain: stable
             os: ubuntu-latest
-            feature: lzma
+            features: [lzma]
           - toolchain: stable
             os: ubuntu-latest
-            feature: lz4
+            features: [lz4]
           - toolchain: stable
             os: ubuntu-latest
-            feature: zstd,lzma
+            features: [zstd,lzma]
           - toolchain: stable
             os: ubuntu-latest
-            feature: zstd,lz4
+            features: [zstd,lz4]
           - toolchain: stable
             os: ubuntu-latest
-            feature: lzma,lz4
+            features: [lzma,lz4]
     runs-on: ${{ matrix.os }}
+    env:
+      SCCACHE_GHA_ENABLED: on
+      RUSTC_WRAPPER: sccache
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ matrix.toolchain }}-${{ join(matrix.features, '_') }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Setup rust toolchain ${{ matrix.toolchain }}
         run: |
@@ -64,10 +82,10 @@ jobs:
           cargo msrv --output-format minimal verify
 
       - name: Test code
-        run: cargo test --features ${{ matrix.feature }} --verbose
+        run: cargo test --features ${{ join(matrix.features) }} --verbose
 
       - name: Test binary compilation
-        if: ${{ matrix.toolchain == 'stable' && matrix.feature == 'zstd,lzma,lz4' }}
+        if: ${{ matrix.toolchain == 'stable' && join(matrix.features) == 'zstd,lzma,lz4' }}
         run: cargo build --features zstd,lzma,lz4,build_bin,explorable_serde --verbose
 
       - name: Build and run exemples
@@ -88,9 +106,27 @@ jobs:
   compilation_32bits:
     name: Test 32 bits compilation
     runs-on: ubuntu-latest
+    env:
+      SCCACHE_GHA_ENABLED: on
+      RUSTC_WRAPPER: sccache
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-cross32-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Install cross
         run: cargo install cross
