@@ -184,7 +184,7 @@ impl Source for SeekableDecoder {
         Ok(())
     }
 
-    fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<[u8]>> {
+    fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<'_, [u8]>> {
         if let BlockCheck::Crc32 = block_check {
             unreachable!()
         }

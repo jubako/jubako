@@ -46,7 +46,7 @@ impl<'s> ByteSlice<'s> {
     ///
     /// Most of the time, it will return a `Cow::Borrowed` as ByteSlice actually reference data
     /// stored in memory but it may potentially be a `Cow::Owned` if it reference a file.
-    pub fn get_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>> {
+    pub fn get_slice(&self, offset: Offset, size: usize) -> Result<Cow<'_, [u8]>> {
         let region = self.region.cut_rel_asize(offset, ASize::new(size));
         self.source.get_slice(region, BlockCheck::None)
     }
@@ -71,7 +71,7 @@ impl<'s> RandomParser for ByteSlice<'s> {
         self.region.begin()
     }
 
-    fn read_slice(&self, offset: Offset, size: usize) -> Result<Cow<[u8]>> {
+    fn read_slice(&self, offset: Offset, size: usize) -> Result<Cow<'_, [u8]>> {
         let region = self.region.cut_rel_asize(offset, ASize::from(size));
         self.source.get_slice(region, BlockCheck::None)
     }

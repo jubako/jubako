@@ -16,7 +16,7 @@ pub(crate) trait Source: Sync + Send {
     fn size(&self) -> Size;
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<()>;
     fn read(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<usize>;
-    fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<[u8]>>;
+    fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<'_, [u8]>>;
 
     fn cut(
         self: Arc<Self>,

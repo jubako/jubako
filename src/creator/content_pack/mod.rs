@@ -25,16 +25,12 @@ pub trait CacheProgress {
 
 impl CacheProgress for () {}
 
+#[derive(Default)]
 pub enum CompHint {
     Yes,
     No,
+    #[default]
     Detect,
-}
-
-impl Default for CompHint {
-    fn default() -> Self {
-        Self::Detect
-    }
 }
 
 /// A trait for structure able to add content to a content pack.
