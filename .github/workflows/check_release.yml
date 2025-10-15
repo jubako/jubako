@@ -38,6 +38,8 @@ jobs:
     env:
       # Emit backtraces on panics.
       RUST_BACKTRACE: 1
+      SCCACHE_GHA_ENABLED: on
+      RUSTC_WRAPPER: sccache
     strategy:
       fail-fast: false
       matrix:
