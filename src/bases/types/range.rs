@@ -44,6 +44,12 @@ where
 
 pub type EntryRange = Range<EntryIdx>;
 
+impl EntryRange {
+    pub fn from_range<T: crate::reader::Range>(range: &T) -> Self {
+        Self::new_from_size(range.offset(), range.count())
+    }
+}
+
 pub(crate) type Region = Range<Offset>;
 
 impl Region {
