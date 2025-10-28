@@ -49,9 +49,11 @@ fn lzma_compress<'b>(
     stream: &'b mut dyn OutStream,
     level: u32,
 ) -> std::io::Result<&'b mut dyn OutStream> {
-    let mut encoder = xz2::write::XzEncoder::new_stream(
+    let mut encoder = liblzma::write::XzEncoder::new_stream(
         stream,
-        xz2::stream::Stream::new_lzma_encoder(&xz2::stream::LzmaOptions::new_preset(level)?)?,
+        liblzma::stream::Stream::new_lzma_encoder(&liblzma::stream::LzmaOptions::new_preset(
+            level,
+        )?)?,
     );
     for mut in_reader in data.drain(..) {
         std::io::copy(&mut in_reader, &mut encoder)?;

@@ -8,8 +8,6 @@ use std::ops::Deref;
 use std::{str::Utf8Error, string::FromUtf8Error};
 
 use thiserror::Error;
-#[cfg(feature = "lzma")]
-use xz2::stream::Error as lzmaError;
 
 #[derive(Error, Debug)]
 pub struct FormatError {
@@ -175,8 +173,8 @@ impl From<Utf8Error> for Error {
 }
 
 #[cfg(feature = "lzma")]
-impl From<lzmaError> for Error {
-    fn from(_e: lzmaError) -> Error {
+impl From<liblzma::stream::Error> for Error {
+    fn from(_e: liblzma::stream::Error) -> Error {
         FormatError::new("Lzma compression error", None).into()
     }
 }

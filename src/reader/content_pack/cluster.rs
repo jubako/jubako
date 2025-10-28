@@ -38,9 +38,9 @@ fn lz4_source(_raw_stream: ByteStream, _data_size: ASize) -> Result<Arc<dyn Sour
 #[cfg(feature = "lzma")]
 fn lzma_source(raw_stream: ByteStream, data_size: ASize) -> Result<Arc<dyn Source>> {
     Ok(Arc::new(SeekableDecoder::new(
-        xz2::read::XzDecoder::new_stream(
+        liblzma::read::XzDecoder::new_stream(
             raw_stream,
-            xz2::stream::Stream::new_lzma_decoder(128 * 1024 * 1024)?,
+            liblzma::stream::Stream::new_lzma_decoder(128 * 1024 * 1024)?,
         ),
         data_size,
     )))
@@ -343,10 +343,10 @@ mod tests {
         ];
         let data = {
             let compressed_content = Vec::new();
-            let mut encoder = xz2::write::XzEncoder::new_stream(
+            let mut encoder = liblzma::write::XzEncoder::new_stream(
                 Cursor::new(compressed_content),
-                xz2::stream::Stream::new_lzma_encoder(
-                    &xz2::stream::LzmaOptions::new_preset(9).unwrap(),
+                liblzma::stream::Stream::new_lzma_encoder(
+                    &liblzma::stream::LzmaOptions::new_preset(9).unwrap(),
                 )
                 .unwrap(),
             );
