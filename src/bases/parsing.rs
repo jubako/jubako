@@ -1,8 +1,5 @@
+use super::{primitive, ByteSize, Offset, Result};
 use std::borrow::Cow;
-
-use zerocopy::{ByteOrder, LE};
-
-use super::{ByteSize, Offset, Result};
 
 /// A Parser is something parsing data from a [u8]
 pub trait Parser {
@@ -15,34 +12,34 @@ pub trait Parser {
 
     fn read_u8(&mut self) -> Result<u8> {
         let slice = self.read_slice(1)?;
-        Ok(slice[0])
+        Ok(primitive::read_u8(&slice))
     }
 
     fn read_u16(&mut self) -> Result<u16> {
         let slice = self.read_slice(2)?;
-        Ok(LE::read_u16(&slice))
+        Ok(primitive::read_u16(&slice))
     }
 
     fn read_u32(&mut self) -> Result<u32> {
         let slice = self.read_slice(4)?;
-        Ok(LE::read_u32(&slice))
+        Ok(primitive::read_u32(&slice))
     }
 
     fn read_u64(&mut self) -> Result<u64> {
         let slice = self.read_slice(8)?;
-        Ok(LE::read_u64(&slice))
+        Ok(primitive::read_u64(&slice))
     }
 
     fn read_usized(&mut self, size: ByteSize) -> Result<u64> {
         let size = size as usize;
         let slice = self.read_slice(size)?;
-        Ok(LE::read_uint(&slice, size))
+        Ok(primitive::read_to_u64(size, &slice))
     }
 
     fn read_isized(&mut self, size: ByteSize) -> Result<i64> {
         let size = size as usize;
         let slice = self.read_slice(size)?;
-        Ok(LE::read_int(&slice, size))
+        Ok(primitive::read_to_i64(size, &slice))
     }
 }
 
@@ -59,54 +56,54 @@ pub trait RandomParser {
     fn global_offset(&self) -> Offset;
     fn read_u8(&self, offset: Offset) -> Result<u8> {
         let slice = self.read_slice(offset, 1)?;
-        Ok(slice[0])
+        Ok(primitive::read_u8(&slice))
     }
 
     fn read_u16(&self, offset: Offset) -> Result<u16> {
         let slice = self.read_slice(offset, 2)?;
-        Ok(LE::read_u16(&slice))
+        Ok(primitive::read_u16(&slice))
     }
 
     fn read_u32(&self, offset: Offset) -> Result<u32> {
         let slice = self.read_slice(offset, 4)?;
-        Ok(LE::read_u32(&slice))
+        Ok(primitive::read_u32(&slice))
     }
 
     fn read_u64(&self, offset: Offset) -> Result<u64> {
         let slice = self.read_slice(offset, 8)?;
-        Ok(LE::read_u64(&slice))
+        Ok(primitive::read_u64(&slice))
     }
 
     fn read_usized(&self, offset: Offset, size: ByteSize) -> Result<u64> {
         let size = size as usize;
         let slice = self.read_slice(offset, size)?;
-        Ok(LE::read_uint(&slice, size))
+        Ok(primitive::read_to_u64(size, &slice))
     }
 
     fn read_i8(&self, offset: Offset) -> Result<i8> {
         let slice = self.read_slice(offset, 1)?;
-        Ok(slice[0] as i8)
+        Ok(primitive::read_i8(&slice))
     }
 
     fn read_i16(&self, offset: Offset) -> Result<i16> {
         let slice = self.read_slice(offset, 2)?;
-        Ok(LE::read_i16(&slice))
+        Ok(primitive::read_i16(&slice))
     }
 
     fn read_i32(&self, offset: Offset) -> Result<i32> {
         let slice = self.read_slice(offset, 4)?;
-        Ok(LE::read_i32(&slice))
+        Ok(primitive::read_i32(&slice))
     }
 
     fn read_i64(&self, offset: Offset) -> Result<i64> {
         let slice = self.read_slice(offset, 8)?;
-        Ok(LE::read_i64(&slice))
+        Ok(primitive::read_i64(&slice))
     }
 
     fn read_isized(&self, offset: Offset, size: ByteSize) -> Result<i64> {
         let size = size as usize;
         let slice = self.read_slice(offset, size)?;
-        Ok(LE::read_int(&slice, size))
+        Ok(primitive::read_to_i64(size, &slice))
     }
 }
 

@@ -73,10 +73,10 @@ mod tests {
     fn create_lzma_reader(data: &[u8]) -> CheckReader {
         let compressed_content = {
             let compressed_content = Vec::new();
-            let mut encoder = xz2::write::XzEncoder::new_stream(
+            let mut encoder = liblzma::write::XzEncoder::new_stream(
                 Cursor::new(compressed_content),
-                xz2::stream::Stream::new_lzma_encoder(
-                    &xz2::stream::LzmaOptions::new_preset(9).unwrap(),
+                liblzma::stream::Stream::new_lzma_encoder(
+                    &liblzma::stream::LzmaOptions::new_preset(9).unwrap(),
                 )
                 .unwrap(),
             );
@@ -84,9 +84,9 @@ mod tests {
             std::io::copy(&mut incursor, &mut encoder).unwrap();
             encoder.finish().unwrap().into_inner()
         };
-        let decoder = xz2::read::XzDecoder::new_stream(
+        let decoder = liblzma::read::XzDecoder::new_stream(
             Cursor::new(compressed_content),
-            xz2::stream::Stream::new_lzma_decoder(128 * 1024 * 1024).unwrap(),
+            liblzma::stream::Stream::new_lzma_decoder(128 * 1024 * 1024).unwrap(),
         );
         SeekableDecoder::new(decoder, ASize::from(data.len())).into()
     }

@@ -38,9 +38,9 @@ fn lz4_source(_raw_stream: ByteStream, _data_size: ASize) -> Result<Arc<dyn Sour
 #[cfg(feature = "lzma")]
 fn lzma_source(raw_stream: ByteStream, data_size: ASize) -> Result<Arc<dyn Source>> {
     Ok(Arc::new(SeekableDecoder::new(
-        xz2::read::XzDecoder::new_stream(
+        liblzma::read::XzDecoder::new_stream(
             raw_stream,
-            xz2::stream::Stream::new_lzma_decoder(128 * 1024 * 1024)?,
+            liblzma::stream::Stream::new_lzma_decoder(128 * 1024 * 1024)?,
         ),
         data_size,
     )))
@@ -235,7 +235,7 @@ impl graphex::Display for Cluster {
 
 #[cfg(feature = "explorable")]
 impl graphex::Node for Cluster {
-    fn next(&self, key: &str) -> graphex::ExploreResult {
+    fn next(&self, key: &str) -> graphex::ExploreResult<'_> {
         let (key, pretty_print) = if key.ends_with('#') {
             (key.split_at(key.len() - 1).0, true)
         } else {
@@ -343,10 +343,10 @@ mod tests {
         ];
         let data = {
             let compressed_content = Vec::new();
-            let mut encoder = xz2::write::XzEncoder::new_stream(
+            let mut encoder = liblzma::write::XzEncoder::new_stream(
                 Cursor::new(compressed_content),
-                xz2::stream::Stream::new_lzma_encoder(
-                    &xz2::stream::LzmaOptions::new_preset(9).unwrap(),
+                liblzma::stream::Stream::new_lzma_encoder(
+                    &liblzma::stream::LzmaOptions::new_preset(9).unwrap(),
                 )
                 .unwrap(),
             );
@@ -411,6 +411,7 @@ mod tests {
                 CompressionType::Lzma => create_lzma_cluster,
                 #[cfg(feature = "zstd")]
                 CompressionType::Zstd => create_zstd_cluster,
+                #[cfg(not(all(feature = "lz4", feature = "lzma", feature = "zstd")))]
                 _ => unreachable!(),
             },
         )

@@ -111,7 +111,7 @@ impl serde::Serialize for ContentPack {
 
 #[cfg(feature = "explorable")]
 impl graphex::Node for ContentPack {
-    fn next(&self, key: &str) -> graphex::ExploreResult {
+    fn next(&self, key: &str) -> graphex::ExploreResult<'_> {
         if let Some(item) = key.strip_prefix("e.") {
             let index = item
                 .parse::<u32>()

@@ -125,7 +125,7 @@ impl graphex::Display for ContainerPack {
 
 #[cfg(feature = "explorable")]
 impl graphex::Node for ContainerPack {
-    fn next(&self, item: &str) -> graphex::ExploreResult {
+    fn next(&self, item: &str) -> graphex::ExploreResult<'_> {
         let reader = if let Ok(index) = item.parse::<usize>() {
             let uuid = self
                 .packs_uuid

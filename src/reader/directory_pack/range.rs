@@ -83,12 +83,9 @@ mod tests {
     use crate::reader::directory_pack::builder;
     use crate::reader::directory_pack::EntryTrait;
     use crate::reader::RawValue;
-    use std::sync::Arc;
 
     mod mock {
         use super::*;
-        use crate::reader::directory_pack::private::ValueStorageTrait;
-        use crate::reader::directory_pack::value_store::ValueStoreTrait;
         #[derive(PartialEq, Eq, Debug)]
         pub struct Entry {
             v: RawValue,
@@ -139,22 +136,6 @@ mod tests {
             type Error = Error;
             fn create_entry(&self, idx: EntryIdx) -> Result<Option<Self::Entry>> {
                 Ok(Some(Entry::new(idx.into_u32() as u16)))
-            }
-        }
-
-        #[derive(Debug)]
-        struct ValueStore {}
-        impl ValueStoreTrait for ValueStore {
-            fn get_data(&self, _id: ValueIdx, _size: Option<ASize>) -> Result<&[u8]> {
-                unreachable!()
-            }
-        }
-
-        struct ValueStorage {}
-        impl ValueStorageTrait for ValueStorage {
-            type ValueStore = ValueStore;
-            fn get_value_store(&self, _id: ValueStoreIdx) -> Result<Arc<Self::ValueStore>> {
-                unreachable!()
             }
         }
     }

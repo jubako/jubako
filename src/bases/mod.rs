@@ -4,6 +4,7 @@ mod block;
 mod cache;
 mod io;
 mod parsing;
+pub(crate) mod primitive;
 mod prop_type;
 mod reader;
 mod skip;
