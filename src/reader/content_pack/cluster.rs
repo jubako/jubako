@@ -235,7 +235,7 @@ impl graphex::Display for Cluster {
 
 #[cfg(feature = "explorable")]
 impl graphex::Node for Cluster {
-    fn next(&self, key: &str) -> graphex::ExploreResult {
+    fn next(&self, key: &str) -> graphex::ExploreResult<'_> {
         let (key, pretty_print) = if key.ends_with('#') {
             (key.split_at(key.len() - 1).0, true)
         } else {
@@ -411,6 +411,7 @@ mod tests {
                 CompressionType::Lzma => create_lzma_cluster,
                 #[cfg(feature = "zstd")]
                 CompressionType::Zstd => create_zstd_cluster,
+                #[cfg(not(all(feature = "lz4", feature = "lzma", feature = "zstd")))]
                 _ => unreachable!(),
             },
         )

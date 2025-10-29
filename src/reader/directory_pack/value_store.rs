@@ -45,7 +45,7 @@ impl ValueStoreTrait for ValueStore {
 
 #[cfg(feature = "explorable")]
 impl graphex::Node for ValueStore {
-    fn next(&self, key: &str) -> graphex::ExploreResult {
+    fn next(&self, key: &str) -> graphex::ExploreResult<'_> {
         match self {
             ValueStore::Plain(store) => store.next(key),
             ValueStore::Indexed(store) => store.next(key),
@@ -216,7 +216,7 @@ impl graphex::Display for PlainValueStore {
 
 #[cfg(feature = "explorable")]
 impl graphex::Node for PlainValueStore {
-    fn next(&self, key: &str) -> graphex::ExploreResult {
+    fn next(&self, key: &str) -> graphex::ExploreResult<'_> {
         if let Some((first, second)) = key.split_once('-') {
             let offset = first
                 .parse::<u64>()
@@ -313,7 +313,7 @@ impl graphex::Display for IndexedValueStore {
 
 #[cfg(feature = "explorable")]
 impl graphex::Node for IndexedValueStore {
-    fn next(&self, key: &str) -> graphex::ExploreResult {
+    fn next(&self, key: &str) -> graphex::ExploreResult<'_> {
         let (idx, size) = if let Some((first, second)) = key.split_once('-') {
             let offset = first
                 .parse::<u64>()

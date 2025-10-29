@@ -92,7 +92,7 @@ impl DataBlockParsable for EntryStore {
 
 #[cfg(feature = "explorable")]
 impl graphex::Node for EntryStore {
-    fn next(&self, key: &str) -> graphex::ExploreResult {
+    fn next(&self, key: &str) -> graphex::ExploreResult<'_> {
         match self {
             EntryStore::Plain(store) => store.next(key),
         }
@@ -174,7 +174,7 @@ impl graphex::Display for PlainStore {
 
 #[cfg(feature = "explorable")]
 impl graphex::Node for PlainStore {
-    fn next(&self, key: &str) -> graphex::ExploreResult {
+    fn next(&self, key: &str) -> graphex::ExploreResult<'_> {
         use std::io::Read;
         let index = key
             .parse::<u32>()

@@ -354,7 +354,7 @@ impl graphex::Display for DirectoryPack {
 
 #[cfg(feature = "explorable")]
 impl graphex::Node for DirectoryPack {
-    fn next(&self, key: &str) -> graphex::ExploreResult {
+    fn next(&self, key: &str) -> graphex::ExploreResult<'_> {
         if let Some(item) = key.strip_prefix("e.") {
             let index = if let Ok(index) = item.parse::<u32>() {
                 EntryStoreIdx::from(index)
