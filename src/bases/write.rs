@@ -4,11 +4,10 @@ use std::fmt::Debug;
 use std::io::{Read, Seek, Write};
 
 pub(crate) mod private {
+    use super::primitive;
     use super::{BlockCheck, ByteSize, MaybeFileReader, Offset, CRC};
     use std::fmt::Debug;
     use std::io::{Cursor, Read, Result as IoResult, Seek, Write};
-    use zerocopy::byteorder::little_endian::{U16, U32, U64};
-    use zerocopy::{AsBytes, ByteOrder, LittleEndian as LE};
 
     /// A Serializable is a object we can serialized on a [Serializer].
     pub trait Serializable {
@@ -58,35 +57,31 @@ pub(crate) mod private {
 
     impl Serializer {
         pub fn write_u8(&mut self, value: u8) -> IoResult<usize> {
-            self.buf.write_all(value.as_bytes())?;
+            self.buf.write_all(&primitive::write_u8(value))?;
             Ok(1)
         }
         pub fn write_u16(&mut self, value: u16) -> IoResult<usize> {
-            let d = U16::from(value);
-            self.buf.write_all(d.as_bytes())?;
+            self.buf.write_all(&primitive::write_u16(value))?;
             Ok(2)
         }
         pub fn write_u32(&mut self, value: u32) -> IoResult<usize> {
-            let d = U32::from(value);
-            self.buf.write_all(d.as_bytes())?;
+            self.buf.write_all(&primitive::write_u32(value))?;
             Ok(4)
         }
         pub fn write_u64(&mut self, value: u64) -> IoResult<usize> {
-            let d = U64::from(value);
-            self.buf.write_all(d.as_bytes())?;
+            self.buf.write_all(&primitive::write_u64(value))?;
             Ok(8)
         }
         pub fn write_usized(&mut self, value: u64, size: ByteSize) -> IoResult<usize> {
-            let d = U64::from(value);
             let size = size as usize;
-            self.buf.write_all(&d.as_bytes()[..size])?;
+            self.buf
+                .write_all(&primitive::write_from_u64(value, size)[..size])?;
             Ok(size)
         }
         pub fn write_isized(&mut self, value: i64, size: ByteSize) -> IoResult<usize> {
-            let mut d = [0_u8; 8];
             let size = size as usize;
-            LE::write_int(&mut d, value, size);
-            self.buf.write_all(&d[..size])?;
+            self.buf
+                .write_all(&primitive::write_from_i64(value, size)[..size])?;
             Ok(size)
         }
         pub fn write_data(&mut self, buf: &[u8]) -> IoResult<usize> {

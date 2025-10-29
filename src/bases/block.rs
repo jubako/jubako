@@ -1,5 +1,4 @@
 use crate::bases::*;
-use zerocopy::{ByteOrder, BE};
 
 /// Our CRC algorithm is CRC-32C (Castagnoli), without refin or refout.
 /// With don't xorout to keep the property that CRC of (data + CRC) equals 0.
@@ -23,7 +22,7 @@ pub(crate) fn assert_slice_crc(buf: &[u8]) -> Result<()> {
     let mut digest = CRC.digest();
     digest.update(slice);
     let checksum = digest.finalize();
-    let expected_checksum = BE::read_u32(&buf[data_size..]);
+    let expected_checksum = u32::from_be_bytes(buf[data_size..].try_into().unwrap());
     if checksum != expected_checksum {
         let found_checksum = checksum.to_be_bytes();
         return Err(CorruptedFile {

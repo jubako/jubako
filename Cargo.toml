@@ -37,7 +37,6 @@ memmap2 = "0.9.4"
 spmc = "0.3.0"
 log = "0.4.20"
 fxhash = "0.2.1"
-zerocopy = { version = "0.7.5", default-features = false, features = ["byteorder"] }
 rayon = "1.8.0"
 deranged = "0.3.10"
 tempfile = "3.8.0"
