@@ -101,33 +101,37 @@ where
 
         let layout = self.schema.finalize();
         Box::new(FinalEntryStore {
-            entries: self.entries,
+            entry_count: self.entries.len() as u32,
+            entries: self.entries.into_iter(),
             layout,
         })
     }
 }
 
-struct FinalEntryStore<PN, VN, Entry>
+struct FinalEntryStore<PN, VN, Entry, Store>
 where
     PN: PropertyName,
     VN: VariantName,
     Entry: FullEntryTrait<PN, VN>,
+    Store: Iterator<Item = Entry>,
 {
-    entries: Vec<Entry>,
+    entry_count: u32,
+    entries: Store,
     layout: super::layout::Entry<PN, VN>,
 }
 
-impl<PN, VN, Entry> WritableTell for FinalEntryStore<PN, VN, Entry>
+impl<PN, VN, Entry, Store> WritableTell for FinalEntryStore<PN, VN, Entry, Store>
 where
     PN: PropertyName + std::fmt::Debug,
     VN: VariantName + std::fmt::Debug,
     Entry: FullEntryTrait<PN, VN>,
+    Store: Iterator<Item = Entry>,
 {
     fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
         // [TODO] Handle per entry CRC32
         let mut serializer = Serializer::new(BlockCheck::Crc32);
-        for entry in &self.entries {
-            self.layout.serialize_entry(entry, &mut serializer)?;
+        for entry in &mut self.entries {
+            self.layout.serialize_entry(&entry, &mut serializer)?;
         }
         stream.write_serializer(serializer)?;
         Ok(())
@@ -135,7 +139,7 @@ where
 
     fn serialize_tail(&mut self, ser: &mut Serializer) -> std::io::Result<()> {
         ser.write_u8(0x00)?; // kind
-        let entry_count = EntryCount::from(self.entries.len() as u32);
+        let entry_count = EntryCount::from(self.entry_count);
         entry_count.serialize(ser)?;
         // [TODO] handle per entry CRC32
         ser.write_u8(0x00)?; // flag
