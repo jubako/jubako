@@ -1,3 +1,19 @@
+# Jubako 0.4.0
+
+- Refactor error type: this change a lot of function signatures.
+- Better definition of VariantName and PropertyName traits
+- Use SmallVec when applicable
+- Ensure that locator in jubako manifest are UTF8
+- Better array value implementation
+- Use rustest create to run tests.
+- Add msrv to 1.85.1
+- CI improvement
+- New `EntryRange::from_range`
+- Updates dependencies:
+ . Use `rustest` to run the tests.
+ . Don't use `zerocopy`.
+ . Use `liblzma` instead of `xz2`
+
 # Jubako 0.3.3
 
 - Fix compilation of jbk tools when installed from `crates.io` registry.
