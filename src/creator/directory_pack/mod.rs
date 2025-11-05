@@ -109,110 +109,65 @@ impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
             match self.keys.next() {
                 None => return None,
                 Some(key) => match key {
-                    schema::Property::Array {
-                        max_array_size: _,
-                        fixed_array_len,
-                        store_handle,
-                        name,
-                    } => {
+                    schema::Property::Array(prop, name) => {
                         let value = self
                             .values
                             .remove(name)
                             .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
                         if let common::Value::Array(data) = value {
-                            let size = data.len();
-                            let (data, to_store) =
-                                data.split_at(cmp::min(*fixed_array_len, data.len()));
-                            let value_id = store_handle.add_value(to_store);
-                            return Some((
-                                *name,
-                                match data.len() {
-                                    0 => Value::Array0(Box::new(ArrayS::<0> {
-                                        size,
-                                        value_id,
-                                        data: data.try_into().unwrap(),
-                                    })),
-                                    1 => Value::Array1(Box::new(ArrayS::<1> {
-                                        size,
-                                        value_id,
-                                        data: data.try_into().unwrap(),
-                                    })),
-                                    2 => Value::Array2(Box::new(ArrayS::<2> {
-                                        size,
-                                        value_id,
-                                        data: data.try_into().unwrap(),
-                                    })),
-                                    _ => Value::Array(Box::new(Array {
-                                        size,
-                                        data: data.into(),
-                                        value_id,
-                                    })),
-                                },
-                            ));
+                            return Some((*name, prop.absorb(data)));
                         } else {
                             panic!("Invalid value type");
                         }
                     }
-                    schema::Property::IndirectArray { store_handle, name } => {
+                    schema::Property::IndirectArray(prop, name) => {
                         let value = self
                             .values
                             .remove(name)
                             .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
                         if let common::Value::Array(data) = value {
-                            let value_id = store_handle.add_value(data);
-                            return Some((*name, Value::IndirectArray(Box::new(value_id))));
+                            return Some((*name, prop.absorb(data)));
+                        } else {
+                            panic!("Invalid value type");
                         }
                     }
-                    schema::Property::UnsignedInt {
-                        counter: _,
-                        size: _,
-                        name,
-                    } => match self
+                    schema::Property::UnsignedInt(prop, name) => match self
                         .values
                         .remove(name)
                         .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()))
                     {
                         common::Value::Unsigned(v) => {
-                            return Some((*name, Value::Unsigned(v)));
+                            return Some((*name, prop.absorb(v)));
                         }
                         common::Value::UnsignedWord(v) => {
-                            return Some((*name, Value::UnsignedWord(Box::new(v))));
+                            return Some((*name, prop.absorb_word(v)));
                         }
                         _ => {
                             panic!("Invalid value type");
                         }
                     },
-                    schema::Property::SignedInt {
-                        counter: _,
-                        size: _,
-                        name,
-                    } => match self
+                    schema::Property::SignedInt(prop, name) => match self
                         .values
                         .remove(name)
                         .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()))
                     {
                         common::Value::Signed(v) => {
-                            return Some((*name, Value::Signed(v)));
+                            return Some((*name, prop.absorb(v)));
                         }
                         common::Value::SignedWord(v) => {
-                            return Some((*name, Value::SignedWord(Box::new(v))));
+                            return Some((*name, prop.absorb_word(v)));
                         }
                         _ => {
                             panic!("Invalid value type");
                         }
                     },
-                    schema::Property::ContentAddress {
-                        pack_id_counter: _,
-                        pack_id_size: _,
-                        content_id_size: _,
-                        name,
-                    } => {
+                    schema::Property::ContentAddress(prop, name) => {
                         let value = self
                             .values
                             .remove(name)
                             .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
                         if let common::Value::Content(v) = value {
-                            return Some((*name, Value::Content(v)));
+                            return Some((*name, prop.absorb(v)));
                         } else {
                             panic!("Invalid value type");
                         }
