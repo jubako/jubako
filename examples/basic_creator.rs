@@ -20,14 +20,12 @@ type VariantName = &'static str;
 // More complex application may want to use its own entry structure (implementing right trait)
 type EntryType = jbk::creator::BasicEntry<PropertyName, VariantName>;
 
-// We will use a EntryStore storing our entry type.
-type EntryStore = jbk::creator::EntryStore<PropertyName, VariantName, EntryType>;
-
 // Entries in a entry store have a fixed size. So strings (which have variable size) must be store elsewhere.
 // This elsewhere is a ValueStore.
 struct CustomEntryStore {
     value_store: jbk::creator::StoreHandle,
-    entry_store: Box<EntryStore>,
+    schema: schema::Schema<PropertyName, VariantName>,
+    entry_store: Vec<EntryType>,
 }
 
 impl CustomEntryStore {
@@ -57,10 +55,11 @@ impl CustomEntryStore {
             None,
         );
 
-        let entry_store = Box::new(jbk::creator::EntryStore::new(schema, None));
+        let entry_store = Vec::new();
 
         Self {
             value_store,
+            schema,
             entry_store,
         }
     }
@@ -78,8 +77,8 @@ impl CustomEntryStore {
         // - Be sure that values match the properties declared in the schema for the given property
         // Hopefully, `new_from_schema` does this for us.
         // It panics if values don't match the schema/variant.
-        let entry = EntryType::new_from_schema(&self.entry_store.schema, variant_name, values);
-        self.entry_store.add_entry(entry);
+        let entry = EntryType::new_from_schema(&self.schema, variant_name, values);
+        self.entry_store.push(entry);
     }
 }
 
@@ -91,7 +90,8 @@ impl EntryStoreTrait for CustomEntryStore {
         directory_pack.add_value_store(self.value_store);
 
         // Then, add our (unique here) entry store.
-        let entry_store_id = directory_pack.add_entry_store(self.entry_store);
+        let entry_store = jbk::creator::EntryStore::new(self.schema, self.entry_store);
+        let entry_store_id = directory_pack.add_entry_store(Box::new(entry_store));
 
         // We have to reference (a entry range in) our entry store to lets readers find it.
         // This is done with a "Index"

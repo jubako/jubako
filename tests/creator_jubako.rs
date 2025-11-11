@@ -125,10 +125,10 @@ fn create_directory_pack(
         None,
     );
 
-    let mut entry_store = Box::new(creator::EntryStore::new(entry_def, None));
+    let mut entry_store = Vec::new();
     for (idx, entry) in entries.iter().enumerate() {
-        entry_store.add_entry(creator::BasicEntry::new_from_schema(
-            &entry_store.schema,
+        entry_store.push(creator::BasicEntry::new_from_schema(
+            &entry_def,
             None,
             HashMap::from([
                 ("V0", jubako::Value::Array(entry.path.as_bytes().into())),
@@ -144,7 +144,8 @@ fn create_directory_pack(
         ));
     }
 
-    let entry_store_idx = creator.add_entry_store(entry_store);
+    let entry_store = jubako::creator::EntryStore::new(entry_def, entry_store);
+    let entry_store_idx = creator.add_entry_store(Box::new(entry_store));
     creator.create_index(
         "Super index",
         Default::default(),

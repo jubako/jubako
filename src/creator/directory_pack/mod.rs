@@ -21,8 +21,6 @@ pub trait EntryTrait<PN: PropertyName, VN: VariantName> {
     fn variant_name(&self) -> Option<MayRef<'_, VN>>;
     fn value<'a>(&'a self, name: &PN) -> MayRef<'a, Value>;
     fn value_count(&self) -> PropertyCount;
-    fn set_idx(&mut self, idx: EntryIdx);
-    fn get_idx(&self) -> Bound<EntryIdx>;
 }
 
 pub trait FullEntryTrait<PN: PropertyName, VN: VariantName>: EntryTrait<PN, VN> + Send {
@@ -51,7 +49,6 @@ pub struct BasicEntry<PN, VN> {
     variant_name: Option<VN>,
     names: Box<[PN]>,
     values: Box<[Value]>,
-    idx: Vow<EntryIdx>,
 }
 
 /// ValueTransformer is responsible to transform `common::Value` (used outside of Jubako)
@@ -185,34 +182,16 @@ impl<PN: PropertyName, VN: VariantName> BasicEntry<PN, VN> {
         variant_name: Option<VN>,
         values: HashMap<PN, common::Value>,
     ) -> Self {
-        Self::new_from_schema_idx(schema, Default::default(), variant_name, values)
-    }
-
-    pub fn new_from_schema_idx(
-        schema: &schema::Schema<PN, VN>,
-        idx: Vow<EntryIdx>,
-        variant_name: Option<VN>,
-        values: HashMap<PN, common::Value>,
-    ) -> Self {
         let value_transformer = ValueTransformer::<PN>::new(schema, &variant_name, values);
-        Self::new_idx(variant_name, value_transformer.collect(), idx)
+        Self::new(variant_name, value_transformer.collect())
     }
 
-    pub fn new(variant_name: Option<VN>, values: HashMap<PN, Value>) -> Self {
-        Self::new_idx(variant_name, values, Default::default())
-    }
-
-    pub(crate) fn new_idx(
-        variant_name: Option<VN>,
-        values: HashMap<PN, Value>,
-        idx: Vow<EntryIdx>,
-    ) -> Self {
+    pub(crate) fn new(variant_name: Option<VN>, values: HashMap<PN, Value>) -> Self {
         let (names, values): (Vec<_>, Vec<_>) = values.into_iter().unzip();
         Self {
             variant_name,
             names: names.into(),
             values: values.into(),
-            idx,
         }
     }
 }
@@ -230,12 +209,6 @@ impl<PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for BasicEntry<PN, VN
     fn value_count(&self) -> PropertyCount {
         (self.values.len() as u8).into()
     }
-    fn set_idx(&mut self, idx: EntryIdx) {
-        self.idx.fulfil(idx);
-    }
-    fn get_idx(&self) -> Bound<EntryIdx> {
-        self.idx.bind()
-    }
 }
 
 impl<T, PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for Box<T>
@@ -250,12 +223,6 @@ where
     }
     fn value_count(&self) -> PropertyCount {
         T::value_count(self)
-    }
-    fn set_idx(&mut self, idx: EntryIdx) {
-        T::set_idx(self, idx)
-    }
-    fn get_idx(&self) -> Bound<EntryIdx> {
-        T::get_idx(self)
     }
 }
 

@@ -50,7 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     // The store for our entries.
-    let mut entry_store = Box::new(jbk::creator::EntryStore::new(entry_def, None));
+    let mut entry_store = Vec::new();
 
     // Now we have "configured" our creator, let's add some entries:
 
@@ -68,8 +68,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     // - Be sure that values match the properties declared in the schema for the given property
     // Hopefully, `new_from_schema` does this for us.
     // It panics if values don't match the schema/variant.
-    entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
-        &entry_store.schema,
+    entry_store.push(jbk::creator::BasicEntry::new_from_schema(
+        &entry_def,
         Some("FirstVariant"), // Variant 0
         HashMap::from([
             ("AString", jbk::Value::Array("Super".into())),
@@ -80,8 +80,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Now we add our two other entries. We don't have content in the second variant
     // so we can directly add the entries to the entry_ store.
-    entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
-        &entry_store.schema,
+    entry_store.push(jbk::creator::BasicEntry::new_from_schema(
+        &entry_def,
         Some("SecondVariant"),
         HashMap::from([
             ("AString", jbk::Value::Array("Mega".into())),
@@ -90,8 +90,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         ]),
     ));
 
-    entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
-        &entry_store.schema,
+    entry_store.push(jbk::creator::BasicEntry::new_from_schema(
+        &entry_def,
         Some("SecondVariant"),
         HashMap::from([
             ("AString", jbk::Value::Array("Hyper".into())),
@@ -105,7 +105,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Add the value store and the entry store the directory.
     directory_pack.add_value_store(value_store);
-    let entry_store_id = directory_pack.add_entry_store(entry_store);
+    let entry_store = jbk::creator::EntryStore::new(entry_def, entry_store);
+    let entry_store_id = directory_pack.add_entry_store(Box::new(entry_store));
 
     // We have to reference (a entry range in) our entry store to lets readers find it.
     // This is done with a "Index"
