@@ -100,8 +100,8 @@ impl EntryStoreTrait for CustomEntryStore {
             Default::default(),
             0.into(), // The index is not sorted
             entry_store_id,
-            3.into(),                         // Our index is 3 entries length
-            jubako::EntryIdx::from(0).into(), // starting at offset 0
+            3.into(),                  // Our index is 3 entries length
+            jubako::EntryIdx::from(0), // starting at offset 0
         );
     }
 }

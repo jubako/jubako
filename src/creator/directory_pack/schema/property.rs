@@ -96,27 +96,16 @@ pub struct UnsignedInt {
 
 impl UnsignedInt {
     fn process(&mut self, value: &Value) {
-        match value {
-            Value::Unsigned(value) => {
-                self.counter.process(*value);
-                self.size.process(*value);
-            }
-            Value::UnsignedWord(value) => {
-                self.counter.process(value.get());
-                self.size.process(value.get());
-            }
-            _ => {
-                panic!("Value type doesn't correspond to property");
-            }
+        if let Value::Unsigned(value) = value {
+            self.counter.process(*value);
+            self.size.process(*value);
+        } else {
+            panic!("Value type doesn't correspond to property");
         }
     }
 
     pub fn absorb(&self, v: u64) -> Value {
         Value::Unsigned(v)
-    }
-
-    pub fn absorb_word(&self, v: Word<u64>) -> Value {
-        Value::UnsignedWord(Box::new(v))
     }
 
     fn finalize<PN: PropertyName>(self, name: PN) -> layout::Property<PN> {
@@ -136,27 +125,16 @@ pub struct SignedInt {
 
 impl SignedInt {
     fn process(&mut self, value: &Value) {
-        match value {
-            Value::Signed(value) => {
-                self.counter.process(*value);
-                self.size.process(*value);
-            }
-            Value::SignedWord(value) => {
-                self.counter.process(value.get());
-                self.size.process(value.get());
-            }
-            _ => {
-                panic!("Value type doesn't correspond to property");
-            }
+        if let Value::Signed(value) = value {
+            self.counter.process(*value);
+            self.size.process(*value);
+        } else {
+            panic!("Value type doesn't correspond to property");
         }
     }
 
     pub fn absorb(&self, v: i64) -> Value {
         Value::Signed(v)
-    }
-
-    pub fn absorb_word(&self, v: Word<i64>) -> Value {
-        Value::SignedWord(Box::new(v))
     }
 
     fn finalize<PN: PropertyName>(self, name: PN) -> layout::Property<PN> {

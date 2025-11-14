@@ -128,36 +128,30 @@ impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
                             panic!("Invalid value type");
                         }
                     }
-                    schema::Property::UnsignedInt(prop, name) => match self
-                        .values
-                        .remove(name)
-                        .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()))
-                    {
-                        common::Value::Unsigned(v) => {
+                    schema::Property::UnsignedInt(prop, name) => {
+                        let value = self
+                            .values
+                            .remove(name)
+                            .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
+
+                        if let common::Value::Unsigned(v) = value {
                             return Some((*name, prop.absorb(v)));
-                        }
-                        common::Value::UnsignedWord(v) => {
-                            return Some((*name, prop.absorb_word(v)));
-                        }
-                        _ => {
+                        } else {
                             panic!("Invalid value type");
                         }
-                    },
-                    schema::Property::SignedInt(prop, name) => match self
-                        .values
-                        .remove(name)
-                        .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()))
-                    {
-                        common::Value::Signed(v) => {
+                    }
+                    schema::Property::SignedInt(prop, name) => {
+                        let value = self
+                            .values
+                            .remove(name)
+                            .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
+
+                        if let common::Value::Signed(v) = value {
                             return Some((*name, prop.absorb(v)));
-                        }
-                        common::Value::SignedWord(v) => {
-                            return Some((*name, prop.absorb_word(v)));
-                        }
-                        _ => {
+                        } else {
                             panic!("Invalid value type");
                         }
-                    },
+                    }
                     schema::Property::ContentAddress(prop, name) => {
                         let value = self
                             .values
@@ -246,7 +240,7 @@ struct Index {
     index_key: PropertyIdx,
     name: String,
     count: EntryCount,
-    offset: Word<EntryIdx>,
+    offset: EntryIdx,
 }
 
 impl Index {
@@ -256,7 +250,7 @@ impl Index {
         index_key: PropertyIdx,
         store_id: EntryStoreIdx,
         count: EntryCount,
-        offset: Word<EntryIdx>,
+        offset: EntryIdx,
     ) -> Self {
         Index {
             store_id,
@@ -277,7 +271,7 @@ impl super::private::WritableTell for Index {
     fn serialize_tail(&mut self, ser: &mut Serializer) -> IoResult<()> {
         self.store_id.serialize(ser)?;
         self.count.serialize(ser)?;
-        self.offset.get().serialize(ser)?;
+        self.offset.serialize(ser)?;
         self.free_data.serialize(ser)?;
         self.index_key.serialize(ser)?;
         PString::serialize_string(&self.name, ser)?;

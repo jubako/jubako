@@ -184,13 +184,6 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                             written += ser.write_usized(*value, *size)?;
                         }
                     }
-                    Value::UnsignedWord(value) => {
-                        if let Some(d) = default {
-                            assert_eq!(*d, value.get());
-                        } else {
-                            written += ser.write_usized(value.get(), *size)?;
-                        }
-                    }
                     _ => {
                         return Err(Error::wrong_type(format!(
                             "Value type for {} is not compatible with unsigned integer",
@@ -208,13 +201,6 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                             assert_eq!(d, value);
                         } else {
                             written += ser.write_isized(*value, *size)?;
-                        }
-                    }
-                    Value::SignedWord(value) => {
-                        if let Some(d) = default {
-                            assert_eq!(*d, value.get());
-                        } else {
-                            written += ser.write_isized(value.get(), *size)?;
                         }
                     }
                     _ => {

@@ -152,7 +152,7 @@ fn create_directory_pack(
         0.into(),
         entry_store_idx,
         (entries.len() as u32).into(),
-        jubako::EntryIdx::from(0).into(),
+        jubako::EntryIdx::from(0),
     );
 
     let mut directory_file = OpenOptions::new()

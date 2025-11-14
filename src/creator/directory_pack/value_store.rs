@@ -59,22 +59,6 @@ impl PartialEq for ValueHandle {
     }
 }
 
-impl From<ValueHandle> for Word<u64> {
-    fn from(value_handle: ValueHandle) -> Self {
-        let func: Box<dyn Fn() -> u64 + Sync + Send> = match value_handle.store.take() {
-            None => {
-                let idx = value_handle.idx.get();
-                Box::new(move || idx)
-            }
-            Some(store) => {
-                let idx = value_handle.idx.get() as usize;
-                Box::new(move || store.get(idx).into_u64())
-            }
-        };
-        func.into()
-    }
-}
-
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct StoreHandle(Arc<RwLock<ValueStore>>);

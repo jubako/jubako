@@ -6,7 +6,5 @@ pub enum Value {
     Content(ContentAddress),
     Unsigned(u64),
     Signed(i64),
-    UnsignedWord(Word<u64>),
-    SignedWord(Word<i64>),
     Array(SmallBytes),
 }

@@ -49,7 +49,7 @@ impl DirectoryPackCreator {
         index_key: PropertyIdx,
         store_id: EntryStoreIdx,
         count: EntryCount,
-        offset: Word<EntryIdx>,
+        offset: EntryIdx,
     ) {
         let index = Index::new(name, free_data, index_key, store_id, count, offset);
         self.indexes.push(index);

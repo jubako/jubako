@@ -1,5 +1,4 @@
 use super::ValueHandle;
-use crate::bases::*;
 use crate::common::ContentAddress;
 use std::cmp;
 
@@ -73,8 +72,6 @@ pub enum Value {
     Content(ContentAddress),
     Unsigned(u64),
     Signed(i64),
-    UnsignedWord(Box<Word<u64>>),
-    SignedWord(Box<Word<i64>>),
     IndirectArray(Box<ValueHandle>),
     Array0(Box<ArrayS<0>>),
     Array1(Box<ArrayS<1>>),
@@ -88,22 +85,10 @@ impl PartialOrd for Value {
             Value::Content(_) => None,
             Value::Unsigned(v) => match other {
                 Value::Unsigned(o) => Some(v.cmp(o)),
-                Value::UnsignedWord(o) => Some(v.cmp(&o.get())),
                 _ => None,
             },
             Value::Signed(v) => match other {
                 Value::Signed(o) => Some(v.cmp(o)),
-                Value::SignedWord(o) => Some(v.cmp(&o.get())),
-                _ => None,
-            },
-            Value::UnsignedWord(v) => match other {
-                Value::Unsigned(o) => Some(v.get().cmp(o)),
-                Value::UnsignedWord(o) => Some(v.get().cmp(&o.get())),
-                _ => None,
-            },
-            Value::SignedWord(v) => match other {
-                Value::Signed(o) => Some(v.get().cmp(o)),
-                Value::SignedWord(o) => Some(v.get().cmp(&o.get())),
                 _ => None,
             },
             Value::Array(v) => match other {

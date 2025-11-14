@@ -2,7 +2,7 @@ mod properties;
 mod property;
 
 pub use properties::{CommonProperties, VariantProperties};
-pub use property::Property;
+pub use property::{Array, ContentAddress, IndirectArray, Property, SignedInt, UnsignedInt};
 use std::collections::HashMap;
 
 use super::{layout, EntryTrait, PropertyName, StoreHandle, Value, ValueStoreKind, VariantName};
