@@ -21,9 +21,6 @@ pub trait EntryTrait<PN: PropertyName, VN: VariantName> {
     fn variant_name(&self) -> Option<VN>;
     fn value(&self, name: &PN) -> common::Value;
     fn value_count(&self) -> PropertyCount;
-}
-
-pub trait FullEntryTrait<PN: PropertyName, VN: VariantName>: EntryTrait<PN, VN> + Send {
     fn compare<'i, I>(&self, sort_keys: &'i I, other: &Self) -> std::cmp::Ordering
     where
         I: IntoIterator<Item = &'i PN> + Copy,

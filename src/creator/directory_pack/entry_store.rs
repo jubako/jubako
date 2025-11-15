@@ -39,17 +39,6 @@ where
     VN: VariantName + std::fmt::Debug + Sync + 'static,
 {
     fn finalize(self: Box<Self>) -> Box<dyn WritableTell> {
-        /* [TODO] Move into schema process_entries
-                if let Some(keys) = &self.schema.sort_keys {
-                    if !self
-                        .entries
-                        .windows(2)
-                        .all(|w| w[0].compare(&keys, &w[1]).is_le())
-                    {
-                        panic!("Entry store is not sorted");
-                    }
-                }
-        */
         debug!("Schema is {:#?}", self.schema);
 
         let layout = self.schema.finalize();
