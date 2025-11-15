@@ -2,7 +2,7 @@ use super::schema;
 use super::{PropertyName, VariantName};
 use crate::bases::*;
 use crate::creator::private::WritableTell;
-use crate::creator::{BasicEntry, EntryTrait, Result};
+use crate::creator::{EntryTrait, ProcessedEntry, Result};
 
 use log::debug;
 
@@ -11,7 +11,7 @@ where
     PN: PropertyName,
     VN: VariantName,
 {
-    entries: Vec<BasicEntry<VN>>,
+    entries: Vec<ProcessedEntry<VN>>,
     pub schema: schema::Schema<PN, VN>,
 }
 
@@ -54,7 +54,7 @@ struct FinalEntryStore<PN, VN, Store>
 where
     PN: PropertyName,
     VN: VariantName,
-    Store: Iterator<Item = BasicEntry<VN>>,
+    Store: Iterator<Item = ProcessedEntry<VN>>,
 {
     entry_count: u32,
     entries: Store,
@@ -65,7 +65,7 @@ impl<PN, VN, Store> WritableTell for FinalEntryStore<PN, VN, Store>
 where
     PN: PropertyName + std::fmt::Debug,
     VN: VariantName + std::fmt::Debug,
-    Store: Iterator<Item = BasicEntry<VN>>,
+    Store: Iterator<Item = ProcessedEntry<VN>>,
 {
     fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
         // [TODO] Handle per entry CRC32

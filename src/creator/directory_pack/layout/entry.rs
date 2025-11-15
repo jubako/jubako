@@ -2,7 +2,7 @@ use super::super::{PropertyName, VariantName};
 use super::properties::Properties;
 use crate::bases::Serializable;
 use crate::bases::*;
-use crate::creator::{BasicEntry, Result};
+use crate::creator::{ProcessedEntry, Result};
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -14,7 +14,11 @@ pub(crate) struct Entry<PN: PropertyName, VN: VariantName> {
 }
 
 impl<PN: PropertyName, VN: VariantName> Entry<PN, VN> {
-    pub fn serialize_entry(&self, entry: &BasicEntry<VN>, ser: &mut Serializer) -> Result<usize> {
+    pub fn serialize_entry(
+        &self,
+        entry: &ProcessedEntry<VN>,
+        ser: &mut Serializer,
+    ) -> Result<usize> {
         assert!(self.variants.is_empty() == entry.variant_name.is_none());
         let written = if self.variants.is_empty() {
             Properties::serialize_entry(self.common.iter(), None, &entry.values, ser)?

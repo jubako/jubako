@@ -42,7 +42,7 @@ pub trait EntryTrait<PN: PropertyName, VN: VariantName> {
 }
 
 #[derive(Debug)]
-pub struct BasicEntry<VN> {
+pub struct ProcessedEntry<VN> {
     variant_name: Option<VN>,
     values: Box<[Value]>,
 }
