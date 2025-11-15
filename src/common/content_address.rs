@@ -15,3 +15,9 @@ impl ContentAddress {
         }
     }
 }
+
+impl PartialOrd for ContentAddress {
+    fn partial_cmp(&self, _other: &Self) -> Option<std::cmp::Ordering> {
+        None
+    }
+}

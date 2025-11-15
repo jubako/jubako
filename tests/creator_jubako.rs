@@ -105,6 +105,24 @@ fn create_directory_pack(
     entries: &[TestEntry],
     outfile: &Path,
 ) -> Result<(creator::PackData, jubako::Reader)> {
+    struct SimpleEntry {
+        values: HashMap<&'static str, jubako::Value>,
+    }
+
+    impl creator::EntryTrait<&'static str, &'static str> for SimpleEntry {
+        fn variant_name(&self) -> Option<&'static str> {
+            None
+        }
+
+        fn value(&self, name: &&'static str) -> jubako::Value {
+            self.values[name].clone()
+        }
+
+        fn value_count(&self) -> jubako::PropertyCount {
+            jubako::PropertyCount::from(self.values.len() as u8)
+        }
+    }
+
     let mut creator = creator::DirectoryPackCreator::new(
         jubako::PackId::from(1),
         jubako::VendorId::from([1, 0, 0, 0]),
@@ -115,7 +133,7 @@ fn create_directory_pack(
         ValueStoreKindParam::Indexed => creator::ValueStore::new_indexed(),
     };
     creator.add_value_store(value_store.clone());
-    let mut entry_def = schema::Schema::<&str, &str>::new(
+    let entry_def = schema::Schema::<&str, &str>::new(
         schema::CommonProperties::new(vec![
             schema::Property::new_array(0, value_store, "V0"),
             schema::Property::new_content_address("V1"),
@@ -127,10 +145,8 @@ fn create_directory_pack(
 
     let mut entry_store = Vec::new();
     for (idx, entry) in entries.iter().enumerate() {
-        entry_store.push(creator::BasicEntry::new_from_schema(
-            &mut entry_def,
-            None,
-            HashMap::from([
+        entry_store.push(SimpleEntry {
+            values: HashMap::from([
                 ("V0", jubako::Value::Array(entry.path.as_bytes().into())),
                 (
                     "V1",
@@ -141,7 +157,7 @@ fn create_directory_pack(
                 ),
                 ("V2", jubako::Value::Unsigned(entry.word_count as u64)),
             ]),
-        ));
+        });
     }
 
     let entry_store = jubako::creator::EntryStore::new(entry_def, entry_store);

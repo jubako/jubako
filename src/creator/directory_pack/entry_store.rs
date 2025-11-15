@@ -2,7 +2,7 @@ use super::schema;
 use super::{PropertyName, VariantName};
 use crate::bases::*;
 use crate::creator::private::WritableTell;
-use crate::creator::{BasicEntry, Result};
+use crate::creator::{BasicEntry, EntryTrait, Result};
 
 use log::debug;
 
@@ -20,7 +20,11 @@ where
     PN: PropertyName,
     VN: VariantName,
 {
-    pub fn new(schema: schema::Schema<PN, VN>, entries: Vec<BasicEntry<VN>>) -> Self {
+    pub fn new<Entry: EntryTrait<PN, VN>>(
+        mut schema: schema::Schema<PN, VN>,
+        entries: Vec<Entry>,
+    ) -> Self {
+        let entries = schema.process_entries(entries);
         Self { entries, schema }
     }
 }

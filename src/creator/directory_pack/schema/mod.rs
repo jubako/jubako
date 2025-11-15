@@ -5,7 +5,9 @@ pub use properties::{CommonProperties, VariantProperties};
 pub use property::{Array, ContentAddress, IndirectArray, Property, SignedInt, UnsignedInt};
 use std::collections::HashMap;
 
-use super::{layout, PropertyName, StoreHandle, Value, ValueStoreKind, VariantName};
+use crate::creator::{directory_pack::ValueTransformer, BasicEntry};
+
+use super::{layout, EntryTrait, PropertyName, StoreHandle, Value, ValueStoreKind, VariantName};
 use properties::Properties;
 
 #[derive(Debug)]
@@ -29,6 +31,22 @@ impl<PN: PropertyName, VN: VariantName> Schema<PN, VN> {
                 .collect(),
             sort_keys,
         }
+    }
+
+    pub fn build_entry(&mut self, entry: impl EntryTrait<PN, VN>) -> BasicEntry<VN> {
+        let variant_name = entry.variant_name();
+        let value_transformer = ValueTransformer::new(self, entry);
+        BasicEntry {
+            variant_name,
+            values: value_transformer.collect::<Vec<_>>().into(),
+        }
+    }
+
+    pub(crate) fn process_entries(
+        &mut self,
+        entries: Vec<impl EntryTrait<PN, VN>>,
+    ) -> Vec<BasicEntry<VN>> {
+        entries.into_iter().map(|e| self.build_entry(e)).collect()
     }
 
     pub(crate) fn finalize(self) -> layout::Entry<PN, VN> {

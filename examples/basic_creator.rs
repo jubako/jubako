@@ -1,6 +1,6 @@
 use jbk::creator::EntryStoreTrait;
-use jubako as jbk;
-use jubako::creator::schema;
+use jubako::creator::{schema, EntryTrait};
+use jubako::{self as jbk};
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
@@ -16,16 +16,31 @@ type PropertyName = &'static str;
 // More complex application may want to use a enum instead.
 type VariantName = &'static str;
 
-// Our creator is really a simple one. Let's use the BasicEntry provided by jubako.
-// More complex application may want to use its own entry structure (implementing right trait)
-type EntryType = jbk::creator::BasicEntry<VariantName>;
-
 // Entries in a entry store have a fixed size. So strings (which have variable size) must be store elsewhere.
 // This elsewhere is a ValueStore.
 struct CustomEntryStore {
     value_store: jbk::creator::StoreHandle,
     schema: schema::Schema<PropertyName, VariantName>,
-    entry_store: Vec<EntryType>,
+    entry_store: Vec<SimpleEntry>,
+}
+
+struct SimpleEntry {
+    variant_name: VariantName,
+    values: HashMap<PropertyName, jbk::Value>,
+}
+
+impl EntryTrait<PropertyName, VariantName> for SimpleEntry {
+    fn variant_name(&self) -> Option<VariantName> {
+        Some(self.variant_name)
+    }
+
+    fn value(&self, name: &PropertyName) -> jbk::Value {
+        self.values[name].clone()
+    }
+
+    fn value_count(&self) -> jubako::PropertyCount {
+        jbk::PropertyCount::from(self.values.len() as u8)
+    }
 }
 
 impl CustomEntryStore {
@@ -64,11 +79,7 @@ impl CustomEntryStore {
         }
     }
 
-    fn add_entry(
-        &mut self,
-        variant_name: Option<VariantName>,
-        values: HashMap<PropertyName, jbk::Value>,
-    ) {
+    fn add_entry(&mut self, entry: SimpleEntry) {
         // We have to create a EntryType from our values.
         // To do so, we would have to preprocess the values :
         // - add the `AString` value to the value_store and store only the idx of the value in the value store.
@@ -77,7 +88,6 @@ impl CustomEntryStore {
         // - Be sure that values match the properties declared in the schema for the given property
         // Hopefully, `new_from_schema` does this for us.
         // It panics if values don't match the schema/variant.
-        let entry = EntryType::new_from_schema(&mut self.schema, variant_name, values);
         self.entry_store.push(entry);
     }
 }
@@ -124,32 +134,32 @@ fn main() -> Result<(), Box<dyn Error>> {
     let content: Vec<u8> = "A super content prime quality for our test container".into();
     let content_address =
         creator.add_content(Box::new(std::io::Cursor::new(content)), Default::default())?;
-    entry_store.add_entry(
-        Some("FirstVariant"),
-        HashMap::from([
+    entry_store.add_entry(SimpleEntry {
+        variant_name: "FirstVariant",
+        values: HashMap::from([
             ("AString", jbk::Value::Array("Super".into())),
             ("AInteger", jbk::Value::Unsigned(50)),
             ("TheContent", jbk::Value::Content(content_address)),
         ]),
-    );
+    });
 
-    entry_store.add_entry(
-        Some("SecondVariant"),
-        HashMap::from([
+    entry_store.add_entry(SimpleEntry {
+        variant_name: "SecondVariant",
+        values: HashMap::from([
             ("AString", jbk::Value::Array("Mega".into())),
             ("AInteger", jbk::Value::Unsigned(42)),
             ("AnotherInt", jbk::Value::Unsigned(5)),
         ]),
-    );
+    });
 
-    entry_store.add_entry(
-        Some("SecondVariant"),
-        HashMap::from([
+    entry_store.add_entry(SimpleEntry {
+        variant_name: "SecondVariant",
+        values: HashMap::from([
             ("AString", jbk::Value::Array("Hyper".into())),
             ("AInteger", jbk::Value::Unsigned(45)),
             ("AnotherInt", jbk::Value::Unsigned(2)),
         ]),
-    );
+    });
 
     Ok(creator.finalize(entry_store, vec![])?)
 
