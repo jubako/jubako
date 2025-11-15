@@ -56,7 +56,7 @@ pub struct BasicEntry<PN, VN> {
 /// For example, it replace a array value (&[u8]) to a
 /// creator::Value::Array(base_array + idx to value stored in value_store)
 pub(crate) struct ValueTransformer<'a, PN: PropertyName> {
-    keys: Box<dyn Iterator<Item = &'a schema::Property<PN>> + 'a>,
+    keys: Box<dyn Iterator<Item = &'a mut schema::Property<PN>> + 'a>,
     values: HashMap<PN, common::Value>,
 }
 
@@ -67,23 +67,23 @@ impl<'a, PN: PropertyName> ValueTransformer<'a, PN> {
     /// - values hashmap must contains values corresponding to the properties
     ///   declared in the schema (variant).
     pub fn new<VN: VariantName>(
-        schema: &'a schema::Schema<PN, VN>,
+        schema: &'a mut schema::Schema<PN, VN>,
         variant_name: &Option<VN>,
         values: HashMap<PN, common::Value>,
     ) -> Self {
         let keys: Option<Box<dyn Iterator<Item = _>>> = if schema.variants.is_empty() {
-            Some(Box::new(schema.common.iter()))
+            Some(Box::new(schema.common.iter_mut()))
         } else {
             let variant_name = variant_name.as_ref().unwrap();
-            schema.variants.iter().find_map(|(n, v)| {
-                if n == variant_name {
-                    let keys = Box::new(schema.common.iter().chain(v.iter()))
-                        as Box<dyn Iterator<Item = _>>;
-                    Some(keys)
-                } else {
-                    None
-                }
-            })
+            let common = &mut schema.common;
+            let variant = schema.variants.iter_mut().find(|(n, _)| n == variant_name);
+            if let Some((_, v)) = variant {
+                let keys =
+                    Box::new(common.iter_mut().chain(v.iter_mut())) as Box<dyn Iterator<Item = _>>;
+                Some(keys)
+            } else {
+                None
+            }
         };
 
         if let Some(keys) = keys {
@@ -105,7 +105,7 @@ impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
         loop {
             match self.keys.next() {
                 None => return None,
-                Some(key) => match key {
+                Some(ref mut key) => match key {
                     schema::Property::Array(prop, name) => {
                         let value = self
                             .values
@@ -172,7 +172,7 @@ impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
 
 impl<PN: PropertyName, VN: VariantName> BasicEntry<PN, VN> {
     pub fn new_from_schema(
-        schema: &schema::Schema<PN, VN>,
+        schema: &mut schema::Schema<PN, VN>,
         variant_name: Option<VN>,
         values: HashMap<PN, common::Value>,
     ) -> Self {

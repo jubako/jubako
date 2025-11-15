@@ -5,7 +5,7 @@ pub use properties::{CommonProperties, VariantProperties};
 pub use property::{Array, ContentAddress, IndirectArray, Property, SignedInt, UnsignedInt};
 use std::collections::HashMap;
 
-use super::{layout, EntryTrait, PropertyName, StoreHandle, Value, ValueStoreKind, VariantName};
+use super::{layout, PropertyName, StoreHandle, Value, ValueStoreKind, VariantName};
 use properties::Properties;
 
 #[derive(Debug)]
@@ -28,18 +28,6 @@ impl<PN: PropertyName, VN: VariantName> Schema<PN, VN> {
                 .map(|(n, p)| (n, Properties::from(p)))
                 .collect(),
             sort_keys,
-        }
-    }
-
-    pub(crate) fn process(&mut self, entry: &dyn EntryTrait<PN, VN>) {
-        self.common.process(entry);
-        if let Some(variant_name) = entry.variant_name() {
-            for (n, p) in &mut self.variants {
-                if n == variant_name.as_ref() {
-                    p.process(entry);
-                    break;
-                }
-            }
         }
     }
 

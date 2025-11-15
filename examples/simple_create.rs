@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Let's define our entry schema. We will have two variants (named `FirstVariant` and `SecondVariant`).
     // Variants will have two properties in common (`AString` and `AInteger`).
-    let entry_def = schema::Schema::new(
+    let mut entry_def = schema::Schema::new(
         schema::CommonProperties::new(vec![
             schema::Property::new_array(0, value_store.clone(), "AString"), // One string, will be stored in value_store
             schema::Property::new_uint("AInteger"),                         // A integer
@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Hopefully, `new_from_schema` does this for us.
     // It panics if values don't match the schema/variant.
     entry_store.push(jbk::creator::BasicEntry::new_from_schema(
-        &entry_def,
+        &mut entry_def,
         Some("FirstVariant"), // Variant 0
         HashMap::from([
             ("AString", jbk::Value::Array("Super".into())),
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Now we add our two other entries. We don't have content in the second variant
     // so we can directly add the entries to the entry_ store.
     entry_store.push(jbk::creator::BasicEntry::new_from_schema(
-        &entry_def,
+        &mut entry_def,
         Some("SecondVariant"),
         HashMap::from([
             ("AString", jbk::Value::Array("Mega".into())),
@@ -91,7 +91,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     ));
 
     entry_store.push(jbk::creator::BasicEntry::new_from_schema(
-        &entry_def,
+        &mut entry_def,
         Some("SecondVariant"),
         HashMap::from([
             ("AString", jbk::Value::Array("Hyper".into())),

@@ -77,7 +77,7 @@ impl CustomEntryStore {
         // - Be sure that values match the properties declared in the schema for the given property
         // Hopefully, `new_from_schema` does this for us.
         // It panics if values don't match the schema/variant.
-        let entry = EntryType::new_from_schema(&self.schema, variant_name, values);
+        let entry = EntryType::new_from_schema(&mut self.schema, variant_name, values);
         self.entry_store.push(entry);
     }
 }

@@ -37,7 +37,7 @@ where
     VN: VariantName + std::fmt::Debug + Sync + 'static,
     Entry: FullEntryTrait<PN, VN> + Send + 'static,
 {
-    fn finalize(mut self: Box<Self>) -> Box<dyn WritableTell> {
+    fn finalize(self: Box<Self>) -> Box<dyn WritableTell> {
         if let Some(keys) = &self.schema.sort_keys {
             if !self
                 .entries
@@ -46,9 +46,6 @@ where
             {
                 panic!("Entry store is not sorted");
             }
-        }
-        for entry in &mut self.entries {
-            self.schema.process(entry);
         }
 
         debug!("Schema is {:#?}", self.schema);

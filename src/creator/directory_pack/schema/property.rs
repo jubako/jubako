@@ -1,5 +1,5 @@
 use super::super::layout;
-use super::{EntryTrait, PropertyName, StoreHandle, Value, ValueStoreKind, VariantName};
+use super::{PropertyName, StoreHandle, Value, ValueStoreKind};
 use crate::bases::*;
 use std::cmp;
 
@@ -95,16 +95,13 @@ pub struct UnsignedInt {
 }
 
 impl UnsignedInt {
-    fn process(&mut self, value: &Value) {
-        if let Value::Unsigned(value) = value {
-            self.counter.process(*value);
-            self.size.process(*value);
-        } else {
-            panic!("Value type doesn't correspond to property");
-        }
+    pub fn new() -> Self {
+        Default::default()
     }
 
-    pub fn absorb(&self, v: u64) -> Value {
+    pub fn absorb(&mut self, v: u64) -> Value {
+        self.counter.process(v);
+        self.size.process(v);
         Value::Unsigned(v)
     }
 
@@ -124,16 +121,13 @@ pub struct SignedInt {
 }
 
 impl SignedInt {
-    fn process(&mut self, value: &Value) {
-        if let Value::Signed(value) = value {
-            self.counter.process(*value);
-            self.size.process(*value);
-        } else {
-            panic!("Value type doesn't correspond to property");
-        }
+    pub fn new() -> Self {
+        Default::default()
     }
 
-    pub fn absorb(&self, v: i64) -> Value {
+    pub fn absorb(&mut self, v: i64) -> Value {
+        self.counter.process(v);
+        self.size.process(v);
         Value::Signed(v)
     }
 
@@ -153,25 +147,21 @@ pub struct Array {
 }
 
 impl Array {
-    fn process(&mut self, value: &Value) {
-        let array_size = match value {
-            Value::Array(a) => a.size,
-            Value::Array0(a) => a.size,
-            Value::Array1(a) => a.size,
-            Value::Array2(a) => a.size,
-            _ => {
-                panic!("Value type doesn't correspond to property");
-            }
-        };
-        assert!(array_size <= 0x00FFFFFF_usize);
-        self.max_array_size.process(array_size);
+    pub fn new(fixed_array_len: usize, store_handle: &StoreHandle) -> Self {
+        Self {
+            max_array_size: Default::default(),
+            fixed_array_len,
+            store_handle: store_handle.clone(),
+        }
     }
 
-    pub fn absorb(&self, data: SmallBytes) -> Value {
+    pub fn absorb(&mut self, data: SmallBytes) -> Value {
         use super::super::value::{Array, ArrayS};
         let size = data.len();
         let (data, to_store) = data.split_at(cmp::min(self.fixed_array_len, data.len()));
         let value_id = self.store_handle.add_value(to_store);
+        assert!(size <= 0x00FFFFFF_usize);
+        self.max_array_size.process(size);
         match data.len() {
             0 => Value::Array0(Box::new(ArrayS::<0> {
                 size,
@@ -211,9 +201,11 @@ pub struct IndirectArray {
     store_handle: StoreHandle,
 }
 impl IndirectArray {
-    fn process(&mut self, _value: &Value) {}
+    pub fn new(store_handle: StoreHandle) -> Self {
+        Self { store_handle }
+    }
 
-    pub fn absorb(&self, data: SmallBytes) -> Value {
+    pub fn absorb(&mut self, data: SmallBytes) -> Value {
         let value_id = self.store_handle.add_value(data);
         Value::IndirectArray(Box::new(value_id))
     }
@@ -234,17 +226,10 @@ pub struct ContentAddress {
     content_id_size: PropertySize<u32>,
 }
 impl ContentAddress {
-    fn process(&mut self, value: &Value) {
-        if let Value::Content(c) = value {
-            self.pack_id_counter.process(c.pack_id.into_u16());
-            self.pack_id_size.process(c.pack_id.into_u16());
-            self.content_id_size.process(c.content_id.into_u32());
-        } else {
-            panic!("Value type doesn't correspond to property");
-        }
-    }
-
-    pub fn absorb(&self, v: crate::common::ContentAddress) -> Value {
+    pub fn absorb(&mut self, v: crate::common::ContentAddress) -> Value {
+        self.pack_id_counter.process(v.pack_id.into_u16());
+        self.pack_id_size.process(v.pack_id.into_u16());
+        self.content_id_size.process(v.content_id.into_u32());
         Value::Content(v)
     }
 
@@ -347,19 +332,6 @@ impl<PN: PropertyName> Property<PN> {
 
     pub fn new_content_address(name: PN) -> Self {
         Property::ContentAddress(Default::default(), name)
-    }
-
-    pub(crate) fn process<VN: VariantName>(&mut self, entry: &dyn EntryTrait<PN, VN>) {
-        match self {
-            Self::UnsignedInt(prop, name) => prop.process(entry.value(name).as_ref()),
-            Self::SignedInt(prop, name) => prop.process(entry.value(name).as_ref()),
-            Self::ContentAddress(prop, name) => prop.process(entry.value(name).as_ref()),
-            Self::Array(prop, name) => prop.process(entry.value(name).as_ref()),
-            Self::IndirectArray(prop, name) => prop.process(entry.value(name).as_ref()),
-            Self::Padding(_) => {
-                panic!("Padding cannot process a value");
-            }
-        }
     }
 
     pub(crate) fn finalize(self) -> layout::Property<PN> {

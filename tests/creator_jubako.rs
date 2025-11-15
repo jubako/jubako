@@ -115,7 +115,7 @@ fn create_directory_pack(
         ValueStoreKindParam::Indexed => creator::ValueStore::new_indexed(),
     };
     creator.add_value_store(value_store.clone());
-    let entry_def = schema::Schema::<&str, &str>::new(
+    let mut entry_def = schema::Schema::<&str, &str>::new(
         schema::CommonProperties::new(vec![
             schema::Property::new_array(0, value_store, "V0"),
             schema::Property::new_content_address("V1"),
@@ -128,7 +128,7 @@ fn create_directory_pack(
     let mut entry_store = Vec::new();
     for (idx, entry) in entries.iter().enumerate() {
         entry_store.push(creator::BasicEntry::new_from_schema(
-            &entry_def,
+            &mut entry_def,
             None,
             HashMap::from([
                 ("V0", jubako::Value::Array(entry.path.as_bytes().into())),
