@@ -18,7 +18,7 @@ type VariantName = &'static str;
 
 // Our creator is really a simple one. Let's use the BasicEntry provided by jubako.
 // More complex application may want to use its own entry structure (implementing right trait)
-type EntryType = jbk::creator::BasicEntry<PropertyName, VariantName>;
+type EntryType = jbk::creator::BasicEntry<VariantName>;
 
 // Entries in a entry store have a fixed size. So strings (which have variable size) must be store elsewhere.
 // This elsewhere is a ValueStore.

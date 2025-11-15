@@ -1,28 +1,26 @@
 use super::schema;
-use super::{FullEntryTrait, PropertyName, VariantName};
+use super::{PropertyName, VariantName};
 use crate::bases::*;
 use crate::creator::private::WritableTell;
-use crate::creator::Result;
+use crate::creator::{BasicEntry, Result};
 
 use log::debug;
 
-pub struct EntryStore<PN, VN, Entry>
+pub struct EntryStore<PN, VN>
 where
     PN: PropertyName,
     VN: VariantName,
-    Entry: FullEntryTrait<PN, VN>,
 {
-    entries: Vec<Entry>,
+    entries: Vec<BasicEntry<VN>>,
     pub schema: schema::Schema<PN, VN>,
 }
 
-impl<PN, VN, Entry> EntryStore<PN, VN, Entry>
+impl<PN, VN> EntryStore<PN, VN>
 where
     PN: PropertyName,
     VN: VariantName,
-    Entry: FullEntryTrait<PN, VN>,
 {
-    pub fn new(schema: schema::Schema<PN, VN>, entries: Vec<Entry>) -> Self {
+    pub fn new(schema: schema::Schema<PN, VN>, entries: Vec<BasicEntry<VN>>) -> Self {
         Self { entries, schema }
     }
 }
@@ -31,23 +29,23 @@ pub trait EntryStoreTrait {
     fn finalize(self: Box<Self>) -> Box<dyn WritableTell>;
 }
 
-impl<PN, VN, Entry> EntryStoreTrait for EntryStore<PN, VN, Entry>
+impl<PN, VN> EntryStoreTrait for EntryStore<PN, VN>
 where
     PN: PropertyName + std::fmt::Debug + Sync,
     VN: VariantName + std::fmt::Debug + Sync + 'static,
-    Entry: FullEntryTrait<PN, VN> + Send + 'static,
 {
     fn finalize(self: Box<Self>) -> Box<dyn WritableTell> {
-        if let Some(keys) = &self.schema.sort_keys {
-            if !self
-                .entries
-                .windows(2)
-                .all(|w| w[0].compare(&keys, &w[1]).is_le())
-            {
-                panic!("Entry store is not sorted");
-            }
-        }
-
+        /* [TODO] Move into schema process_entries
+                if let Some(keys) = &self.schema.sort_keys {
+                    if !self
+                        .entries
+                        .windows(2)
+                        .all(|w| w[0].compare(&keys, &w[1]).is_le())
+                    {
+                        panic!("Entry store is not sorted");
+                    }
+                }
+        */
         debug!("Schema is {:#?}", self.schema);
 
         let layout = self.schema.finalize();
@@ -59,24 +57,22 @@ where
     }
 }
 
-struct FinalEntryStore<PN, VN, Entry, Store>
+struct FinalEntryStore<PN, VN, Store>
 where
     PN: PropertyName,
     VN: VariantName,
-    Entry: FullEntryTrait<PN, VN>,
-    Store: Iterator<Item = Entry>,
+    Store: Iterator<Item = BasicEntry<VN>>,
 {
     entry_count: u32,
     entries: Store,
     layout: super::layout::Entry<PN, VN>,
 }
 
-impl<PN, VN, Entry, Store> WritableTell for FinalEntryStore<PN, VN, Entry, Store>
+impl<PN, VN, Store> WritableTell for FinalEntryStore<PN, VN, Store>
 where
     PN: PropertyName + std::fmt::Debug,
     VN: VariantName + std::fmt::Debug,
-    Entry: FullEntryTrait<PN, VN>,
-    Store: Iterator<Item = Entry>,
+    Store: Iterator<Item = BasicEntry<VN>>,
 {
     fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
         // [TODO] Handle per entry CRC32

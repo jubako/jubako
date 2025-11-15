@@ -2,8 +2,7 @@ use super::super::{PropertyName, VariantName};
 use super::properties::Properties;
 use crate::bases::Serializable;
 use crate::bases::*;
-use crate::creator::directory_pack::EntryTrait;
-use crate::creator::Result;
+use crate::creator::{BasicEntry, Result};
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -15,21 +14,17 @@ pub(crate) struct Entry<PN: PropertyName, VN: VariantName> {
 }
 
 impl<PN: PropertyName, VN: VariantName> Entry<PN, VN> {
-    pub fn serialize_entry(
-        &self,
-        entry: &dyn EntryTrait<PN, VN>,
-        ser: &mut Serializer,
-    ) -> Result<usize> {
-        assert!(self.variants.is_empty() == entry.variant_name().is_none());
+    pub fn serialize_entry(&self, entry: &BasicEntry<VN>, ser: &mut Serializer) -> Result<usize> {
+        assert!(self.variants.is_empty() == entry.variant_name.is_none());
         let written = if self.variants.is_empty() {
-            Properties::serialize_entry(self.common.iter(), None, entry, ser)?
+            Properties::serialize_entry(self.common.iter(), None, &entry.values, ser)?
         } else {
-            let variant_id = self.variants_map[&entry.variant_name().unwrap()];
+            let variant_id = self.variants_map[&entry.variant_name.unwrap()];
             let mut keys = self
                 .common
                 .iter()
                 .chain(self.variants[variant_id.into_usize()].iter());
-            Properties::serialize_entry(&mut keys, Some(variant_id), entry, ser)?
+            Properties::serialize_entry(&mut keys, Some(variant_id), &entry.values, ser)?
         };
         assert_eq!(written, self.entry_size as usize);
         Ok(written)

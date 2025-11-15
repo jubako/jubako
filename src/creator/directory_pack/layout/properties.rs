@@ -1,9 +1,8 @@
-use super::super::{PropertyName, VariantName};
+use super::super::PropertyName;
 use super::property::Property;
 use super::Value;
 use crate::bases::Serializable;
 use crate::bases::*;
-use crate::creator::directory_pack::EntryTrait;
 use crate::creator::{Error, Result};
 
 #[derive(Debug)]
@@ -48,12 +47,13 @@ impl<PN: PropertyName> Properties<PN> {
 }
 
 impl<PN: PropertyName + 'static> Properties<PN> {
-    pub fn serialize_entry<'a, VN: VariantName>(
+    pub fn serialize_entry<'a>(
         keys: impl Iterator<Item = &'a Property<PN>>,
         variant_id: Option<VariantIdx>,
-        entry: &dyn EntryTrait<PN, VN>,
+        values: &[Value],
         ser: &mut Serializer,
     ) -> Result<usize> {
+        let mut values = values.iter();
         let mut written = 0;
         for key in keys {
             match key {
@@ -63,7 +63,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     deported_info,
                     name,
                 } => {
-                    match entry.value(name).as_ref() {
+                    match values.next().unwrap() {
                         Value::Array0(a) => {
                             if let Some(array_len_size) = array_len_size {
                                 written += ser.write_usized(a.size as u64, *array_len_size)?;
@@ -139,7 +139,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     value_id_size,
                     store_handle: _,
                     name,
-                } => match entry.value(name).as_ref() {
+                } => match values.next().unwrap() {
                     Value::IndirectArray(value_id) => {
                         written += ser.write_usized(value_id.get().into_u64(), *value_id_size)?;
                     }
@@ -155,7 +155,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     pack_id_size,
                     default,
                     name,
-                } => match entry.value(name).as_ref() {
+                } => match values.next().unwrap() {
                     Value::Content(value) => {
                         if let Some(d) = default {
                             assert_eq!(*d, value.pack_id.into_u16());
@@ -176,7 +176,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     size,
                     default,
                     name,
-                } => match entry.value(name).as_ref() {
+                } => match values.next().unwrap() {
                     Value::Unsigned(value) => {
                         if let Some(d) = default {
                             assert_eq!(d, value);
@@ -195,7 +195,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     size,
                     default,
                     name,
-                } => match entry.value(name).as_ref() {
+                } => match values.next().unwrap() {
                     Value::Signed(value) => {
                         if let Some(d) = default {
                             assert_eq!(d, value);

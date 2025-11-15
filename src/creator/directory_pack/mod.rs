@@ -45,9 +45,8 @@ pub trait FullEntryTrait<PN: PropertyName, VN: VariantName>: EntryTrait<PN, VN> 
 }
 
 #[derive(Debug)]
-pub struct BasicEntry<PN, VN> {
+pub struct BasicEntry<VN> {
     variant_name: Option<VN>,
-    names: Box<[PN]>,
     values: Box<[Value]>,
 }
 
@@ -99,7 +98,7 @@ impl<'a, PN: PropertyName> ValueTransformer<'a, PN> {
 }
 
 impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
-    type Item = (PN, Value);
+    type Item = Value;
     // Iter on all `common::Value` and produce `(PN, creator::Value)`
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -112,7 +111,7 @@ impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
                             .remove(name)
                             .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
                         if let common::Value::Array(data) = value {
-                            return Some((*name, prop.absorb(data)));
+                            return Some(prop.absorb(data));
                         } else {
                             panic!("Invalid value type");
                         }
@@ -123,7 +122,7 @@ impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
                             .remove(name)
                             .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
                         if let common::Value::Array(data) = value {
-                            return Some((*name, prop.absorb(data)));
+                            return Some(prop.absorb(data));
                         } else {
                             panic!("Invalid value type");
                         }
@@ -135,7 +134,7 @@ impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
                             .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
 
                         if let common::Value::Unsigned(v) = value {
-                            return Some((*name, prop.absorb(v)));
+                            return Some(prop.absorb(v));
                         } else {
                             panic!("Invalid value type");
                         }
@@ -147,7 +146,7 @@ impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
                             .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
 
                         if let common::Value::Signed(v) = value {
-                            return Some((*name, prop.absorb(v)));
+                            return Some(prop.absorb(v));
                         } else {
                             panic!("Invalid value type");
                         }
@@ -158,7 +157,7 @@ impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
                             .remove(name)
                             .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
                         if let common::Value::Content(v) = value {
-                            return Some((*name, prop.absorb(v)));
+                            return Some(prop.absorb(v));
                         } else {
                             panic!("Invalid value type");
                         }
@@ -170,8 +169,8 @@ impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
     }
 }
 
-impl<PN: PropertyName, VN: VariantName> BasicEntry<PN, VN> {
-    pub fn new_from_schema(
+impl<VN: VariantName> BasicEntry<VN> {
+    pub fn new_from_schema<PN: PropertyName>(
         schema: &mut schema::Schema<PN, VN>,
         variant_name: Option<VN>,
         values: HashMap<PN, common::Value>,
@@ -180,57 +179,11 @@ impl<PN: PropertyName, VN: VariantName> BasicEntry<PN, VN> {
         Self::new(variant_name, value_transformer.collect())
     }
 
-    pub(crate) fn new(variant_name: Option<VN>, values: HashMap<PN, Value>) -> Self {
-        let (names, values): (Vec<_>, Vec<_>) = values.into_iter().unzip();
+    pub(crate) fn new(variant_name: Option<VN>, values: Vec<Value>) -> Self {
         Self {
             variant_name,
-            names: names.into(),
             values: values.into(),
         }
-    }
-}
-
-impl<PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for BasicEntry<PN, VN> {
-    fn variant_name(&self) -> Option<MayRef<'_, VN>> {
-        self.variant_name.as_ref().map(MayRef::Borrowed)
-    }
-    fn value(&self, name: &PN) -> MayRef<'_, Value> {
-        match self.names.iter().position(|n| n == name) {
-            Some(i) => MayRef::Borrowed(&self.values[i]),
-            None => panic!("{} should be in entry", name.as_str()),
-        }
-    }
-    fn value_count(&self) -> PropertyCount {
-        (self.values.len() as u8).into()
-    }
-}
-
-impl<T, PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for Box<T>
-where
-    T: EntryTrait<PN, VN>,
-{
-    fn variant_name(&self) -> Option<MayRef<'_, VN>> {
-        T::variant_name(self)
-    }
-    fn value(&self, name: &PN) -> MayRef<'_, Value> {
-        T::value(self, name)
-    }
-    fn value_count(&self) -> PropertyCount {
-        T::value_count(self)
-    }
-}
-
-impl<PN: PropertyName, VN: VariantName> FullEntryTrait<PN, VN> for BasicEntry<PN, VN> {}
-
-impl<T, PN: PropertyName, VN: VariantName> FullEntryTrait<PN, VN> for Box<T>
-where
-    T: FullEntryTrait<PN, VN>,
-{
-    fn compare<'i, I>(&self, sort_keys: &'i I, other: &Self) -> std::cmp::Ordering
-    where
-        I: IntoIterator<Item = &'i PN> + Copy,
-    {
-        T::compare(self, sort_keys, other)
     }
 }
 
