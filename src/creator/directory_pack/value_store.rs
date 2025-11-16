@@ -220,6 +220,9 @@ pub struct PlainValueStore(BaseValueStore);
 
 impl PlainValueStore {
     pub(self) fn size(&self) -> Size {
+        if !self.0.finalized {
+            panic!("We can get plain value store size only on finalized store.");
+        }
         self.0.size
     }
 
