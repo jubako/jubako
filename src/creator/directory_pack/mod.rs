@@ -15,7 +15,7 @@ pub use entry_store::EntryStore;
 pub use simple_entry::SimpleEntry;
 use std::cmp::{self, PartialOrd};
 use std::marker::PhantomData;
-pub use value::{Array, ArrayS, Value};
+pub use value::{Array, ArrayS, ProcessedValue};
 pub(crate) use value_store::ValueStoreKind;
 pub use value_store::{StoreHandle, ValueHandle, ValueStore};
 
@@ -46,7 +46,7 @@ pub trait EntryTrait<PN: PropertyName, VN: VariantName> {
 #[derive(Debug)]
 pub struct ProcessedEntry<VN> {
     variant_name: Option<VN>,
-    values: Box<[Value]>,
+    values: Box<[ProcessedValue]>,
 }
 
 /// ValueTransformer is responsible to transform `common::Value` (used outside of Jubako)
@@ -106,7 +106,7 @@ impl<'a, PN: PropertyName, VN: VariantName, Entry: EntryTrait<PN, VN>>
 impl<PN: PropertyName, VN: VariantName, Entry: EntryTrait<PN, VN>> Iterator
     for ValueTransformer<'_, PN, VN, Entry>
 {
-    type Item = Value;
+    type Item = ProcessedValue;
     // Iter on all `common::Value` and produce `(PN, creator::Value)`
     fn next(&mut self) -> Option<Self::Item> {
         loop {

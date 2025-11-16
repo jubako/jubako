@@ -7,7 +7,9 @@ use std::collections::HashMap;
 
 use crate::creator::{directory_pack::ValueTransformer, ProcessedEntry};
 
-use super::{layout, EntryTrait, PropertyName, StoreHandle, Value, ValueStoreKind, VariantName};
+use super::{
+    layout, EntryTrait, ProcessedValue, PropertyName, StoreHandle, ValueStoreKind, VariantName,
+};
 use properties::Properties;
 
 #[derive(Debug)]

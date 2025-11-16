@@ -1,5 +1,5 @@
 use super::super::layout;
-use super::{PropertyName, StoreHandle, Value, ValueStoreKind};
+use super::{ProcessedValue, PropertyName, StoreHandle, ValueStoreKind};
 use crate::bases::*;
 use std::cmp;
 
@@ -99,10 +99,10 @@ impl UnsignedInt {
         Default::default()
     }
 
-    pub fn absorb(&mut self, v: u64) -> Value {
+    pub fn absorb(&mut self, v: u64) -> ProcessedValue {
         self.counter.process(v);
         self.size.process(v);
-        Value::Unsigned(v)
+        ProcessedValue::Unsigned(v)
     }
 
     fn finalize<PN: PropertyName>(self, name: PN) -> layout::Property<PN> {
@@ -125,10 +125,10 @@ impl SignedInt {
         Default::default()
     }
 
-    pub fn absorb(&mut self, v: i64) -> Value {
+    pub fn absorb(&mut self, v: i64) -> ProcessedValue {
         self.counter.process(v);
         self.size.process(v);
-        Value::Signed(v)
+        ProcessedValue::Signed(v)
     }
 
     fn finalize<PN: PropertyName>(self, name: PN) -> layout::Property<PN> {
@@ -155,7 +155,7 @@ impl Array {
         }
     }
 
-    pub fn absorb(&mut self, data: SmallBytes) -> Value {
+    pub fn absorb(&mut self, data: SmallBytes) -> ProcessedValue {
         use super::super::value::{Array, ArrayS};
         let size = data.len();
         let (data, to_store) = data.split_at(cmp::min(self.fixed_array_len, data.len()));
@@ -163,22 +163,22 @@ impl Array {
         assert!(size <= 0x00FFFFFF_usize);
         self.max_array_size.process(size);
         match data.len() {
-            0 => Value::Array0(Box::new(ArrayS::<0> {
+            0 => ProcessedValue::Array0(Box::new(ArrayS::<0> {
                 size,
                 value_id,
                 data: data.try_into().unwrap(),
             })),
-            1 => Value::Array1(Box::new(ArrayS::<1> {
+            1 => ProcessedValue::Array1(Box::new(ArrayS::<1> {
                 size,
                 value_id,
                 data: data.try_into().unwrap(),
             })),
-            2 => Value::Array2(Box::new(ArrayS::<2> {
+            2 => ProcessedValue::Array2(Box::new(ArrayS::<2> {
                 size,
                 value_id,
                 data: data.try_into().unwrap(),
             })),
-            _ => Value::Array(Box::new(Array {
+            _ => ProcessedValue::Array(Box::new(Array {
                 size,
                 data: data.into(),
                 value_id,
@@ -205,9 +205,9 @@ impl IndirectArray {
         Self { store_handle }
     }
 
-    pub fn absorb(&mut self, data: SmallBytes) -> Value {
+    pub fn absorb(&mut self, data: SmallBytes) -> ProcessedValue {
         let value_id = self.store_handle.add_value(data);
-        Value::IndirectArray(Box::new(value_id))
+        ProcessedValue::IndirectArray(Box::new(value_id))
     }
     fn finalize<PN: PropertyName>(self, name: PN) -> layout::Property<PN> {
         let value_id_size = self.store_handle.key_size();
@@ -226,11 +226,11 @@ pub struct ContentAddress {
     content_id_size: PropertySize<u32>,
 }
 impl ContentAddress {
-    pub fn absorb(&mut self, v: crate::common::ContentAddress) -> Value {
+    pub fn absorb(&mut self, v: crate::common::ContentAddress) -> ProcessedValue {
         self.pack_id_counter.process(v.pack_id.into_u16());
         self.pack_id_size.process(v.pack_id.into_u16());
         self.content_id_size.process(v.content_id.into_u32());
-        Value::Content(v)
+        ProcessedValue::Content(v)
     }
 
     fn finalize<PN: PropertyName>(self, name: PN) -> layout::Property<PN> {

@@ -1,6 +1,6 @@
 use super::super::PropertyName;
 use super::property::Property;
-use super::Value;
+use super::ProcessedValue;
 use crate::bases::Serializable;
 use crate::bases::*;
 use crate::creator::{Error, Result};
@@ -50,7 +50,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
     pub fn serialize_entry<'a>(
         keys: impl Iterator<Item = &'a Property<PN>>,
         variant_id: Option<VariantIdx>,
-        values: &[Value],
+        values: &[ProcessedValue],
         ser: &mut Serializer,
     ) -> Result<usize> {
         let mut values = values.iter();
@@ -64,7 +64,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     name,
                 } => {
                     match values.next().unwrap() {
-                        Value::Array0(a) => {
+                        ProcessedValue::Array0(a) => {
                             if let Some(array_len_size) = array_len_size {
                                 written += ser.write_usized(a.size as u64, *array_len_size)?;
                             }
@@ -78,7 +78,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                                     ser.write_usized(a.value_id.get().into_u64(), *key_size)?;
                             }
                         }
-                        Value::Array1(a) => {
+                        ProcessedValue::Array1(a) => {
                             if let Some(array_len_size) = array_len_size {
                                 written += ser.write_usized(a.size as u64, *array_len_size)?;
                             }
@@ -92,7 +92,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                                     ser.write_usized(a.value_id.get().into_u64(), *key_size)?;
                             }
                         }
-                        Value::Array2(a) => {
+                        ProcessedValue::Array2(a) => {
                             if let Some(array_len_size) = array_len_size {
                                 written += ser.write_usized(a.size as u64, *array_len_size)?;
                             }
@@ -106,7 +106,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                                     ser.write_usized(a.value_id.get().into_u64(), *key_size)?;
                             }
                         }
-                        Value::Array(a) => {
+                        ProcessedValue::Array(a) => {
                             if let Some(array_len_size) = array_len_size {
                                 written += ser.write_usized(a.size as u64, *array_len_size)?;
                             }
@@ -120,7 +120,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                                     ser.write_usized(a.value_id.get().into_u64(), *key_size)?;
                             }
                         }
-                        Value::IndirectArray(value_id) => {
+                        ProcessedValue::IndirectArray(value_id) => {
                             assert_eq!(*array_len_size, None); // We don't store the size of the array
                             assert_eq!(*fixed_array_len, 0); // No fixed array
                             assert!(deported_info.is_some()); // We must have a deported_info
@@ -140,7 +140,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     store_handle: _,
                     name,
                 } => match values.next().unwrap() {
-                    Value::IndirectArray(value_id) => {
+                    ProcessedValue::IndirectArray(value_id) => {
                         written += ser.write_usized(value_id.get().into_u64(), *value_id_size)?;
                     }
                     _ => {
@@ -156,7 +156,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     default,
                     name,
                 } => match values.next().unwrap() {
-                    Value::Content(value) => {
+                    ProcessedValue::Content(value) => {
                         if let Some(d) = default {
                             assert_eq!(*d, value.pack_id.into_u16());
                         } else {
@@ -177,7 +177,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     default,
                     name,
                 } => match values.next().unwrap() {
-                    Value::Unsigned(value) => {
+                    ProcessedValue::Unsigned(value) => {
                         if let Some(d) = default {
                             assert_eq!(d, value);
                         } else {
@@ -196,7 +196,7 @@ impl<PN: PropertyName + 'static> Properties<PN> {
                     default,
                     name,
                 } => match values.next().unwrap() {
-                    Value::Signed(value) => {
+                    ProcessedValue::Signed(value) => {
                         if let Some(d) = default {
                             assert_eq!(d, value);
                         } else {
