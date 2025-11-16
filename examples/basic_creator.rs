@@ -1,7 +1,6 @@
 use jbk::creator::EntryStoreTrait;
-use jubako::creator::{schema, EntryTrait};
+use jubako::creator::schema;
 use jubako::{self as jbk};
-use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
 
@@ -16,31 +15,16 @@ type PropertyName = &'static str;
 // More complex application may want to use a enum instead.
 type VariantName = &'static str;
 
+/// Our creator is really a simple one. Let's use the SimpleEntry provided by jubako.
+/// More complex application may want to use its own entry structure (implementing right trait)
+type SimpleEntry = jbk::creator::SimpleEntry<PropertyName, VariantName>;
+
 // Entries in a entry store have a fixed size. So strings (which have variable size) must be store elsewhere.
 // This elsewhere is a ValueStore.
 struct CustomEntryStore {
     value_store: jbk::creator::StoreHandle,
     schema: schema::Schema<PropertyName, VariantName>,
     entry_store: Vec<SimpleEntry>,
-}
-
-struct SimpleEntry {
-    variant_name: VariantName,
-    values: HashMap<PropertyName, jbk::Value>,
-}
-
-impl EntryTrait<PropertyName, VariantName> for SimpleEntry {
-    fn variant_name(&self) -> Option<VariantName> {
-        Some(self.variant_name)
-    }
-
-    fn value(&self, name: &PropertyName) -> jbk::Value {
-        self.values[name].clone()
-    }
-
-    fn value_count(&self) -> jubako::PropertyCount {
-        jbk::PropertyCount::from(self.values.len() as u8)
-    }
 }
 
 impl CustomEntryStore {
@@ -134,32 +118,32 @@ fn main() -> Result<(), Box<dyn Error>> {
     let content: Vec<u8> = "A super content prime quality for our test container".into();
     let content_address =
         creator.add_content(Box::new(std::io::Cursor::new(content)), Default::default())?;
-    entry_store.add_entry(SimpleEntry {
-        variant_name: "FirstVariant",
-        values: HashMap::from([
+    entry_store.add_entry(SimpleEntry::new(
+        "FirstVariant",
+        [
             ("AString", jbk::Value::Array("Super".into())),
             ("AInteger", jbk::Value::Unsigned(50)),
             ("TheContent", jbk::Value::Content(content_address)),
-        ]),
-    });
+        ],
+    ));
 
-    entry_store.add_entry(SimpleEntry {
-        variant_name: "SecondVariant",
-        values: HashMap::from([
+    entry_store.add_entry(SimpleEntry::new(
+        "SecondVariant",
+        [
             ("AString", jbk::Value::Array("Mega".into())),
             ("AInteger", jbk::Value::Unsigned(42)),
             ("AnotherInt", jbk::Value::Unsigned(5)),
-        ]),
-    });
+        ],
+    ));
 
-    entry_store.add_entry(SimpleEntry {
-        variant_name: "SecondVariant",
-        values: HashMap::from([
+    entry_store.add_entry(SimpleEntry::new(
+        "SecondVariant",
+        [
             ("AString", jbk::Value::Array("Hyper".into())),
             ("AInteger", jbk::Value::Unsigned(45)),
             ("AnotherInt", jbk::Value::Unsigned(2)),
-        ]),
-    });
+        ],
+    ));
 
     Ok(creator.finalize(entry_store, vec![])?)
 

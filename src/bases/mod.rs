@@ -108,6 +108,11 @@ impl VariantName for &'static str {
         self
     }
 }
+impl VariantName for () {
+    fn as_str(&self) -> &'static str {
+        ""
+    }
+}
 
 #[macro_export]
 macro_rules! variants {

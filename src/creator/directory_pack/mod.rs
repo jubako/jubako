@@ -3,6 +3,7 @@ mod directory_pack;
 mod entry_store;
 mod layout;
 pub mod schema;
+mod simple_entry;
 mod value;
 mod value_store;
 
@@ -11,6 +12,7 @@ use crate::common;
 use crate::creator::Result;
 pub use directory_pack::DirectoryPackCreator;
 pub use entry_store::EntryStore;
+pub use simple_entry::SimpleEntry;
 use std::cmp::{self, PartialOrd};
 use std::marker::PhantomData;
 pub use value::{Array, ArrayS, Value};

@@ -1,29 +1,12 @@
 use jubako as jbk;
-use jubako::creator::{schema, EntryTrait};
-use std::collections::HashMap;
+use jubako::creator::schema;
 use std::error::Error;
 use std::fs::OpenOptions;
 
 // This is what will allow Jubako to differenciate your format from others.
 const VENDOR_ID: jbk::VendorId = jbk::VendorId::new([1, 2, 3, 4]);
 
-struct SimpleEntry {
-    variant_name: &'static str,
-    values: HashMap<&'static str, jbk::Value>,
-}
-impl EntryTrait<&'static str, &'static str> for SimpleEntry {
-    fn variant_name(&self) -> Option<&'static str> {
-        Some(self.variant_name)
-    }
-
-    fn value(&self, name: &&'static str) -> jbk::Value {
-        self.values[name].clone()
-    }
-
-    fn value_count(&self) -> jubako::PropertyCount {
-        jbk::PropertyCount::from(self.values.len() as u8)
-    }
-}
+type SimpleEntry = jbk::creator::SimpleEntry<&'static str, &'static str>;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // We need a contentPack creator to store our content.
@@ -86,34 +69,34 @@ fn main() -> Result<(), Box<dyn Error>> {
     // - Be sure that values match the properties declared in the schema for the given property
     // Hopefully, `new_from_schema` does this for us.
     // It panics if values don't match the schema/variant.
-    entry_store.push(SimpleEntry {
-        variant_name: "FirstVariant", // Variant 0
-        values: HashMap::from([
+    entry_store.push(SimpleEntry::new(
+        "FirstVariant", // Variant 0
+        [
             ("AString", jbk::Value::Array("Super".into())),
             ("AInteger", jbk::Value::Unsigned(50)),
             ("TheContent", jbk::Value::Content(content_address)),
-        ]),
-    });
+        ],
+    ));
 
     // Now we add our two other entries. We don't have content in the second variant
     // so we can directly add the entries to the entry_ store.
-    entry_store.push(SimpleEntry {
-        variant_name: "SecondVariant",
-        values: HashMap::from([
+    entry_store.push(SimpleEntry::new(
+        "SecondVariant",
+        [
             ("AString", jbk::Value::Array("Mega".into())),
             ("AInteger", jbk::Value::Unsigned(42)),
             ("AnotherInt", jbk::Value::Unsigned(5)),
-        ]),
-    });
+        ],
+    ));
 
-    entry_store.push(SimpleEntry {
-        variant_name: "SecondVariant",
-        values: HashMap::from([
+    entry_store.push(SimpleEntry::new(
+        "SecondVariant",
+        [
             ("AString", jbk::Value::Array("Hyper".into())),
             ("AInteger", jbk::Value::Unsigned(45)),
             ("AnotherInt", jbk::Value::Unsigned(2)),
-        ]),
-    });
+        ],
+    ));
 
     // We have added all our content/entries.
     // Time to finish the creation process.
