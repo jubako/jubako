@@ -84,7 +84,7 @@ impl EntryStoreTrait for CustomEntryStore {
         directory_pack.add_value_store(self.value_store);
 
         // Then, add our (unique here) entry store.
-        let entry_store = jbk::creator::EntryStore::new(self.schema, self.entry_store);
+        let entry_store = jbk::creator::EntryStore::new(self.schema, self.entry_store.into_iter());
         let entry_store_id = directory_pack.add_entry_store(Box::new(entry_store));
 
         // We have to reference (a entry range in) our entry store to lets readers find it.

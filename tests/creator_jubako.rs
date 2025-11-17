@@ -145,7 +145,7 @@ fn create_directory_pack(
         );
     }
 
-    let entry_store = jubako::creator::EntryStore::new(entry_def, entry_store);
+    let entry_store = jubako::creator::EntryStore::new(entry_def, entry_store.into_iter());
     let entry_store_idx = creator.add_entry_store(Box::new(entry_store));
     creator.create_index(
         "Super index",

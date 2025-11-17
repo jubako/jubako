@@ -103,7 +103,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Add the value store and the entry store the directory.
     directory_pack.add_value_store(value_store);
-    let entry_store = jbk::creator::EntryStore::new(entry_def, entry_store);
+    let entry_store = jbk::creator::EntryStore::new(entry_def, entry_store.into_iter());
     let entry_store_id = directory_pack.add_entry_store(Box::new(entry_store));
 
     // We have to reference (a entry range in) our entry store to lets readers find it.

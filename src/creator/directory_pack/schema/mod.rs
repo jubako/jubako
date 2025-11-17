@@ -96,16 +96,15 @@ impl<PN: PropertyName, VN: VariantName> Schema<PN, VN> {
         }
     }
 
-    pub(crate) fn process_entries(
+    pub(crate) fn process_entries<Entry: EntryTrait<PN, VN>>(
         &mut self,
-        entries: Vec<impl EntryTrait<PN, VN>>,
+        entries: impl Iterator<Item = Entry>,
     ) -> Vec<ProcessedEntry<VN>> {
         if let Some(keys) = &self.sort_keys.take() {
-            let sorted_iter =
-                SortedIter::new(entries.into_iter(), |p, n| p.compare(&keys, n).is_le());
+            let sorted_iter = SortedIter::new(entries, |p, n| p.compare(&keys, n).is_le());
             sorted_iter.map(|e| self.build_entry(e)).collect()
         } else {
-            entries.into_iter().map(|e| self.build_entry(e)).collect()
+            entries.map(|e| self.build_entry(e)).collect()
         }
     }
 

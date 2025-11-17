@@ -22,7 +22,7 @@ where
 {
     pub fn new<Entry: EntryTrait<PN, VN>>(
         mut schema: schema::Schema<PN, VN>,
-        entries: Vec<Entry>,
+        entries: impl Iterator<Item = Entry>,
     ) -> Self {
         let entries = schema.process_entries(entries);
         Self { entries, schema }
