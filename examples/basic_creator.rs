@@ -1,4 +1,4 @@
-use jbk::creator::EntryStoreTrait;
+use jbk::creator::EntryStoreCreatorTrait;
 use jubako::creator::schema;
 use jubako::{self as jbk};
 use std::error::Error;
@@ -76,7 +76,7 @@ impl CustomEntryStore {
     }
 }
 
-impl EntryStoreTrait for CustomEntryStore {
+impl EntryStoreCreatorTrait for CustomEntryStore {
     fn finalize(self: Box<Self>, directory_pack: &mut jbk::creator::DirectoryPackCreator) {
         // We have to populate the DirectoryPack with our data.
 

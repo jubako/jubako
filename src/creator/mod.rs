@@ -10,7 +10,7 @@ use crate::bases::InOutStream;
 pub(crate) use crate::bases::OutStream;
 use crate::bases::*;
 use crate::common::{CheckInfo, CompressionType, PackKind};
-pub use basic_creator::{BasicCreator, ConcatMode, EntryStoreTrait};
+pub use basic_creator::{BasicCreator, ConcatMode, EntryStoreCreatorTrait};
 use camino::{Utf8Path, Utf8PathBuf};
 pub use container_pack::{ContainerPackCreator, InContainerFile};
 pub use content_pack::{
