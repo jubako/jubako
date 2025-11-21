@@ -15,7 +15,7 @@ pub use entry_store::EntryStore;
 pub use simple_entry::SimpleEntry;
 use std::cmp::{self, PartialOrd};
 use std::marker::PhantomData;
-pub use value::{Array, ArrayS, ProcessedValue};
+use value::ProcessedValue;
 pub(crate) use value_store::ValueStoreKind;
 pub use value_store::{StoreHandle, ValueHandle, ValueStore};
 

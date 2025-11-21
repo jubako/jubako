@@ -17,8 +17,8 @@ pub use content_pack::{
     CacheProgress, CachedContentAdder, CompHint, ContentAdder, ContentPackCreator, Progress,
 };
 pub use directory_pack::{
-    schema, Array, ArrayS, DirectoryPackCreator, EntryStore, EntryTrait, ProcessedEntry,
-    SimpleEntry, StoreHandle, ValueHandle, ValueStore,
+    schema, DirectoryPackCreator, EntryStore, EntryTrait, ProcessedEntry, SimpleEntry, StoreHandle,
+    ValueStore,
 };
 pub use errors::{Error, Result};
 pub use manifest_pack::ManifestPackCreator;
