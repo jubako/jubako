@@ -36,10 +36,7 @@ impl DirectoryPackCreator {
         self.value_stores.push(value_store);
     }
 
-    pub fn add_entry_store<
-        PN: PropertyName + std::fmt::Debug + std::marker::Sync,
-        VN: VariantName + std::fmt::Debug + std::marker::Sync + 'static,
-    >(
+    pub fn add_entry_store<PN: PropertyName, VN: VariantName>(
         &mut self,
         entry_store: entry_store::EntryStore<PN, VN>,
     ) -> EntryStoreIdx {

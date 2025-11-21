@@ -90,7 +90,9 @@ where
     nb_bytes.try_into().unwrap()
 }
 
-pub trait PropertyName: std::cmp::Eq + std::hash::Hash + Copy + Send + 'static {
+pub trait PropertyName:
+    std::cmp::Eq + std::hash::Hash + Copy + Send + std::fmt::Debug + 'static
+{
     fn as_str(&self) -> &'static str;
 }
 
@@ -100,7 +102,9 @@ impl PropertyName for &'static str {
     }
 }
 
-pub trait VariantName: std::cmp::Eq + std::hash::Hash + Copy + Send {
+pub trait VariantName:
+    std::cmp::Eq + std::hash::Hash + Copy + Send + std::fmt::Debug + 'static
+{
     fn as_str(&self) -> &'static str;
 }
 impl VariantName for &'static str {

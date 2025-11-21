@@ -46,7 +46,7 @@ impl<PN: PropertyName> Properties<PN> {
     }
 }
 
-impl<PN: PropertyName + 'static> Properties<PN> {
+impl<PN: PropertyName> Properties<PN> {
     pub fn serialize_entry<'a>(
         keys: impl Iterator<Item = &'a Property<PN>>,
         variant_id: Option<VariantIdx>,

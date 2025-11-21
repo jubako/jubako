@@ -6,20 +6,12 @@ use crate::creator::{EntryTrait, ProcessedEntry, Result};
 
 use log::debug;
 
-pub struct EntryStore<PN, VN>
-where
-    PN: PropertyName,
-    VN: VariantName,
-{
+pub struct EntryStore<PN: PropertyName, VN: VariantName> {
     entries: Vec<ProcessedEntry<VN>>,
     pub schema: schema::Schema<PN, VN>,
 }
 
-impl<PN, VN> EntryStore<PN, VN>
-where
-    PN: PropertyName,
-    VN: VariantName,
-{
+impl<PN: PropertyName, VN: VariantName> EntryStore<PN, VN> {
     pub fn new<Entry: EntryTrait<PN, VN>>(
         mut schema: schema::Schema<PN, VN>,
         entries: impl Iterator<Item = Entry>,
@@ -33,11 +25,7 @@ pub(crate) trait EntryStoreTrait {
     fn finalize(self: Box<Self>) -> Box<dyn WritableTell>;
 }
 
-impl<PN, VN> EntryStoreTrait for EntryStore<PN, VN>
-where
-    PN: PropertyName + std::fmt::Debug + Sync,
-    VN: VariantName + std::fmt::Debug + Sync + 'static,
-{
+impl<PN: PropertyName, VN: VariantName> EntryStoreTrait for EntryStore<PN, VN> {
     fn finalize(self: Box<Self>) -> Box<dyn WritableTell> {
         debug!("Schema is {:#?}", self.schema);
 
@@ -63,8 +51,8 @@ where
 
 impl<PN, VN, Store> WritableTell for FinalEntryStore<PN, VN, Store>
 where
-    PN: PropertyName + std::fmt::Debug,
-    VN: VariantName + std::fmt::Debug,
+    PN: PropertyName,
+    VN: VariantName,
     Store: Iterator<Item = ProcessedEntry<VN>>,
 {
     fn write_data(&mut self, stream: &mut dyn OutStream) -> Result<()> {
