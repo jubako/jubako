@@ -305,11 +305,12 @@ pub struct AtomicOutFile {
 
 impl AtomicOutFile {
     pub fn new<P: AsRef<Utf8Path>>(final_path: P) -> IoResult<Box<Self>> {
-        let parent = final_path.as_ref().parent().unwrap();
+        let final_path = camino::absolute_utf8(final_path.as_ref())?;
+        let parent = final_path.parent().unwrap();
         let temp_file = tempfile::NamedTempFile::new_in(parent)?;
         Ok(Box::new(Self {
             temp_file,
-            final_path: final_path.as_ref().to_path_buf(),
+            final_path: final_path.to_path_buf(),
         }))
     }
 }
