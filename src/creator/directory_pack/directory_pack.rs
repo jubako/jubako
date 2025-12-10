@@ -36,9 +36,15 @@ impl DirectoryPackCreator {
         self.value_stores.push(value_store);
     }
 
-    pub fn add_entry_store(&mut self, entry_store: Box<dyn EntryStoreTrait>) -> EntryStoreIdx {
+    pub fn add_entry_store<
+        PN: PropertyName + std::fmt::Debug + std::marker::Sync,
+        VN: VariantName + std::fmt::Debug + std::marker::Sync + 'static,
+    >(
+        &mut self,
+        entry_store: entry_store::EntryStore<PN, VN>,
+    ) -> EntryStoreIdx {
         let idx = (self.entry_stores.len() as u32).into();
-        self.entry_stores.push(entry_store);
+        self.entry_stores.push(Box::new(entry_store));
         idx
     }
 

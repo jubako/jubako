@@ -29,7 +29,7 @@ where
     }
 }
 
-pub trait EntryStoreTrait {
+pub(crate) trait EntryStoreTrait {
     fn finalize(self: Box<Self>) -> Box<dyn WritableTell>;
 }
 
