@@ -364,7 +364,7 @@ As entries in an index must always have the same size, an embedded array must al
 If the key needs variable array size, the array must be deported.
 
 The keyInfo is ``0bD0SS``.
-- ``SS``  defined the size of the integer in the entry to indicate store the actual size of the char[].
+- ``SS``  defined the size of the integer in the entry to indicate the actual size of the char[].
 - ``D`` tell is a default value is provided.
 
 The actual data of the byte array can be stored in two way:

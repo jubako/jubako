@@ -66,6 +66,17 @@ impl<const N: usize> ArrayS<N> {
     }
 }
 
+// Using a box here may seems odd but we try to reduce the size of ProcessedValue.
+// Because we have a tag and because of alignement, ProcessedValue size is twice the
+// size of the biggest value stored in the enum.
+// By always keeping the this size to 8bytes, the enum size is 16 bytes.
+//
+// If we store a box to an Array the total size is 16 + 40 => 36
+// If we store a u64, the size is 16
+//
+// If we don't store a box but directly the array, the total size of the enum is 48 bytes
+// If we store a box to an Array the total size is 48
+// If we store a u64, the size is 48
 #[derive(Debug, PartialEq)]
 #[repr(u8)]
 pub enum ProcessedValue {
