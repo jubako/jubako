@@ -1,4 +1,4 @@
-use super::super::{layout, EntryTrait, PropertyName, VariantName};
+use super::super::{layout, PropertyName};
 use super::property::Property;
 
 #[derive(Debug)]
@@ -46,9 +46,5 @@ impl<PN: PropertyName> Properties<PN> {
             .into_iter()
             .chain(self.0.into_iter().map(|p| p.finalize()))
             .collect()
-    }
-
-    pub fn process<VN: VariantName>(&mut self, entry: &dyn EntryTrait<PN, VN>) {
-        self.0.iter_mut().for_each(|p| p.process(entry))
     }
 }

@@ -105,6 +105,8 @@ fn create_directory_pack(
     entries: &[TestEntry],
     outfile: &Path,
 ) -> Result<(creator::PackData, jubako::Reader)> {
+    type SimpleEntry = creator::SimpleEntry<&'static str, ()>;
+
     let mut creator = creator::DirectoryPackCreator::new(
         jubako::PackId::from(1),
         jubako::VendorId::from([1, 0, 0, 0]),
@@ -115,7 +117,7 @@ fn create_directory_pack(
         ValueStoreKindParam::Indexed => creator::ValueStore::new_indexed(),
     };
     creator.add_value_store(value_store.clone());
-    let entry_def = schema::Schema::<&str, &str>::new(
+    let entry_def = schema::Schema::<&str, ()>::new(
         schema::CommonProperties::new(vec![
             schema::Property::new_array(0, value_store, "V0"),
             schema::Property::new_content_address("V1"),
@@ -125,11 +127,9 @@ fn create_directory_pack(
         None,
     );
 
-    let mut entry_store = Box::new(creator::EntryStore::new(entry_def, None));
+    let mut entry_store: Vec<SimpleEntry> = Vec::new();
     for (idx, entry) in entries.iter().enumerate() {
-        entry_store.add_entry(creator::BasicEntry::new_from_schema(
-            &entry_store.schema,
-            None,
+        entry_store.push(
             HashMap::from([
                 ("V0", jubako::Value::Array(entry.path.as_bytes().into())),
                 (
@@ -140,10 +140,12 @@ fn create_directory_pack(
                     )),
                 ),
                 ("V2", jubako::Value::Unsigned(entry.word_count as u64)),
-            ]),
-        ));
+            ])
+            .into(),
+        );
     }
 
+    let entry_store = jubako::creator::EntryStore::new(entry_def, entry_store.into_iter());
     let entry_store_idx = creator.add_entry_store(entry_store);
     creator.create_index(
         "Super index",
@@ -151,7 +153,7 @@ fn create_directory_pack(
         0.into(),
         entry_store_idx,
         (entries.len() as u32).into(),
-        jubako::EntryIdx::from(0).into(),
+        jubako::EntryIdx::from(0),
     );
 
     let mut directory_file = OpenOptions::new()

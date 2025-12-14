@@ -1,5 +1,4 @@
 use super::ValueHandle;
-use crate::bases::*;
 use crate::common::ContentAddress;
 use std::cmp;
 
@@ -67,14 +66,23 @@ impl<const N: usize> ArrayS<N> {
     }
 }
 
+// Using a box here may seems odd but we try to reduce the size of ProcessedValue.
+// Because we have a tag and because of alignement, ProcessedValue size is twice the
+// size of the biggest value stored in the enum.
+// By always keeping the this size to 8bytes, the enum size is 16 bytes.
+//
+// If we store a box to an Array the total size is 16 + 40 => 36
+// If we store a u64, the size is 16
+//
+// If we don't store a box but directly the array, the total size of the enum is 48 bytes
+// If we store a box to an Array the total size is 48
+// If we store a u64, the size is 48
 #[derive(Debug, PartialEq)]
 #[repr(u8)]
-pub enum Value {
+pub enum ProcessedValue {
     Content(ContentAddress),
     Unsigned(u64),
     Signed(i64),
-    UnsignedWord(Box<Word<u64>>),
-    SignedWord(Box<Word<i64>>),
     IndirectArray(Box<ValueHandle>),
     Array0(Box<ArrayS<0>>),
     Array1(Box<ArrayS<1>>),
@@ -82,60 +90,49 @@ pub enum Value {
     Array(Box<Array>),
 }
 
-impl PartialOrd for Value {
-    fn partial_cmp(&self, other: &Value) -> Option<cmp::Ordering> {
+impl PartialOrd for ProcessedValue {
+    fn partial_cmp(&self, other: &ProcessedValue) -> Option<cmp::Ordering> {
+        use ProcessedValue::*;
         match self {
-            Value::Content(_) => None,
-            Value::Unsigned(v) => match other {
-                Value::Unsigned(o) => Some(v.cmp(o)),
-                Value::UnsignedWord(o) => Some(v.cmp(&o.get())),
+            Content(_) => None,
+            Unsigned(v) => match other {
+                Unsigned(o) => Some(v.cmp(o)),
                 _ => None,
             },
-            Value::Signed(v) => match other {
-                Value::Signed(o) => Some(v.cmp(o)),
-                Value::SignedWord(o) => Some(v.cmp(&o.get())),
+            Signed(v) => match other {
+                Signed(o) => Some(v.cmp(o)),
                 _ => None,
             },
-            Value::UnsignedWord(v) => match other {
-                Value::Unsigned(o) => Some(v.get().cmp(o)),
-                Value::UnsignedWord(o) => Some(v.get().cmp(&o.get())),
+            Array(v) => match other {
+                Array(other) => Some(v.cmp(other)),
+                Array0(other) => Some(v.cmp_array_s(other)),
+                Array1(other) => Some(v.cmp_array_s(other)),
+                Array2(other) => Some(v.cmp_array_s(other)),
                 _ => None,
             },
-            Value::SignedWord(v) => match other {
-                Value::Signed(o) => Some(v.get().cmp(o)),
-                Value::SignedWord(o) => Some(v.get().cmp(&o.get())),
+            Array0(v) => match other {
+                Array(other) => Some(v.cmp_array(other)),
+                Array0(other) => Some(v.cmp(other)),
+                Array1(other) => Some(v.cmp(other)),
+                Array2(other) => Some(v.cmp(other)),
                 _ => None,
             },
-            Value::Array(v) => match other {
-                Value::Array(other) => Some(v.cmp(other)),
-                Value::Array0(other) => Some(v.cmp_array_s(other)),
-                Value::Array1(other) => Some(v.cmp_array_s(other)),
-                Value::Array2(other) => Some(v.cmp_array_s(other)),
+            Array1(v) => match other {
+                Array(other) => Some(v.cmp_array(other)),
+                Array0(other) => Some(v.cmp(other)),
+                Array1(other) => Some(v.cmp(other)),
+                Array2(other) => Some(v.cmp(other)),
                 _ => None,
             },
-            Value::Array0(v) => match other {
-                Value::Array(other) => Some(v.cmp_array(other)),
-                Value::Array0(other) => Some(v.cmp(other)),
-                Value::Array1(other) => Some(v.cmp(other)),
-                Value::Array2(other) => Some(v.cmp(other)),
+            Array2(v) => match other {
+                Array(other) => Some(v.cmp_array(other)),
+                Array0(other) => Some(v.cmp(other)),
+                Array1(other) => Some(v.cmp(other)),
+                Array2(other) => Some(v.cmp(other)),
                 _ => None,
             },
-            Value::Array1(v) => match other {
-                Value::Array(other) => Some(v.cmp_array(other)),
-                Value::Array0(other) => Some(v.cmp(other)),
-                Value::Array1(other) => Some(v.cmp(other)),
-                Value::Array2(other) => Some(v.cmp(other)),
-                _ => None,
-            },
-            Value::Array2(v) => match other {
-                Value::Array(other) => Some(v.cmp_array(other)),
-                Value::Array0(other) => Some(v.cmp(other)),
-                Value::Array1(other) => Some(v.cmp(other)),
-                Value::Array2(other) => Some(v.cmp(other)),
-                _ => None,
-            },
-            Value::IndirectArray(v) => match other {
-                Value::IndirectArray(o) => Some(v.get().cmp(&o.get())),
+            IndirectArray(v) => match other {
+                IndirectArray(o) => Some(v.get().cmp(&o.get())),
                 _ => None,
             },
         }

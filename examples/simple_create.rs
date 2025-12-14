@@ -1,11 +1,12 @@
 use jubako as jbk;
 use jubako::creator::schema;
-use std::collections::HashMap;
 use std::error::Error;
 use std::fs::OpenOptions;
 
 // This is what will allow Jubako to differenciate your format from others.
 const VENDOR_ID: jbk::VendorId = jbk::VendorId::new([1, 2, 3, 4]);
+
+type SimpleEntry = jbk::creator::SimpleEntry<&'static str, &'static str>;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // We need a contentPack creator to store our content.
@@ -50,7 +51,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     // The store for our entries.
-    let mut entry_store = Box::new(jbk::creator::EntryStore::new(entry_def, None));
+    let mut entry_store = Vec::new();
 
     // Now we have "configured" our creator, let's add some entries:
 
@@ -68,36 +69,33 @@ fn main() -> Result<(), Box<dyn Error>> {
     // - Be sure that values match the properties declared in the schema for the given property
     // Hopefully, `new_from_schema` does this for us.
     // It panics if values don't match the schema/variant.
-    entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
-        &entry_store.schema,
-        Some("FirstVariant"), // Variant 0
-        HashMap::from([
+    entry_store.push(SimpleEntry::new(
+        "FirstVariant", // Variant 0
+        [
             ("AString", jbk::Value::Array("Super".into())),
             ("AInteger", jbk::Value::Unsigned(50)),
             ("TheContent", jbk::Value::Content(content_address)),
-        ]),
+        ],
     ));
 
     // Now we add our two other entries. We don't have content in the second variant
     // so we can directly add the entries to the entry_ store.
-    entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
-        &entry_store.schema,
-        Some("SecondVariant"),
-        HashMap::from([
+    entry_store.push(SimpleEntry::new(
+        "SecondVariant",
+        [
             ("AString", jbk::Value::Array("Mega".into())),
             ("AInteger", jbk::Value::Unsigned(42)),
             ("AnotherInt", jbk::Value::Unsigned(5)),
-        ]),
+        ],
     ));
 
-    entry_store.add_entry(jbk::creator::BasicEntry::new_from_schema(
-        &entry_store.schema,
-        Some("SecondVariant"),
-        HashMap::from([
+    entry_store.push(SimpleEntry::new(
+        "SecondVariant",
+        [
             ("AString", jbk::Value::Array("Hyper".into())),
             ("AInteger", jbk::Value::Unsigned(45)),
             ("AnotherInt", jbk::Value::Unsigned(2)),
-        ]),
+        ],
     ));
 
     // We have added all our content/entries.
@@ -105,6 +103,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Add the value store and the entry store the directory.
     directory_pack.add_value_store(value_store);
+    let entry_store = jbk::creator::EntryStore::new(entry_def, entry_store.into_iter());
     let entry_store_id = directory_pack.add_entry_store(entry_store);
 
     // We have to reference (a entry range in) our entry store to lets readers find it.
@@ -114,8 +113,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Default::default(),
         0.into(), // The index is not sorted
         entry_store_id,
-        3.into(),                         // Our index is 3 entries length
-        jubako::EntryIdx::from(0).into(), // starting at offset 0
+        3.into(),                  // Our index is 3 entries length
+        jubako::EntryIdx::from(0), // starting at offset 0
     );
 
     // Let's write the directory pack in "test.jbkd" file

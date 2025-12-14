@@ -36,9 +36,12 @@ impl DirectoryPackCreator {
         self.value_stores.push(value_store);
     }
 
-    pub fn add_entry_store(&mut self, entry_store: Box<dyn EntryStoreTrait>) -> EntryStoreIdx {
+    pub fn add_entry_store<PN: PropertyName, VN: VariantName>(
+        &mut self,
+        entry_store: entry_store::EntryStore<PN, VN>,
+    ) -> EntryStoreIdx {
         let idx = (self.entry_stores.len() as u32).into();
-        self.entry_stores.push(entry_store);
+        self.entry_stores.push(Box::new(entry_store));
         idx
     }
 
@@ -49,7 +52,7 @@ impl DirectoryPackCreator {
         index_key: PropertyIdx,
         store_id: EntryStoreIdx,
         count: EntryCount,
-        offset: Word<EntryIdx>,
+        offset: EntryIdx,
     ) {
         let index = Index::new(name, free_data, index_key, store_id, count, offset);
         self.indexes.push(index);

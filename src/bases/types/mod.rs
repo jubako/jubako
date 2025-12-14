@@ -23,7 +23,7 @@ pub(crate) use asize::ASize;
 pub(crate) use base_array::BaseArray;
 pub(crate) use byte_size::ByteSize;
 pub(crate) use count::Count;
-pub use delayed::{Bound, Late, SyncType, Vow, Word};
+pub use delayed::Late;
 #[allow(unused_imports)]
 pub(crate) use error::MissingFeatureError;
 pub(crate) use error::{CorruptedFile, FormatError, VersionError};
