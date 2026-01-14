@@ -4,7 +4,7 @@ mod byte_region;
 mod byte_slice;
 mod byte_stream;
 mod container_pack;
-mod directory_pack;
+pub(crate) mod directory_pack;
 mod jubako;
 mod locator;
 mod manifest_pack;
@@ -21,6 +21,7 @@ pub use crate::common::{ContentAddress, PackInfo};
 pub use byte_region::ByteRegion;
 pub use byte_slice::ByteSlice;
 pub use byte_stream::ByteStream;
+pub(crate) use directory_pack::ValueStore;
 pub use directory_pack::{
     CompareTrait, DirectoryPack, EntryTrait, Index, RangeTrait as Range, RawValue, ValueStorage,
 };

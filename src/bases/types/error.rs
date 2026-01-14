@@ -144,6 +144,17 @@ impl Deref for Error {
     }
 }
 
+impl TryInto<CorruptedFile> for Error {
+    type Error = Self;
+    fn try_into(self) -> std::result::Result<CorruptedFile, Self::Error> {
+        if let ErrorKind::Corrupted(e) = self.source {
+            Ok(e)
+        } else {
+            Err(self)
+        }
+    }
+}
+
 macro_rules! impl_from_error {
     ($what:ty) => {
         impl From<$what> for Error {
