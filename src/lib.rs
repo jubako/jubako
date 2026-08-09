@@ -3,6 +3,7 @@
 
 #[macro_use]
 mod bases;
+pub mod block_check;
 mod common;
 pub mod creator;
 pub mod reader;
