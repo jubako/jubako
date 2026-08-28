@@ -51,9 +51,10 @@ pub fn open_as_container_pack(reader: Reader) -> Result<ContainerPack> {
         Ok(pack_header) => (pack_header, Offset::zero()),
         Err(_) => {
             //Check at end
-            let mut buffer_reader = [0u8; 64];
+            let mut buffer_reader = [0u8; PackHeader::BLOCK_SIZE];
+            let block_size = Size::new(PackHeader::BLOCK_SIZE as u64);
             reader
-                .create_stream((reader.size() - Size::new(64)).into(), Size::new(64), false)?
+                .create_stream((reader.size() - block_size).into(), block_size, false)?
                 .read_exact(&mut buffer_reader)?;
             buffer_reader.reverse();
             let end_reader: Reader = buffer_reader.into();
