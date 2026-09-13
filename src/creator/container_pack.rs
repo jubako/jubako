@@ -1,7 +1,9 @@
 use camino::{Utf8Path, Utf8PathBuf};
 
 use crate::bases::*;
-use crate::common::{CheckInfo, ContainerPackHeader, PackHeader, PackHeaderInfo, PackLocator};
+use crate::common::{
+    CheckInfo, CheckKind, ContainerPackHeader, PackHeader, PackHeaderInfo, PackLocator,
+};
 use crate::creator::Result;
 use std::io::{self, Read, Seek, SeekFrom, Write};
 
@@ -65,7 +67,8 @@ impl<F: PackRecipient> ContainerPackCreator<F> {
         let check_info_pos = self.file.tell();
 
         // Write pack header
-        let pack_size = Size::from(check_info_pos + PackHeader::BLOCK_SIZE);
+        let pack_size =
+            Size::from(check_info_pos + CheckKind::None.block_size() + PackHeader::BLOCK_SIZE);
         let pack_header = PackHeader::new(
             crate::common::PackKind::Container,
             PackHeaderInfo::new(VendorId::from([0, 0, 0, 0]), pack_size, check_info_pos),

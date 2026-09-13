@@ -1,5 +1,5 @@
 use crate::bases::*;
-use crate::common::{FullPackKind, PackKind};
+use crate::common::{CheckKind, FullPackKind, PackKind};
 use std::fmt::Debug;
 use uuid::Uuid;
 
@@ -71,9 +71,15 @@ impl Parsable for PackHeader {
         let uuid = Uuid::parse(parser)?;
         let flags = parser.read_u8()?;
         parser.skip(5)?;
-        let file_size = Size::parse(parser)?;
+        let mut file_size = Size::parse(parser)?;
         let check_info_pos = Offset::parse(parser)?;
         parser.skip(12)?;
+        if file_size.into_u64() - check_info_pos.into_u64() == PackHeader::BLOCK_SIZE as u64 {
+            // This is a bug in ContainerPack writer.
+            // The writer ignore the check_info size when calculating the file_size.
+            // Let's hot fix this and calculate file_size correctly.
+            file_size += CheckKind::None.block_size().into_usize();
+        }
         Ok(PackHeader {
             magic,
             app_vendor_id,

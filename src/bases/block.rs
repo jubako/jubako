@@ -28,6 +28,7 @@ pub(crate) fn assert_slice_crc(buf: &[u8]) -> Result<()> {
         return Err(CorruptedFile {
             buf: buf.to_vec(),
             found_checksum,
+            parsed_type: None,
         }
         .into());
     }

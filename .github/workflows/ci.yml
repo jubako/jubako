@@ -69,8 +69,10 @@ jobs:
           rustup default ${{ matrix.toolchain }}
           rustup component add rustfmt
 
-      - name: Install cargo-binstall
-        uses: cargo-bins/cargo-binstall@v1.15.7
+      - name: Install tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-msrv
 
       - name: Check format
         run: |
@@ -78,7 +80,6 @@ jobs:
 
       - name: MSRV
         run: |
-          cargo binstall cargo-msrv -y
           cargo msrv --output-format minimal verify
 
       - name: Test code
@@ -129,7 +130,9 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Install cross
-        run: cargo install cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
 
       - name: Test code
         run: cross test --verbose --target=i686-unknown-linux-gnu
