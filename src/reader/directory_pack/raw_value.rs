@@ -270,25 +270,11 @@ impl RawValue {
                 RawValue::U64(r) => Some((*r).cmp(v)),
                 _ => None,
             }),
-            Value::UnsignedWord(v) => Ok(match self {
-                RawValue::U8(r) => Some((*r as u64).cmp(&v.get())),
-                RawValue::U16(r) => Some((*r as u64).cmp(&v.get())),
-                RawValue::U32(r) => Some((*r as u64).cmp(&v.get())),
-                RawValue::U64(r) => Some((*r).cmp(&v.get())),
-                _ => None,
-            }),
             Value::Signed(v) => Ok(match self {
                 RawValue::I8(r) => Some((*r as i64).cmp(v)),
                 RawValue::I16(r) => Some((*r as i64).cmp(v)),
                 RawValue::I32(r) => Some((*r as i64).cmp(v)),
                 RawValue::I64(r) => Some((*r).cmp(v)),
-                _ => None,
-            }),
-            Value::SignedWord(v) => Ok(match self {
-                RawValue::I8(r) => Some((*r as i64).cmp(&v.get())),
-                RawValue::I16(r) => Some((*r as i64).cmp(&v.get())),
-                RawValue::I32(r) => Some((*r as i64).cmp(&v.get())),
-                RawValue::I64(r) => Some((*r).cmp(&v.get())),
                 _ => None,
             }),
             Value::Array(v) => match self {

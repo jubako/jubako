@@ -1,4 +1,4 @@
-use super::{Count, Id, Idx, SyncType};
+use super::{Count, Id, Idx};
 
 trait Next {
     fn next(self) -> Self;
@@ -206,32 +206,12 @@ macro_rules! specific {
 
         impl $idx_name {
             to_usize!($base);
-            #[inline]
-            fn into_base(self) -> $base {
-                self.0.into_base()
-            }
         }
 
         to_u64!($base, $idx_name);
         to_u32!($base, $idx_name);
         to_u16!($base, $idx_name);
         to_u8!($base, $idx_name);
-
-        impl SyncType for $idx_name {
-            type SyncType = <$base as SyncType>::SyncType;
-
-            fn to_self(sync_val: &Self::SyncType) -> Self {
-                <$base as SyncType>::to_self(sync_val).into()
-            }
-
-            fn set(sync_val: &Self::SyncType, value: Self) {
-                <$base as SyncType>::set(sync_val, value.into_base())
-            }
-
-            fn new(value: Self) -> Self::SyncType {
-                <$base as SyncType>::new(value.into_base())
-            }
-        }
 
         impl Next for $idx_name {
             fn next(self) -> Self {

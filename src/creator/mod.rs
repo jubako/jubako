@@ -10,15 +10,15 @@ use crate::bases::InOutStream;
 pub(crate) use crate::bases::OutStream;
 use crate::bases::*;
 use crate::common::{CheckInfo, CompressionType, PackKind};
-pub use basic_creator::{BasicCreator, ConcatMode, EntryStoreTrait};
+pub use basic_creator::{BasicCreator, ConcatMode, EntryStoreCreatorTrait};
 use camino::{Utf8Path, Utf8PathBuf};
 pub use container_pack::{ContainerPackCreator, InContainerFile};
 pub use content_pack::{
     CacheProgress, CachedContentAdder, CompHint, ContentAdder, ContentPackCreator, Progress,
 };
 pub use directory_pack::{
-    schema, Array, ArrayS, BasicEntry, DirectoryPackCreator, EntryStore, EntryTrait,
-    FullEntryTrait, StoreHandle, Value, ValueHandle, ValueStore,
+    schema, DirectoryPackCreator, EntryStore, EntryTrait, ProcessedEntry, SimpleEntry, StoreHandle,
+    ValueStore,
 };
 pub use errors::{Error, Result};
 pub use manifest_pack::ManifestPackCreator;
@@ -305,11 +305,12 @@ pub struct AtomicOutFile {
 
 impl AtomicOutFile {
     pub fn new<P: AsRef<Utf8Path>>(final_path: P) -> IoResult<Box<Self>> {
-        let parent = final_path.as_ref().parent().unwrap();
+        let final_path = camino::absolute_utf8(final_path.as_ref())?;
+        let parent = final_path.parent().unwrap();
         let temp_file = tempfile::NamedTempFile::new_in(parent)?;
         Ok(Box::new(Self {
             temp_file,
-            final_path: final_path.as_ref().to_path_buf(),
+            final_path: final_path.to_path_buf(),
         }))
     }
 }

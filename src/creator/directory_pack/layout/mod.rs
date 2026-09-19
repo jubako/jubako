@@ -6,4 +6,4 @@ pub(crate) use entry::Entry;
 pub(crate) use properties::Properties;
 pub(crate) use property::Property;
 
-use super::{StoreHandle, Value};
+use super::{ProcessedValue, StoreHandle};

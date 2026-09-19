@@ -30,7 +30,7 @@ pub enum ConcatMode {
 }
 
 /// EntryStore must finalizable
-pub trait EntryStoreTrait {
+pub trait EntryStoreCreatorTrait {
     /// Finalize EntryStore creation
     ///
     /// Most custom entry store creator will wrap value and entry stores.
@@ -108,7 +108,7 @@ impl BasicCreator {
     /// Finalize the creation of Jubako container and create the archive as `outfile`.
     pub fn finalize(
         mut self,
-        entry_store_creator: Box<dyn EntryStoreTrait>,
+        entry_store_creator: Box<dyn EntryStoreCreatorTrait>,
         extra_content_pack_creators: Vec<ContentPackCreator<dyn PackRecipient>>,
     ) -> Result<()> {
         let parent_path = self

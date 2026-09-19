@@ -3,6 +3,7 @@ mod directory_pack;
 mod entry_store;
 mod layout;
 pub mod schema;
+mod simple_entry;
 mod value;
 mod value_store;
 
@@ -11,21 +12,17 @@ use crate::common;
 use crate::creator::Result;
 pub use directory_pack::DirectoryPackCreator;
 pub use entry_store::EntryStore;
-use std::cmp;
-use std::collections::HashMap;
-pub use value::{Array, ArrayS, Value};
+pub use simple_entry::SimpleEntry;
+use std::cmp::{self, PartialOrd};
+use std::marker::PhantomData;
+use value::ProcessedValue;
 pub(crate) use value_store::ValueStoreKind;
 pub use value_store::{StoreHandle, ValueHandle, ValueStore};
 
 pub trait EntryTrait<PN: PropertyName, VN: VariantName> {
-    fn variant_name(&self) -> Option<MayRef<'_, VN>>;
-    fn value<'a>(&'a self, name: &PN) -> MayRef<'a, Value>;
+    fn variant_name(&self) -> Option<VN>;
+    fn value(&self, name: &PN) -> common::Value;
     fn value_count(&self) -> PropertyCount;
-    fn set_idx(&mut self, idx: EntryIdx);
-    fn get_idx(&self) -> Bound<EntryIdx>;
-}
-
-pub trait FullEntryTrait<PN: PropertyName, VN: VariantName>: EntryTrait<PN, VN> + Send {
     fn compare<'i, I>(&self, sort_keys: &'i I, other: &Self) -> std::cmp::Ordering
     where
         I: IntoIterator<Item = &'i PN> + Copy,
@@ -47,172 +44,111 @@ pub trait FullEntryTrait<PN: PropertyName, VN: VariantName>: EntryTrait<PN, VN> 
 }
 
 #[derive(Debug)]
-pub struct BasicEntry<PN, VN> {
+pub struct ProcessedEntry<VN> {
     variant_name: Option<VN>,
-    names: Box<[PN]>,
-    values: Box<[Value]>,
-    idx: Vow<EntryIdx>,
+    values: Box<[ProcessedValue]>,
 }
 
 /// ValueTransformer is responsible to transform `common::Value` (used outside of Jubako)
 /// into `creator::Value`, a value we can write in container, according to a schema.
 /// For example, it replace a array value (&[u8]) to a
 /// creator::Value::Array(base_array + idx to value stored in value_store)
-pub(crate) struct ValueTransformer<'a, PN: PropertyName> {
-    keys: Box<dyn Iterator<Item = &'a schema::Property<PN>> + 'a>,
-    values: HashMap<PN, common::Value>,
+pub(crate) struct ValueTransformer<'a, PN: PropertyName, VN: VariantName, Entry: EntryTrait<PN, VN>>
+{
+    keys: Box<dyn Iterator<Item = &'a mut schema::Property<PN>> + 'a>,
+    entry: Entry,
+    _phantom: PhantomData<VN>,
 }
 
-impl<'a, PN: PropertyName> ValueTransformer<'a, PN> {
+impl<'a, PN: PropertyName, VN: VariantName, Entry: EntryTrait<PN, VN>>
+    ValueTransformer<'a, PN, VN, Entry>
+{
     /// Create a new ValueTransformer
     /// `variant_name` and `values` must match the schema:
     /// - If schema contain a variant, variant_name must be Some(...)
     /// - values hashmap must contains values corresponding to the properties
     ///   declared in the schema (variant).
-    pub fn new<VN: VariantName>(
-        schema: &'a schema::Schema<PN, VN>,
-        variant_name: &Option<VN>,
-        values: HashMap<PN, common::Value>,
-    ) -> Self {
+    pub fn new(schema: &'a mut schema::Schema<PN, VN>, entry: Entry) -> Self {
+        let variant_name = entry.variant_name();
         let keys: Option<Box<dyn Iterator<Item = _>>> = if schema.variants.is_empty() {
-            Some(Box::new(schema.common.iter()))
+            Some(Box::new(schema.common.iter_mut()))
         } else {
-            let variant_name = variant_name.as_ref().unwrap();
-            schema.variants.iter().find_map(|(n, v)| {
-                if n == variant_name {
-                    let keys = Box::new(schema.common.iter().chain(v.iter()))
-                        as Box<dyn Iterator<Item = _>>;
-                    Some(keys)
-                } else {
-                    None
-                }
-            })
+            let common = &mut schema.common;
+            let variant = schema
+                .variants
+                .iter_mut()
+                .find(|(n, _)| n == &variant_name.unwrap());
+            if let Some((_, v)) = variant {
+                let keys =
+                    Box::new(common.iter_mut().chain(v.iter_mut())) as Box<dyn Iterator<Item = _>>;
+                Some(keys)
+            } else {
+                None
+            }
         };
 
         if let Some(keys) = keys {
-            ValueTransformer { keys, values }
+            ValueTransformer {
+                keys,
+                entry,
+                _phantom: Default::default(),
+            }
         } else {
             //[TODO] Transform this as Result
             panic!(
                 "Entry variant name {} doesn't correspond to possible variants",
-                variant_name.as_ref().unwrap().as_str()
+                variant_name.unwrap().as_str()
             );
         }
     }
 }
 
-impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
-    type Item = (PN, Value);
+impl<PN: PropertyName, VN: VariantName, Entry: EntryTrait<PN, VN>> Iterator
+    for ValueTransformer<'_, PN, VN, Entry>
+{
+    type Item = ProcessedValue;
     // Iter on all `common::Value` and produce `(PN, creator::Value)`
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.keys.next() {
                 None => return None,
-                Some(key) => match key {
-                    schema::Property::Array {
-                        max_array_size: _,
-                        fixed_array_len,
-                        store_handle,
-                        name,
-                    } => {
-                        let value = self
-                            .values
-                            .remove(name)
-                            .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
+                Some(ref mut key) => match key {
+                    schema::Property::Array(prop, name) => {
+                        let value = self.entry.value(name);
                         if let common::Value::Array(data) = value {
-                            let size = data.len();
-                            let (data, to_store) =
-                                data.split_at(cmp::min(*fixed_array_len, data.len()));
-                            let value_id = store_handle.add_value(to_store);
-                            return Some((
-                                *name,
-                                match data.len() {
-                                    0 => Value::Array0(Box::new(ArrayS::<0> {
-                                        size,
-                                        value_id,
-                                        data: data.try_into().unwrap(),
-                                    })),
-                                    1 => Value::Array1(Box::new(ArrayS::<1> {
-                                        size,
-                                        value_id,
-                                        data: data.try_into().unwrap(),
-                                    })),
-                                    2 => Value::Array2(Box::new(ArrayS::<2> {
-                                        size,
-                                        value_id,
-                                        data: data.try_into().unwrap(),
-                                    })),
-                                    _ => Value::Array(Box::new(Array {
-                                        size,
-                                        data: data.into(),
-                                        value_id,
-                                    })),
-                                },
-                            ));
+                            return Some(prop.absorb(data));
                         } else {
                             panic!("Invalid value type");
                         }
                     }
-                    schema::Property::IndirectArray { store_handle, name } => {
-                        let value = self
-                            .values
-                            .remove(name)
-                            .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
+                    schema::Property::IndirectArray(prop, name) => {
+                        let value = self.entry.value(name);
                         if let common::Value::Array(data) = value {
-                            let value_id = store_handle.add_value(data);
-                            return Some((*name, Value::IndirectArray(Box::new(value_id))));
+                            return Some(prop.absorb(data));
+                        } else {
+                            panic!("Invalid value type");
                         }
                     }
-                    schema::Property::UnsignedInt {
-                        counter: _,
-                        size: _,
-                        name,
-                    } => match self
-                        .values
-                        .remove(name)
-                        .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()))
-                    {
-                        common::Value::Unsigned(v) => {
-                            return Some((*name, Value::Unsigned(v)));
-                        }
-                        common::Value::UnsignedWord(v) => {
-                            return Some((*name, Value::UnsignedWord(Box::new(v))));
-                        }
-                        _ => {
+                    schema::Property::UnsignedInt(prop, name) => {
+                        let value = self.entry.value(name);
+                        if let common::Value::Unsigned(v) = value {
+                            return Some(prop.absorb(v));
+                        } else {
                             panic!("Invalid value type");
                         }
-                    },
-                    schema::Property::SignedInt {
-                        counter: _,
-                        size: _,
-                        name,
-                    } => match self
-                        .values
-                        .remove(name)
-                        .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()))
-                    {
-                        common::Value::Signed(v) => {
-                            return Some((*name, Value::Signed(v)));
-                        }
-                        common::Value::SignedWord(v) => {
-                            return Some((*name, Value::SignedWord(Box::new(v))));
-                        }
-                        _ => {
+                    }
+                    schema::Property::SignedInt(prop, name) => {
+                        let value = self.entry.value(name);
+                        if let common::Value::Signed(v) = value {
+                            return Some(prop.absorb(v));
+                        } else {
                             panic!("Invalid value type");
                         }
-                    },
-                    schema::Property::ContentAddress {
-                        pack_id_counter: _,
-                        pack_id_size: _,
-                        content_id_size: _,
-                        name,
-                    } => {
-                        let value = self
-                            .values
-                            .remove(name)
-                            .unwrap_or_else(|| panic!("Cannot find entry {}", name.as_str()));
+                    }
+                    schema::Property::ContentAddress(prop, name) => {
+                        let value = self.entry.value(name);
                         if let common::Value::Content(v) = value {
-                            return Some((*name, Value::Content(v)));
+                            return Some(prop.absorb(v));
                         } else {
                             panic!("Invalid value type");
                         }
@@ -224,107 +160,13 @@ impl<PN: PropertyName> Iterator for ValueTransformer<'_, PN> {
     }
 }
 
-impl<PN: PropertyName, VN: VariantName> BasicEntry<PN, VN> {
-    pub fn new_from_schema(
-        schema: &schema::Schema<PN, VN>,
-        variant_name: Option<VN>,
-        values: HashMap<PN, common::Value>,
-    ) -> Self {
-        Self::new_from_schema_idx(schema, Default::default(), variant_name, values)
-    }
-
-    pub fn new_from_schema_idx(
-        schema: &schema::Schema<PN, VN>,
-        idx: Vow<EntryIdx>,
-        variant_name: Option<VN>,
-        values: HashMap<PN, common::Value>,
-    ) -> Self {
-        let value_transformer = ValueTransformer::<PN>::new(schema, &variant_name, values);
-        Self::new_idx(variant_name, value_transformer.collect(), idx)
-    }
-
-    pub fn new(variant_name: Option<VN>, values: HashMap<PN, Value>) -> Self {
-        Self::new_idx(variant_name, values, Default::default())
-    }
-
-    pub(crate) fn new_idx(
-        variant_name: Option<VN>,
-        values: HashMap<PN, Value>,
-        idx: Vow<EntryIdx>,
-    ) -> Self {
-        let (names, values): (Vec<_>, Vec<_>) = values.into_iter().unzip();
-        Self {
-            variant_name,
-            names: names.into(),
-            values: values.into(),
-            idx,
-        }
-    }
-}
-
-impl<PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for BasicEntry<PN, VN> {
-    fn variant_name(&self) -> Option<MayRef<'_, VN>> {
-        self.variant_name.as_ref().map(MayRef::Borrowed)
-    }
-    fn value(&self, name: &PN) -> MayRef<'_, Value> {
-        match self.names.iter().position(|n| n == name) {
-            Some(i) => MayRef::Borrowed(&self.values[i]),
-            None => panic!("{} should be in entry", name.as_str()),
-        }
-    }
-    fn value_count(&self) -> PropertyCount {
-        (self.values.len() as u8).into()
-    }
-    fn set_idx(&mut self, idx: EntryIdx) {
-        self.idx.fulfil(idx);
-    }
-    fn get_idx(&self) -> Bound<EntryIdx> {
-        self.idx.bind()
-    }
-}
-
-impl<T, PN: PropertyName, VN: VariantName> EntryTrait<PN, VN> for Box<T>
-where
-    T: EntryTrait<PN, VN>,
-{
-    fn variant_name(&self) -> Option<MayRef<'_, VN>> {
-        T::variant_name(self)
-    }
-    fn value(&self, name: &PN) -> MayRef<'_, Value> {
-        T::value(self, name)
-    }
-    fn value_count(&self) -> PropertyCount {
-        T::value_count(self)
-    }
-    fn set_idx(&mut self, idx: EntryIdx) {
-        T::set_idx(self, idx)
-    }
-    fn get_idx(&self) -> Bound<EntryIdx> {
-        T::get_idx(self)
-    }
-}
-
-impl<PN: PropertyName, VN: VariantName> FullEntryTrait<PN, VN> for BasicEntry<PN, VN> {}
-
-impl<T, PN: PropertyName, VN: VariantName> FullEntryTrait<PN, VN> for Box<T>
-where
-    T: FullEntryTrait<PN, VN>,
-{
-    fn compare<'i, I>(&self, sort_keys: &'i I, other: &Self) -> std::cmp::Ordering
-    where
-        I: IntoIterator<Item = &'i PN> + Copy,
-    {
-        T::compare(self, sort_keys, other)
-    }
-}
-
 struct Index {
     store_id: EntryStoreIdx,
     free_data: IndexFreeData,
     index_key: PropertyIdx,
     name: String,
     count: EntryCount,
-    offset: Word<EntryIdx>,
+    offset: EntryIdx,
 }
 
 impl Index {
@@ -334,7 +176,7 @@ impl Index {
         index_key: PropertyIdx,
         store_id: EntryStoreIdx,
         count: EntryCount,
-        offset: Word<EntryIdx>,
+        offset: EntryIdx,
     ) -> Self {
         Index {
             store_id,
@@ -355,7 +197,7 @@ impl super::private::WritableTell for Index {
     fn serialize_tail(&mut self, ser: &mut Serializer) -> IoResult<()> {
         self.store_id.serialize(ser)?;
         self.count.serialize(ser)?;
-        self.offset.get().serialize(ser)?;
+        self.offset.serialize(ser)?;
         self.free_data.serialize(ser)?;
         self.index_key.serialize(ser)?;
         PString::serialize_string(&self.name, ser)?;
