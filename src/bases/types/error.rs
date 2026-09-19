@@ -4,7 +4,7 @@ use crate::bases::*;
 use std::backtrace::Backtrace;
 
 use std::fmt;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::{str::Utf8Error, string::FromUtf8Error};
 
 use thiserror::Error;
@@ -44,10 +44,11 @@ impl fmt::Display for FormatError {
 }
 
 #[derive(Error, Debug)]
-#[error("Not a valid checksum : {buf:X?}. Found is {found_checksum:X?}")]
+#[error("Not a valid checksum parsing {parsed_type:?}: {buf:X?}. Found is {found_checksum:X?}")]
 pub struct CorruptedFile {
     pub buf: Vec<u8>,
     pub found_checksum: [u8; 4],
+    pub parsed_type: Option<&'static str>,
 }
 
 #[derive(Error, Debug)]
@@ -141,6 +142,12 @@ impl Deref for Error {
     type Target = ErrorKind;
     fn deref(&self) -> &Self::Target {
         &self.source
+    }
+}
+
+impl DerefMut for Error {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.source
     }
 }
 

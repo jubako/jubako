@@ -1,3 +1,8 @@
+# Jubako 0.4.1
+
+- Fix opening of Jubako pack embedded at end of another file.
+- Correctly set the container size if container header.
+
 # Jubako 0.4.0
 
 - Refactor error type: this change a lot of function signatures.

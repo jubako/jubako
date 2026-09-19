@@ -62,7 +62,15 @@ impl Reader {
         offset: Offset,
         size: ASize,
     ) -> Result<T::Output> {
-        let check_reader = self.cut_check(offset, size.into(), BlockCheck::Crc32)?;
+        let check_reader = match self.cut_check(offset, size.into(), BlockCheck::Crc32) {
+            Ok(reader) => reader,
+            Err(mut e) => {
+                if let ErrorKind::Corrupted(c) = &mut *e {
+                    c.parsed_type = Some(std::any::type_name::<T>());
+                }
+                return Err(e);
+            }
+        };
         check_reader.parse_in::<T>(Offset::zero(), size)
     }
 
