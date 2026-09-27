@@ -4,19 +4,43 @@ use log::warn;
 use reqwest::blocking::ClientBuilder;
 use reqwest::{blocking::Client, IntoUrl, Url};
 use std::borrow::Cow;
-use std::io::ErrorKind;
+use std::io::{self, ErrorKind};
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 static APP_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
+fn to_io_error(err: reqwest::Error) -> io::Error {
+    let kind = if err.is_timeout() {
+        io::ErrorKind::TimedOut
+    } else if err.is_connect() {
+        io::ErrorKind::ConnectionRefused
+    } else if let Some(status) = err.status() {
+        match status.as_u16() {
+            404 => io::ErrorKind::NotFound,
+            401 | 403 => io::ErrorKind::PermissionDenied,
+            408 => io::ErrorKind::TimedOut,
+            409 => io::ErrorKind::AlreadyExists,
+            400..=499 => io::ErrorKind::InvalidInput,
+            500..=599 => io::ErrorKind::Other,
+            _ => io::ErrorKind::Other,
+        }
+    } else if err.is_decode() {
+        io::ErrorKind::InvalidData
+    } else {
+        io::ErrorKind::Other
+    };
+
+    io::Error::new(kind, err)
+}
+
 fn get_file_size(client: &Client, url: &str) -> std::io::Result<u64> {
     let response = client
         .head(url)
         .send()
-        .map_err(|e| std::io::Error::new(ErrorKind::Other, e))?
+        .map_err(to_io_error)?
         .error_for_status()
-        .map_err(|e| std::io::Error::new(ErrorKind::Other, e))?;
+        .map_err(to_io_error)?;
     let size = response
         .headers()
         .get(reqwest::header::CONTENT_LENGTH)
@@ -49,7 +73,7 @@ impl HttpSource {
             .no_deflate()
             .user_agent(APP_USER_AGENT)
             .build()
-            .map_err(|e| std::io::Error::new(ErrorKind::Other, e))
+            .map_err(to_io_error)
     }
 
     pub fn open(url: impl IntoUrl) -> std::io::Result<Self> {
@@ -82,10 +106,10 @@ impl HttpSource {
         let response = request.send();
         trace!("Response #{request_nb}: {response:?}");
 
-        let response = response.map_err(|e| std::io::Error::new(ErrorKind::Other, e))?;
+        let response = response.map_err(to_io_error)?;
 
         if response.status() != reqwest::StatusCode::PARTIAL_CONTENT {
-            return Err(std::io::Error::new(
+            return Err(io::Error::new(
                 ErrorKind::Unsupported,
                 "Range not supported",
             ));
@@ -125,7 +149,7 @@ impl Source for HttpSource {
         let mut resp = self.fetch_at(offset.into_u64(), buf.len() as u64)?;
         resp.copy_to(&mut buf)
             .map(|r| r as usize)
-            .map_err(|e| std::io::Error::new(ErrorKind::Other, e))
+            .map_err(to_io_error)
     }
 
     fn read_exact(&self, offset: Offset, mut buf: &mut [u8]) -> std::io::Result<()> {
@@ -133,9 +157,7 @@ impl Source for HttpSource {
             return Ok(());
         }
         let mut resp = self.fetch_at(offset.into_u64(), buf.len() as u64)?;
-        resp.copy_to(&mut buf)
-            .map(|_| ())
-            .map_err(|e| std::io::Error::new(ErrorKind::Other, e))
+        resp.copy_to(&mut buf).map(|_| ()).map_err(to_io_error)
     }
 
     fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<'_, [u8]>> {
@@ -165,8 +187,7 @@ impl Source for HttpSource {
         let full_size = ASize::new(region.size().into_u64() as usize + block_check.size());
         let mut buf = Vec::with_capacity(full_size.into_usize());
         let mut resp = self.fetch_at(region.begin().into_u64(), full_size.into_u64())?;
-        resp.copy_to(&mut buf)
-            .map_err(|e| std::io::Error::new(ErrorKind::Other, e))?;
+        resp.copy_to(&mut buf).map_err(to_io_error)?;
         if let BlockCheck::Crc32 = block_check {
             assert_slice_crc(&buf)?;
         }
