@@ -8,7 +8,7 @@ pub trait PackLocatorTrait: Sync + Send {
 }
 
 /** Locate in a directory
-*/
+ */
 pub struct FsLocator {
     base_dir: PathBuf,
 }
@@ -24,6 +24,34 @@ impl PackLocatorTrait for FsLocator {
         let path = self.base_dir.join(path);
         if path.is_file() {
             Ok(Some(Reader::from(FileSource::open(path)?)))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+pub struct HttpLocator {
+    base_url: String,
+}
+
+impl HttpLocator {
+    pub fn new(base_url: String) -> Self {
+        Self { base_url }
+    }
+}
+
+impl PackLocatorTrait for HttpLocator {
+    fn locate(&self, _uuid: Uuid, path: &str) -> Result<Option<Reader>> {
+        let path = format!("{}/{}", self.base_url, path);
+        let client = HttpSource::client()?;
+        let req = client
+            .head(&path)
+            .send()
+            .and_then(|resp| resp.error_for_status());
+        if req.is_ok() {
+            Ok(Some(Reader::from(HttpSource::new_with_client(
+                path, client,
+            )?)))
         } else {
             Ok(None)
         }

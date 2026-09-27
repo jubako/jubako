@@ -1,11 +1,13 @@
 mod buffer;
 mod compression;
 mod file;
+mod http;
 
 use crate::bases::types::*;
 use crate::bases::{ARegion, Region};
 pub(crate) use compression::*;
 pub use file::FileSource;
+pub use http::HttpSource;
 use std::borrow::Cow;
 use std::fmt;
 use std::sync::Arc;

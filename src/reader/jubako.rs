@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 use super::container_pack::ContainerPack;
 use super::content_pack::ContentPack;
 use super::directory_pack::{DirectoryPack, EntryStorage};
-use super::locator::{ChainedLocator, FsLocator, PackLocatorTrait};
+use super::locator::{ChainedLocator, FsLocator, HttpLocator, PackLocatorTrait};
 use super::manifest_pack::ManifestPack;
 use super::{ByteRegion, Index, MayMissPack, ValueStorage};
 use crate::bases::*;
@@ -83,18 +83,26 @@ impl Container {
         let locator = Arc::new(FsLocator::new(
             path.as_ref().parent().unwrap().to_path_buf(),
         ));
-        Self::new_with_locator(path, locator)
+        let path: PathBuf = path.as_ref().into();
+        let reader = Reader::from(FileSource::open(path)?);
+        Self::new_with_locator(reader, locator)
+    }
+
+    /// Open a new container
+    ///
+    /// `url` is the url to the manifest pack (or a container pack with a manifest pack within).
+    pub fn new_remote(url: &str) -> Result<Self> {
+        let locator = Arc::new(HttpLocator::new(
+            url.split_at(url.rfind('/').unwrap()).0.to_string(),
+        ));
+        let reader = Reader::from(HttpSource::open(url)?);
+        Self::new_with_locator(reader, locator)
     }
 
     /// Open a new container with a specific locator to found other pack.
     ///
     /// `path` is the path to the manifest pack (or a container pack with a manifest pack within).
-    pub fn new_with_locator(
-        path: impl AsRef<Path>,
-        locator: Arc<dyn PackLocatorTrait>,
-    ) -> Result<Self> {
-        let path: PathBuf = path.as_ref().into();
-        let reader = Reader::from(FileSource::open(path)?);
+    pub fn new_with_locator(reader: Reader, locator: Arc<dyn PackLocatorTrait>) -> Result<Self> {
         let container_pack = Arc::new(open_as_container_pack(reader)?);
         let reader = container_pack.get_manifest_pack_reader()?;
 
