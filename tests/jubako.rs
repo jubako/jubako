@@ -668,7 +668,8 @@ fn test_content_pack(compression: Compression, articles: Articles) {
                 .and_then(|m| m.transpose())
                 .expect("V1 should be valid")
                 .unwrap()
-                .stream();
+                .stream()
+                .unwrap();
             let mut read_content: String = "".to_string();
             stream.read_to_string(&mut read_content).unwrap();
             assert_eq!(read_content, articles[i.into_u32() as usize].content);

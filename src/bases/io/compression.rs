@@ -159,15 +159,16 @@ impl Source for SeekableDecoder {
     fn size(&self) -> Size {
         self.buffer.total_size().into()
     }
-    fn read(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<usize> {
-        let end = std::cmp::min(
-            offset.force_into_usize() + buf.len(),
-            self.buffer.total_size(),
-        );
-        self.decode_to(end);
-        let mut slice = &self.decoded_slice()[offset.force_into_usize()..];
-        Read::read(&mut slice, buf)
+
+    fn read(self: Arc<Self>, region: Region) -> Result<Box<dyn std::io::Read + Sync + Send>> {
+        debug_assert!(region.end().is_valid(self.size()));
+        Ok(Box::new(ReadSeekableDecoder {
+            decoder: self,
+            offset: region.begin(),
+            end: region.end().force_into_usize(),
+        }))
     }
+
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<()> {
         let o = offset.force_into_usize();
         let end = o + buf.len();
@@ -220,6 +221,22 @@ impl Source for SeekableDecoder {
     }
 }
 
+struct ReadSeekableDecoder {
+    decoder: Arc<SeekableDecoder>,
+    offset: Offset,
+    end: usize,
+}
+
+impl Read for ReadSeekableDecoder {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let end = std::cmp::min(self.offset.force_into_usize() + buf.len(), self.end);
+        self.decoder.decode_to(end);
+        let mut slice = &self.decoder.decoded_slice()[self.offset.force_into_usize()..];
+        let len = Read::read(&mut slice, buf)?;
+        self.offset += len;
+        Ok(len)
+    }
+}
 /*
 #[cfg(feature = "lz4")]
 pub(crate) type Lz4Source<T> = SeekableDecoder<lz4::Decoder<T>>;

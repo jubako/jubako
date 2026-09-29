@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             .and_then(|m| m.transpose())
             .expect("content_address should be valid")
             .unwrap();
-        std::io::copy(&mut region.stream(), &mut std::io::stdout().lock())?;
+        std::io::copy(&mut region.stream().unwrap(), &mut std::io::stdout().lock())?;
     }
 
     {

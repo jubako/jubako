@@ -65,11 +65,14 @@ impl Source for FileSource {
     fn size(&self) -> Size {
         (self.len).into()
     }
-    fn read(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<usize> {
-        let mut f = self.lock().unwrap();
-        // TODO: Use `read_at`/`seek_read`
-        f.seek(SeekFrom::Start(offset.into_u64()))?;
-        f.read(buf)
+
+    fn read(self: Arc<Self>, region: Region) -> Result<Box<dyn std::io::Read + Sync + Send>> {
+        debug_assert!(region.end().is_valid(self.size()));
+        Ok(Box::new(ReadFileSource {
+            file: self,
+            offset: region.begin(),
+            end: region.end().force_into_usize(),
+        }))
     }
 
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<()> {
@@ -140,5 +143,23 @@ impl Source for FileSource {
 
     fn display(&self) -> String {
         format!("File {}", self.path.display())
+    }
+}
+
+struct ReadFileSource {
+    file: Arc<FileSource>,
+    offset: Offset,
+    end: usize,
+}
+
+impl Read for ReadFileSource {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let mut f = self.file.lock().unwrap();
+        let max_len = std::cmp::min(buf.len(), self.end - self.offset.force_into_usize());
+        // TODO: Use `read_at`/`seek_read`
+        f.seek(SeekFrom::Start(self.offset.into_u64()))?;
+        let len = f.read(&mut buf[..max_len])?;
+        self.offset += len;
+        Ok(len)
     }
 }

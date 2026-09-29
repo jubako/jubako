@@ -1,23 +1,25 @@
 use crate::bases::*;
 use std::io::Read;
-use std::sync::Arc;
 
 use super::ByteRegion;
 
 /// A `Read` struct on top of bytes contained in Jubako
 ///
 /// A `ByteStream` allow to read from a [ByteRegion].
-#[derive(Debug)]
 pub struct ByteStream {
-    source: Arc<dyn Source>,
+    read: Box<dyn Read + Sync + Send>,
     region: Region,
     offset: Offset,
 }
 
 impl ByteStream {
-    pub(crate) fn new_from_parts(source: Arc<dyn Source>, region: Region, offset: Offset) -> Self {
+    pub(crate) fn new_from_parts(
+        read: Box<dyn Read + Sync + Send>,
+        region: Region,
+        offset: Offset,
+    ) -> Self {
         Self {
-            source,
+            read,
             region,
             offset,
         }
@@ -46,7 +48,7 @@ impl Read for ByteStream {
             (self.region.end() - self.offset).into_u64(),
         ) as usize;
         let buf = &mut buf[..max_len];
-        match self.source.read(self.offset, buf) {
+        match self.read.read(buf) {
             Ok(s) => {
                 self.offset += s;
                 Ok(s)
@@ -58,6 +60,10 @@ impl Read for ByteStream {
 
 impl From<ByteRegion> for ByteStream {
     fn from(bregion: ByteRegion) -> Self {
-        Self::new_from_parts(bregion.source, bregion.region, Offset::zero())
+        Self::new_from_parts(
+            bregion.source.read(bregion.region).unwrap(),
+            bregion.region,
+            Offset::zero(),
+        )
     }
 }

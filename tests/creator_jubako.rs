@@ -289,7 +289,8 @@ fn test_content_pack(
             .and_then(|m| m.transpose())
             .expect("value_1 should be valid")
             .unwrap()
-            .stream();
+            .stream()
+            .unwrap();
         let mut read_content: String = "".to_string();
         println!("Read from stream");
         stream.read_to_string(&mut read_content).unwrap();

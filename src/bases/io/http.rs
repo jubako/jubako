@@ -142,14 +142,9 @@ impl Source for HttpSource {
         (self.len).into()
     }
 
-    fn read(&self, offset: Offset, mut buf: &mut [u8]) -> std::io::Result<usize> {
-        if buf.is_empty() {
-            return Ok(0);
-        }
-        let mut resp = self.fetch_at(offset.into_u64(), buf.len() as u64)?;
-        resp.copy_to(&mut buf)
-            .map(|r| r as usize)
-            .map_err(to_io_error)
+    fn read(self: Arc<Self>, region: Region) -> Result<Box<dyn std::io::Read + Sync + Send>> {
+        let resp = self.fetch_at(region.begin().into_u64(), region.size().into_u64())?;
+        Ok(Box::new(resp))
     }
 
     fn read_exact(&self, offset: Offset, mut buf: &mut [u8]) -> std::io::Result<()> {

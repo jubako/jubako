@@ -300,7 +300,7 @@ mod tests {
                 .expect("0 is a valid content idx");
             assert_eq!(bytes.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = bytes.stream();
+            let mut stream = bytes.stream()?;
             stream.read_to_end(&mut v)?;
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
@@ -310,7 +310,7 @@ mod tests {
                 .expect("1 is a valid content idx");
             assert_eq!(bytes.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = bytes.stream();
+            let mut stream = bytes.stream()?;
             stream.read_to_end(&mut v)?;
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
@@ -320,7 +320,7 @@ mod tests {
                 .expect("2 is a valid content idx");
             assert_eq!(bytes.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = bytes.stream();
+            let mut stream = bytes.stream()?;
             stream.read_to_end(&mut v)?;
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }
