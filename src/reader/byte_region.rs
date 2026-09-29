@@ -28,11 +28,7 @@ impl ByteRegion {
 
     /// Create a [ByteStream] (equivalent of `std::io::Cursor`)  for this ByteRegion
     pub fn stream(&self) -> Result<ByteStream> {
-        Ok(ByteStream::new_from_parts(
-            Arc::clone(&self.source).read(self.region)?,
-            self.region,
-            self.region.begin(),
-        ))
+        Ok(ByteStream::new(Arc::clone(&self.source).read(self.region)?))
     }
 
     /// Create a new ByteRegion which is a subset of the current region.

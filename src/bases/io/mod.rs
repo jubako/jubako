@@ -16,7 +16,7 @@ use super::BlockCheck;
 
 pub(crate) trait Source: Sync + Send {
     fn size(&self) -> Size;
-    fn read(self: Arc<Self>, region: Region) -> Result<Box<dyn std::io::Read + Sync + Send>>;
+    fn read(self: Arc<Self>, region: Region) -> Result<Box<dyn ReadSized>>;
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<()>;
     fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<'_, [u8]>>;
 
@@ -34,6 +34,13 @@ impl fmt::Debug for dyn Source {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("Source{{Size:{}}}", self.size()))
     }
+}
+
+pub(crate) trait ReadSized: Sync + Send {
+    fn read(&mut self, but: &mut [u8]) -> std::io::Result<usize>;
+    fn size_left(&self) -> Size;
+    fn size(&self) -> Size;
+    fn offset(&self) -> Offset;
 }
 
 #[cfg(test)]

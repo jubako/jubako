@@ -4,7 +4,7 @@ use log::warn;
 use reqwest::blocking::ClientBuilder;
 use reqwest::{blocking::Client, IntoUrl, Url};
 use std::borrow::Cow;
-use std::io::{self, ErrorKind};
+use std::io::{self, ErrorKind, Read};
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
@@ -142,9 +142,9 @@ impl Source for HttpSource {
         (self.len).into()
     }
 
-    fn read(self: Arc<Self>, region: Region) -> Result<Box<dyn std::io::Read + Sync + Send>> {
+    fn read(self: Arc<Self>, region: Region) -> Result<Box<dyn ReadSized>> {
         let resp = self.fetch_at(region.begin().into_u64(), region.size().into_u64())?;
-        Ok(Box::new(resp))
+        Ok(Box::new(ReadResponse::new(resp, region)))
     }
 
     fn read_exact(&self, offset: Offset, mut buf: &mut [u8]) -> std::io::Result<()> {
@@ -194,5 +194,40 @@ impl Source for HttpSource {
 
     fn display(&self) -> String {
         format!("Remote File {}", self.url.as_str())
+    }
+}
+
+struct ReadResponse {
+    response: reqwest::blocking::Response,
+    offset: Offset,
+    region: Region,
+}
+
+impl ReadResponse {
+    fn new(response: reqwest::blocking::Response, region: Region) -> Self {
+        Self {
+            response,
+            offset: region.begin(),
+            region,
+        }
+    }
+}
+
+impl ReadSized for ReadResponse {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let len = self.response.read(buf)?;
+        self.offset += len;
+        Ok(len)
+    }
+    fn size_left(&self) -> Size {
+        self.region.end() - self.offset
+    }
+
+    fn size(&self) -> Size {
+        self.region.size()
+    }
+
+    fn offset(&self) -> Offset {
+        (self.offset - self.region.begin()).into_u64().into()
     }
 }

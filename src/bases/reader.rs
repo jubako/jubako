@@ -96,7 +96,7 @@ impl Reader {
     ) -> Result<ByteStream> {
         let (source, region) = self.cut_source(offset, size, BlockCheck::None, in_memory)?;
         let read = source.read(region)?;
-        Ok(ByteStream::new_from_parts(read, region, region.begin()))
+        Ok(ByteStream::new(read))
     }
 
     #[inline]
