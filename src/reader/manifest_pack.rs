@@ -51,6 +51,7 @@ pub struct ManifestPack {
 
 impl ManifestPack {
     pub fn new(reader: Reader) -> Result<Self> {
+        let reader = reader.cut(Offset::zero(), reader.size(), true)?;
         let (pack_header, header) =
             read_pack_header::<ManifestPackHeader>(&reader, Offset::zero(), PackKind::Manifest)?;
         let pack_offsets = PackOffsetsIter::new(pack_header.check_info_pos, header.pack_count);

@@ -111,9 +111,7 @@ impl Container {
         }
         let reader = reader.unwrap();
 
-        let manifest_reader_size = reader.size();
-        let manifest_pack =
-            ManifestPack::new(reader.cut(Offset::zero(), manifest_reader_size, true)?)?;
+        let manifest_pack = ManifestPack::new(reader)?;
 
         let locators: Vec<Arc<dyn PackLocatorTrait>> = vec![container_pack, locator];
         let locator = Arc::new(ChainedLocator::new(locators));
