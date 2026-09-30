@@ -14,11 +14,16 @@ impl ContainerPack {
         let (_, header) =
             read_pack_header::<ContainerPackHeader>(&reader, Offset::zero(), PackKind::Container)?;
 
-        let mut pack_offset = header.pack_locators_pos;
         let mut packs_uuid = Vec::with_capacity(header.pack_count.into_usize());
         let mut packs = HashMap::with_capacity(header.pack_count.into_usize());
+        let pack_locators_reader = reader.cut(
+            header.pack_locators_pos,
+            header.pack_count * Size::from(PackLocator::BLOCK_SIZE),
+            true,
+        )?;
+        let mut pack_offset = Offset::zero();
         for _idx in header.pack_count {
-            let pack_locator = reader.parse_block_at::<PackLocator>(pack_offset)?;
+            let pack_locator = pack_locators_reader.parse_block_at::<PackLocator>(pack_offset)?;
             pack_offset += PackLocator::BLOCK_SIZE;
             let pack_reader = reader.cut(pack_locator.pack_pos, pack_locator.pack_size, false)?;
             packs.insert(pack_locator.uuid, pack_reader);
