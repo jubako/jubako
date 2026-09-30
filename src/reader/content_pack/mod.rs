@@ -2,6 +2,7 @@ mod cluster;
 
 use crate::bases::*;
 use crate::common::{CheckInfo, ContentInfo, ContentPackHeader, Pack, PackHeader, PackKind};
+use crate::reader::read_pack_header;
 use cluster::Cluster;
 use fxhash::FxBuildHasher;
 use lru::LruCache;
@@ -23,13 +24,8 @@ pub struct ContentPack {
 
 impl ContentPack {
     pub fn new(reader: Reader) -> Result<Self> {
-        let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero())?;
-        if pack_header.magic != PackKind::Content {
-            return Err(format_error!("Pack Magic is not ContentPack"));
-        }
-
-        let header =
-            reader.parse_block_at::<ContentPackHeader>(Offset::from(PackHeader::BLOCK_SIZE))?;
+        let (pack_header, header) =
+            read_pack_header::<ContentPackHeader>(&reader, Offset::zero(), PackKind::Content)?;
         let content_infos = ArrayReader::new_memory_from_reader(
             &reader,
             header.content_ptr_pos,

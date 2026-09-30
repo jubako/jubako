@@ -1,5 +1,5 @@
 use crate::bases::*;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 const JBK_MAGIC: [u8; 3] = *b"jbk";
 
@@ -32,6 +32,18 @@ impl SizedParsable for PackKind {
 impl Serializable for PackKind {
     fn serialize(&self, ser: &mut Serializer) -> IoResult<usize> {
         ser.write_u8(*self as u8)
+    }
+}
+
+impl Display for PackKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            Self::Manifest => "Manifest",
+            Self::Directory => "Directory",
+            Self::Content => "Content",
+            Self::Container => "Container",
+        };
+        write!(f, "{}", str)
     }
 }
 

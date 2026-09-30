@@ -12,6 +12,7 @@ mod value_store;
 use self::index::IndexHeader;
 use crate::bases::*;
 use crate::common::{CheckInfo, DirectoryPackHeader, Pack, PackHeader, PackKind};
+use crate::reader::read_pack_header;
 use std::sync::{Arc, RwLock};
 use uuid::Uuid;
 
@@ -76,13 +77,8 @@ pub struct DirectoryPack {
 impl DirectoryPack {
     pub fn new(reader: Reader) -> Result<DirectoryPack> {
         let reader = reader.cut(Offset::zero(), reader.size(), true)?;
-        let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero())?;
-        if pack_header.magic != PackKind::Directory {
-            return Err(format_error!("Pack Magic is not DirectoryPack"));
-        }
-
-        let header =
-            reader.parse_block_at::<DirectoryPackHeader>(Offset::from(PackHeader::BLOCK_SIZE))?;
+        let (pack_header, header) =
+            read_pack_header::<DirectoryPackHeader>(&reader, Offset::zero(), PackKind::Directory)?;
         let value_stores_ptrs = ArrayReader::new_memory_from_reader(
             &reader,
             header.value_store_ptr_pos,
