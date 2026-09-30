@@ -91,22 +91,24 @@ impl HttpSource {
         })
     }
 
-    fn fetch_at(&self, start: u64, len: u64) -> std::io::Result<reqwest::blocking::Response> {
+    fn fetch_at(
+        &self,
+        start: u64,
+        len: u64,
+    ) -> std::io::Result<(reqwest::blocking::Response, u64)> {
         let end = start + len.saturating_sub(1);
 
+        let byte_range = format!("bytes={start}-{end}");
         let request = self
             .client
             .get(self.url.clone())
-            .header(reqwest::header::RANGE, format!("bytes={start}-{end}"));
+            .header(reqwest::header::RANGE, &byte_range);
         let request_nb = self
             .request_nb
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
-        trace!("Request #{request_nb}: {request:?}");
-        let response = request.send();
-        trace!("Response #{request_nb}: {response:?}");
-
-        let response = response.map_err(to_io_error)?;
+        trace!("Request #{request_nb}: {byte_range} ({len})",);
+        let response = request.send().map_err(to_io_error)?;
 
         if response.status() != reqwest::StatusCode::PARTIAL_CONTENT {
             return Err(io::Error::new(
@@ -115,7 +117,7 @@ impl HttpSource {
             ));
         }
 
-        Ok(response)
+        Ok((response, request_nb))
     }
 }
 
@@ -143,15 +145,16 @@ impl Source for HttpSource {
     }
 
     fn read(self: Arc<Self>, region: Region) -> Result<Box<dyn ReadSized>> {
-        let resp = self.fetch_at(region.begin().into_u64(), region.size().into_u64())?;
-        Ok(Box::new(ReadResponse::new(resp, region)))
+        let (resp, request_nb) =
+            self.fetch_at(region.begin().into_u64(), region.size().into_u64())?;
+        Ok(Box::new(ReadResponse::new(resp, request_nb, region)))
     }
 
     fn read_exact(&self, offset: Offset, mut buf: &mut [u8]) -> std::io::Result<()> {
         if buf.is_empty() {
             return Ok(());
         }
-        let mut resp = self.fetch_at(offset.into_u64(), buf.len() as u64)?;
+        let (mut resp, _) = self.fetch_at(offset.into_u64(), buf.len() as u64)?;
         resp.copy_to(&mut buf).map(|_| ()).map_err(to_io_error)
     }
 
@@ -181,7 +184,7 @@ impl Source for HttpSource {
         // We know from previous test that region.size() is addressable.
         let full_size = ASize::new(region.size().into_u64() as usize + block_check.size());
         let mut buf = Vec::with_capacity(full_size.into_usize());
-        let mut resp = self.fetch_at(region.begin().into_u64(), full_size.into_u64())?;
+        let (mut resp, _) = self.fetch_at(region.begin().into_u64(), full_size.into_u64())?;
         resp.copy_to(&mut buf).map_err(to_io_error)?;
         if let BlockCheck::Crc32 = block_check {
             assert_slice_crc(&buf)?;
@@ -199,14 +202,16 @@ impl Source for HttpSource {
 
 struct ReadResponse {
     response: reqwest::blocking::Response,
+    request_nb: u64,
     offset: Offset,
     region: Region,
 }
 
 impl ReadResponse {
-    fn new(response: reqwest::blocking::Response, region: Region) -> Self {
+    fn new(response: reqwest::blocking::Response, request_nb: u64, region: Region) -> Self {
         Self {
             response,
+            request_nb,
             offset: region.begin(),
             region,
         }
@@ -216,6 +221,7 @@ impl ReadResponse {
 impl ReadSized for ReadResponse {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let len = self.response.read(buf)?;
+        trace!("Read #{} : {len}", self.request_nb);
         self.offset += len;
         Ok(len)
     }
