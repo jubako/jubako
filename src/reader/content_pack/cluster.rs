@@ -437,7 +437,7 @@ mod tests {
             let region = cluster.get_bytes(BlobIdx::from(0)).unwrap();
             assert_eq!(region.size(), Size::from(5_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = region.stream();
+            let mut stream = region.stream().unwrap();
             stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x11, 0x12, 0x13, 0x14, 0x15]);
         }
@@ -445,7 +445,7 @@ mod tests {
             let region = cluster.get_bytes(BlobIdx::from(1)).unwrap();
             assert_eq!(region.size(), Size::from(3_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = region.stream();
+            let mut stream = region.stream().unwrap();
             stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x21, 0x22, 0x23]);
         }
@@ -453,7 +453,7 @@ mod tests {
             let region = cluster.get_bytes(BlobIdx::from(2)).unwrap();
             assert_eq!(region.size(), Size::from(7_u64));
             let mut v = Vec::<u8>::new();
-            let mut stream = region.stream();
+            let mut stream = region.stream().unwrap();
             stream.read_to_end(&mut v).unwrap();
             assert_eq!(v, [0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
         }

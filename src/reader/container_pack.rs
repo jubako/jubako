@@ -1,4 +1,4 @@
-use super::{ContentPack, DirectoryPack, ManifestPack, PackLocatorTrait};
+use super::{read_pack_header, ContentPack, DirectoryPack, ManifestPack, PackLocatorTrait};
 use crate::bases::*;
 use crate::common::{ContainerPackHeader, Pack, PackHeader, PackKind, PackLocator};
 use std::collections::HashMap;
@@ -11,18 +11,19 @@ pub struct ContainerPack {
 
 impl ContainerPack {
     pub fn new(reader: Reader) -> Result<Self> {
-        let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero())?;
-        if pack_header.magic != PackKind::Container {
-            return Err(format_error!("Pack Magic is not Container Pack"));
-        }
+        let (_, header) =
+            read_pack_header::<ContainerPackHeader>(&reader, Offset::zero(), PackKind::Container)?;
 
-        let header =
-            reader.parse_block_at::<ContainerPackHeader>(Offset::from(PackHeader::BLOCK_SIZE))?;
-        let mut pack_offset = header.pack_locators_pos;
         let mut packs_uuid = Vec::with_capacity(header.pack_count.into_usize());
         let mut packs = HashMap::with_capacity(header.pack_count.into_usize());
+        let pack_locators_reader = reader.cut(
+            header.pack_locators_pos,
+            header.pack_count * Size::from(PackLocator::BLOCK_SIZE),
+            true,
+        )?;
+        let mut pack_offset = Offset::zero();
         for _idx in header.pack_count {
-            let pack_locator = reader.parse_block_at::<PackLocator>(pack_offset)?;
+            let pack_locator = pack_locators_reader.parse_block_at::<PackLocator>(pack_offset)?;
             pack_offset += PackLocator::BLOCK_SIZE;
             let pack_reader = reader.cut(pack_locator.pack_pos, pack_locator.pack_size, false)?;
             packs.insert(pack_locator.uuid, pack_reader);

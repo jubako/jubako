@@ -5,6 +5,7 @@ use crate::common::{
     CheckInfo, ManifestCheckStream, ManifestPackHeader, Pack, PackHeader, PackInfo, PackKind,
 };
 use crate::reader::directory_pack::{ValueStore, ValueStoreTrait};
+use crate::reader::read_pack_header;
 use std::cmp;
 use uuid::Uuid;
 
@@ -50,13 +51,9 @@ pub struct ManifestPack {
 
 impl ManifestPack {
     pub fn new(reader: Reader) -> Result<Self> {
-        let pack_header = reader.parse_block_at::<PackHeader>(Offset::zero())?;
-        if pack_header.magic != PackKind::Manifest {
-            return Err(format_error!("Pack Magic is not ManifestPack"));
-        }
-
-        let header =
-            reader.parse_block_at::<ManifestPackHeader>(Offset::from(PackHeader::BLOCK_SIZE))?;
+        let reader = reader.cut(Offset::zero(), reader.size(), true)?;
+        let (pack_header, header) =
+            read_pack_header::<ManifestPackHeader>(&reader, Offset::zero(), PackKind::Manifest)?;
         let pack_offsets = PackOffsetsIter::new(pack_header.check_info_pos, header.pack_count);
         let mut directory_pack_info = None;
         let mut pack_infos: Vec<PackInfo> = Vec::with_capacity(header.pack_count.into_usize());

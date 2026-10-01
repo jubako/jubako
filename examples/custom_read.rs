@@ -206,7 +206,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .and_then(|m| m.transpose())
                 .expect("value2 should be valid")
                 .unwrap();
-            std::io::copy(&mut reader.stream(), &mut std::io::stdout().lock())?;
+            std::io::copy(&mut reader.stream().unwrap(), &mut std::io::stdout().lock())?;
         } else {
             panic!("We should have variant0")
         }

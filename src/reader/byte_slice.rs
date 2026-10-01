@@ -29,8 +29,8 @@ impl<'s> ByteSlice<'s> {
     }
 
     /// Create a [ByteStream] (equivalent of `std::io::Cursor`)  for this ByteSlice
-    pub fn stream(&self) -> ByteStream {
-        ByteStream::new_from_parts(Arc::clone(self.source), self.region, self.region.begin())
+    pub fn stream(&self) -> Result<ByteStream> {
+        Ok(ByteStream::new(Arc::clone(self.source).read(self.region)?))
     }
 
     /// Create a new ByteSlice which is a subset of the current region.

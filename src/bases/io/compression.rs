@@ -159,15 +159,12 @@ impl Source for SeekableDecoder {
     fn size(&self) -> Size {
         self.buffer.total_size().into()
     }
-    fn read(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<usize> {
-        let end = std::cmp::min(
-            offset.force_into_usize() + buf.len(),
-            self.buffer.total_size(),
-        );
-        self.decode_to(end);
-        let mut slice = &self.decoded_slice()[offset.force_into_usize()..];
-        Read::read(&mut slice, buf)
+
+    fn read(self: Arc<Self>, region: Region) -> Result<Box<dyn ReadSized>> {
+        debug_assert!(region.end().is_valid(self.size()));
+        Ok(Box::new(ReadSeekableDecoder::new(self, region)))
     }
+
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<()> {
         let o = offset.force_into_usize();
         let end = o + buf.len();
@@ -220,6 +217,44 @@ impl Source for SeekableDecoder {
     }
 }
 
+struct ReadSeekableDecoder {
+    decoder: Arc<SeekableDecoder>,
+    offset: Offset,
+    region: Region,
+}
+
+impl ReadSeekableDecoder {
+    fn new(decoder: Arc<SeekableDecoder>, region: Region) -> Self {
+        Self {
+            decoder,
+            offset: region.begin(),
+            region,
+        }
+    }
+}
+
+impl ReadSized for ReadSeekableDecoder {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let max_len = std::cmp::min(buf.len(), self.size_left().into_u64() as usize);
+        let end = self.offset.force_into_usize() + max_len;
+        self.decoder.decode_to(end);
+        let mut slice = &self.decoder.decoded_slice()[self.offset.force_into_usize()..];
+        let len = Read::read(&mut slice, &mut buf[..max_len])?;
+        self.offset += len;
+        Ok(len)
+    }
+    fn size_left(&self) -> Size {
+        self.region.end() - self.offset
+    }
+
+    fn size(&self) -> Size {
+        self.region.size()
+    }
+
+    fn offset(&self) -> Offset {
+        (self.offset - self.region.begin()).into_u64().into()
+    }
+}
 /*
 #[cfg(feature = "lz4")]
 pub(crate) type Lz4Source<T> = SeekableDecoder<lz4::Decoder<T>>;

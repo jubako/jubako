@@ -1,11 +1,13 @@
 mod buffer;
 mod compression;
 mod file;
+mod http;
 
 use crate::bases::types::*;
 use crate::bases::{ARegion, Region};
 pub(crate) use compression::*;
 pub use file::FileSource;
+pub use http::HttpSource;
 use std::borrow::Cow;
 use std::fmt;
 use std::sync::Arc;
@@ -14,8 +16,8 @@ use super::BlockCheck;
 
 pub(crate) trait Source: Sync + Send {
     fn size(&self) -> Size;
+    fn read(self: Arc<Self>, region: Region) -> Result<Box<dyn ReadSized>>;
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<()>;
-    fn read(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<usize>;
     fn get_slice(&self, region: ARegion, block_check: BlockCheck) -> Result<Cow<'_, [u8]>>;
 
     fn cut(
@@ -32,6 +34,13 @@ impl fmt::Debug for dyn Source {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("Source{{Size:{}}}", self.size()))
     }
+}
+
+pub(crate) trait ReadSized: Sync + Send {
+    fn read(&mut self, but: &mut [u8]) -> std::io::Result<usize>;
+    fn size_left(&self) -> Size;
+    fn size(&self) -> Size;
+    fn offset(&self) -> Offset;
 }
 
 #[cfg(test)]

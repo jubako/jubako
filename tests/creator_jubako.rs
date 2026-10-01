@@ -248,8 +248,9 @@ fn test_content_pack(
 
     let main_path = create_main_pack(directory_info, content_info, temp_dir.path()).unwrap();
 
-    let container =
-        jubako::reader::Container::new_with_locator(main_path, Arc::new(locator)).unwrap();
+    let source = jubako::FileSource::open(main_path).unwrap();
+    let reader = jubako::Reader::from(source);
+    let container = jubako::reader::Container::new_with_locator(reader, Arc::new(locator)).unwrap();
     assert_eq!(container.pack_count(), 2.into());
     assert!(container.check().unwrap());
     println!("Read directory pack");
@@ -288,7 +289,8 @@ fn test_content_pack(
             .and_then(|m| m.transpose())
             .expect("value_1 should be valid")
             .unwrap()
-            .stream();
+            .stream()
+            .unwrap();
         let mut read_content: String = "".to_string();
         println!("Read from stream");
         stream.read_to_string(&mut read_content).unwrap();

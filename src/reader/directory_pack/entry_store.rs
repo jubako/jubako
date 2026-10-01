@@ -184,7 +184,7 @@ impl graphex::Node for PlainStore {
             .ok_or_else(|| graphex::Error::key(&format!("Key {index} is not found in store")))?;
         let mut data = vec![];
         entry_reader
-            .stream()
+            .stream()?
             .read_to_end(&mut data)
             .map_err(|e| graphex::Error::from(Error::from(e)))?;
         Ok(Box::new(data).into())

@@ -9,10 +9,10 @@ where
     fn size(&self) -> Size {
         self.as_ref().len().into()
     }
-    fn read(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<usize> {
-        let o = offset.force_into_usize();
-        let mut slice = &self.as_ref()[o..];
-        Read::read(&mut slice, buf)
+
+    fn read(self: Arc<Self>, region: Region) -> Result<Box<dyn ReadSized>> {
+        debug_assert!(region.end().force_into_usize() <= self.as_ref().as_ref().len());
+        Ok(Box::new(ReadBuffer::new(self, region)))
     }
 
     fn read_exact(&self, offset: Offset, buf: &mut [u8]) -> std::io::Result<()> {
@@ -54,5 +54,52 @@ where
 
     fn display(&self) -> String {
         format!("{:?}", self)
+    }
+}
+
+struct ReadBuffer<T>
+where
+    T: AsRef<[u8]> + 'static + Sync + Send + std::fmt::Debug,
+{
+    source: Arc<T>,
+    offset: Offset,
+    region: Region,
+}
+
+impl<T> ReadBuffer<T>
+where
+    T: AsRef<[u8]> + 'static + Sync + Send + std::fmt::Debug,
+{
+    fn new(source: Arc<T>, region: Region) -> Self {
+        Self {
+            source,
+            offset: region.begin(),
+            region,
+        }
+    }
+}
+
+impl<T> ReadSized for ReadBuffer<T>
+where
+    T: AsRef<[u8]> + 'static + Sync + Send + std::fmt::Debug,
+{
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let mut full_slice = &self.source.as_ref().as_ref()
+            [self.offset.force_into_usize()..self.region.end().force_into_usize()];
+        let len = Read::read(&mut full_slice, buf)?;
+        self.offset += len;
+        Ok(len)
+    }
+
+    fn size_left(&self) -> Size {
+        self.region.end() - self.offset
+    }
+
+    fn size(&self) -> Size {
+        self.region.size()
+    }
+
+    fn offset(&self) -> Offset {
+        (self.offset - self.region.begin()).into_u64().into()
     }
 }

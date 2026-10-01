@@ -12,8 +12,8 @@ mod write;
 
 pub(crate) use block::*;
 pub(crate) use cache::*;
-pub use io::FileSource;
 pub(crate) use io::*;
+pub use io::{FileSource, HttpSource};
 pub(crate) use parsing::*;
 pub(crate) use prop_type::*;
 pub(crate) use reader::CheckReader;
